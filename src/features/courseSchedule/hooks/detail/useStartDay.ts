@@ -6,14 +6,14 @@ import moment from "moment";
 
 // 正在刷新
 let isSyncing = false;
-// 这次打开APP时已经刷新过
-let hasSynced = false;
+
 export function useStartDay(year: number, term: SchoolTermValue) {
     const cachedTerm = getSyncStartDay();
 
     const [startDay, setStartDay] = useState((): Dayjs => (cachedTerm ? dayjs(cachedTerm.day) : dayjs("2025-09-08")));
     const fetch = async () => {
-        if (isSyncing || hasSynced) return;
+        if (isSyncing) return;
+        isSyncing = true;
 
         try {
             const remoteTerms = await fetchStartDay();
@@ -49,7 +49,6 @@ export function useStartDay(year: number, term: SchoolTermValue) {
 
                 // 存进数据库
                 await saveToDB(sortedTerms);
-                hasSynced = true;
             }
         } catch (e) {
             console.error("Fetch start day error:", e);
@@ -60,11 +59,13 @@ export function useStartDay(year: number, term: SchoolTermValue) {
 
     useEffect(() => {
         const init = async () => {
+            console.log("try to get start day", cachedTerm);
             try {
                 let currentTerm = await getCurrentStartDay();
 
                 const needFetch =
-                    !currentTerm || dayjs().isAfter(dayjs(currentTerm.day).add(currentTerm.week, "week"), "day");
+                    !currentTerm ||
+                    dayjs().isAfter(dayjs(currentTerm.day).add(currentTerm.week, "week").subtract(1, "day"), "day");
 
                 if (currentTerm && !cachedTerm) {
                     setStartDay(dayjs(currentTerm.day));

@@ -8,6 +8,7 @@ import {ToastAndroid} from "react-native";
 import {backendHttp} from "@/features/backend/api";
 import {ScoreData} from "@/features/examScore/type";
 import {ApiResponse} from "@/core/type/global.ts";
+import {UsualScoreItem} from "@/features/examScore/hooks/useUsualScore.ts";
 
 const exam = {
     remote: async (
@@ -66,12 +67,29 @@ const exam = {
     },
 };
 
-const usual = {
-    remote: () => {
-        /* 几十行平时分逻辑... */
-    },
-    local: () => {
-        /* 几十行逻辑... */
+export const usual = {
+    remote: async (
+        year: number | "" = "",
+        term: number | "" = "",
+        id: string,
+    ): Promise<ApiResponse<UsualScoreItem[]> | null> => {
+        if (!(await ensureJwAuthenticated())) {
+            return null;
+        }
+
+        const params = {
+            ...(year !== "" && {year}),
+            ...(term !== "" && {term}),
+            id,
+        };
+
+        const res = await backendHttp.get("/jw/score/usual", {params});
+
+        if (typeof res?.data === "object") {
+            console.log(res.data);
+            return res.data;
+        }
+        return null;
     },
 };
 

@@ -3,19 +3,13 @@ import {ScrollView, StyleSheet, TouchableOpacity, View} from "react-native";
 import {Text, useTheme} from "@rneui/themed";
 import Flex from "@/components/un-ui/Flex.tsx";
 import {SchoolTermValue, SchoolYearValue} from "@/type/global.ts";
-import {examApi} from "@/js/jw/exam.ts";
 import {ScoreRepo} from "@/features/examScore/type";
+import {useUsualScore} from "@/features/examScore/hooks/useUsualScore.ts";
 
 interface Props {
     data: ScoreRepo[];
     year: SchoolYearValue;
     term: SchoolTermValue;
-}
-
-interface DetailState {
-    status: "idle" | "loading" | "success" | "error";
-    data?: any[];
-    error?: string;
 }
 
 const calculateGpa = (score: number) => {
@@ -52,24 +46,15 @@ const scoreDetailRows: ScoreDetailRow[] = [
 
 export function ExamScoreTable(props: Props) {
     const [expandedId, setExpandedId] = useState<string | null>(null);
-    const [details, setDetails] = useState<Record<string, DetailState>>({});
     const {theme} = useTheme();
+
+    const {details, loadUsualScore} = useUsualScore();
     const handlePressRow = async (item: ScoreRepo) => {
         const newExpandedId = expandedId === item.id ? null : item.id;
         setExpandedId(newExpandedId);
 
-        if (newExpandedId && !details[newExpandedId]) {
-            setDetails(prev => ({...prev, [newExpandedId]: {status: "loading"}}));
-            try {
-                const res = await examApi.getUsualScore(item.year, item.term, item.id);
-                setDetails(prev => ({...prev, [newExpandedId]: {status: "success", data: res}}));
-            } catch (e) {
-                console.error("Failed to fetch usual score:", e);
-                setDetails(prev => ({
-                    ...prev,
-                    [newExpandedId]: {status: "error", error: "加载平时成绩失败，请联系开发者"},
-                }));
-            }
+        if (newExpandedId) {
+            await loadUsualScore(item);
         }
     };
 

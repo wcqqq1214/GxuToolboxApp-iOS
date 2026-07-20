@@ -19,20 +19,21 @@ export async function fetchStartDay(): Promise<TermStartDay[]> {
 export async function saveToDB(terms: TermStartDay[]) {
     const db = getDB();
 
-    // 开启一个事务
-    await db.transaction(async tx => {
-        // 先把现存所有学期的 is_current 状态清零，防止出现多个“当前学期”
-        tx.execute("UPDATE term_start_day SET is_current = 0");
+    const commands: [string, any[]][] = [];
 
-        // 插入或更新网络拉取来的新数据
-        for (const term of terms) {
-            tx.execute(
-                `INSERT OR REPLACE INTO term_start_day (year, term, day, week, is_current)
-                 VALUES (?, ?, ?, ?, ?)`,
-                [term.year, term.term, term.day, term.week, term.is_current ? 1 : 0],
-            );
-        }
-    });
+    // 清理标记
+    commands.push(["UPDATE term_start_day SET is_current = 0", []]);
+
+    // 插入数据
+    for (const term of terms) {
+        commands.push([
+            `INSERT OR REPLACE INTO term_start_day (year, term, day, week, is_current)
+             VALUES (?, ?, ?, ?, ?)`,
+            [term.year, term.term, term.day, term.week, term.is_current ? 1 : 0],
+        ]);
+    }
+
+    await db.executeBatch(commands);
     memoryStartDay = null;
 }
 

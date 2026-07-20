@@ -72,4 +72,15 @@ export const scoreRepo = {
 
         return (result.rows?._array || result.rows || []) as unknown as ScoreRepo[];
     },
+
+    async updateUsualScore(id: string, score: string): Promise<void> {
+        const db = getDB();
+        await db.execute(
+            `
+                UPDATE exam_score
+                SET usual_score = ?
+                WHERE id = ?`,
+            [score, id],
+        );
+    },
 };
