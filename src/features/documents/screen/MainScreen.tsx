@@ -5,6 +5,7 @@ import {UnText, vh, vw} from "@/components/un-ui";
 import {LoginDialog} from "@/features/documents/components/LoginDialog.tsx";
 import {FilePaginator} from "@/features/documents/components/FilePaginator.tsx";
 import {FileCard} from "@/features/documents/components/FileCard.tsx";
+import {FileTypePicker} from "@/features/documents/components/FileTypePicker.tsx";
 import {Divider, useTheme} from "@rneui/themed";
 import {createNativeStackNavigator} from "@react-navigation/native-stack";
 import {FileScreen} from "@/features/documents/screen/FileScreen.tsx";
@@ -23,6 +24,7 @@ export function PendingFileListScreen() {
     const [files, setFiles] = useState<FileItem[]>([]);
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(0);
+    const [selectedFileType, setSelectedFileType] = useState<number>(0);
     const [Account, setAccount] = useState<{username: string; password: string}>({username: "", password: ""});
 
     const navigation = useNavigation();
@@ -47,9 +49,12 @@ export function PendingFileListScreen() {
     });
 
     /** 从服务端加载指定页 */
-    async function loadPage(page: number) {
+
+    async function loadPage(page: number, fileTypeId?: number) {
         setIsLoading(true);
-        const res = await oaApi.getFileList({page, pageSize: PAGE_SIZE});
+        const apiFileType = (fileTypeId === 0 && fileTypeId !== undefined) ? null : fileTypeId;
+
+        const res = await oaApi.getFileList({page, pageSize: PAGE_SIZE, fileTypeId: apiFileType});
         if (res?.code === 200) {
             setFiles(res.result.items);
             setCurrentPage(page);
@@ -128,10 +133,16 @@ export function PendingFileListScreen() {
                         flexDirection: "row",
                         justifyContent: "space-between",
                         alignItems: "flex-end",
+                        overflow: "visible",
                     }}>
-                    <View>
-                        <UnText size={20}>全部文件</UnText>
-                    </View>
+                    <FileTypePicker
+                        selectedValue={selectedFileType}
+                        onValueChange={async (value) => {
+                            setSelectedFileType(value);
+                            if (isLogin) await loadPage(1, value);
+                        }}
+                        enabled={!isLoading && isLogin}
+                    />
                     <TouchableOpacity onPress={() => setIsLoginModel(true)}>
                         <UnText size={18} color={theme.colors.primary}>
                             登录
