@@ -1,6 +1,11 @@
 import axios from "axios";
 import {userMgr} from "@/js/mgr/user.ts";
-import {FileSystemApiRes, FileListPageResult, FileItem, LoginResult} from "@/type/api/fileSystem/file.ts";
+import {
+    FileSystemApiRes,
+    FileListPageResult,
+    FileItem,
+    SearchFileRes, LoginResult,
+} from "@/type/api/fileSystem/file.ts";
 
 /** OA 文件系统 axios 实例 */
 export const oaHttp = axios.create({
@@ -124,4 +129,18 @@ export const oaApi = {
         const res = await oaApi.getFileList({page: 1, pageSize: 1});
         return res?.code === 200;
     },
+
+    searchFile: async (keyword: string, keywordType?: string, page?:number): Promise<SearchFileRes> => {
+        const res = await oaHttp.get("/document-search/search",{
+            params: {
+                _wv: "20250701-2200",
+                searchType: "deptDoc",
+                keyword,
+                keywordType: keywordType ?? "title",
+                page: page ?? 1,
+                pageSize: 10
+            }
+        });
+        return res.data;
+    }
 };
