@@ -12,7 +12,7 @@ interface Props {
     term: SchoolTermValue;
 }
 
-const calculateGpa = (score: number) => {
+export const calculatePoint = (score: number) => {
     if (isNaN(score)) return "N/A"; // 处理可能出现的等级制成绩
     if (score < 60) return "0";
     const gpa = (score - 50) / 10;
@@ -36,7 +36,7 @@ const scoreDetailRows: ScoreDetailRow[] = [
     },
     {
         label: "绩点",
-        render: item => calculateGpa(item.score),
+        render: item => calculatePoint(item.score),
     },
     {
         key: "teacher_name",

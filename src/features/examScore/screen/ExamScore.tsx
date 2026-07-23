@@ -1,4 +1,4 @@
-import {ActivityIndicator, ScrollView, StyleSheet, View} from "react-native";
+import {ActivityIndicator, ScrollView, StyleSheet, TouchableOpacity, View} from "react-native";
 import {Button, Divider, Text, useTheme} from "@rneui/themed";
 import React, {useCallback, useEffect, useMemo, useState} from "react";
 import Flex from "@/components/un-ui/Flex.tsx";
@@ -19,7 +19,7 @@ export function ExamScore() {
     const [year, setYear] = useState(+ucStore(s => s.jw.year));
     const [term, setTerm] = useState<SchoolTermValue>(ucStore(s => s.jw.term));
     const [page, setPage] = useState(1);
-    const {scores, pageInfo, isLoading, loadLocal, fetchRemote, lastSyncTime} = useScore();
+    const {scores, isLoading, loadLocal, fetchRemote, lastSyncTime} = useScore();
 
     const [notScore, setNotScore] = useState<string[]>([""]);
     const style = useMemo(() => {
@@ -46,60 +46,14 @@ export function ExamScore() {
                 ).setAlpha(theme.mode === "dark" ? 0.3 : 0.6).rgbaString,
             },
             tableHeaderText: {},
+            gpaCal: {
+                backgroundColor: theme.colors.primary,
+                paddingVertical: 10,
+                paddingHorizontal: 12,
+                borderRadius: 6,
+            },
         });
     }, [theme]);
-
-    // async function init() {
-    //     const data = await scoreRepo.getList(2025, 2);
-    //     if (data && data.length > 0) {
-    //         setScores(data);
-    //         setPageInfo({
-    //             totalCount: data.length,
-    //             totalPage: 1,
-    //         });
-    //     }
-    // }
-    //
-    // async function query() {
-    //     const newTerm = term === "3" ? 1 : 2;
-    //
-    //     const res = await getExamScore(year, newTerm);
-    //     if (res?.data) {
-    //         setScores(res.data.items || []);
-    //         setPageInfo({
-    //             totalCount: res.data.totalCount,
-    //             totalPage: res.data.totalPage,
-    //         });
-    //
-    //         await scoreRepo.upsert(res.data.items);
-    //         await getCourse(year, term, res);
-    //     }
-    // }
-
-    // async function getCourse(year: number, term: SchoolTermValue, scoreRes: ExamScoreQueryRes) {
-    //     const courseListRes = await electiveAPI.getCourses(year, term).then(res => {
-    //         if (typeof res?.items === "object") {
-    //             return res;
-    //         }
-    //         return null;
-    //     });
-    //
-    //     if (courseListRes && scoreRes?.items) {
-    //         const scoredCourses = new Set(scoreRes.items.map(item => item.kcmc));
-    //         const unscored = courseListRes.items
-    //             .map(item => item.courseName)
-    //             .filter(courseName => !scoredCourses.has(courseName));
-    //         setNotScore([...new Set(unscored)]);
-    //     }
-    // }
-    //
-    // useEffect(() => {
-    //     init();
-    // }, []);
-
-    // useEffect(() => {
-    //     query();
-    // }, [year, term, page]);
 
     const query = useCallback(async () => {
         const localTerm = term === "3" ? 1 : 2;
@@ -133,32 +87,34 @@ export function ExamScore() {
                 includeWholeYear={false}
             />
             <View style={style.container}>
-                <Flex direction="column" gap={15} align="flex-start">
+                <Flex direction="column" style={{alignSelf: "stretch", marginBottom: 12}} gap={4}>
                     {scores.length > 0 && (
                         <>
-                            <Flex align="flex-end" gap={5}>
-                                <Text h4>查询结果</Text>
-                                {lastSyncTime && (
-                                    <Text style={{fontSize: 14, color: "gray"}}>上次同步：{lastSyncTime}</Text>
-                                )}
-                                {isLoading && <ActivityIndicator size="small" color={theme.colors.primary} />}
+                            <Flex
+                                justify="space-between"
+                                align="center"
+                                style={{alignSelf: "stretch", marginBottom: 12}}>
+                                <Flex direction="column" align="flex-start" gap={4}>
+                                    <Text h4 style={{margin: 0}}>
+                                        查询结果
+                                    </Text>
+                                    <Flex align="center" gap={8}>
+                                        {lastSyncTime && (
+                                            <Text style={{fontSize: 12, color: "gray"}}>上次同步: {lastSyncTime}</Text>
+                                        )}
+                                        {isLoading && <ActivityIndicator size="small" color={theme.colors.primary} />}
+                                    </Flex>
+                                </Flex>
+                                <TouchableOpacity
+                                    onPress={() => navigation.navigate("gpaCalculator", {year, term})}
+                                    style={style.gpaCal}>
+                                    <Text style={{color: "white", fontSize: 16, fontWeight: "bold"}}>绩点计算器</Text>
+                                </TouchableOpacity>
                             </Flex>
-                            <Flex gap={10} justify="space-between" align="center">
-                                {/*    <Flex gap={10} align="center">*/}
-                                {/*        <Text>页数</Text>*/}
-                                {/*        <NumberInput value={page} onChange={setPage} min={1} max={scores.totalPage ?? 1} />*/}
-                                {/*        <Text>每页15条记录 </Text>*/}
-                                {/*    </Flex>*/}
-                                <Button onPress={() => navigation.navigate("gpaCalculator")}>绩点计算器</Button>
-                            </Flex>
-                            <Flex>
+
+                            <Flex style={{width: "100%"}}>
                                 <ExamScoreTable data={scores} year={year} term={term} />
                             </Flex>
-                            {/*<Flex gap={10} align="center">*/}
-                            {/*    <Text>页数</Text>*/}
-                            {/*    <NumberInput value={page} onChange={setPage} min={1} max={scores.totalPage ?? 1} />*/}
-                            {/*    <Text>每页15条记录</Text>*/}
-                            {/*</Flex>*/}
                         </>
                     )}
                     {notScore.length > 0 && (

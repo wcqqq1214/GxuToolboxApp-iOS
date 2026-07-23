@@ -93,7 +93,12 @@ export const usual = {
     },
 };
 
-export const getExamScore = (year: number | "" = "", term: number | "" = "", page: number = 1, limit: number = 15) => {
+export const getExamScore = (
+    year: number | "" = "",
+    term: number | "" = "",
+    page: number = 1,
+    limit: number = 1000,
+) => {
     return runJw(
         () => exam.remote(year, term, page, limit),
         () => exam.local(year, term as SchoolTermValue, page, limit), // 注意这里的强转，因为你的 local 签名里 term 还是 SchoolTermValue

@@ -12,7 +12,7 @@ export function useScore() {
     const [lastSyncTime, setLastSyncTime] = useState<string>("");
 
     // 从本地数据库加载缓存
-    const loadLocal = useCallback(async (year: number, term: number) => {
+    const loadLocal = useCallback(async (year: number | "", term: number | "") => {
         setIsLoading(true);
         try {
             const data = await scoreRepo.getList(year, term);
@@ -37,7 +37,10 @@ export function useScore() {
         setIsLoading(true);
         try {
             // 教务系统的恶心映射在组件外处理
-            const newTerm = term === "3" || term === 3 ? 1 : 2;
+            let newTerm: number | "" = "";
+            if (term === "3" || term === 3) newTerm = 1;
+            if (term === "12" || term === 12) newTerm = 2;
+
             const res = await getExamScore(year, newTerm, page);
 
             if (res?.data) {

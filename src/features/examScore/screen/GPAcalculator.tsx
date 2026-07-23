@@ -1,16 +1,23 @@
-import {ScrollView, View, StyleSheet, TouchableOpacity, Modal} from "react-native";
+import {Modal, ScrollView, StyleSheet, TouchableOpacity, View} from "react-native";
 import {ChooseTerm} from "@/components/tool/infoQuery/examInfo/ChooseTerm.tsx";
-import {examApi} from "@/js/jw/exam.ts";
 import {Text, useTheme} from "@rneui/themed";
-import {useState} from "react";
-import {ExamScoreQueryRes} from "@/type/exam.ts";
+import {useCallback, useEffect, useState} from "react";
 import {useGpa} from "@/hooks/useGpa.ts";
 import {Icon} from "@/components/un-ui/Icon.tsx";
+import {RouteProp, useRoute} from "@react-navigation/native";
+import {useScore} from "@/features/examScore/hooks/useScore.ts";
+import {SchoolTermValue} from "@/type/global.ts";
+import {calculatePoint} from "@/features/examScore/component/ExamScoreTable.tsx";
 
 export function GPAcalculator() {
     const {theme} = useTheme();
-    const [score, setScore] = useState<ExamScoreQueryRes | null>();
-    const gpa = useGpa(score);
+    const route = useRoute<RouteProp<{params: {year?: number; term?: number}}, "params">>();
+
+    const [year, setYear] = useState<number>(route.params?.year);
+    const [term, setTerm] = useState<SchoolTermValue>(route.params?.term);
+
+    const {scores, loadLocal, fetchRemote} = useScore();
+    const gpa = useGpa(scores);
     const [showModal, setShowModal] = useState<boolean>(false);
 
     const styles = StyleSheet.create({
@@ -123,12 +130,26 @@ export function GPAcalculator() {
         },
     });
 
+    const query = useCallback(async () => {
+        let localTerm: number | "" = "";
+        if (term === "3" || term === 3) localTerm = 1;
+        if (term === "12" || term === 12) localTerm = 2;
+
+        // 瞬间加载本地数据顶上（不阻塞）
+        await loadLocal(year, localTerm);
+        fetchRemote(year, term, 1).catch(console.error);
+    }, [year, term, loadLocal, fetchRemote]);
+
+    useEffect(() => {
+        query();
+    }, [query]);
+
     return (
         <View style={styles.container}>
             <ChooseTerm
-                onTermSelect={async (year, term) => {
-                    const res = await examApi.getExamScore(year, term, 1, 100);
-                    setScore(res);
+                onTermSelect={(Year, Term) => {
+                    setYear(Year);
+                    setTerm(+Term);
                 }}
             />
             <View style={styles.gpaContainer}>
@@ -144,18 +165,18 @@ export function GPAcalculator() {
                 </TouchableOpacity>
             </View>
             <ScrollView style={styles.listContainer}>
-                {score?.items && score.items.length > 0 && (
+                {scores && scores.length > 0 && (
                     <View style={styles.headerRow}>
                         <Text style={[styles.headerText, {flex: 2, textAlign: "left"}]}>数据来源</Text>
                         <Text style={[styles.headerText, {textAlign: "center"}]}>绩点</Text>
                         <Text style={[styles.headerText, {textAlign: "right"}]}>学分</Text>
                     </View>
                 )}
-                {score?.items?.map((item, index) => (
+                {scores?.map((item, index) => (
                     <View key={index} style={styles.scoreRow}>
-                        <Text style={styles.courseName}>{item.kcmc}</Text>
-                        <Text style={styles.scoreText}>{item.jd}</Text>
-                        <Text style={styles.creditText}>{item.xf}</Text>
+                        <Text style={styles.courseName}>{item.course_name}</Text>
+                        <Text style={styles.scoreText}>{calculatePoint(item.score)}</Text>
+                        <Text style={styles.creditText}>{item.credit.toFixed(1)}</Text>
                     </View>
                 ))}
             </ScrollView>
