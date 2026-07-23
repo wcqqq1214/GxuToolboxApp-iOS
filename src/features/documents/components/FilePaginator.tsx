@@ -3,6 +3,7 @@ import {useTheme} from "@rneui/themed";
 import {UnPressable, UnText} from "@/components/un-ui";
 
 type Props = {
+    visible: boolean;
     currentPage: number;
     totalPages: number;
     onPrev: () => void;
@@ -15,7 +16,7 @@ export function FilePaginator(props: Props) {
     const isLastPage = props.currentPage >= props.totalPages;
 
     // 总页数 ≤1 时不显示
-    if (props.totalPages <= 1) return null;
+    if (props.totalPages <= 1 || !props.visible) return null;
 
     const style = StyleSheet.create({
         container: {
@@ -60,5 +61,5 @@ export function FilePaginator(props: Props) {
                 </UnText>
             </UnPressable>
         </View>
-    );
+    )
 }

@@ -1,6 +1,6 @@
 import {useState} from "react";
 import {StyleSheet, TouchableOpacity, View} from "react-native";
-import {UnText, vw} from "@/components/un-ui";
+import {UnText} from "@/components/un-ui";
 import {useTheme} from "@rneui/themed";
 import {FileTypeLabels} from "@/type/api/fileSystem/query.ts";
 

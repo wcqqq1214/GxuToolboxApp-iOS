@@ -6,6 +6,7 @@ import {LoginDialog} from "@/features/documents/components/LoginDialog.tsx";
 import {FilePaginator} from "@/features/documents/components/FilePaginator.tsx";
 import {FileCard} from "@/features/documents/components/FileCard.tsx";
 import {FileTypePicker} from "@/features/documents/components/FileTypePicker.tsx";
+import {InputBar} from "@/features/documents/components/InputBar.tsx";
 import {Divider, useTheme} from "@rneui/themed";
 import {createNativeStackNavigator} from "@react-navigation/native-stack";
 import {FileScreen} from "@/features/documents/screen/FileScreen.tsx";
@@ -25,6 +26,7 @@ export function PendingFileListScreen() {
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(0);
     const [selectedFileType, setSelectedFileType] = useState<number>(0);
+    const [keyword, setKeyword] = useState<string>("");
     const [Account, setAccount] = useState<{username: string; password: string}>({username: "", password: ""});
 
     const navigation = useNavigation();
@@ -33,13 +35,13 @@ export function PendingFileListScreen() {
     const style = StyleSheet.create({
         loadingView: {
             display: "flex",
-            height: vh(70),
+            height: vh(65),
             justifyContent: "center",
             alignItems: "center",
             gap: 4,
         },
         listView: {
-            height: vh(70),
+            height: vh(65),
             paddingHorizontal: 2,
         },
         emptyView: {
@@ -54,7 +56,7 @@ export function PendingFileListScreen() {
         setIsLoading(true);
         const apiFileType = (fileTypeId === 0 && fileTypeId !== undefined) ? null : fileTypeId;
 
-        const res = await oaApi.getFileList({page, pageSize: PAGE_SIZE, fileTypeId: apiFileType});
+        const res = await oaApi.getFileList({page, pageSize: PAGE_SIZE, fileTypeId: apiFileType, keyword});
         if (res?.code === 200) {
             setFiles(res.result.items);
             setCurrentPage(page);
@@ -119,6 +121,17 @@ export function PendingFileListScreen() {
         }
     }
 
+    async function logout(){
+        await userMgr.wjxt.clearAccountAndToken();
+        setIsLogin(false);
+        setAccount({username: "", password: ""});
+        setFiles([]);
+        setTotalPages(0);
+        setCurrentPage(0);
+        ToastAndroid.show("已清理账号缓存", 500);
+        return;
+    }
+
     // @ts-ignore
     useEffect(() => {
         init();
@@ -148,6 +161,16 @@ export function PendingFileListScreen() {
                             登录
                         </UnText>
                     </TouchableOpacity>
+                </View>
+                <View style={{marginTop: 8}}>
+                    <InputBar
+                        keyword={keyword}
+                        onKeywordChange={setKeyword}
+                        onSubmit={async () => {
+                            if (isLogin) await loadPage(1);
+                        }}
+                        disabled={!isLogin || isLoading}
+                    />
                 </View>
                 <Divider orientation="horizontal" />
 
@@ -180,6 +203,7 @@ export function PendingFileListScreen() {
 
                 {isLogin && (
                     <FilePaginator
+                        visible={isLogin}
                         currentPage={currentPage}
                         totalPages={totalPages}
                         onPrev={() => goToPage(currentPage - 1)}
@@ -190,11 +214,15 @@ export function PendingFileListScreen() {
             <LoginDialog
                 isVisible={isLoginModel}
                 isBusy={isBusy}
+                isLogin={isLogin}
                 username={Account.username}
                 password={Account.password}
                 onBackdropPress={() => setIsLoginModel(false)}
                 handleLogin={async (username, password) => {
                     await handleLogin(username, password);
+                }}
+                logout={async () => {
+                    await logout();
                 }}
             />
         </>
