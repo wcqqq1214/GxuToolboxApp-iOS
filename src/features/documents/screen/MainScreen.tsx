@@ -11,7 +11,7 @@ import {Divider, useTheme} from "@rneui/themed";
 import {createNativeStackNavigator} from "@react-navigation/native-stack";
 import {FileScreen} from "@/features/documents/screen/FileScreen.tsx";
 import {useNavigation} from "@react-navigation/native";
-import {oaApi} from "@/features/documents/api/oaApi.ts";
+import {index} from "@/features/documents/api";
 import type {FileItem} from "@/type/api/fileSystem/file.ts";
 
 const PAGE_SIZE = 10;
@@ -56,7 +56,7 @@ export function PendingFileListScreen() {
         setIsLoading(true);
         const apiFileType = (fileTypeId === 0 && fileTypeId !== undefined) ? null : fileTypeId;
 
-        const res = await oaApi.getFileList({page, pageSize: PAGE_SIZE, fileTypeId: apiFileType, keyword});
+        const res = await index.getFileList({page, pageSize: PAGE_SIZE, fileTypeId: apiFileType, keyword});
         if (res?.code === 200) {
             setFiles(res.result.items);
             setCurrentPage(page);
@@ -84,12 +84,12 @@ export function PendingFileListScreen() {
             return;
         }
 
-        const tokenValid = await oaApi.testToken();
+        const tokenValid = await index.testToken();
         if (tokenValid) {
             setIsLogin(true);
             await loadPage(1);
         } else {
-            const loginRes = await oaApi.login(username, password);
+            const loginRes = await index.login(username, password);
             if (loginRes) {
                 setIsLogin(true);
                 await loadPage(1);
@@ -105,7 +105,7 @@ export function PendingFileListScreen() {
             setIsLogin(false);
             setIsBusy(true);
             setFiles([]);
-            const loginRes = await oaApi.login(username, password);
+            const loginRes = await index.login(username, password);
             if (loginRes) {
                 ToastAndroid.show("登录成功", 500);
                 setIsLogin(true);

@@ -51,7 +51,7 @@ oaHttp.interceptors.response.use(
     },
 );
 
-export const oaApi = {
+export const index = {
     /**
      * 登录 OA 系统，成功时缓存账密和token
      */
@@ -126,7 +126,7 @@ export const oaApi = {
      * 验证 token 是否有效
      */
     testToken: async (): Promise<boolean> => {
-        const res = await oaApi.getFileList({page: 1, pageSize: 1});
+        const res = await index.getFileList({page: 1, pageSize: 1});
         return res?.code === 200;
     },
 
