@@ -11,7 +11,7 @@ import {Divider, useTheme} from "@rneui/themed";
 import {createNativeStackNavigator} from "@react-navigation/native-stack";
 import {FileScreen} from "@/features/documents/screen/FileScreen.tsx";
 import {useNavigation} from "@react-navigation/native";
-import {oaApi} from "@/js/wjxt/oaApi.ts";
+import {oaApi} from "@/features/documents/api/oaApi.ts";
 import type {FileItem} from "@/type/api/fileSystem/file.ts";
 
 const PAGE_SIZE = 10;

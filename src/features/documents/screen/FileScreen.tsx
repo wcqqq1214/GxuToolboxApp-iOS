@@ -2,7 +2,7 @@ import {ActivityIndicator, View} from "react-native";
 import {useEffect, useState} from "react";
 import WebView from "react-native-webview";
 import {useTheme} from "@rneui/themed";
-import {oaApi} from "@/js/wjxt/oaApi";
+import {oaApi} from "@/features/documents/api/oaApi.ts";
 import {UnText} from "@/components/un-ui";
 
 /**
