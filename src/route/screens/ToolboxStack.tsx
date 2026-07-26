@@ -101,7 +101,7 @@ export function ToolboxStack() {
             <Stack.Screen
                 name="gpaCalculator"
                 component={lazy(() =>
-                    import("@/screens/tool/jw/GPAcalculator/GPAcalculator.tsx").then(m => ({default: m.GPAcalculator})),
+                    import("@/features/examScore/screen/GPAcalculator.tsx").then(m => ({default: m.GPAcalculator})),
                 )}
                 options={{title: "GPA计算器"}}
             />
