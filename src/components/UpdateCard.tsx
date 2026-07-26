@@ -15,9 +15,16 @@ enum ChannelList {
     release = "release",
 }
 
-type VersionRes = {
+export type VersionRes = {
     [c in ChannelList]: Version[];
 };
+
+export interface OtaItem {
+    versionName: string;
+    versionCode: number;
+    desc: string;
+    bundleUrl: string;
+}
 
 interface Version {
     versionName: string;
@@ -25,6 +32,7 @@ interface Version {
     desc: string;
     dependency: string;
     ori: Record<string, string>;
+    ota?: OtaItem[];
 }
 
 export function UpdateCard() {
@@ -55,7 +63,7 @@ export function UpdateCard() {
     });
 
     async function init() {
-        const {data} = await axios.get<VersionRes>(`https://file.unde.site/GxuToolApp/version.json?_=${Date.now()}`);
+        const {data} = await axios.get<VersionRes>(`${PackageJSON.versionJsonUrl}?_=${Date.now()}`);
         const newVersion = data[channel].find(version => version.versionCode > PackageJSON.versionCode);
         if (newVersion) {
             setVisible(true);

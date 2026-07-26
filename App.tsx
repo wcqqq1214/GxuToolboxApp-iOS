@@ -8,6 +8,7 @@ import {openAppEvent} from "@/features/feedback/api/event.ts";
 import {migrateTemplates} from "@/features/evaluation/store/defaultTemplate.ts";
 import {initDB} from "@/core/db.ts";
 import {getCurrentStartDay} from "@/features/courseSchedule/repo/startDay.ts";
+import {checkOTA} from "@/core/ota.ts";
 
 function App(): React.JSX.Element {
     const colorScheme = useColorScheme();
@@ -24,6 +25,7 @@ function App(): React.JSX.Element {
             await openAppEvent();
             initDB();
             await getCurrentStartDay();
+            checkOTA();
         } catch (e) {
             console.warn(e);
         }

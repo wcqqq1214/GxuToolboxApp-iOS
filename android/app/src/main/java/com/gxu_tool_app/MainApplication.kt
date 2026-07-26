@@ -6,6 +6,7 @@ import com.facebook.react.ReactApplication
 import com.facebook.react.ReactHost
 import com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative
 import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
+import java.io.File
 
 class MainApplication : Application(), ReactApplication {
 
@@ -14,15 +15,26 @@ class MainApplication : Application(), ReactApplication {
             context = applicationContext,
             packageList =
                 PackageList(this).packages.apply {
-                    // Packages that cannot be autolinked yet can be added manually here, for example:
-                    // add(MyReactNativePackage())
                     add(OpenWithPackage())
                 },
+            jsBundleFilePath = getOTABundlePath(),
         )
     }
 
     override fun onCreate() {
         super.onCreate()
         loadReactNative(this)
+    }
+
+    private fun getOTABundlePath(): String? {
+        return try {
+            val versionFile = File(filesDir, "ota_version")
+            if (!versionFile.exists()) return null
+            val versionCode = versionFile.readText().trim()
+            val bundleFile = File(filesDir, "ota/$versionCode/index.android.bundle")
+            if (bundleFile.exists()) bundleFile.absolutePath else null
+        } catch (e: Exception) {
+            null
+        }
     }
 }

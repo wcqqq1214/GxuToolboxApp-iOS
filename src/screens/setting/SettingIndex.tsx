@@ -10,6 +10,7 @@ import {ToastAndroid} from "react-native";
 import {useUserConfig} from "@/hooks/useUserConfig.ts";
 import {useCourseData} from "@/hooks/useCourseData.ts";
 import {Color} from "@/shared/color.ts";
+import {getCurrentOTAVersionCode} from "@/core/ota.ts";
 
 export function SettingIndex() {
     const {store: ucStore} = useUserConfig();
@@ -154,6 +155,14 @@ export function SettingIndex() {
                     label: "代码版本号",
                     type: "text",
                     value: packageJson.version,
+                },
+                {
+                    label: "OTA 版本号",
+                    type: "text",
+                    value: (() => {
+                        const code = getCurrentOTAVersionCode();
+                        return code > 0 ? String(code) : "无";
+                    })(),
                 },
                 {
                     label: "源代码",
