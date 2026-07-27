@@ -152,17 +152,17 @@ export function SettingIndex() {
                     ),
                 },
                 {
-                    label: "代码版本号",
-                    type: "text",
-                    value: packageJson.version,
+                    label: `软件版本 <${packageJson.version}>`,
+                    type: "navigation",
+                    value: "versionList",
                 },
                 {
-                    label: "OTA 版本号",
-                    type: "text",
-                    value: (() => {
+                    label: `代码版本 <${(() => {
                         const code = getCurrentOTAVersionCode();
                         return code > 0 ? String(code) : "无";
-                    })(),
+                    })()}>`,
+                    type: "navigation",
+                    value: "otaList",
                 },
                 {
                     label: "源代码",

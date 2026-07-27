@@ -130,6 +130,40 @@ export function SettingStack() {
                 )}
                 options={{title: "考试元素详情显示"}}
             />
+            <Stack.Screen
+                name="versionList"
+                component={lazy(() =>
+                    import("@/screens/setting/VersionListScreen.tsx").then(m => ({
+                        default: m.VersionListScreen,
+                    })),
+                )}
+                options={{
+                    title: "软件版本",
+                    headerStyle: {
+                        backgroundColor: Color(theme.colors.background).setAlpha(
+                            ((theme.mode === "dark" ? 0.5 : 0.4) * bgOpacity) / 100,
+                        ).rgbaString,
+                    },
+                    contentStyle: {backgroundColor: "transparent"},
+                }}
+            />
+            <Stack.Screen
+                name="otaList"
+                component={lazy(() =>
+                    import("@/screens/setting/OTAListScreen.tsx").then(m => ({
+                        default: m.OTAListScreen,
+                    })),
+                )}
+                options={{
+                    title: "代码版本",
+                    headerStyle: {
+                        backgroundColor: Color(theme.colors.background).setAlpha(
+                            ((theme.mode === "dark" ? 0.5 : 0.4) * bgOpacity) / 100,
+                        ).rgbaString,
+                    },
+                    contentStyle: {backgroundColor: "transparent"},
+                }}
+            />
         </Stack.Navigator>
     );
 }

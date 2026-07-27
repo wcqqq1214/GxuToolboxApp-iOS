@@ -1,16 +1,15 @@
 import {useEffect, useState} from "react";
 import {Button, LinearProgress, Text, useTheme} from "@rneui/themed";
 import axios from "axios";
-import {Alert, Linking, StyleSheet} from "react-native";
-import Clipboard from "@react-native-clipboard/clipboard";
-import ReactNativeBlobUtil from "react-native-blob-util";
+import {StyleSheet} from "react-native";
 import Flex from "./un-ui/Flex";
 import {Color} from "@/shared/color.ts";
 import PackageJSON from "@/../package.json";
 import {useUserConfig} from "@/hooks/useUserConfig.ts";
+import {useDownloadApk} from "@/hooks/useDownloadApk.ts";
 import {UnCard} from "@/components/un-ui";
 
-enum ChannelList {
+export enum ChannelList {
     beta = "beta",
     release = "release",
 }
@@ -26,7 +25,7 @@ export interface OtaItem {
     bundleUrl: string;
 }
 
-interface Version {
+export interface Version {
     versionName: string;
     versionCode: number;
     desc: string;
@@ -71,38 +70,7 @@ export function UpdateCard() {
         }
     }
 
-    const [downloading, setDownloading] = useState(false);
-    const [progress, setProgress] = useState<number>(0);
-    const handleUpdate = async (url: string) => {
-        setDownloading(true);
-        setProgress(0);
-        try {
-            const res = await ReactNativeBlobUtil.config({
-                fileCache: true,
-                path: `${ReactNativeBlobUtil.fs.dirs.CacheDir}/gxu_tool_update.apk`,
-            })
-                .fetch("GET", url)
-                .progress((received, total) => {
-                    setProgress(Number(received) / Number(total));
-                });
-
-            await ReactNativeBlobUtil.android.actionViewIntent(res.path(), "application/vnd.android.package-archive");
-        } catch (error) {
-            console.error("应用内下载失败，尝试打开浏览器:", error);
-            try {
-                await Linking.openURL(url);
-            } catch {
-                console.error("打开浏览器也失败了");
-                Alert.alert("下载失败", `无法自动下载，请手动复制链接到浏览器打开：\n${url}`, [
-                    {text: "复制链接", onPress: () => Clipboard.setString(url)},
-                    {text: "确定"},
-                ]);
-            }
-        } finally {
-            setDownloading(false);
-            setProgress(0);
-        }
-    };
+    const {downloading, progress, download: handleUpdate} = useDownloadApk();
 
     return visible ? (
         <UnCard style={style.card} title="发现新版本~">
