@@ -17,7 +17,7 @@ type FilterType = "all" | "no_future" | "current";
 export function ChooseTerm({onTermSelect, includeWholeLife = true, includeWholeYear = true}: ChooseTermProps) {
     const {theme} = useTheme();
     // 入学年份
-    const [enrollmentYear, setEnrollmentYear] = useState<number>(2023);
+    const [enrollmentYear, setEnrollmentYear] = useState<number>();
 
     // 学习年限
     const [studyYear, setStudyYear] = useState<number>(4);
@@ -64,6 +64,7 @@ export function ChooseTerm({onTermSelect, includeWholeLife = true, includeWholeY
         if (!account) return;
 
         const info = await userProfileRepo.get(account);
+        if (!info) return; // profile 尚未同步（如 OTA 后旧表被清），等启动补拉，不崩
         setEnrollmentYear(+info.grade);
         setStudyYear(info.study_years);
     };
@@ -231,72 +232,76 @@ export function ChooseTerm({onTermSelect, includeWholeLife = true, includeWholeY
     });
 
     return (
-        <View style={styles.container}>
-            {/* 顶部：标题 + 过滤器 */}
-            <View style={styles.header}>
-                <Text style={styles.title}>学期范围</Text>
-                <View style={styles.filterContainer}>
-                    {[
-                        {key: "current", label: "当前"},
-                        {key: "no_future", label: "至今"},
-                        {key: "all", label: "全部"},
-                    ].map(f => (
-                        <TouchableOpacity
-                            key={f.key}
-                            style={[styles.filterBtn, filterType === f.key && styles.filterBtnActive]}
-                            onPress={() => setFilterType(f.key as FilterType)}>
-                            <Text style={[styles.filterText, filterType === f.key && styles.filterTextActive]}>
-                                {f.label}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
-            </View>
-
-            {/* 功能按钮：所有历史数据 */}
-            {includeWholeLife && (
-                <TouchableOpacity style={styles.historyBtn} onPress={handleHistoryPress} activeOpacity={0.8}>
-                    <Text style={styles.historyBtnText}>入学以来所有数据</Text>
-                </TouchableOpacity>
-            )}
-
-            {/* 具体的学年/学期选择区域 */}
-            {/* 当选中“所有历史”时，下方半透明显示，暗示当前生效的是上面的按钮 */}
-            <View style={{opacity: selected.year === "" ? 0.5 : 1}}>
-                <Text style={styles.sectionLabel}>选择学年</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.yearScroll}>
-                    {academicYears.map(ay => {
-                        const isSelected = selected.year === ay.year;
-                        return (
+        enrollmentYear && (
+            <View style={styles.container}>
+                {/* 顶部：标题 + 过滤器 */}
+                <View style={styles.header}>
+                    <Text style={styles.title}>学期范围</Text>
+                    <View style={styles.filterContainer}>
+                        {[
+                            {key: "current", label: "当前"},
+                            {key: "no_future", label: "至今"},
+                            {key: "all", label: "全部"},
+                        ].map(f => (
                             <TouchableOpacity
-                                key={ay.year}
-                                style={[styles.yearItem, isSelected && styles.yearItemSelected]}
-                                onPress={() => handleYearPress(ay.year)}>
-                                <Text style={[styles.yearText, isSelected && styles.yearTextSelected]}>
-                                    {ay.name} ({ay.year})
+                                key={f.key}
+                                style={[styles.filterBtn, filterType === f.key && styles.filterBtnActive]}
+                                onPress={() => setFilterType(f.key as FilterType)}>
+                                <Text style={[styles.filterText, filterType === f.key && styles.filterTextActive]}>
+                                    {f.label}
                                 </Text>
                             </TouchableOpacity>
-                        );
-                    })}
-                </ScrollView>
+                        ))}
+                    </View>
+                </View>
 
-                <Text style={styles.sectionLabel}>选择学期</Text>
-                <View style={styles.termRow}>
-                    {termOptions.map(t => {
-                        // 只有在没选"所有历史"且term匹配时才高亮
-                        const isSelected = selected.year !== "" && selected.term === t.term;
-                        return (
-                            <TouchableOpacity
-                                key={t.term}
-                                // flex: 1 使得只有两个按钮时也会自动撑满一行
-                                style={[styles.termBtn, isSelected && styles.termBtnSelected]}
-                                onPress={() => handleTermPress(t.term)}>
-                                <Text style={[styles.termText, isSelected && styles.termTextSelected]}>{t.label}</Text>
-                            </TouchableOpacity>
-                        );
-                    })}
+                {/* 功能按钮：所有历史数据 */}
+                {includeWholeLife && (
+                    <TouchableOpacity style={styles.historyBtn} onPress={handleHistoryPress} activeOpacity={0.8}>
+                        <Text style={styles.historyBtnText}>入学以来所有数据</Text>
+                    </TouchableOpacity>
+                )}
+
+                {/* 具体的学年/学期选择区域 */}
+                {/* 当选中“所有历史”时，下方半透明显示，暗示当前生效的是上面的按钮 */}
+                <View style={{opacity: selected.year === "" ? 0.5 : 1}}>
+                    <Text style={styles.sectionLabel}>选择学年</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.yearScroll}>
+                        {academicYears.map(ay => {
+                            const isSelected = selected.year === ay.year;
+                            return (
+                                <TouchableOpacity
+                                    key={ay.year}
+                                    style={[styles.yearItem, isSelected && styles.yearItemSelected]}
+                                    onPress={() => handleYearPress(ay.year)}>
+                                    <Text style={[styles.yearText, isSelected && styles.yearTextSelected]}>
+                                        {ay.name} ({ay.year})
+                                    </Text>
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </ScrollView>
+
+                    <Text style={styles.sectionLabel}>选择学期</Text>
+                    <View style={styles.termRow}>
+                        {termOptions.map(t => {
+                            // 只有在没选"所有历史"且term匹配时才高亮
+                            const isSelected = selected.year !== "" && selected.term === t.term;
+                            return (
+                                <TouchableOpacity
+                                    key={t.term}
+                                    // flex: 1 使得只有两个按钮时也会自动撑满一行
+                                    style={[styles.termBtn, isSelected && styles.termBtnSelected]}
+                                    onPress={() => handleTermPress(t.term)}>
+                                    <Text style={[styles.termText, isSelected && styles.termTextSelected]}>
+                                        {t.label}
+                                    </Text>
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </View>
                 </View>
             </View>
-        </View>
+        )
     );
 }
