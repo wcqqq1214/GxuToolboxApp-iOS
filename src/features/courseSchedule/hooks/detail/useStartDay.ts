@@ -59,7 +59,6 @@ export function useStartDay(year: number, term: SchoolTermValue) {
 
     useEffect(() => {
         const init = async () => {
-            console.log("try to get start day", cachedTerm);
             try {
                 let currentTerm = await getCurrentStartDay();
 

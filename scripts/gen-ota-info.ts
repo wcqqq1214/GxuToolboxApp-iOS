@@ -50,10 +50,12 @@ async function getSeq(dateSeq: string, pkgVersionCode: number): Promise<number> 
                 return m && m[1] === dateSeq;
             });
             if (todayOta.length > 0) {
-                const maxSeq = Math.max(...todayOta.map(o => {
-                    const m = o.versionName.match(/-(\d{4})(\d{2})$/);
-                    return m ? parseInt(m[2], 10) : 0;
-                }));
+                const maxSeq = Math.max(
+                    ...todayOta.map(o => {
+                        const m = o.versionName.match(/-(\d{4})(\d{2})$/);
+                        return m ? parseInt(m[2], 10) : 0;
+                    }),
+                );
                 return maxSeq + 1;
             }
             // 今天还没有 OTA，从 1 开始
@@ -141,12 +143,14 @@ async function main(): Promise<void> {
     const historyPath = path.join(DIST_DIR, `ota-info-${dateSeq}${seq}.json`);
     fs.writeFileSync(historyPath, JSON.stringify(otaItem, null, 2), "utf-8");
 
-    console.log(`[OTA] 版本信息已生成:`);
+    console.log("[OTA] 版本信息已生成:");
     console.log(`  versionName: ${versionName}`);
     console.log(`  versionCode: ${versionCode}`);
     console.log(`  bundle: dist/${pkg.versionCode}/${bundleFile}`);
     console.log(`  bundleUrl: ${otaItem.bundleUrl}`);
-    console.log(`  version.json 已更新，共 ${versionJson[channel]!.find(v => v.versionCode === pkg.versionCode)!.ota!.length} 个 OTA`);
+    console.log(
+        `  version.json 已更新，共 ${versionJson[channel]!.find(v => v.versionCode === pkg.versionCode)!.ota!.length} 个 OTA`,
+    );
 }
 
 main();

@@ -15,6 +15,6 @@ backendHttp.interceptors.response.use(
     },
     (error: AxiosError) => {
         // 关键：必须返回一个 rejected Promise，以便调用方可以 catch 错误
-        return error;
-    },
+        return Promise.reject(error);
+    };,
 );

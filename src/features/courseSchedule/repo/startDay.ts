@@ -1,5 +1,7 @@
 import {backendHttp} from "@/features/backend/api";
-import {getDB} from "@/core/db.ts";
+import {db} from "@/core/db";
+import {eq} from "drizzle-orm";
+import {termStartDay} from "@/core/schema";
 
 interface TermStartDay {
     year: number;
@@ -17,34 +19,50 @@ export async function fetchStartDay(): Promise<TermStartDay[]> {
 }
 
 export async function saveToDB(terms: TermStartDay[]) {
-    const db = getDB();
+    // 清理当前标记
+    await db.update(termStartDay).set({isCurrent: false});
 
-    const commands: [string, any[]][] = [];
-
-    // 清理标记
-    commands.push(["UPDATE term_start_day SET is_current = 0", []]);
-
-    // 插入数据
+    // 插入或替换新数据
     for (const term of terms) {
-        commands.push([
-            `INSERT OR REPLACE INTO term_start_day (year, term, day, week, is_current)
-             VALUES (?, ?, ?, ?, ?)`,
-            [term.year, term.term, term.day, term.week, term.is_current ? 1 : 0],
-        ]);
+        await db
+            .insert(termStartDay)
+            .values({
+                year: term.year,
+                term: term.term,
+                day: new Date(term.day), // 转换为 Date 以适应 timestamp mode
+                week: term.week,
+                isCurrent: term.is_current,
+            })
+            .onConflictDoUpdate({
+                target: [termStartDay.year, termStartDay.term],
+                set: {
+                    day: new Date(term.day),
+                    week: term.week,
+                    isCurrent: term.is_current,
+                },
+            });
     }
 
-    await db.executeBatch(commands);
     memoryStartDay = null;
 }
 
 export async function getCurrentStartDay(): Promise<TermStartDay | null> {
     if (memoryStartDay) return memoryStartDay;
 
-    const db = getDB();
-    const result = await db.execute("SELECT * FROM term_start_day WHERE is_current = 1 LIMIT 1");
+    const result = await db.select().from(termStartDay).where(eq(termStartDay.isCurrent, true)).limit(1);
 
-    if (result.rows && result.rows.length > 0) {
-        return result.rows[0] as unknown as TermStartDay;
+    if (result && result.length > 0) {
+        const row = result[0];
+        // 转换回旧的接口格式以保证上层业务兼容性
+        const mapped: TermStartDay = {
+            year: row.year,
+            term: row.term,
+            day: row.day.toISOString(),
+            week: row.week,
+            is_current: row.isCurrent,
+        };
+        memoryStartDay = mapped;
+        return mapped;
     }
     return null;
 }
