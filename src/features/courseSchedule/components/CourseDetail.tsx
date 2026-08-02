@@ -1,6 +1,6 @@
 import {CourseParsed} from "@/type/infoQuery/course/course.ts";
 import {CourseClass} from "@/class/jw/course.ts";
-import {Linking, StyleSheet, ToastAndroid, View, ViewProps} from "react-native";
+import {Image, Linking, StyleSheet, ToastAndroid, View, ViewProps} from "react-native";
 import {Text, useTheme} from "@rneui/themed";
 import Flex from "@/components/un-ui/Flex.tsx";
 import Clipboard from "@react-native-clipboard/clipboard";
@@ -46,10 +46,11 @@ export function CourseDetail(props: Props) {
     const [teacherInfoList, setTeacherInfoList] = useState<SimpleTeacherInfo[]>([]);
     const name = course.name;
 
+    const iconUrl = "https://prof.gxu.edu.cn/images/icon-teacher.jpg";
+
     useEffect(() => {
         teacherInfoApi.getBaseInfo(name, 1).then(res => {
-            const {list} = res.resData;
-            const filterData = list.filter(item => item.XM.length === name.length);
+            const filterData = res.resData.list.filter(item => item.XM.length === name.length);
             setTeacherInfoList(filterData);
         });
     }, [name]);
@@ -95,7 +96,21 @@ export function CourseDetail(props: Props) {
                     <CoursePropItem
                         prop="name"
                         label="上课教师"
-                        valueRender={v => <UnText>{v}</UnText>}
+                        valueRender={v => (
+                            <>
+                                <Flex direction={"row"} gap={6}>
+                                    {teacherInfoList.length > 1 ? (
+                                        <></>
+                                    ) : (
+                                        <Image
+                                            style={{width: 30, height: 30, borderRadius: 4}}
+                                            source={{uri: teacherInfoList[0]?.pic || iconUrl}}
+                                        />
+                                    )}
+                                    <UnText>{v}</UnText>
+                                </Flex>
+                            </>
+                        )}
                         labelRender={() => (
                             <UnPressable onPress={() => setVisible(true)}>
                                 <UnText weight="bold" size={16}>
@@ -154,6 +169,7 @@ export function CourseDetail(props: Props) {
                     name={course.name}
                     infoList={teacherInfoList}
                     onClose={() => setVisible(false)}
+                    openPage={teacherInfoList.length === 1 ? 1 : 0}
                 />
                 {devMode && <CourseDebugCard />}
             </Flex>

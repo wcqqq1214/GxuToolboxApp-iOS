@@ -12,6 +12,7 @@ type Props = {
     isVisible: boolean;
     name: string;
     infoList: SimpleTeacherInfo[];
+    openPage: number;
     onClose: () => void;
 };
 
@@ -30,6 +31,15 @@ export function TeacherInfoSheet(props: Props) {
             borderWidth: 1,
         },
     });
+
+    useEffect(() => {
+        if (!props.isVisible) return;
+        pagerView.activePage = props.openPage;
+        if (props.infoList.length === 1) {
+            setSelectedTeacher(props.infoList[0]);
+        }
+        pagerView.ref.current?.setPage(props.openPage);
+    }, [props.openPage, props.infoList, props.isVisible]);
 
     return (
         <BottomSheet
@@ -60,8 +70,10 @@ export function TeacherInfoSheet(props: Props) {
                 <pagerView.AnimatedPagerView
                     ref={pagerView.ref}
                     style={{width: "100%", height: "100%"}}
+                    initialPage={props.openPage}
                     overScrollMode="never"
                     orientation="horizontal"
+                    scrollEnabled={false}
                     onPageSelected={pagerView.onPageSelected}>
                     <View key="0" collapsable={false} style={{width: "100%"}}>
                         <TeacherInfoList
