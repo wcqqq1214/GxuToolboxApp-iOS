@@ -30,8 +30,22 @@ class MainApplication : Application(), ReactApplication {
         return try {
             val versionFile = File(filesDir, "ota_version")
             if (!versionFile.exists()) return null
-            val versionCode = versionFile.readText().trim()
-            val bundleFile = File(filesDir, "ota/$versionCode/index.android.bundle")
+            val content = versionFile.readText().trim()
+            // 格式: "otaVersionCode|appVersionCode"，旧格式仅有数字
+            val parts = content.split("|")
+            if (parts.size != 2) {
+                // 旧格式或损坏文件，视为失效 OTA，清理标记文件
+                versionFile.delete()
+                return null
+            }
+            val otaCode = parts[0]
+            val savedAppVersion = parts[1].toIntOrNull() ?: return null
+            if (savedAppVersion != BuildConfig.VERSION_CODE) {
+                // OTA 属于旧版本 App，不加载
+                versionFile.delete()
+                return null
+            }
+            val bundleFile = File(filesDir, "ota/$otaCode/index.android.bundle")
             if (bundleFile.exists()) bundleFile.absolutePath else null
         } catch (e: Exception) {
             null

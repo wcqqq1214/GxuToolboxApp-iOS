@@ -5,6 +5,7 @@ import {mmkv} from "@/store/mmkv";
 import type {OtaItem, VersionRes} from "@/components/UpdateCard";
 
 const OTA_VERSION_KEY = "ota_version_code";
+const OTA_APP_VERSION_KEY = "ota_app_version_code";
 const OTA_DIR = "ota";
 
 function getChannel(): "beta" | "release" {
@@ -13,6 +14,38 @@ function getChannel(): "beta" | "release" {
 
 export function getCurrentOTAVersionCode(): number {
     return mmkv.getNumber(OTA_VERSION_KEY) ?? 0;
+}
+
+/** 清除跨版本后的过期 OTA 文件，防止旧 bundle 覆盖新包内置代码 */
+export async function cleanStaleOTA(): Promise<void> {
+    const savedAppVersion = mmkv.getNumber(OTA_APP_VERSION_KEY);
+    if (savedAppVersion && savedAppVersion !== PackageJSON.versionCode) {
+        console.log(`[OTA] 检测到版本变更: ${savedAppVersion} → ${PackageJSON.versionCode}，清理所有 OTA`);
+        await clearAllOTA();
+        return;
+    }
+    // 旧版本未记录 appVersion，但若存在 OTA 标记文件则一并清理
+    if (!savedAppVersion && getCurrentOTAVersionCode() > 0) {
+        console.log("[OTA] 检测到旧格式 OTA 数据，清理");
+        await clearAllOTA();
+    }
+}
+
+async function clearAllOTA(): Promise<void> {
+    try {
+        const otaRoot = `${ReactNativeBlobUtil.fs.dirs.DocumentDir}/${OTA_DIR}`;
+        const exists = await ReactNativeBlobUtil.fs.exists(otaRoot);
+        if (exists) {
+            await ReactNativeBlobUtil.fs.unlink(otaRoot);
+        }
+        const versionTagPath = `${ReactNativeBlobUtil.fs.dirs.DocumentDir}/ota_version`;
+        const tagExists = await ReactNativeBlobUtil.fs.exists(versionTagPath);
+        if (tagExists) {
+            await ReactNativeBlobUtil.fs.unlink(versionTagPath);
+        }
+        mmkv.remove(OTA_VERSION_KEY);
+        mmkv.remove(OTA_APP_VERSION_KEY);
+    } catch {}
 }
 
 export async function checkOTA(): Promise<void> {
@@ -64,11 +97,13 @@ async function downloadAndApplyOTA(ota: OtaItem): Promise<void> {
 
         console.log(`[OTA] 下载完成，状态: ${res.respInfo.status}`);
 
-        // 写入版本标记文件，供原生层读取
+        // 写入版本标记文件，格式: "otaVersionCode|appVersionCode"，供原生层校验
         const versionTagPath = `${ReactNativeBlobUtil.fs.dirs.DocumentDir}/ota_version`;
-        await ReactNativeBlobUtil.fs.writeFile(versionTagPath, String(ota.versionCode), "utf8");
+        const tagContent = `${ota.versionCode}|${PackageJSON.versionCode}`;
+        await ReactNativeBlobUtil.fs.writeFile(versionTagPath, tagContent, "utf8");
 
         mmkv.set(OTA_VERSION_KEY, ota.versionCode);
+        mmkv.set(OTA_APP_VERSION_KEY, PackageJSON.versionCode);
 
         await cleanOldOTA(ota.versionCode);
 
