@@ -2,7 +2,8 @@
 
 <div align="center">
 
-广西大学 XCPC 技术组
+<img src="android/app/src/main/res/mipmap-xxhdpi/ic_launcher_round.png" alt="platform">
+<br>
 <br>
 
 <div>
@@ -28,7 +29,6 @@
 - [功能特性](#功能特性)
 - [开发背景](#开发背景)
 - [快速开始](#快速开始)
-- [技术栈](#技术栈)
 - [项目结构](#项目结构)
 - [文档](#文档)
 - [贡献 & 社区](#贡献--社区)
@@ -98,26 +98,6 @@ pnpm start
 # 4. 运行到设备（终端 2）
 pnpm android
 ```
-
----
-
-## 技术栈
-
-| 层级 | 选型 | 说明 |
-|------|------|------|
-| 框架 | React Native 0.84 + React 19 | 跨平台 UI 框架 |
-| 语言 | TypeScript 5.9 | 类型安全 |
-| UI 组件 | @rneui/themed 5.x | 主题化组件库 |
-| 导航 | React Navigation 7.x | Stack + Tab 导航 |
-| 状态管理 | Zustand 5.x | 轻量响应式 |
-| 数据校验 | Zod 4.x | 外部数据 Schema 校验 |
-| 网络 | Axios 1.x（3 实例） | 三套鉴权独立拦截 |
-| 数据库 | OP-SQLite 17.x | 结构化本地存储 |
-| KV 存储 | react-native-mmkv 4.x | 配置与缓存 |
-| 表单 | react-hook-form 7.x | 高性能表单 |
-| 小组件 | react-native-android-widget | 桌面课表 widget |
-| 构建 | Gradle (SDK 36) / Metro | — |
-| 部署 | Docker (Node 20 + JDK 17) | CI/构建环境 |
 
 ---
 
