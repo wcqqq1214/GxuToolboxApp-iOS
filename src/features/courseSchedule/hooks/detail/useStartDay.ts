@@ -7,7 +7,7 @@ import moment from "moment";
 // 正在刷新
 let isSyncing = false;
 
-export function useStartDay(year: number, term: SchoolTermValue) {
+export function useStartDay(year?: number, term?: SchoolTermValue) {
     const cachedTerm = getSyncStartDay();
 
     const [startDay, setStartDay] = useState((): Dayjs => (cachedTerm ? dayjs(cachedTerm.day) : dayjs("2025-09-08")));

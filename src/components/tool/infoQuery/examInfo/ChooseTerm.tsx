@@ -60,23 +60,30 @@ export function ChooseTerm({onTermSelect, includeWholeLife = true, includeWholeY
         }
     }, [enrollmentYear, filterType, realAcademicYear, studyYear]);
 
+    useEffect(() => {
+        init(username);
+    }, [username]);
+
     const init = async (account: string) => {
         if (!account) return;
 
         const info = await userProfileRepo.get(account);
         if (!info) return; // profile 尚未同步（如 OTA 后旧表被清），等启动补拉，不崩
+
         setEnrollmentYear(+info.grade);
         setStudyYear(info.study_years);
     };
 
+    // 当 enrollmentYear 准备好之后，再计算并触发回调
     useEffect(() => {
-        init(username);
-        // 默认当前学年和当前学期，3到8月算下半学期
+        if (!enrollmentYear) return;
+
         const initTerm = currentMonth >= 3 && currentMonth < 9 ? "12" : "3";
         const initYear = Math.max(realAcademicYear, enrollmentYear);
+
         setSelected({year: initYear, term: initTerm});
         onTermSelect?.(initYear, initTerm);
-    }, [username]);
+    }, [enrollmentYear]);
 
     // --- 2. 交互处理 ---
 

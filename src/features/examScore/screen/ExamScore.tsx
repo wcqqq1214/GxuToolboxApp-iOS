@@ -2,7 +2,6 @@ import {ActivityIndicator, ScrollView, StyleSheet, TouchableOpacity, View} from 
 import {Button, Divider, Text, useTheme} from "@rneui/themed";
 import React, {useCallback, useEffect, useMemo, useState} from "react";
 import Flex from "@/components/un-ui/Flex.tsx";
-import {SchoolTermValue} from "@/type/global.ts";
 import {Color} from "@/shared/color.ts";
 import {ExamScoreTable} from "@/features/examScore/component/ExamScoreTable.tsx";
 import {useNavigation} from "@react-navigation/native";
@@ -16,8 +15,8 @@ export function ExamScore() {
     const devMode = ucStore(s => s.devMode);
     const {theme} = useTheme();
     const navigation = useNavigation();
-    const [year, setYear] = useState(+ucStore(s => s.jw.year));
-    const [term, setTerm] = useState<SchoolTermValue>(ucStore(s => s.jw.term));
+    const [year, setYear] = useState("");
+    const [term, setTerm] = useState("");
     const [page, setPage] = useState(1);
     const {scores, isLoading, loadLocal, fetchRemote, lastSyncTime} = useScore();
 
@@ -56,25 +55,22 @@ export function ExamScore() {
     }, [theme]);
 
     const query = useCallback(async () => {
+        if (!year || year === "") return;
+
         const localTerm = term === "3" ? 1 : 2;
 
         // 瞬间加载本地数据顶上（不阻塞）
-        await loadLocal(year, localTerm);
+        await loadLocal(+year, localTerm);
 
         // 紧接着发起远端请求静默更新
         // 注意这里不要 await 它，让它在后台慢慢跑，跑完了 Hook 会自动 setScores 刷新界面
-        fetchRemote(year, term, page).catch(console.error);
+        fetchRemote(+year, term, page).catch(console.error);
     }, [year, term, page, loadLocal, fetchRemote]);
 
     // 当学年、学期、页码改变时，自动触发
     useEffect(() => {
         query();
     }, [query]);
-
-    // 手动点击查询按钮时，也是触发
-    const handleQuery = () => {
-        query();
-    };
 
     return (
         <ScrollView>
