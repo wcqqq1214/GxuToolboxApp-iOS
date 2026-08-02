@@ -26,7 +26,7 @@ export function useCourse(
 
     useEffect(() => {
         // 同步加载MMKV缓存到store，确保首次渲染就有数据
-        loadCourseCache(year, term);
+        loadCourseCache();
         loadPhyExpCache();
         loadAttendanceCache();
 

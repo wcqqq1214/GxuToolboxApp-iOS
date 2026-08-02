@@ -100,7 +100,7 @@ export function ScheduleCard() {
     }, [year, term]);
 
     const defaultItem: ScheduleTableItem[] = useMemo(
-        () => (JWAuthState.status !== "no_account" ? [] : defaultItems),
+        () => (JWAuthState.status !== "no_account" || courseItems.length > 0 ? [] : defaultItems),
         [JWAuthState.status],
     );
 

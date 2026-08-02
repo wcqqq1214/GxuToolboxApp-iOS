@@ -4,7 +4,7 @@
     "versionCode": 20103,
     "versionJsonUrl": "https://file.unde.site/GxuToolApp/version.json",
     "private": true,
-    "packageManager": "pnpm@10.33.0",
+    "packageManager": "pnpm@11.18.0",
     "scripts": {
         "android": "react-native run-android",
         "ios": "react-native run-ios",
