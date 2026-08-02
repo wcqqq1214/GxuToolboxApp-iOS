@@ -1,28 +1,37 @@
 import {useEffect, useState} from "react";
-import {Button, Text, useTheme} from "@rneui/themed";
+import {Button, LinearProgress, Text, useTheme} from "@rneui/themed";
 import axios from "axios";
-import {Linking, PermissionsAndroid, StyleSheet} from "react-native";
+import {StyleSheet} from "react-native";
 import Flex from "./un-ui/Flex";
 import {Color} from "@/shared/color.ts";
 import PackageJSON from "@/../package.json";
 import {useUserConfig} from "@/hooks/useUserConfig.ts";
+import {useDownloadApk} from "@/hooks/useDownloadApk.ts";
 import {UnCard} from "@/components/un-ui";
 
-enum ChannelList {
+export enum ChannelList {
     beta = "beta",
     release = "release",
 }
 
-type VersionRes = {
+export type VersionRes = {
     [c in ChannelList]: Version[];
 };
 
-interface Version {
+export interface OtaItem {
+    versionName: string;
+    versionCode: number;
+    desc: string;
+    bundleUrl: string;
+}
+
+export interface Version {
     versionName: string;
     versionCode: number;
     desc: string;
     dependency: string;
     ori: Record<string, string>;
+    ota?: OtaItem[];
 }
 
 export function UpdateCard() {
@@ -53,59 +62,41 @@ export function UpdateCard() {
     });
 
     async function init() {
-        const {data} = await axios.get<VersionRes>(`https://file.unde.site/GxuToolApp/version.json?_=${Date.now()}`);
+        const {data} = await axios.get<VersionRes>(`${PackageJSON.versionJsonUrl}?_=${Date.now()}`);
         const newVersion = data[channel].find(version => version.versionCode > PackageJSON.versionCode);
         if (newVersion) {
             setVisible(true);
             setVersion(newVersion);
         }
-
-        const granted = await PermissionsAndroid.requestMultiple([
-            PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
-            PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
-        ]);
-        if (
-            granted["android.permission.READ_EXTERNAL_STORAGE"] === "granted" &&
-            granted["android.permission.WRITE_EXTERNAL_STORAGE"] === "granted"
-        ) {
-        } else {
-            // ToastAndroid.show("需要权限进行更新", ToastAndroid.SHORT);
-        }
     }
 
-    const [downloading, setDownloading] = useState(false);
-    const [progress, setProgress] = useState<number>(0);
-    const handleUpdate = async (url: string) => {
-        try {
-            if (await Linking.canOpenURL(url)) {
-                await Linking.openURL(url);
-            }
-        } catch (error) {
-            console.error("更新失败:", error);
-        } finally {
-            setDownloading(false);
-            setProgress(0);
-        }
-    };
+    const {downloading, progress, download: handleUpdate} = useDownloadApk();
 
     return visible ? (
         <UnCard style={style.card} title="发现新版本~">
             <Flex direction="column" gap={10} align="flex-start" inline style={{paddingHorizontal: "2%"}}>
                 {/*<Text>可以在设置关闭更新提示</Text>*/}
-                <Text style={{fontSize: 14}}>版本号：{version?.versionName}</Text>
+                <Text style={{fontSize: 14}}>
+                    版本号：{version?.versionName}（{version?.versionCode}）
+                </Text>
                 <Text style={{fontSize: 14}}>更新信息：</Text>
                 <Text style={{fontSize: 14}}>{version?.desc}</Text>
+                {downloading && (
+                    <LinearProgress
+                        value={progress}
+                        variant="determinate"
+                        color={theme.colors.primary}
+                        style={{height: 6, borderRadius: 3, width: "100%"}}
+                    />
+                )}
                 <Flex gap={10} justify="flex-end" style={{width: "100%"}}>
                     <Button
                         size="sm"
                         loading={downloading}
                         disabled={downloading}
                         onPress={() => handleUpdate(version?.ori.official!)}>
-                        {downloading ? `下载中 ${progress.toFixed(1)}%` : "获取更新"}
+                        {downloading ? `下载中 ${(progress * 100).toFixed(1)}%` : "获取更新"}
                     </Button>
-                    {/*<Button type="clear" onPress={() => setVisible(false)} disabled={downloading}>*/}
-                    {/*    取消*/}
-                    {/*</Button>*/}
                 </Flex>
             </Flex>
         </UnCard>

@@ -18,7 +18,7 @@ export const attendanceAdapter: AuthAdapter<Account> = {
     async testToken() {
         return attendanceAuthApi.testToken();
     },
-    async loginWithAccount(_account: Account): Promise<boolean> {
-        throw new Error("考勤系统需要手动输入验证码，请在设置中手动登录");
+    async loginWithAccount(): Promise<boolean> {
+        return false;
     },
 };

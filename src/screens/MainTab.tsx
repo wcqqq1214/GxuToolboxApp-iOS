@@ -33,17 +33,17 @@ export default function MainTab() {
                 headerShadowVisible: false,
                 tabBarActiveTintColor: theme.colors.primary,
                 headerStyle: {
-                    backgroundColor: Color(theme.colors.background).setAlpha(
+                    backgroundColor: Color.mix(theme.colors.background, theme.colors.primary, 0.2).setAlpha(
                         ((theme.mode === "dark" ? 0.5 : 0.4) * bgOpacity) / 100,
                     ).rgbaString,
                 },
                 sceneStyle: {
-                    backgroundColor: Color(theme.colors.background).setAlpha(
+                    backgroundColor: Color.mix(theme.colors.background, theme.colors.primary, 0.2).setAlpha(
                         ((theme.mode === "dark" ? 0.8 : 0.4) * bgOpacity) / 100,
                     ).rgbaString,
                 },
                 tabBarStyle: {
-                    backgroundColor: Color(theme.colors.background).setAlpha(
+                    backgroundColor: Color.mix(theme.colors.background, theme.colors.primary, 0.2).setAlpha(
                         ((theme.mode === "dark" ? 0.9 : 0.75) * bgOpacity) / 100,
                     ).rgbaString,
                     elevation: 0, // Android 去除阴影

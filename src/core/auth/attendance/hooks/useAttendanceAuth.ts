@@ -1,5 +1,5 @@
 import {useCallback, useEffect, useRef, useState} from "react";
-import {Account} from "@/core/auth/auth.type.ts";
+import {Account, AuthStateMap} from "@/core/auth/auth.type.ts";
 import {attendanceMachine} from "@/core/auth/attendance/attendanceMachine.ts";
 import {AuthState} from "@/core/auth/createAuthCore.ts";
 import {attendanceAuthApi} from "@/core/auth/attendance/attendanceAuthApi.ts";
@@ -26,9 +26,14 @@ export function useAttendanceAuth() {
         inFlightRef.current = true;
         setLoading(true);
         try {
-            await attendanceMachine.saveAccount({username, password});
+            const account = {username, password};
+            await attendanceMachine.saveAccount(account);
             const res = await attendanceAuthApi.login(username, password, captchaCode);
-            const state = await attendanceMachine.refreshToken();
+            const state = attendanceMachine.setState(
+                res.code === 600
+                    ? {status: AuthStateMap.Authenticated, account}
+                    : {status: AuthStateMap.HasAccountNotAuthenticated, account},
+            );
             setAuthState(state);
             return {state, loginRes: res};
         } finally {

@@ -6,7 +6,7 @@ import {attendanceApi} from "@/features/attendance/api";
 import {attendanceSystemApi} from "@/js/auth/attendanceSystem.ts";
 import {AttendanceSystemType as AST} from "@/type/api/auth/attendanceSystem.ts";
 import moment from "moment";
-import {store} from "@/core/store.ts";
+import {mmkv} from "@/store/mmkv";
 import {ScheduleTableItem} from "@/features/courseSchedule/type/schedule.ts";
 import {create} from "zustand/react";
 
@@ -16,11 +16,18 @@ interface AttendanceStoreState {
     normalizedList: ScheduleTableItem[];
 }
 
-const useAttendanceStore = create<AttendanceStoreState>()(() => ({
-    status: attendanceMachine.getState(),
-    attendanceList: [],
-    normalizedList: [],
-}));
+const useAttendanceStore = create<AttendanceStoreState>()(() => {
+    // 同步加载MMKV缓存，避免首次渲染空白
+    const cached = mmkv.getObject<AST.AttendanceData[]>("originalAttendanceList");
+    const startDayStr = mmkv.getString("attendanceStartDay");
+    const list = cached ?? [];
+    const normalized = cached && startDayStr ? normalizeAttendance(cached, moment(startDayStr)) : [];
+    return {
+        status: attendanceMachine.getState(),
+        attendanceList: list,
+        normalizedList: normalized,
+    };
+});
 
 function normalizeAttendance(
     raw: AST.AttendanceData[],
@@ -39,10 +46,19 @@ function normalizeAttendance(
 }
 
 export const useAttendance = () => {
+    function loadCache(): AST.AttendanceData[] | undefined {
+        return mmkv.getObject<AST.AttendanceData[]>("originalAttendanceList");
+    }
+
+    function saveCache(data: AST.AttendanceData[], startDay: moment.Moment) {
+        mmkv.set("originalAttendanceList", data);
+        mmkv.set("attendanceStartDay", startDay.toISOString());
+    }
+
     async function init(year: number, term: SchoolTermValue, startDay: moment.Moment) {
         const setData = (raw: AST.AttendanceData[], shouldCache: boolean): void => {
             if (shouldCache) {
-                store.save({key: "originalAttendanceList", data: raw});
+                saveCache(raw, startDay);
             }
             const current = useAttendanceStore.getState().attendanceList;
             if (JSON.stringify(current) === JSON.stringify(raw)) return;
@@ -52,15 +68,15 @@ export const useAttendance = () => {
             });
         };
 
-        // 从内存中加载缓存
+        // 先从MMKV读取缓存快速渲染
         try {
-            const cachedRaw = await store.load<AST.AttendanceData[]>({key: "originalAttendanceList"}).catch(() => null);
+            const cachedRaw = loadCache();
             if (cachedRaw) {
                 setData(cachedRaw, false);
             }
         } catch {}
 
-        // 从考勤系统拉取数据
+        // 网络请求获取最新考勤数据，成功后覆盖MMKV缓存
         try {
             const authState = await attendanceMachine.refreshToken();
             useAttendanceStore.setState({status: authState});
@@ -79,7 +95,7 @@ export const useAttendance = () => {
     }
 
     async function update(raw: AST.AttendanceData[], startDay: moment.Moment) {
-        await store.save({key: "originalAttendanceList", data: raw});
+        saveCache(raw, startDay);
         const current = useAttendanceStore.getState().attendanceList;
         if (JSON.stringify(current) === JSON.stringify(raw)) return;
         useAttendanceStore.setState({
@@ -91,6 +107,8 @@ export const useAttendance = () => {
     return {
         store: useAttendanceStore,
         init,
+        loadCache,
+        saveCache,
         update,
     };
 };

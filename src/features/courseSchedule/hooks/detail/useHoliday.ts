@@ -3,7 +3,7 @@ import {ScheduleTableItem} from "@/features/courseSchedule/type/schedule.ts";
 import moment from "moment";
 import {useStartDay} from "@/features/courseSchedule/hooks/detail/useStartDay.ts";
 
-interface HolidayRange {
+export interface HolidayRange {
     title: string;
     from: string; // YYYY-MM-DD
     to: string;

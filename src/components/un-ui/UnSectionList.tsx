@@ -28,9 +28,11 @@ export function UnSectionList(props: Props & SectionListProps<UnListItem, UnList
     const {theme} = useTheme();
     const bgOpacity = store(s => s.theme.bgOpacity);
 
-    const bgColor = Color(theme.mode === "light" ? theme.colors.background : theme.colors.grey5).setAlpha(
-        0.1 + ((theme.mode === "light" ? 0.7 : 0.1) * bgOpacity) / 100,
-    ).rgbaString;
+    const bgColor = Color.mix(
+        theme.mode === "light" ? theme.colors.background : theme.colors.grey5,
+        theme.colors.primary,
+        0.3,
+    ).setAlpha(0.1 + ((theme.mode === "light" ? 0.7 : 0.1) * bgOpacity) / 100).rgbaString;
     const borderRadius = 8;
     const span = 8;
     const style = StyleSheet.create({

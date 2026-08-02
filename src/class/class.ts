@@ -33,8 +33,6 @@ export class BaseZodClass<S extends z.ZodType<any>, O> extends BaseClass<O> {
 
     constructor(schema: S, ori: O) {
         super(ori);
-        const result = schema.parse(ori);
-        console.log(result);
-        this.transformed = result;
+        this.transformed = schema.parse(ori);
     }
 }

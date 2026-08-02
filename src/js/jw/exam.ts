@@ -1,16 +1,15 @@
 import {SchoolTerms, SchoolTermValue, SchoolYears} from "@/type/global.ts";
 import {ExamInfoQueryRes, ExamScoreQueryRes, UsualScoreQueryRes} from "@/type/api/infoQuery/examInfoAPI.ts";
-import {jwxt} from "@/js/jw/jwxt.ts";
 import {http, objectToFormUrlEncoded} from "@/core/http.ts";
 import {ToastAndroid} from "react-native";
 import {defaultYear} from "@/js/jw/infoQuery.ts";
 import {usualScoreParser} from "@/js/jw/usualScoreParser.ts";
-import {washExamScore} from "@/api/schema/examScoreSchema.ts";
+import {ensureJwAuthenticated} from "@/core/auth/Jw/JwMachine.ts";
 
 export const examApi = {
     getExamInfo: async (year: number, term: SchoolTermValue, page: number = 1): Promise<ExamInfoQueryRes | null> => {
         const yearIndex = SchoolYears.findIndex(v => +v[0] === year);
-        if (!(await jwxt.testToken())) {
+        if (!(await ensureJwAuthenticated())) {
             return null;
         }
         const reqBody = objectToFormUrlEncoded({
@@ -37,12 +36,12 @@ export const examApi = {
         page: number = 1,
         limit: number = 15,
     ): Promise<ExamScoreQueryRes | null> => {
-        if (!(await jwxt.testToken())) {
+        if (!(await ensureJwAuthenticated())) {
             return null;
         }
         const reqBody = objectToFormUrlEncoded({
-            xnm: year === "" ? "" : SchoolYears.find(v => +v[0] === year)?.[0] ?? defaultYear,
-            xqm: term === "" ? "" : term ?? SchoolTerms[0][0],
+            xnm: year === "" ? "" : (SchoolYears.find(v => +v[0] === year)?.[0] ?? defaultYear),
+            xqm: term === "" ? "" : (term ?? SchoolTerms[0][0]),
             queryModel: {
                 showCount: limit,
                 currentPage: page > 0 ? page : 1,
@@ -62,7 +61,7 @@ export const examApi = {
     getUsualScore: (year: number, term: SchoolTermValue, id: string): Promise<UsualScoreQueryRes> => {
         const yearIndex = SchoolYears.findIndex(v => +v[0] === year);
         return new Promise(async (resolve, reject) => {
-            if (!(await jwxt.testToken())) {
+            if (!(await ensureJwAuthenticated())) {
                 reject();
                 return;
             }

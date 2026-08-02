@@ -9,6 +9,7 @@ import {attendanceMachine} from "@/core/auth/attendance/attendanceMachine.ts";
 import {Account, AuthStateMap} from "@/core/auth/auth.type.ts";
 import {AuthState} from "@/core/auth/createAuthCore.ts";
 import {useWebView} from "@/hooks/app.ts";
+import {useAttendanceAuth} from "@/core/auth/attendance/hooks/useAttendanceAuth.ts";
 
 function statusMeta(state: AuthState<Account>) {
     switch (state.status) {
@@ -30,10 +31,9 @@ export function AttendanceSystemAccountScreen() {
     const [captchaCode, setCaptchaCode] = useState("");
     const [captchaUri, setCaptchaUri] = useState("");
     const [showPwd, setShowPwd] = useState(false);
-    const [loading, setLoading] = useState(false);
     const [hydrating, setHydrating] = useState(true);
     const [captchaLoading, setCaptchaLoading] = useState(false);
-    const [authState, setAuthState] = useState<AuthState<Account>>(attendanceMachine.getState());
+    const {authState, loading, login} = useAttendanceAuth();
     const [result, setResult] = useState<{kind: "idle" | "success" | "error"; title: string; message?: string}>({
         kind: "idle",
         title: "",
@@ -81,24 +81,21 @@ export function AttendanceSystemAccountScreen() {
             return;
         }
 
-        setLoading(true);
         setResult({kind: "idle", title: ""});
 
         try {
-            await attendanceMachine.saveAccount({username: u, password: p});
-            const res = await attendanceAuthApi.login(u, p, c);
+            const loginResult = await login(u, p, c);
+            if (!loginResult) return;
+            const {loginRes} = loginResult;
 
-            if (res.code === 600) {
-                setAuthState({status: AuthStateMap.Authenticated, account: {username: u, password: p}});
+            if (loginRes.code === 600) {
                 setResult({kind: "success", title: "登录成功"});
             } else {
-                setAuthState({status: AuthStateMap.HasAccountNotAuthenticated, account: {username: u, password: p}});
-                setResult({kind: "error", title: "登录失败", message: res.msg || "请检查帐密或验证码"});
+                setResult({kind: "error", title: "登录失败", message: loginRes.msg || "请检查帐密或验证码"});
             }
         } catch (e: any) {
             setResult({kind: "error", title: "发生异常", message: e?.message ? String(e.message) : "未知错误"});
         } finally {
-            setLoading(false);
             await refreshCaptcha();
         }
     }

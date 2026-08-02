@@ -1,7 +1,6 @@
 import React, {memo} from "react";
 import {StyleSheet, Text, View} from "react-native";
 import {UnOption} from "@/components/un-ui/UnOption.tsx";
-import {QuestionCard} from "@/features/evaluation/components/QuestionCard.tsx";
 
 interface Category {
     name: string; // 大指标名，如“师德表现”
@@ -46,7 +45,7 @@ export const EvaCategory = memo(
                     options={it.options.map(item => ({
                         ...item,
                         key: item.pfdjdmxmb_id,
-                        checked: item.checked === true,
+                        checked: item.checked,
                     }))}
                     label={it.title}
                     onSelect={optIdx => onSelect(catIdx, itIdx, optIdx)}

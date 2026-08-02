@@ -16,16 +16,22 @@ export function useCourse(
     loading: boolean;
 } {
     const startDay = useStartDay(year, term);
-    const {store: baseCourseStore, init: refreshBaseCourse} = useBaseCourse();
+    const {store: baseCourseStore, init: refreshBaseCourse, loadCache: loadCourseCache} = useBaseCourse();
     const baseCourse = baseCourseStore(s => s.courseList);
-    const {store: phyExpStore, init: initPhyExp} = usePhyExp();
-    const {store: attStore, init: initAttendance} = useAttendance();
+    const {store: phyExpStore, init: initPhyExp, loadCache: loadPhyExpCache} = usePhyExp();
+    const {store: attStore, init: initAttendance, loadCache: loadAttendanceCache} = useAttendance();
     const phyExpList = phyExpStore(s => s.phyExpList) || [];
     const attendanceList = attStore(s => s.normalizedList);
     const attStatus = attStore(s => s.status);
 
     useEffect(() => {
-        initPhyExp(year, term);
+        // 同步加载MMKV缓存到store，确保首次渲染就有数据
+        loadCourseCache(year, term);
+        loadPhyExpCache();
+        loadAttendanceCache();
+
+        // 异步拉取最新数据，成功后覆盖缓存
+        initPhyExp();
         initAttendance(year, term, startDay);
         refreshBaseCourse(year, term);
     }, [year, term]);

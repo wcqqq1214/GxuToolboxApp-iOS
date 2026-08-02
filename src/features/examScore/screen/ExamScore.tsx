@@ -1,29 +1,26 @@
-import {ScrollView, StyleSheet, View} from "react-native";
+import {ActivityIndicator, ScrollView, StyleSheet, TouchableOpacity, View} from "react-native";
 import {Button, Divider, Text, useTheme} from "@rneui/themed";
-import React, {useEffect, useMemo, useState} from "react";
+import React, {useCallback, useEffect, useMemo, useState} from "react";
 import Flex from "@/components/un-ui/Flex.tsx";
 import {SchoolTermValue} from "@/type/global.ts";
-import {NumberInput} from "@/components/un-ui/NumberInput.tsx";
-import {ExamScoreQueryRes} from "@/type/api/infoQuery/examInfoAPI.ts";
-import {store} from "@/core/store.ts";
 import {Color} from "@/shared/color.ts";
 import {ExamScoreTable} from "@/features/examScore/component/ExamScoreTable.tsx";
-import {examApi} from "@/js/jw/exam.ts";
 import {useNavigation} from "@react-navigation/native";
 import {ChooseTerm} from "@/components/tool/infoQuery/examInfo/ChooseTerm.tsx";
-import {electiveAPI} from "@/features/electiveStrategy/api";
 import {useUserConfig} from "@/hooks/useUserConfig.ts";
 import {Icon, UnJsonEditor, UnPressable, UnText} from "@/components/un-ui";
+import {useScore} from "@/features/examScore/hooks/useScore.ts";
 
 export function ExamScore() {
     const {store: ucStore} = useUserConfig();
     const devMode = ucStore(s => s.devMode);
     const {theme} = useTheme();
     const navigation = useNavigation();
-    const [apiRes, setApiRes] = useState<ExamScoreQueryRes>({} as ExamScoreQueryRes);
     const [year, setYear] = useState(+ucStore(s => s.jw.year));
     const [term, setTerm] = useState<SchoolTermValue>(ucStore(s => s.jw.term));
     const [page, setPage] = useState(1);
+    const {scores, isLoading, loadLocal, fetchRemote, lastSyncTime} = useScore();
+
     const [notScore, setNotScore] = useState<string[]>([""]);
     const style = useMemo(() => {
         return StyleSheet.create({
@@ -49,52 +46,35 @@ export function ExamScore() {
                 ).setAlpha(theme.mode === "dark" ? 0.3 : 0.6).rgbaString,
             },
             tableHeaderText: {},
+            gpaCal: {
+                backgroundColor: theme.colors.primary,
+                paddingVertical: 10,
+                paddingHorizontal: 12,
+                borderRadius: 6,
+            },
         });
     }, [theme]);
 
-    async function init() {
-        const data = await store.load<ExamScoreQueryRes>({key: "examScore"}).catch(e => {
-            console.warn(e);
-            return null;
-        });
-        if (data) {
-            setApiRes(data);
-        }
-    }
+    const query = useCallback(async () => {
+        const localTerm = term === "3" ? 1 : 2;
 
-    async function query() {
-        const res = await examApi.getExamScore(year, term, page);
-        if (res) {
-            setApiRes(res);
-            await store.save({key: "examScore", data: res});
-            await getCourse(year, term, res);
-        }
-    }
+        // 瞬间加载本地数据顶上（不阻塞）
+        await loadLocal(year, localTerm);
 
-    async function getCourse(year: number, term: SchoolTermValue, scoreRes: ExamScoreQueryRes) {
-        const courseListRes = await electiveAPI.getCourses(year, term).then(res => {
-            if (typeof res?.items === "object") {
-                return res;
-            }
-            return null;
-        });
+        // 紧接着发起远端请求静默更新
+        // 注意这里不要 await 它，让它在后台慢慢跑，跑完了 Hook 会自动 setScores 刷新界面
+        fetchRemote(year, term, page).catch(console.error);
+    }, [year, term, page, loadLocal, fetchRemote]);
 
-        if (courseListRes && scoreRes?.items) {
-            const scoredCourses = new Set(scoreRes.items.map(item => item.kcmc));
-            const unscored = courseListRes.items
-                .map(item => item.courseName)
-                .filter(courseName => !scoredCourses.has(courseName));
-            setNotScore([...new Set(unscored)]);
-        }
-    }
-
-    useEffect(() => {
-        init();
-    }, []);
-
+    // 当学年、学期、页码改变时，自动触发
     useEffect(() => {
         query();
-    }, [year, term, page]);
+    }, [query]);
+
+    // 手动点击查询按钮时，也是触发
+    const handleQuery = () => {
+        query();
+    };
 
     return (
         <ScrollView>
@@ -107,30 +87,33 @@ export function ExamScore() {
                 includeWholeYear={false}
             />
             <View style={style.container}>
-                <Flex direction="column" gap={15} align="flex-start">
-                    {apiRes?.items?.length > 0 && (
+                <Flex direction="column" style={{alignSelf: "stretch", marginBottom: 12}} gap={4}>
+                    {scores.length > 0 && (
                         <>
-                            <Flex align="flex-end" gap={5}>
-                                <Text h4>查询结果</Text>
-                                <Text>{`第${apiRes.currentPage ?? 1}/${apiRes.totalPage ?? 1}页，共有${
-                                    apiRes.totalCount ?? 0
-                                }条结果 `}</Text>
-                            </Flex>
-                            <Flex gap={10} justify="space-between" align="center">
-                                <Flex gap={10} align="center">
-                                    <Text>页数</Text>
-                                    <NumberInput value={page} onChange={setPage} min={1} max={apiRes.totalPage ?? 1} />
-                                    <Text>每页15条记录 </Text>
+                            <Flex
+                                justify="space-between"
+                                align="center"
+                                style={{alignSelf: "stretch", marginBottom: 12}}>
+                                <Flex direction="column" align="flex-start" gap={4}>
+                                    <Text h4 style={{margin: 0}}>
+                                        查询结果
+                                    </Text>
+                                    <Flex align="center" gap={8}>
+                                        {lastSyncTime && (
+                                            <Text style={{fontSize: 12, color: "gray"}}>上次同步: {lastSyncTime}</Text>
+                                        )}
+                                        {isLoading && <ActivityIndicator size="small" color={theme.colors.primary} />}
+                                    </Flex>
                                 </Flex>
-                                <Button onPress={() => navigation.navigate("gpaCalculator")}>绩点计算器</Button>
+                                <TouchableOpacity
+                                    onPress={() => navigation.navigate("gpaCalculator", {year, term})}
+                                    style={style.gpaCal}>
+                                    <Text style={{color: "white", fontSize: 16, fontWeight: "bold"}}>绩点计算器</Text>
+                                </TouchableOpacity>
                             </Flex>
-                            <Flex>
-                                <ExamScoreTable data={apiRes.items ?? []} year={year} term={term} />
-                            </Flex>
-                            <Flex gap={10} align="center">
-                                <Text>页数</Text>
-                                <NumberInput value={page} onChange={setPage} min={1} max={apiRes.totalPage ?? 1} />
-                                <Text>每页15条记录</Text>
+
+                            <Flex style={{width: "100%"}}>
+                                <ExamScoreTable data={scores} year={year} term={term} />
                             </Flex>
                         </>
                     )}
@@ -149,7 +132,7 @@ export function ExamScore() {
                     )}
                     {devMode && (
                         <Flex gap={8} direction="column">
-                            <ScheduleDataDebugCard label="查看考试成绩数据" data={apiRes} />
+                            <ScheduleDataDebugCard label="查看考试成绩数据" data={scores} />
                             <ScheduleDataDebugCard label="查看未出分科目" data={notScore} />
                         </Flex>
                     )}

@@ -20,6 +20,7 @@ export function normalizeCourse(data: ICourse): ScheduleTableItem[] {
                 title: course.title,
                 location: course.location,
                 teacher: course.teacher,
+                kind: "course",
                 raw: course.raw,
                 qq: course.qq,
                 // color: undefined,

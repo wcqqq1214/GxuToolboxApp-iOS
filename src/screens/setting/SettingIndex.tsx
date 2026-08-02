@@ -9,6 +9,8 @@ import {UnListSection, UnSectionList} from "@/components/un-ui/UnSectionList.tsx
 import {ToastAndroid} from "react-native";
 import {useUserConfig} from "@/hooks/useUserConfig.ts";
 import {useCourseData} from "@/hooks/useCourseData.ts";
+import {Color} from "@/shared/color.ts";
+import {getCurrentOTAVersionCode} from "@/core/ota.ts";
 
 export function SettingIndex() {
     const {store: ucStore} = useUserConfig();
@@ -68,7 +70,11 @@ export function SettingIndex() {
                             color={ucStore(s => s.theme.primaryColor)}
                             onColorChange={v => {
                                 const s = ucStore.getState();
-                                ucStore.getState().update("theme", {...s.theme, primaryColor: v});
+                                ucStore.getState().update("theme", {
+                                    ...s.theme,
+                                    primaryColor: v,
+                                    ripple: {color: Color(v).setAlpha(0.5).rgbaString},
+                                });
                             }}
                         />
                     ),
@@ -131,6 +137,11 @@ export function SettingIndex() {
             title: "软件",
             data: [
                 {
+                    label: "意见反馈",
+                    type: "navigation",
+                    value: "feedback",
+                },
+                {
                     label: "开发模式",
                     type: "any",
                     value: (
@@ -141,9 +152,17 @@ export function SettingIndex() {
                     ),
                 },
                 {
-                    label: "代码版本号",
-                    type: "text",
-                    value: packageJson.version,
+                    label: `软件版本 <${packageJson.version}>`,
+                    type: "navigation",
+                    value: "versionList",
+                },
+                {
+                    label: `代码版本 <${(() => {
+                        const code = getCurrentOTAVersionCode();
+                        return code > 0 ? String(code) : "无";
+                    })()}>`,
+                    type: "navigation",
+                    value: "otaList",
                 },
                 {
                     label: "源代码",
@@ -155,7 +174,7 @@ export function SettingIndex() {
                     label: "软件文档",
                     type: "link",
                     value: "Docs",
-                    url: "https://acm.gxu.edu.cn/docs/",
+                    url: "https://tooldoc.gxutech.xyz/",
                 },
                 {
                     label: "公测群",

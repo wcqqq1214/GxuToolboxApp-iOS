@@ -24,6 +24,35 @@ export function RootStack() {
                 }}
                 component={lazy(() => import("@/screens/WebViewScreen.tsx"))}
             />
+            <Stack.Screen
+                name="feedback"
+                options={{
+                    title: "意见反馈",
+                }}
+                component={lazy(() =>
+                    import("@/features/feedback/screens/FeedbackView.tsx").then(m => ({
+                        default: m.FeedbackView,
+                    })),
+                )}
+            />
+            <Stack.Screen
+                name="feedbackList"
+                options={{title: "我的反馈"}}
+                component={lazy(() =>
+                    import("@/features/feedback/screens/FeedbackListScreen.tsx").then(m => ({
+                        default: m.FeedbackListScreen,
+                    })),
+                )}
+            />
+            <Stack.Screen
+                name="feedbackDetail"
+                options={{title: "反馈详情"}}
+                component={lazy(() =>
+                    import("@/features/feedback/screens/FeedbackDetailScreen.tsx").then(m => ({
+                        default: m.FeedbackDetailScreen,
+                    })),
+                )}
+            />
         </Stack.Navigator>
     );
 }

@@ -28,7 +28,7 @@ const ChangeDetail = ({label, oldValue, newValue}: {label: string; oldValue: str
             <Text style={[styles.label, {color: theme.colors.grey1}]}>{label}:</Text>
             <View style={styles.changeContainer}>
                 <Text style={styles.oldValue}> {oldValue} </Text>
-                <Icon name="right" size={16} color={theme.colors.grey2} style={{marginHorizontal: 5}} />
+                <Icon name="arrow-right" size={16} color={theme.colors.grey2} style={{marginHorizontal: 5}} />
                 <Text style={styles.newValue}> {newValue} </Text>
             </View>
         </View>
@@ -117,7 +117,7 @@ export function RescheduleNotificationScreen() {
                             key={index + item.time}
                             content={
                                 <>
-                                    <Icon name="info" size={24} color="#337ab7" />
+                                    <Icon name="information-box-outline" size={24} color="#337ab7" />
                                     <ListItem.Content style={{marginLeft: 10}}>
                                         <ListItem.Title style={styles.title}>调课提醒：{item.course}</ListItem.Title>
                                         <ListItem.Subtitle style={styles.subtitle}>{item.time}</ListItem.Subtitle>

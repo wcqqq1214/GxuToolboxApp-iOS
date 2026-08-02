@@ -9,17 +9,20 @@ import {UnToastContextProvider} from "@/components/un-ui/UnToast.tsx";
 import {MapPickerHost} from "@/features/map/components/MapPickerHost.tsx";
 import {cowsay} from "@/js/cowsay.ts";
 import {generateUiTheme} from "@/shared/theme.ts";
+import {useConflictCourseStore} from "@/features/courseSchedule/stores/useConflictCourseStore.ts";
 
 export function Root(props: ViewProps) {
     const {store: ucStore, init: ucInit} = useUserConfig();
     const {theme, updateTheme} = useTheme();
     const {init: courseInit} = useCourseData();
+    const {init: conflictInit} = useConflictCourseStore();
     const userConfig = ucStore();
     const colorScheme = useColorScheme();
 
     useEffect(() => {
         courseInit();
         ucInit();
+        conflictInit();
         cowsay({
             text: "恭喜你，成功启动了开发服",
             f: "dragon",

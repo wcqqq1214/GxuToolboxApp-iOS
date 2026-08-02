@@ -40,7 +40,7 @@ export const HolidayItem = memo(({item, onPress}: HolidayItemProps) => {
                     marginHorizontal: "2%",
                     borderRadius: 6,
                     backgroundColor: backgroundColor,
-                    height: span * timeSpanHeight - courseItemMargin * 2,
+                    height: timeSpanHeight * (timeSpanHeight <= 40 ? 14 : 13),
                     top: y * timeSpanHeight + courseItemMargin,
                     overflow: "hidden",
                     // Design change: Top accent border (like a sticky note) instead of left border

@@ -49,11 +49,11 @@ export const NewCourseItem = memo(({item, onPress, conflictCount}: NewCourseItem
                 text: {
                     textAlign: "center",
                     color: textColor,
-                    fontSize: 12,
+                    fontSize: 10,
                 },
                 icon: {
                     color: textColor,
-                    fontSize: 12,
+                    fontSize: 10,
                 },
                 badge: {
                     position: "absolute",
@@ -68,7 +68,7 @@ export const NewCourseItem = memo(({item, onPress, conflictCount}: NewCourseItem
                 },
                 badgeText: {
                     color: textColor,
-                    fontSize: 10,
+                    fontSize: 9,
                     fontWeight: "bold",
                 },
             }),
@@ -104,7 +104,7 @@ export const NewCourseItem = memo(({item, onPress, conflictCount}: NewCourseItem
                         />
                     )}
                     {item.isShift && (
-                        <Text style={{color: theme.colors.warning, fontSize: 12, fontWeight: "bold"}}>(调) </Text>
+                        <Text style={{color: theme.colors.warning, fontSize: 10, fontWeight: "bold"}}>(调) </Text>
                     )}
                     {item.title}
                 </Text>
@@ -112,7 +112,7 @@ export const NewCourseItem = memo(({item, onPress, conflictCount}: NewCourseItem
 
                 {!!item.location && (
                     <Text style={styles.text}>
-                        <Icon name="map-marker" size={12} color={textColor} />
+                        <Icon name="map-marker" size={10} color={textColor} />
                         {"\n" + item.location.replace("-", "\n")}
                     </Text>
                 )}

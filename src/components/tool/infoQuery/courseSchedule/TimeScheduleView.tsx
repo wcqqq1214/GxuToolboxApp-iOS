@@ -1,5 +1,5 @@
-import React, {memo, useMemo} from "react";
-import {StyleSheet, View} from "react-native";
+import React, {memo, useCallback, useMemo} from "react";
+import {Pressable, StyleSheet, Vibration, View} from "react-native";
 import {TimeSchedule, TimeScheduleProps} from "@/components/tool/infoQuery/courseSchedule/TimeSchedule.tsx";
 import {usePagerView} from "react-native-pager-view";
 import moment from "moment/moment";
@@ -25,6 +25,11 @@ export const TimeScheduleView = memo(function TimeScheduleView(props: TimeSchedu
         [flatItems, paletteName, customColors],
     );
 
+    const handleLongPress = useCallback(() => {
+        Vibration.vibrate(10);
+        ref.current?.setPage(realCurrentWeek - 1);
+    }, [realCurrentWeek]);
+
     const timeSpanHeight = store(s => s.theme.timeSpanHeight);
     const weekdayHeight = store(s => s.theme.weekdayHeight);
     const style = useMemo(
@@ -40,30 +45,30 @@ export const TimeScheduleView = memo(function TimeScheduleView(props: TimeSchedu
 
     return (
         <ColorMapContext.Provider value={colorMap}>
-            <View style={{width: "100%"}}>
-                <AnimatedPagerView
-                    ref={ref}
-                    style={style.pagerView}
-                    initialPage={realCurrentWeek - 1}
-                    layoutDirection="ltr"
-                    scrollEnabled={rest.scrollEnabled}
-                    pageMargin={10}
-                    onPageSelected={rest.onPageSelected}
-                    onPageScrollStateChanged={rest.onPageScrollStateChanged}
-                    offscreenPageLimit={2}
-                    overScrollMode="never"
-                    orientation="horizontal">
-                    {useMemo(
-                        () =>
-                            rest.pages.map((_, index) => (
+            <AnimatedPagerView
+                ref={ref}
+                style={style.pagerView}
+                initialPage={realCurrentWeek - 1}
+                layoutDirection="ltr"
+                scrollEnabled={rest.scrollEnabled}
+                pageMargin={10}
+                onPageSelected={rest.onPageSelected}
+                onPageScrollStateChanged={rest.onPageScrollStateChanged}
+                offscreenPageLimit={2}
+                overScrollMode="never"
+                orientation="horizontal">
+                {useMemo(
+                    () =>
+                        rest.pages.map((_, index) => (
+                            <Pressable style={{width: "100%"}} onLongPress={handleLongPress}>
                                 <View key={index} collapsable={false}>
                                     <TimeSchedule {...props} currentWeek={index + 1} />
                                 </View>
-                            )),
-                        [rest.pages.length, props.scheduleItems, props.startDay],
-                    )}
-                </AnimatedPagerView>
-            </View>
+                            </Pressable>
+                        )),
+                    [rest.pages.length, props.scheduleItems, props.startDay],
+                )}
+            </AnimatedPagerView>
         </ColorMapContext.Provider>
     );
 });

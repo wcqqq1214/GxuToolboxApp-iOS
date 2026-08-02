@@ -1,5 +1,6 @@
 import React, {useCallback, useState} from "react";
 import {ActivityIndicator, ScrollView, StyleSheet, View} from "react-native";
+import {useNavigation} from "@react-navigation/native";
 import {BottomSheet, Button, Card, Divider, Text, useTheme} from "@rneui/themed";
 import Flex from "@/components/un-ui/Flex.tsx";
 import {Schools} from "@/type/global.ts";
@@ -20,15 +21,26 @@ import {NewCourseItem} from "@/features/courseSchedule/components/NewCourseItem.
 import {ScheduleTableItem, TimeScheduleItemData} from "@/features/courseSchedule/type/schedule.ts";
 import {CourseDetail} from "@/features/courseSchedule/components/CourseDetail.tsx";
 import {CourseClass} from "@/class/jw/course.ts";
+import {StackCourseItem} from "@/features/courseSchedule/components/StackCourseItem.tsx";
+import {useConflictCourseStore} from "@/features/courseSchedule/stores/useConflictCourseStore.ts";
+import {ConflictCourseSheet} from "@/features/courseSchedule/components/ConflictCourseList.tsx";
 import {Color} from "@/shared/color.ts";
 import {useUserConfig} from "@/hooks/useUserConfig.ts";
 import {Icon, UnJsonEditor, UnPressable, UnText} from "@/components/un-ui";
 
+type SheetState =
+    | {type: "closed"}
+    | {type: "itemDetail"; item: ScheduleTableItem; day: moment.Moment}
+    | {type: "courseConflict"; courses: CourseClass[]; day: moment.Moment};
+
 export function ClassCourseSchedule() {
+    const navigation = useNavigation();
     const {openInJw} = useWebView();
     const {theme} = useTheme();
     const {store} = useUserConfig();
     const devMode = store(s => s.devMode);
+
+    const {store: conflictStore} = useConflictCourseStore();
 
     const {
         school,
@@ -50,13 +62,12 @@ export function ClassCourseSchedule() {
 
     const startDay = useStartDay(+year, term);
 
-    const [itemDetailShow, setItemDetailShow] = useState(false);
-    const [itemDetail, setItemDetail] = useState<ScheduleTableItem>();
+    const [sheet, setSheet] = useState<SheetState>({type: "closed"});
 
-    const onItemPress = useCallback((item: ScheduleTableItem) => {
-        setItemDetail(item);
-        setItemDetailShow(true);
-    }, []);
+    const onItemPress = useCallback(
+        (item: ScheduleTableItem, day: moment.Moment) => setSheet({type: "itemDetail", item, day}),
+        [],
+    );
 
     return (
         <ScrollView>
@@ -125,6 +136,11 @@ export function ClassCourseSchedule() {
                             前往教务查询
                         </Button>
                     </Flex>
+                    <Button
+                        title="导出课表"
+                        onPress={() => navigation.navigate("ExportScheduleScreen", {tab: "class"})}
+                        containerStyle={{marginVertical: 8, width: "100%"}}
+                    />
                 </Flex>
                 <Divider />
                 <Text h4>课表查询结果</Text>
@@ -134,7 +150,7 @@ export function ClassCourseSchedule() {
                         <View style={{flex: 1}}>
                             <UnPicker selectedValue={index} onValueChange={setIndex}>
                                 {[...list].map((value, index) => {
-                                    return <Picker.Item value={index} label={value.tjkbmc} key={value.id} />;
+                                    return <Picker.Item value={index} label={value.className} key={value.id} />;
                                 })}
                             </UnPicker>
                         </View>
@@ -167,9 +183,27 @@ export function ClassCourseSchedule() {
                                     data: theorySchedule,
                                     isItemShow: (item: ScheduleTableItem, day: moment.Moment, week: number) =>
                                         item.week === week && item.day === day.isoWeekday(),
-                                    itemRender: (item, _day, _week) => (
-                                        <NewCourseItem item={item} onPress={onItemPress} />
+                                    itemRender: (item, day) => (
+                                        <NewCourseItem item={item} onPress={() => onItemPress(item, day)} />
                                     ),
+                                    isItemStack: (a, b) => a.begin <= b.end && b.begin <= a.end,
+                                    stackRender: (items, day, _week, timeRange) => {
+                                        const courses = items
+                                            .map(i => new CourseClass(i.raw))
+                                            .filter(Boolean);
+                                        if (courses.length === 0) return null;
+                                        const courseCodes = courses.map(c => c.transformed.courseCode + "_" + c.transformed.staffId).sort();
+                                        const storedActive = conflictStore.getState().getActive(courseCodes);
+                                        const activeCourse = storedActive ?? (courses[0] ? courses[0].transformed.courseCode + "_" + courses[0].transformed.staffId : "");
+                                        return (
+                                            <StackCourseItem
+                                                course={courses}
+                                                activeCourse={activeCourse}
+                                                timeRange={timeRange}
+                                                onPress={c => setSheet({type: "courseConflict", courses: c, day})}
+                                            />
+                                        );
+                                    },
                                 } as TimeScheduleItemData,
                             ]}
                         />
@@ -189,7 +223,7 @@ export function ClassCourseSchedule() {
                     </Flex>
                 )}
             </View>
-            <BottomSheet isVisible={itemDetailShow} onBackdropPress={() => setItemDetailShow(false)}>
+            <BottomSheet isVisible={sheet.type !== "closed"} onBackdropPress={() => setSheet({type: "closed"})}>
                 <View
                     style={{
                         backgroundColor: theme.colors.background,
@@ -199,7 +233,32 @@ export function ClassCourseSchedule() {
                         borderWidth: 1,
                         padding: "2.5%",
                     }}>
-                    {itemDetail?.raw && <CourseDetail course={new CourseClass(itemDetail.raw)} />}
+                    {sheet.type === "itemDetail" && sheet.item.raw && (
+                        <CourseDetail course={new CourseClass(sheet.item.raw)} />
+                    )}
+                    {sheet.type === "courseConflict" && (
+                        <ConflictCourseSheet
+                            courses={sheet.courses}
+                            onSelect={() => setSheet({type: "closed"})}
+                            onPressActiveCourse={course => {
+                                setSheet({
+                                    type: "itemDetail",
+                                    day: sheet.day,
+                                    item: {
+                                        id: course.transformed.courseCode,
+                                        week: 0,
+                                        day: 1 as ScheduleTableItem["day"],
+                                        begin: 1 as ScheduleTableItem["begin"],
+                                        end: 1 as ScheduleTableItem["begin"],
+                                        title: course.transformed.courseName,
+                                        location: course.transformed.venueName,
+                                        teacher: course.transformed.name,
+                                        raw: course,
+                                    },
+                                });
+                            }}
+                        />
+                    )}
                 </View>
             </BottomSheet>
         </ScrollView>

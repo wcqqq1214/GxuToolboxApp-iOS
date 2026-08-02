@@ -44,7 +44,6 @@ export function usualScoreParser(html: string): UsualScoreItem[] {
             });
         }
     });
-    console.log(results);
 
     return results;
 }

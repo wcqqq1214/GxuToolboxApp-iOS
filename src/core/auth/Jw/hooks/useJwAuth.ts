@@ -22,7 +22,7 @@ export function useJwAuth() {
     }, []);
 
     useEffect(() => {
-        const unsubscribe=JwMachine.subscribe(setAuthState);
+        const unsubscribe = JwMachine.subscribe(setAuthState);
         setAuthState(JwMachine.getState());
         return unsubscribe;
     }, []);

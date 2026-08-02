@@ -1,6 +1,5 @@
 import {Row} from "react-native-reanimated-table";
 import {StyleSheet, TouchableOpacity} from "react-native";
-import {Color} from "@/shared/color.ts";
 import {useTheme} from "@rneui/themed";
 import React from "react";
 import {Evaluation} from "@/features/evaluation/types/evaluation.type.ts";
@@ -13,14 +12,16 @@ interface EvaluationRowProps {
     colorMap: Record<string, string>;
 }
 
-const EvaluationRowComponent = ({item, onPress, colWidths, colorMap}: EvaluationRowProps) => {
+const EvaluationRowComponent = ({item, onPress, colorMap}: EvaluationRowProps) => {
     const {theme} = useTheme();
+    const colWidths = [12, 6, 5];
     const styles = StyleSheet.create({
         row: {
-            height: 45,
-            borderBottomWidth: 1,
-            borderBottomColor: Color(theme.colors.primary).setAlpha(0.3).rgbaString,
+            height: "auto",
+            borderBottomWidth: StyleSheet.hairlineWidth,
+            borderBottomColor: theme.colors.divider,
             alignItems: "center",
+            paddingVertical: 14,
         },
         rowText: {
             textAlign: "center",
@@ -32,7 +33,7 @@ const EvaluationRowComponent = ({item, onPress, colWidths, colorMap}: Evaluation
         <TouchableOpacity onPress={() => onPress(item)}>
             <Row
                 cellTextStyle={cell => ({color: colorMap[cell] ?? theme.colors.black})}
-                data={[`${item.courseName} - ${item.courseTypeName}`, item.teacherName, item.submitStatus]}
+                data={[`${item.courseName}(${item.courseTypeName})`, item.teacherName, item.submitStatus]}
                 style={styles.row}
                 flexArr={colWidths}
                 textStyle={styles.rowText}

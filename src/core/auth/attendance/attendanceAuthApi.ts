@@ -40,7 +40,7 @@ async function login(username: string, password: string, captchaCode: string): P
 
     await userMgr.attendanceSystem.storeLoginRes(res.data);
     if (res.data.code === 600) {
-        await attendanceApi.getMenuData();
+        await attendanceApi.getMenuData().catch(() => undefined);
     }
     return res.data;
 }

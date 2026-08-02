@@ -1,6 +1,7 @@
-import {ScrollView, StyleSheet, ToastAndroid} from "react-native";
-import {Button, Tab, TabView, Text, useTheme} from "@rneui/themed";
+import {FlatList, ScrollView, StyleSheet, ToastAndroid, View} from "react-native";
+import {Button, Tab, Text, useTheme} from "@rneui/themed";
 import React, {useEffect, useState} from "react";
+import {usePagerView} from "react-native-pager-view";
 import {Color} from "@/shared/color.ts";
 import {TimeSchedule} from "@/components/tool/infoQuery/courseSchedule/TimeSchedule.tsx";
 import {
@@ -42,8 +43,8 @@ export default function AttendanceInfoQueryScreen() {
     const {year, term, setBoth} = useSchoolTerm();
     const {openInWeb} = useWebView();
     const [calender, setCalender] = useState<AST.Calendar>();
-    const [tabIndex, setTabIndex] = useState(0);
     const {theme} = useTheme();
+    const pagerView = usePagerView({pagesAmount: 2});
 
     const [quickLoginShow, setQuickLoginShow] = useState(false);
 
@@ -85,26 +86,28 @@ export default function AttendanceInfoQueryScreen() {
                 在浏览器打开考勤系统
             </Button>
             <Tab
-                value={tabIndex}
+                value={pagerView.activePage}
                 dense={true}
-                titleStyle={{color: "#fff"}}
+                titleStyle={{color: theme.colors.primary}}
                 indicatorStyle={{backgroundColor: theme.colors.primary}}
-                onChange={setTabIndex}>
+                animationType="timing"
+                onChange={i => pagerView.ref.current?.setPage(i)}>
                 <Tab.Item title="考勤课表" />
                 <Tab.Item title="考勤记录" />
             </Tab>
-            <TabView
-                value={tabIndex}
-                tabItemContainerStyle={{overflow: "hidden"}}
-                animationType="timing"
-                onChange={setTabIndex}>
-                <TabView.Item style={style.tab}>
+            <pagerView.AnimatedPagerView
+                ref={pagerView.ref}
+                style={{width: vw(100), height: "100%"}}
+                overScrollMode="never"
+                orientation="horizontal"
+                onPageSelected={pagerView.onPageSelected}>
+                <View key="0" collapsable={false} style={style.tab}>
                     <TableScreen calender={calender} onTestToken={testToken} />
-                </TabView.Item>
-                <TabView.Item style={style.tab}>
+                </View>
+                <View key="1" collapsable={false} style={style.tab}>
                     <RecordScreen calender={calender} onTestToken={testToken} />
-                </TabView.Item>
-            </TabView>
+                </View>
+            </pagerView.AnimatedPagerView>
         </>
     );
 }
@@ -305,9 +308,13 @@ function RecordScreen(props: ScreenType) {
                     </Flex>
                     <Text>每页20条记录</Text>
                 </Flex>
-                <ScrollView horizontal>
-                    <UnTable<AST.AttendanceData> data={tableData} cols={cols} />
-                </ScrollView>
+                <FlatList
+                    horizontal
+                    data={[]}
+                    renderItem={null}
+                    ListHeaderComponent={<UnTable<AST.AttendanceData> data={tableData} cols={cols} />}
+                    showsHorizontalScrollIndicator={false}
+                />
                 <Flex gap={10}>
                     <Text>页数</Text>
                     <Flex inline>

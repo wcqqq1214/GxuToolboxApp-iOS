@@ -1,7 +1,8 @@
 import {UnText, vh, vw} from "@/components/un-ui";
 import {Dimensions, ScrollView, StyleSheet, View} from "react-native";
-import {Divider, Image, Tab, TabView, useTheme} from "@rneui/themed";
+import {Divider, Image, Tab, useTheme} from "@rneui/themed";
 import React, {useEffect, useState} from "react";
+import {usePagerView} from "react-native-pager-view";
 import {teacherInfoApi} from "@/js/info/teacherInfo.ts";
 import {DetailResData} from "@/type/api/teacherInfo/info.ts";
 import {Color} from "@/shared/color.ts";
@@ -10,7 +11,7 @@ export function DetailInfoScreen({route}) {
     const {teacher} = route.params;
 
     const [teacherInfo, setTeacherInfo] = useState<DetailResData>();
-    const [tabIndex, setTabIndex] = useState(0);
+    const pagerView = usePagerView({pagesAmount: 11});
 
     const {theme} = useTheme();
     const {width: screenWidth, height: screenHeight} = Dimensions.get("window");
@@ -191,10 +192,12 @@ export function DetailInfoScreen({route}) {
 
                 <ScrollView horizontal={true}>
                     <Tab
-                        value={tabIndex}
-                        onChange={setTabIndex}
+                        value={pagerView.activePage}
+                        onChange={i => pagerView.ref.current?.setPage(i)}
                         variant="default"
                         dense
+                        titleStyle={{color: theme.colors.primary}}
+                        animationType="timing"
                         indicatorStyle={{backgroundColor: theme.colors.primary}}>
                         {detailDataList.map(item => (
                             <Tab.Item title={item.label} />
@@ -202,17 +205,18 @@ export function DetailInfoScreen({route}) {
                     </Tab>
                 </ScrollView>
 
-                <TabView
-                    value={tabIndex}
-                    onChange={setTabIndex}
-                    animationType="spring"
-                    containerStyle={{height: vh(53)}}>
+                <pagerView.AnimatedPagerView
+                    ref={pagerView.ref}
+                    style={{width: "100%", height: vh(53)}}
+                    overScrollMode="never"
+                    orientation="horizontal"
+                    onPageSelected={pagerView.onPageSelected}>
                     {detailDataList.map((item, index) => (
-                        <TabView.Item key={index} style={{width: "100%", height:vh(53)}}>
+                        <View key={index} collapsable={false} style={{width: "100%", height: vh(53)}}>
                             {item.render()}
-                        </TabView.Item>
+                        </View>
                     ))}
-                </TabView>
+                </pagerView.AnimatedPagerView>
             </ScrollView>
         </>
     );

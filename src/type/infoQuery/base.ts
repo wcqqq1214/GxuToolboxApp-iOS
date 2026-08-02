@@ -34,7 +34,7 @@ export interface UserInfo {
     /** 名字 */
     name: string;
     /** 学院 */
-    school: SchoolLabel;
+    school: string;
     /** 班级 */
     class: string;
     /** 年级 */

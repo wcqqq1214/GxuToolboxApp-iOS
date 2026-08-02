@@ -34,7 +34,7 @@ export default function ElectiveStrategy() {
                 // 只要已修完，出成绩，并且及格了的科目
                 const scorePromise = examApi
                     .getExamScore("", "", 1, 1000)
-                    .then(r => r!.items.filter((i: any) => Number(i.cj) > 60));
+                    .then(r => r!.items.filter((i: any) => Number(i.cj) >= 60));
 
                 const [fetchedCourses, userInfo, score] = await Promise.all([coursePromise, infoPromise, scorePromise]);
 
@@ -142,7 +142,9 @@ export default function ElectiveStrategy() {
                         <View key={index} style={styles.courseRow}>
                             <View style={styles.courseInfo}>
                                 <Flex direction="row" align="center" gap={6}>
-                                    {(c.belongTo.includes("网络") || c.teacher === "网络教师") && <Icon name="cast-education" size={16} color={theme.colors.primary} />}
+                                    {(c.belongTo.includes("网络") || c.teacher === "网络教师") && (
+                                        <Icon name="cast-education" size={16} color={theme.colors.primary} />
+                                    )}
                                     <Text style={styles.courseName}>{c.courseName}</Text>
                                 </Flex>
                                 <Text style={styles.courseMeta}>

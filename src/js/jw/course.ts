@@ -10,7 +10,6 @@ import {
     GetCourseScheduleListRes,
     PhyExpQueryRes,
 } from "@/type/api/infoQuery/classScheduleAPI.ts";
-import {jwxt} from "@/js/jw/jwxt.ts";
 import {http, objectToFormUrlEncoded} from "@/core/http.ts";
 import {defaultYear} from "@/js/jw/infoQuery.ts";
 import {Course, CourseListTypeId, PhyExp, PracticalCourse} from "@/type/infoQuery/course/course.ts";
@@ -18,6 +17,7 @@ import {authApi} from "@/js/auth/auth.ts";
 import axios from "axios";
 import {EngTrainingScheduleRes} from "@/type/api/infoQuery/EngTraining.ts";
 import {CourseScheduleClass} from "@/class/jw/course.ts";
+import {ensureJwAuthenticated} from "@/core/auth/Jw/JwMachine.ts";
 
 export const CourseScheduleData = {
     courseInfoVisible: {
@@ -208,7 +208,7 @@ export const courseApi = {
         term: SchoolTermValue,
     ): Promise<CourseScheduleClass | undefined> => {
         const schoolYear = SchoolYears.find(v => +v[0] === year) ?? SchoolYears.find(v => +v[0] === defaultYear)!;
-        if (!(await jwxt.testToken())) {
+        if (!(await ensureJwAuthenticated())) {
             return;
         }
         const reqBody = objectToFormUrlEncoded({

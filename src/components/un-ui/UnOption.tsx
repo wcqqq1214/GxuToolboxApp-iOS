@@ -1,7 +1,6 @@
 import React, {useState} from "react";
 import {Text, useTheme} from "@rneui/themed";
 import {StyleSheet, TouchableOpacity, View, ViewProps} from "react-native";
-import {Color} from "@/shared/color.ts";
 
 interface Props {
     options: Option[];
@@ -17,45 +16,77 @@ interface Option {
 
 export function UnOption(props: Props & ViewProps) {
     const {theme} = useTheme();
-
     const [selectIdx, setSelectIdx] = useState<number>(-1);
-    const defaultColor = Color.mix(
-        Color(theme.colors.primary),
-        Color(theme.colors.background),
-        theme.mode === "dark" ? 0.2 : 0.1,
-    ).setAlpha(theme.mode === "dark" ? 0.3 : 0.8).rgbaString;
+
     const styles = StyleSheet.create({
-        item: {marginBottom: 8},
-        itemTitle: {fontSize: 14, marginBottom: 4, marginLeft: 10, marginRight: 10},
-        optionButton: {
-            paddingVertical: 8,
-            paddingHorizontal: 12,
+        item: {marginBottom: 16},
+        itemTitle: {
+            fontSize: 14,
+            lineHeight: 22,
+            color: theme.colors.black,
+            marginBottom: 12,
+        },
+        radioRow: {
+            flexDirection: "row",
+            justifyContent: "space-between",
+            gap: 6,
+        },
+        radioWrap: {
+            flex: 1,
+            alignItems: "center",
+            justifyContent: "center",
+            paddingVertical: 10,
+            borderRadius: 10,
             borderWidth: 1,
-            borderColor: defaultColor,
-            borderRadius: 8,
-            marginBottom: 9,
+            borderColor: theme.mode === "dark" ? "rgba(255,255,255,0.08)" : "#f0f0f0",
+            backgroundColor: theme.mode === "dark" ? "rgba(255,255,255,0.03)" : "#fafafa",
         },
-        optionButtonChecked: {
-            backgroundColor: defaultColor,
+        radioDot: {
+            width: 8,
+            height: 8,
+            borderRadius: 4,
+            backgroundColor: theme.mode === "dark" ? "rgba(255,255,255,0.2)" : "#d9d9d9",
+            marginBottom: 6,
         },
-        optionText: {fontSize: 15, color: theme.colors.black},
-        optionTextChecked: {color: "#fff", fontWeight: "bold"},
+        radioText: {
+            fontSize: 11,
+            color: theme.colors.grey2,
+            textAlign: "center",
+        },
     });
+
+    const isActive = (opt: Option, optIdx: number) => (opt.checked && selectIdx === -1) || selectIdx === optIdx;
+
     return (
         <View style={styles.item} {...props}>
             <Text style={styles.itemTitle}>{props.label}</Text>
-
-            {props.options.map((opt, optIdx) => (
-                <TouchableOpacity
-                    key={opt.key}
-                    style={[styles.optionButton, ((opt.checked && selectIdx === -1) || selectIdx === optIdx) && styles.optionButtonChecked]}
-                    onPress={() => {
-                        props.onSelect?.(optIdx);
-                        setSelectIdx(optIdx);
-                    }}>
-                    <Text style={[styles.optionText, ((opt.checked && selectIdx === -1) || selectIdx === optIdx) && styles.optionTextChecked]}>{opt.label}</Text>
-                </TouchableOpacity>
-            ))}
+            <View style={styles.radioRow}>
+                {props.options.map((opt, optIdx) => {
+                    const active = isActive(opt, optIdx);
+                    return (
+                        <TouchableOpacity
+                            key={opt.key}
+                            activeOpacity={0.7}
+                            style={[
+                                styles.radioWrap,
+                                active && {
+                                    borderColor: theme.colors.primary,
+                                    backgroundColor: `${theme.colors.primary}15`,
+                                },
+                            ]}
+                            onPress={() => {
+                                props.onSelect?.(optIdx);
+                                setSelectIdx(optIdx);
+                            }}>
+                            <View style={[styles.radioDot, active && {backgroundColor: theme.colors.primary}]} />
+                            <Text
+                                style={[styles.radioText, active && {color: theme.colors.primary, fontWeight: "600"}]}>
+                                {opt.label}
+                            </Text>
+                        </TouchableOpacity>
+                    );
+                })}
+            </View>
         </View>
     );
 }

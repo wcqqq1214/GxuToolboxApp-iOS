@@ -10,11 +10,11 @@ const rawTeacherList = z.object({
     xsdm: z.string(),
     xsmc: z.string(),
     tjztmc: z.string(),
-    pjmbmcb_id:z.string(),
+    pjmbmcb_id:z.string().optional(),
 });
 
 export const TeacherList = rawTeacherList.transform(i => ({
-    /** 某种安全令牌 @原 jgh_id */
+    /** 教工号（安全令牌）@原 jgh_id */
     securityToken: i.jgh_id,
     /** 教学班唯一标识 @原 jxb_id */
     teachingClassId: i.jxb_id,

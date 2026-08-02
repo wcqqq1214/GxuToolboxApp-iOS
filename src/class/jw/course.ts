@@ -4,13 +4,14 @@ import {Course, CourseScheduleSchema, CourseSchema} from "@/type/infoQuery/cours
 import moment from "moment/moment";
 import {CourseScheduleData} from "@/js/jw/course.ts";
 import {AttendanceDataClass} from "@/class/auth/attendanceSystem.ts";
+import {DeepPartial} from "@/type/global.ts";
 
 /** 课表类，解析后的元数据存储在 `transformed` 中，原始数据存储在 `_ori` 中 */
 export class CourseScheduleClass extends BaseZodClass<typeof CourseScheduleSchema, CourseScheduleQueryRes> {
     attendanceData?: AttendanceDataClass;
 
-    constructor(apiRes: CourseScheduleQueryRes) {
-        super(CourseScheduleSchema, apiRes);
+    constructor(apiRes: DeepPartial<CourseScheduleQueryRes>) {
+        super(CourseScheduleSchema, apiRes as CourseScheduleQueryRes);
     }
 
     set setTermAttendanceData(data: AttendanceDataClass) {
@@ -54,9 +55,9 @@ export class CourseScheduleClass extends BaseZodClass<typeof CourseScheduleSchem
 export class CourseClass extends BaseZodClass<typeof CourseSchema, Course> {
     weekPeriod: number[];
 
-    constructor(ori: Course) {
+    constructor(ori: DeepPartial<Course>) {
         const rawOri = ori instanceof CourseClass ? ori._ori : ori;
-        super(CourseSchema, rawOri);
+        super(CourseSchema, rawOri as Course);
         this.weekPeriod = this.getWeeksList;
     }
 

@@ -1,5 +1,5 @@
-import React, {useCallback, useEffect, useMemo, useState} from "react";
-import {ScrollView, StyleSheet, Text, TouchableOpacity, View, Alert} from "react-native";
+import React, {useCallback, useEffect, useState} from "react";
+import {Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View} from "react-native";
 import {Button, Input, useTheme} from "@rneui/themed";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -59,7 +59,7 @@ async function saveTemplate(answers: Record<number, LevelType>, comment: string)
             });
         });
 
-        const data: EvaluationTemplate = { selected, comment };
+        const data: EvaluationTemplate = {selected, comment};
         const jsonValue = JSON.stringify(data);
         await AsyncStorage.setItem(STORAGE_KEY, jsonValue);
     } catch (e) {
@@ -67,7 +67,7 @@ async function saveTemplate(answers: Record<number, LevelType>, comment: string)
     }
 }
 
-async function loadTemplate(): Promise<{ answers: Record<number, LevelType>, comment: string } | null> {
+async function loadTemplate(): Promise<{answers: Record<number, LevelType>; comment: string} | null> {
     try {
         const jsonValue = await AsyncStorage.getItem(STORAGE_KEY);
         if (jsonValue === null) return null;
@@ -83,14 +83,16 @@ async function loadTemplate(): Promise<{ answers: Record<number, LevelType>, com
                     if (optionIdx !== undefined && LEVELS[optionIdx]) {
                         answers[itemCounter] = LEVELS[optionIdx];
                     } else {
-                        answers[itemCounter] = "满意"; // Fallback
+                        if (i === 1)
+                            answers[itemCounter] = "满意"; // Fallback
+                        else answers[itemCount] = "非常满意";
                     }
                     itemCounter++;
                 }
             });
         });
 
-        return { answers, comment: storedData.comment || "" };
+        return {answers, comment: storedData.comment || ""};
     } catch (e) {
         // ... 错误处理 ...
         return null;
@@ -122,7 +124,6 @@ export function EvaluationTemplate() {
         await saveTemplate(answers, comment);
         Alert.alert("成功", "模板已保存");
     };
-
 
     return (
         <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>

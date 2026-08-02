@@ -6,11 +6,10 @@ import {useTheme} from "@rneui/themed";
 import {CourseScheduleData} from "@/js/jw/course.ts";
 import moment from "moment/moment";
 import {CourseScheduleClass, CourseClass} from "@/class/jw/course.ts";
-import {CourseScheduleQueryRes} from "@/type/api/infoQuery/classScheduleAPI.ts";
-import {store} from "@/core/store.ts";
 import {useUserConfig} from "@/hooks/useUserConfig.ts";
 import {useCourseData} from "@/hooks/useCourseData.ts";
 import {useShift} from "@/features/courseSchedule/hooks/detail/useShift.ts";
+import {useBaseCourse} from "@/features/courseSchedule/hooks/detail/useBaseCourse.ts";
 
 type Props = {
     week: number;
@@ -26,6 +25,8 @@ export function CanvasSchedule(props: Props) {
     const timeSpanList = courseDataStore(s => s.timeSpanList);
     const {store: shiftStore, init: initShift} = useShift();
     const timeShift = shiftStore(s => s.shiftRules);
+    const {store: baseCourseStore} = useBaseCourse();
+    const rawCourseList = baseCourseStore(s => s.rawCourseList);
 
     const [courseSchedule, setCourseSchedule] = useState<CourseScheduleClass>();
 
@@ -54,23 +55,15 @@ export function CanvasSchedule(props: Props) {
     const spanWidth = (canvasCssWidth - 21) / 8;
     const spanHeight = timeSpanHeight; //一个元素高度
 
-    /**
-     * 从内存获取当前周课表
-     */
-    async function getCoursesData() {
-        const courseData = await store.load<CourseScheduleQueryRes>({key: "originalCourseList"}).catch(e => {
-            console.warn("内存获取课表失败", e);
-            return null;
-        });
-        if (courseData?.kbList) {
-            setCourseSchedule(new CourseScheduleClass(courseData));
+    useEffect(() => {
+        if (rawCourseList?.length) {
+            setCourseSchedule(new CourseScheduleClass({kbList: rawCourseList}));
         }
-    }
+    }, [rawCourseList]);
 
     useEffect(() => {
-        getCoursesData();
         initShift();
-    }, [timeSpanHeight]);
+    }, [timeSpanHeight, ucStore(s => s.jw.year), ucStore(s => s.jw.term)]);
 
     /**
      * 通用字体样式和画布字体配置
@@ -175,7 +168,7 @@ export function CanvasSchedule(props: Props) {
                 const classPeriod = item.transformed.periodCount.split("-").map(span => +span);
                 const radius = 5;
                 const span = classPeriod[1] - classPeriod[0] + 1;
-                const courseSpanX = spanWidth * index + 3 * index; //矩形左上角x
+                const courseSpanX = spanWidth * index + 3 * (index + 1); //矩形左上角x
                 const courseSpanY =
                     spanHeight > 40
                         ? topCourseSpanY +
@@ -267,7 +260,7 @@ export function CanvasSchedule(props: Props) {
                 courseSpanList.forEach((span, spanIndex) => {
                     ctx.fillText(
                         spanIndex < minRows ? span : "",
-                        spanWidth * index + spanWidth / 2 + 3 * index,
+                        spanWidth * index + spanWidth / 2 + 3 * (index + 1),
                         courseSpanY +
                             stringLineHeight * (spanIndex > spanList.length - 1 ? spanIndex + 1 : spanIndex + 0.5),
                         150,
@@ -301,7 +294,7 @@ export function CanvasSchedule(props: Props) {
 
     useEffect(() => {
         drawSchedule();
-    }, [courseSchedule, timeSpanHeight]);
+    }, [courseSchedule, timeSpanHeight, currentWeek]);
     return (
         <View style={styles.container}>
             <Canvas ref={handleCanvas} style={styles.canvas} />

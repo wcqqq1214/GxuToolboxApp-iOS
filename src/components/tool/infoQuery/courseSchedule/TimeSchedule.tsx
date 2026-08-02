@@ -156,7 +156,7 @@ export function TimeSchedule<T = any>(props: TimeScheduleProps<T>) {
                       ))}
             </View>
             {/*课表*/}
-            {(weekdayList??[]).map((weekday, index) => {
+            {(weekdayList ?? []).map((weekday, index) => {
                 // 判断是否为当天
                 const currentDay = startDay.clone().add({
                     week: currentWeek - 1,
@@ -168,8 +168,11 @@ export function TimeSchedule<T = any>(props: TimeScheduleProps<T>) {
                 const itemStyle = StyleSheet.create({
                     activeContainer: {
                         backgroundColor: Color(theme.colors.primary).setAlpha(0.2).rgbaString,
+                        height: timeSpanHeight * (timeSpanHeight <= 40 ? 14 : 13) + weekdayHeight,
                     },
-                    activeText: {},
+                    activeText: {
+                        color: Color.mix(theme.colors.black, theme.colors.primary, 0.5).rgbaString,
+                    },
                 });
                 // 生成合并的样式
                 const weekdayContainerStyle: StyleProp<ViewStyle> = [courseScheduleStyle.weekdayContainer];
@@ -196,7 +199,7 @@ export function TimeSchedule<T = any>(props: TimeScheduleProps<T>) {
                                 })()}
                             </Text>
                         </View>
-                        {(props.scheduleItems??[]).map((td, tdIndex) => {
+                        {(props.scheduleItems ?? []).map((td, tdIndex) => {
                             const day = td.needShift === false ? currentDay : effectiveDay;
                             const visibleItems = td.data.filter(item => td.isItemShow(item, day, currentWeek));
                             // 按时段重叠分组
@@ -211,9 +214,7 @@ export function TimeSchedule<T = any>(props: TimeScheduleProps<T>) {
                                         {group.length > 1
                                             ? (td.stackRender?.(group, day, currentWeek, timeRange) ?? null)
                                             : group.map((item, ii) => (
-                                                  <View key={ii}>
-                                                      {td.itemRender?.(item, day, currentWeek)}
-                                                  </View>
+                                                  <View key={ii}>{td.itemRender?.(item, day, currentWeek)}</View>
                                               ))}
                                     </View>
                                 );

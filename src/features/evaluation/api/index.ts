@@ -17,8 +17,11 @@ export const evaluationApi = {
 
         const valiRes = TeacherListRes.safeParse(res.data);
         if (!valiRes.success) {
+            console.error("评教列表校验失败:", valiRes.error.issues);
+            console.log("原始响应:", JSON.stringify(res.data));
             throw new Error("数据解析失败");
         }
+
 
         return valiRes.data;
     },

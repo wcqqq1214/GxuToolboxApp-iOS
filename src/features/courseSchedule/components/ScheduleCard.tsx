@@ -17,7 +17,7 @@ import {ScheduleTableItem, TimeScheduleItemData} from "@/features/courseSchedule
 import {useCourse} from "@/features/courseSchedule/hooks/detail/useCourse.ts";
 import {useStartDay} from "@/features/courseSchedule/hooks/detail/useStartDay.ts";
 import {useExam} from "@/features/courseSchedule/hooks/detail/useExam.ts";
-import {useNextCourse} from "@/features/courseSchedule/hooks/detail/useNextCourse.ts";
+import {useNextEvent} from "@/features/courseSchedule/hooks/detail/useNextCourse.ts";
 import {usePractice} from "@/features/courseSchedule/hooks/detail/usePractice.ts";
 import {PracticalCourseList} from "@/features/courseSchedule/components/PracticalCourseList.tsx";
 import {CourseDetail} from "@/features/courseSchedule/components/CourseDetail.tsx";
@@ -35,10 +35,13 @@ import {Course} from "@/type/infoQuery/course/course.ts";
 import {CourseClass} from "@/class/jw/course.ts";
 import {StackCourseItem} from "@/features/courseSchedule/components/StackCourseItem.tsx";
 import {useConflictCourseStore} from "@/features/courseSchedule/stores/useConflictCourseStore.ts";
-import {ConflictCourseList} from "@/features/courseSchedule/components/ConflictCourseList.tsx";
+import {ConflictCourseSheet} from "@/features/courseSchedule/components/ConflictCourseList.tsx";
 import {ExamInfo} from "@/type/infoQuery/exam/examInfo.ts";
 import {ExamInfoClass} from "@/class/jw/exam.ts";
 import {ExamDetail} from "@/components/tool/infoQuery/examInfo/ExamDetail.tsx";
+import {JwMachine} from "@/core/auth/Jw/JwMachine.ts";
+import {AuthStateMap} from "@/core/auth/auth.type.ts";
+import {switchByField} from "@/utils/objectUtils.ts";
 
 // 菜单的类型
 type SheetState =
@@ -65,7 +68,7 @@ export function ScheduleCard() {
 
     const {init: initPhyExp, patchItem, patchCourse} = usePhyExp();
 
-    const {authState: JWauthState} = useJwAuth();
+    const {authState: JWAuthState} = useJwAuth();
     const {authState: unifiedAuthState} = useUnifiedAuth();
     const {authState: attendanceAuthState} = useAttendanceAuth();
 
@@ -74,27 +77,37 @@ export function ScheduleCard() {
     const startDay = useStartDay(year, term);
 
     const {items: courseItems = [], refresh: refreshCourse} = useCourse(year, term);
-    const {store: examStore, init: initExam} = useExam();
+    const {store: examStore, init: initExam, loadCache: loadExamCache} = useExam();
     const examItems = examStore(s => s.examList) || [];
     const holidayItems = useHoliday(year, term) ?? [];
     const {items: practiceItems = [], refresh: refreshPractice} = usePractice(year, term);
 
+    async function init() {
+        // 同步加载MMKV缓存到store，避免等待网络时页面空白
+        loadExamCache();
+
+        if (JWAuthState.status !== AuthStateMap.Authenticated) {
+            await JwMachine.refreshToken();
+        } else {
+            // 异步拉取最新考试和物理实验数据
+            await initExam(year, term, startDay);
+            await initPhyExp();
+        }
+    }
+
     useEffect(() => {
-        initExam(year, term, startDay);
-        initPhyExp();
+        init();
     }, [year, term]);
 
     const defaultItem: ScheduleTableItem[] = useMemo(
-        () => (JWauthState.status !== "no_account" ? [] : defaultItems),
-        [JWauthState.status],
+        () => (JWAuthState.status !== "no_account" ? [] : defaultItems),
+        [JWAuthState.status],
     );
 
     const rawItems: ScheduleTableItem[] = useMemo(
         () => [...courseItems, ...examItems, ...holidayItems, ...defaultItem],
         [courseItems, examItems, holidayItems, defaultItem],
     );
-    const nextCourse = useNextCourse(rawItems, startDay);
-
     const [sheet, setSheet] = useState<SheetState>({type: "closed"});
 
     const onItemPress = useCallback(
@@ -114,13 +127,18 @@ export function ScheduleCard() {
                     stackRender: (items, day, _week, timeRange) => {
                         const courses = items.map(i => patchCourse(new CourseClass(i.raw), day)).filter(Boolean);
                         if (courses.length === 0) return null;
-                        const courseClasses = courses;
-                        const courseCodes = courseClasses.map(c => c.transformed.courseCode).sort();
+                        const courseCodes = courses
+                            .map(c => c.transformed.courseCode + "_" + c.transformed.staffId)
+                            .sort();
                         const storedActive = conflictStore.getState().getActive(courseCodes);
-                        const activeCourse = storedActive ?? courseClasses[0]?.transformed.courseCode;
+                        const activeCourse =
+                            storedActive ??
+                            (courses[0]
+                                ? courses[0].transformed.courseCode + "_" + courses[0].transformed.staffId
+                                : "");
                         return (
                             <StackCourseItem
-                                course={courseClasses}
+                                course={courses}
                                 activeCourse={activeCourse}
                                 timeRange={timeRange}
                                 onPress={c => setSheet({type: "courseConflict", courses: c, day})}
@@ -135,7 +153,7 @@ export function ScheduleCard() {
                 {
                     data: holidayItems,
                     needShift: false,
-                    itemRender: (item, day) => <HolidayItem item={item} onPress={() => onItemPress(item, day)} />,
+                    itemRender: (item, day) => <HolidayItem item={item} />,
                 },
                 {
                     data: defaultItem,
@@ -151,9 +169,6 @@ export function ScheduleCard() {
                 })),
         [courseItems, examItems, holidayItems, defaultItem, onItemPress],
     );
-    useEffect(() => {
-        console.log("refreshed");
-    }, [scheduleItems]);
 
     const realCurrentWeek = Math.ceil(moment.duration(moment().diff(startDay)).asWeeks());
 
@@ -218,7 +233,7 @@ export function ScheduleCard() {
                             return setSheet({type: "menu"});
                         }}
                         style={{flexDirection: "row", alignItems: "center", gap: 8}}>
-                        {[JWauthState, unifiedAuthState, attendanceAuthState].map((i, idx) =>
+                        {[JWAuthState, unifiedAuthState, attendanceAuthState].map((i, idx) =>
                             i?.status !== "authenticated" ? (
                                 <Icon
                                     key={idx}
@@ -257,18 +272,7 @@ export function ScheduleCard() {
                 </Flex>
             </Flex>
             <Divider />
-            {nextCourse !== null ? (
-                <View style={style.nextCourse}>
-                    <Text style={{fontSize: 18, color: textColor}}>
-                        下一节课：{nextCourse.item.title}
-                        {nextCourse.item.location ? ` · ${nextCourse.item.location}` : ""}
-                    </Text>
-                </View>
-            ) : (
-                <View style={style.nextCourse}>
-                    <Text style={{fontSize: 18, color: textColor}}>下一节课：高等数学{` · 6A-102`}（示例）</Text>
-                </View>
-            )}
+            <NextEventBanner />
             <TimeScheduleView
                 showDate
                 showTimeSpanHighlight
@@ -290,7 +294,7 @@ export function ScheduleCard() {
                     {sheet.type === "menu" && (
                         <>
                             <AuthStatusSection
-                                jwAuth={JWauthState}
+                                jwAuth={JWAuthState}
                                 unifiedAuth={unifiedAuthState}
                                 attendanceAuth={attendanceAuthState}
                                 menuItemStyle={style.menuItem}
@@ -346,46 +350,119 @@ export function ScheduleCard() {
                             const matchedExam = examItems
                                 .filter(e => e.raw?.kcmc === courseName)
                                 ?.map(e => new ExamInfoClass(e.raw as ExamInfo));
-                            return <CourseDetail course={course} examInfo={matchedExam} />;
-                        })()}
-                    {sheet.type === "share" && (
-                        <ScheduleShareSheet week={rest.activePage + 1} onClose={() => setSheet({type: "closed"})} />
-                    )}
-                    {sheet.type === "courseConflict" &&
-                        (() => {
-                            const courseCodes = sheet.courses.map(x => x.transformed.courseCode).sort();
-                            const storedActive = conflictStore.getState().getActive(courseCodes);
-                            const activeCourseCode = storedActive ?? sheet.courses[0]?.transformed.courseCode;
                             return (
-                                <ConflictCourseList
-                                    courses={sheet.courses}
-                                    activeCourseCode={activeCourseCode}
-                                    onSelect={course => {
-                                        conflictStore.getState().setActive(courseCodes, course.transformed.courseCode);
-                                        setSheet({type: "closed"});
-                                    }}
-                                    onPressActiveCourse={course => {
+                                <CourseDetail
+                                    course={course}
+                                    examInfo={matchedExam}
+                                    onExamPress={exam => {
+                                        const examDate = moment(exam.transformed.examTime.slice(0, 10));
+                                        const week = examDate.diff(startDay, "week") + 1;
+                                        rest.setPage(week - 1);
                                         setSheet({
                                             type: "itemDetail",
-                                            day: sheet.day,
+                                            day: examDate,
                                             item: {
-                                                id: course.transformed.courseCode,
-                                                week: 0,
-                                                day: 1 as ScheduleTableItem["day"],
+                                                id: exam.transformed.courseCode,
+                                                week,
+                                                day: examDate.isoWeekday() as ScheduleTableItem["day"],
                                                 begin: 1 as ScheduleTableItem["begin"],
                                                 end: 1 as ScheduleTableItem["begin"],
-                                                title: course.transformed.courseName,
-                                                location: course.transformed.venueName,
-                                                teacher: course.transformed.name,
-                                                raw: course,
+                                                title: exam.transformed.courseName,
+                                                location: exam.transformed.venueName,
+                                                kind: "exam",
+                                                raw: exam._ori,
                                             },
                                         });
                                     }}
                                 />
                             );
                         })()}
+                    {sheet.type === "share" && (
+                        <ScheduleShareSheet week={rest.activePage + 1} onClose={() => setSheet({type: "closed"})} />
+                    )}
+                    {sheet.type === "courseConflict" && (
+                        <ConflictCourseSheet
+                            courses={sheet.courses}
+                            onSelect={() => setSheet({type: "closed"})}
+                            onPressActiveCourse={course => {
+                                setSheet({
+                                    type: "itemDetail",
+                                    day: sheet.day,
+                                    item: {
+                                        id: course.transformed.courseCode,
+                                        week: 0,
+                                        day: 1 as ScheduleTableItem["day"],
+                                        begin: 1 as ScheduleTableItem["begin"],
+                                        end: 1 as ScheduleTableItem["begin"],
+                                        title: course.transformed.courseName,
+                                        location: course.transformed.venueName,
+                                        teacher: course.transformed.name,
+                                        raw: course,
+                                    },
+                                });
+                            }}
+                        />
+                    )}
                 </View>
             </BottomSheet>
+        </View>
+    );
+}
+
+function NextEventBanner() {
+    const nextEvent = useNextEvent();
+    const {store: ucStore} = useUserConfig();
+    const year = +ucStore(s => s.jw.year);
+    const term = ucStore(s => s.jw.term);
+    const startDay = useStartDay(year, term);
+    const {theme} = useTheme();
+    const baseColor = theme.colors.primary;
+    const backgroundColor = Color(baseColor).setAlpha(theme.mode === "light" ? 0.3 : 0.1).rgbaString;
+    const textColor = Color.mix(baseColor, theme.colors.black, 0.5).rgbaString;
+
+    const daysFromNow = (item: {week: number; day: number}) => {
+        if (!startDay) return "未知时间";
+        const eventDay = startDay
+            .clone()
+            .add(item.week - 1, "weeks")
+            .add(item.day - 1, "days")
+            .startOf("day");
+        const diff = eventDay.diff(moment().startOf("day"), "days");
+        if (diff <= 0) return "今天";
+        if (diff === 1) return "明天";
+        return `${diff}天后`;
+    };
+
+    const style = StyleSheet.create({
+        container: {
+            paddingHorizontal: 12,
+            paddingVertical: 10,
+            borderRadius: 8,
+            marginHorizontal: 6,
+            justifyContent: "center",
+            alignItems: "center",
+            backgroundColor: backgroundColor,
+        },
+    });
+
+    if (!nextEvent && startDay) {
+        const updateTime = startDay.add(20, "week").format("MM月DD日");
+        return (
+            <View style={style.container}>
+                <Text style={{fontSize: 16, color: textColor}}>所有活动已结束，将在{updateTime}更新至下个学期</Text>
+            </View>
+        );
+    }
+
+    return (
+        <View style={style.container}>
+            <Text style={{fontSize: 18, color: textColor}}>
+                {switchByField(nextEvent, "kind", {
+                    course: ev => `下节课：${ev.title}${ev.location ? ` · ${ev.location}` : ""}`,
+                    exam: ev => `下场考试：${ev.title}${ev.location ? ` · ${ev.location}` : ""}（${daysFromNow(ev)}）`,
+                    holiday: ev => `下个假期：${ev.title}（${daysFromNow(ev)}）`,
+                })}
+            </Text>
         </View>
     );
 }

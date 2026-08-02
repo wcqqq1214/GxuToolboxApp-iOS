@@ -20,8 +20,9 @@ interface StackCourseItemProps {
 
 export const StackCourseItem = memo(({course, activeCourse, timeRange, onPress}: StackCourseItemProps) => {
     const parsed = useMemo(() => course.map(c => c.transformed), [course]);
+    const toKey = (c: typeof parsed[0]) => c.courseCode + "_" + c.staffId;
     const activeParsed = useMemo(
-        () => parsed.find(c => c.courseCode === activeCourse) ?? parsed[0],
+        () => parsed.find(c => toKey(c) === activeCourse) ?? parsed[0],
         [parsed, activeCourse],
     );
     const {store} = useCourseData();
@@ -31,11 +32,11 @@ export const StackCourseItem = memo(({course, activeCourse, timeRange, onPress}:
     const {theme} = useTheme();
     const {getColor} = useBlocksColor();
 
-    const courseCodes = useMemo(() => parsed.map(c => c.courseCode).sort(), [parsed]);
+    const courseCodes = useMemo(() => parsed.map(c => toKey(c)).sort(), [parsed]);
     const storedActive = conflictStore(s => s.getActive(courseCodes));
     const effectiveActive = storedActive ?? activeCourse;
 
-    const active = parsed.find(c => c.courseCode === effectiveActive) ?? parsed[0];
+    const active = parsed.find(c => toKey(c) === effectiveActive) ?? parsed[0];
 
     const handlePress = () => {
         onPress?.(course);
@@ -63,16 +64,18 @@ export const StackCourseItem = memo(({course, activeCourse, timeRange, onPress}:
                 text: {
                     textAlign: "center",
                     color: textColor,
-                    fontSize: 12,
+                    fontSize: 10,
                 },
                 badge: {
                     backgroundColor: Color.mix(theme.colors.primary, theme.colors.background, 0.35).setAlpha(0.95)
                         .rgbaString,
-                    height: 14,
+                    height: 16,
+                    borderWidth: 1.5,
+                    borderColor: theme.colors.primary,
                 },
                 badgeContainer: {
                     position: "absolute",
-                    top: -6,
+                    top: -8,
                     right: -8,
                     zIndex: 1,
                 },
@@ -86,7 +89,7 @@ export const StackCourseItem = memo(({course, activeCourse, timeRange, onPress}:
                 <Badge
                     value={course.length}
                     status="primary"
-                    textStyle={{fontSize: 10}}
+                    textStyle={{fontSize: 11, fontWeight: "bold"}}
                     containerStyle={styles.badgeContainer}
                     badgeStyle={styles.badge}
                 />
@@ -102,13 +105,13 @@ export const StackCourseItem = memo(({course, activeCourse, timeRange, onPress}:
                 align="center">
                 <Text style={[styles.text, {fontWeight: "bold"}]} numberOfLines={5}>
                     {active.isAdjusted === "1" && (
-                        <Text style={{color: theme.colors.warning, fontSize: 12, fontWeight: "bold"}}>(调) </Text>
+                        <Text style={{color: theme.colors.warning, fontSize: 10, fontWeight: "bold"}}>(调) </Text>
                     )}
                     {active.courseName}
                 </Text>
                 {!!active.venueName && (
                     <Text style={styles.text}>
-                        <Icon name="map-marker" size={12} color={textColor} />
+                        <Icon name="map-marker" size={10} color={textColor} />
                         {"\n" + active.venueName.replace("-", "\n")}
                     </Text>
                 )}

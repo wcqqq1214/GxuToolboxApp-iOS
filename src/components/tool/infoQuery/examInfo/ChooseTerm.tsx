@@ -1,7 +1,8 @@
 import {ScrollView, StyleSheet, Text, TouchableOpacity, View} from "react-native";
 import {useEffect, useMemo, useState} from "react";
 import {useTheme} from "@rneui/themed";
-import {userProfile} from "@/core/user/profile.ts";
+import {useJwAccount} from "@/core/auth/Jw/hooks/useJwAccount.ts";
+import {userProfileRepo} from "@/core/repo/userProfileRepo.ts";
 
 interface ChooseTermProps {
     // 保持原有接口定义，支持 year 传空字符串
@@ -16,7 +17,11 @@ type FilterType = "all" | "no_future" | "current";
 export function ChooseTerm({onTermSelect, includeWholeLife = true, includeWholeYear = true}: ChooseTermProps) {
     const {theme} = useTheme();
     // 入学年份
-    const [enrollmentYear, setEnrollmentYear] = useState<number>(2023);
+    const [enrollmentYear, setEnrollmentYear] = useState<number>();
+
+    // 学习年限
+    const [studyYear, setStudyYear] = useState<number>(4);
+    const {username} = useJwAccount();
 
     // 状态：显示范围过滤器
     const [filterType, setFilterType] = useState<FilterType>("no_future");
@@ -34,7 +39,7 @@ export function ChooseTerm({onTermSelect, includeWholeLife = true, includeWholeY
         const yearNames = ["大一", "大二", "大三", "大四", "大五"];
         const years = [];
 
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < studyYear; i++) {
             const startYear = enrollmentYear + i;
             years.push({
                 name: yearNames[i] || `第${i + 1}年`,
@@ -53,21 +58,25 @@ export function ChooseTerm({onTermSelect, includeWholeLife = true, includeWholeY
             default:
                 return years;
         }
-    }, [enrollmentYear, filterType, realAcademicYear]);
+    }, [enrollmentYear, filterType, realAcademicYear, studyYear]);
 
-    const init = async () => {
-        const info = await userProfile.loadUserInfo();
-        setEnrollmentYear(info.grade);
+    const init = async (account: string) => {
+        if (!account) return;
+
+        const info = await userProfileRepo.get(account);
+        if (!info) return; // profile 尚未同步（如 OTA 后旧表被清），等启动补拉，不崩
+        setEnrollmentYear(+info.grade);
+        setStudyYear(info.study_years);
     };
 
     useEffect(() => {
-        init();
+        init(username);
         // 默认当前学年和当前学期，3到8月算下半学期
         const initTerm = currentMonth >= 3 && currentMonth < 9 ? "12" : "3";
         const initYear = Math.max(realAcademicYear, enrollmentYear);
         setSelected({year: initYear, term: initTerm});
         onTermSelect?.(initYear, initTerm);
-    }, []);
+    }, [username]);
 
     // --- 2. 交互处理 ---
 
@@ -169,7 +178,7 @@ export function ChooseTerm({onTermSelect, includeWholeLife = true, includeWholeY
         yearItem: {
             paddingHorizontal: 16,
             paddingVertical: 8,
-            borderRadius: 20,
+            borderRadius: 8,
             borderWidth: 1,
             borderColor: theme.colors.grey4,
             marginRight: 8,
@@ -180,7 +189,7 @@ export function ChooseTerm({onTermSelect, includeWholeLife = true, includeWholeY
             borderColor: theme.colors.primary,
         },
         yearText: {
-            fontSize: 14,
+            fontSize: 15,
             color: theme.colors.grey2,
         },
         yearTextSelected: {
@@ -223,72 +232,76 @@ export function ChooseTerm({onTermSelect, includeWholeLife = true, includeWholeY
     });
 
     return (
-        <View style={styles.container}>
-            {/* 顶部：标题 + 过滤器 */}
-            <View style={styles.header}>
-                <Text style={styles.title}>学期范围</Text>
-                <View style={styles.filterContainer}>
-                    {[
-                        {key: "current", label: "当前"},
-                        {key: "no_future", label: "至今"},
-                        {key: "all", label: "全部"},
-                    ].map(f => (
-                        <TouchableOpacity
-                            key={f.key}
-                            style={[styles.filterBtn, filterType === f.key && styles.filterBtnActive]}
-                            onPress={() => setFilterType(f.key as FilterType)}>
-                            <Text style={[styles.filterText, filterType === f.key && styles.filterTextActive]}>
-                                {f.label}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
-            </View>
-
-            {/* 功能按钮：所有历史数据 */}
-            {includeWholeLife && (
-                <TouchableOpacity style={styles.historyBtn} onPress={handleHistoryPress} activeOpacity={0.8}>
-                    <Text style={styles.historyBtnText}>入学以来所有数据</Text>
-                </TouchableOpacity>
-            )}
-
-            {/* 具体的学年/学期选择区域 */}
-            {/* 当选中“所有历史”时，下方半透明显示，暗示当前生效的是上面的按钮 */}
-            <View style={{opacity: selected.year === "" ? 0.5 : 1}}>
-                <Text style={styles.sectionLabel}>选择学年</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.yearScroll}>
-                    {academicYears.map(ay => {
-                        const isSelected = selected.year === ay.year;
-                        return (
+        enrollmentYear && (
+            <View style={styles.container}>
+                {/* 顶部：标题 + 过滤器 */}
+                <View style={styles.header}>
+                    <Text style={styles.title}>学期范围</Text>
+                    <View style={styles.filterContainer}>
+                        {[
+                            {key: "current", label: "当前"},
+                            {key: "no_future", label: "至今"},
+                            {key: "all", label: "全部"},
+                        ].map(f => (
                             <TouchableOpacity
-                                key={ay.year}
-                                style={[styles.yearItem, isSelected && styles.yearItemSelected]}
-                                onPress={() => handleYearPress(ay.year)}>
-                                <Text style={[styles.yearText, isSelected && styles.yearTextSelected]}>
-                                    {ay.name} ({ay.year})
+                                key={f.key}
+                                style={[styles.filterBtn, filterType === f.key && styles.filterBtnActive]}
+                                onPress={() => setFilterType(f.key as FilterType)}>
+                                <Text style={[styles.filterText, filterType === f.key && styles.filterTextActive]}>
+                                    {f.label}
                                 </Text>
                             </TouchableOpacity>
-                        );
-                    })}
-                </ScrollView>
+                        ))}
+                    </View>
+                </View>
 
-                <Text style={styles.sectionLabel}>选择学期</Text>
-                <View style={styles.termRow}>
-                    {termOptions.map(t => {
-                        // 只有在没选"所有历史"且term匹配时才高亮
-                        const isSelected = selected.year !== "" && selected.term === t.term;
-                        return (
-                            <TouchableOpacity
-                                key={t.term}
-                                // flex: 1 使得只有两个按钮时也会自动撑满一行
-                                style={[styles.termBtn, isSelected && styles.termBtnSelected]}
-                                onPress={() => handleTermPress(t.term)}>
-                                <Text style={[styles.termText, isSelected && styles.termTextSelected]}>{t.label}</Text>
-                            </TouchableOpacity>
-                        );
-                    })}
+                {/* 功能按钮：所有历史数据 */}
+                {includeWholeLife && (
+                    <TouchableOpacity style={styles.historyBtn} onPress={handleHistoryPress} activeOpacity={0.8}>
+                        <Text style={styles.historyBtnText}>入学以来所有数据</Text>
+                    </TouchableOpacity>
+                )}
+
+                {/* 具体的学年/学期选择区域 */}
+                {/* 当选中“所有历史”时，下方半透明显示，暗示当前生效的是上面的按钮 */}
+                <View style={{opacity: selected.year === "" ? 0.5 : 1}}>
+                    <Text style={styles.sectionLabel}>选择学年</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.yearScroll}>
+                        {academicYears.map(ay => {
+                            const isSelected = selected.year === ay.year;
+                            return (
+                                <TouchableOpacity
+                                    key={ay.year}
+                                    style={[styles.yearItem, isSelected && styles.yearItemSelected]}
+                                    onPress={() => handleYearPress(ay.year)}>
+                                    <Text style={[styles.yearText, isSelected && styles.yearTextSelected]}>
+                                        {ay.name} ({ay.year})
+                                    </Text>
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </ScrollView>
+
+                    <Text style={styles.sectionLabel}>选择学期</Text>
+                    <View style={styles.termRow}>
+                        {termOptions.map(t => {
+                            // 只有在没选"所有历史"且term匹配时才高亮
+                            const isSelected = selected.year !== "" && selected.term === t.term;
+                            return (
+                                <TouchableOpacity
+                                    key={t.term}
+                                    // flex: 1 使得只有两个按钮时也会自动撑满一行
+                                    style={[styles.termBtn, isSelected && styles.termBtnSelected]}
+                                    onPress={() => handleTermPress(t.term)}>
+                                    <Text style={[styles.termText, isSelected && styles.termTextSelected]}>
+                                        {t.label}
+                                    </Text>
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </View>
                 </View>
             </View>
-        </View>
+        )
     );
 }

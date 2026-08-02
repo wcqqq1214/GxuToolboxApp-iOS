@@ -1,7 +1,13 @@
 import {useMemo} from "react";
 import moment from "moment";
 import {ScheduleTableItem} from "@/features/courseSchedule/type/schedule.ts";
-import {useJwAuth} from "@/core/auth/Jw/hooks/useJwAuth.ts";
+import {useCourse} from "@/features/courseSchedule/hooks/detail/useCourse.ts";
+import {useExam} from "@/features/courseSchedule/hooks/detail/useExam.ts";
+import {type HolidayRange, useHoliday} from "@/features/courseSchedule/hooks/detail/useHoliday.ts";
+import {useStartDay} from "@/features/courseSchedule/hooks/detail/useStartDay.ts";
+import {useUserConfig} from "@/hooks/useUserConfig.ts";
+import type {Course} from "@/type/infoQuery/course/course.ts";
+import type {ExamInfo} from "@/type/infoQuery/exam/examInfo.ts";
 
 const TIME_SPAN_START = [
     "08:00",
@@ -19,22 +25,40 @@ const TIME_SPAN_START = [
     "21:20",
 ];
 
-export function useNextCourse(scheduleItems: ScheduleTableItem[], startDay: moment.Moment) {
-    const {authState} = useJwAuth();
-    if (authState.status !== "authenticated" && scheduleItems === null) {
-        return null;
-    }
+export type NextEventItem =
+    | ScheduleTableItem<Course, "course">
+    | ScheduleTableItem<ExamInfo, "exam">
+    | ScheduleTableItem<HolidayRange, "holiday">;
+
+export function useNextEvent(): NextEventItem | null {
+    const {store: ucStore} = useUserConfig();
+    const year = +ucStore(s => s.jw.year);
+    const term = ucStore(s => s.jw.term);
+    const startDay = useStartDay(year, term);
+
+    const {items: courseItems = []} = useCourse(year, term);
+    const {store: examStore} = useExam();
+    const examItems = examStore(s => s.examList) || [];
+    const holidayItems = useHoliday(year, term) ?? [];
+
+    // 聚合所有日程项
+    const allItems: NextEventItem[] = useMemo(
+        () => [...courseItems, ...examItems, ...holidayItems] as NextEventItem[],
+        [courseItems, examItems, holidayItems],
+    );
 
     return useMemo(() => {
-        const now = moment();
-        let best: {item: ScheduleTableItem; date: moment.Moment} | null = null;
+        if (!startDay) return null;
 
-        for (const item of scheduleItems) {
+        const now = moment();
+        let best: {item: NextEventItem; date: moment.Moment} | null = null;
+
+        for (const item of allItems) {
             const startTime = TIME_SPAN_START[item.begin - 1];
             if (!startTime) continue;
 
             const [h, m] = startTime.split(":").map(Number);
-            const courseDate = startDay
+            const eventDate = startDay
                 .clone()
                 .add(item.week - 1, "weeks")
                 .add(item.day - 1, "days")
@@ -42,10 +66,10 @@ export function useNextCourse(scheduleItems: ScheduleTableItem[], startDay: mome
                 .minute(m)
                 .second(0);
 
-            if (courseDate.isAfter(now) && (!best || courseDate.isBefore(best.date))) {
-                best = {item, date: courseDate};
+            if (eventDate.isAfter(now) && (!best || eventDate.isBefore(best.date))) {
+                best = {item, date: eventDate};
             }
         }
-        return best;
-    }, [scheduleItems, startDay]);
+        return best?.item ?? null;
+    }, [allItems, startDay]);
 }

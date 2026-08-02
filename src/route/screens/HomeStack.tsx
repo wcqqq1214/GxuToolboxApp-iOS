@@ -14,7 +14,6 @@ export function HomeStack() {
         <Stack.Navigator
             initialRouteName="HomeScreen"
             screenOptions={{
-                unmountOnBlur: true,
                 headerShadowVisible: false,
                 headerStyle: {
                     backgroundColor: Color(theme.colors.background).setAlpha(
@@ -22,7 +21,7 @@ export function HomeStack() {
                     ).rgbaString,
                 },
                 contentStyle: {
-                    backgroundColor: Color(theme.colors.background).setAlpha(
+                    backgroundColor: Color.mix(theme.colors.background, theme.colors.primary, 0.1).setAlpha(
                         ((theme.mode === "dark" ? 0.5 : 0.6) * bgOpacity) / 100,
                     ).rgbaString,
                 },
@@ -38,7 +37,9 @@ export function HomeStack() {
             />
             <Stack.Screen
                 name="ScheduleEdit"
-                component={lazy(() => import("@/screens/home/schedule/ScheduleEdit.tsx").then(m => ({default: m.ScheduleEdit})))}
+                component={lazy(() =>
+                    import("@/screens/home/schedule/ScheduleEdit.tsx").then(m => ({default: m.ScheduleEdit})),
+                )}
                 options={{
                     title: "日程编辑",
                     headerStyle: {

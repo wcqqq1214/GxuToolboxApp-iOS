@@ -1,7 +1,6 @@
 import {ActivityIndicator, ScrollView, StyleSheet, TouchableOpacity, View} from "react-native";
 import {Button, Text, useTheme} from "@rneui/themed";
 import {useCallback, useEffect, useLayoutEffect, useReducer, useRef} from "react";
-import {Color} from "@/shared/color.ts";
 import {parseEvaluationHTML} from "@/features/evaluation/utils/parser.ts";
 import {EvaCategory} from "@/features/evaluation/components/EvaCategory.tsx";
 import {evaluationApi} from "@/features/evaluation/api";
@@ -27,58 +26,96 @@ export function EvaluationDetail({navigation, route}) {
         });
     }, [navigation, evaluationItem]);
 
-    const defaultColor = Color.mix(
-        theme.colors.primary,
-        theme.colors.black,
-        theme.mode === "dark" ? 0.2 : 0.1,
-    ).setAlpha(theme.mode === "dark" ? 0.5 : 0.8).rgbaString;
-
     const styles = StyleSheet.create({
-        header: {fontSize: 24, fontWeight: "bold", marginBottom: 4},
-        card: {padding: 12, marginVertical: 8, borderRadius: 8},
-        category: {marginBottom: 10},
-        categoryName: {fontSize: 16, fontWeight: "500", color: defaultColor, marginBottom: 4},
-        item: {marginBottom: 8},
-        itemTitle: {fontSize: 14, marginBottom: 4, marginLeft: 10, marginRight: 10},
-        commentInput: {
-            paddingVertical: 8,
-            paddingHorizontal: 12,
-            borderWidth: 1,
-            borderColor: defaultColor,
+        container: {
+            paddingHorizontal: 16,
+            paddingTop: 20,
+            paddingBottom: 40,
+        },
+        card: {
             backgroundColor: theme.colors.background,
-            borderRadius: 8,
-            marginBottom: 9,
-            marginHorizontal: "3%",
-            height: "auto",
+            padding: 20,
+            marginBottom: 16,
+            borderRadius: 12,
+            shadowColor: "#000",
+            shadowOffset: {width: 0, height: 2},
+            shadowOpacity: 0.05,
         },
-        optionButton: {
-            paddingVertical: 8,
-            paddingHorizontal: 12,
-            borderWidth: 1,
-            borderColor: defaultColor,
-            borderRadius: 8,
-            marginBottom: 9,
+        header: {
+            fontSize: 18,
+            fontWeight: "700",
+            color: theme.colors.black,
+            marginBottom: 16,
         },
-        optionButtonChecked: {
-            backgroundColor: defaultColor,
+        statusBadge: {
+            fontSize: 13,
+            fontWeight: "600",
+            color: theme.colors.primary,
         },
-        optionText: {fontSize: 15, color: theme.colors.black},
-        optionTextChecked: {color: "#fff", fontWeight: "bold"},
-        comment: {marginTop: 8, fontSize: 13, fontStyle: "italic", color: defaultColor},
-        submitButton: {
-            backgroundColor: defaultColor,
-            borderRadius: 8,
+        commentCard: {
+            backgroundColor: theme.colors.background,
+            borderRadius: 12,
+            padding: 20,
+            marginBottom: 16,
+        },
+        commentLabel: {
+            fontSize: 15,
+            fontWeight: "500",
+            color: theme.colors.grey0,
+            marginBottom: 12,
+        },
+        commentInput: {
             paddingVertical: 12,
-            paddingHorizontal: 20,
+            paddingHorizontal: 14,
+            backgroundColor: theme.mode === "dark" ? "rgba(255,255,255,0.05)" : "#fafafa",
+            borderRadius: 8,
+            minHeight: 60,
+            justifyContent: "center",
+        },
+        commentPlaceholder: {
+            color: theme.colors.grey3,
+            fontSize: 14,
+        },
+        commentText: {
+            color: theme.colors.black,
+            fontSize: 14,
+            lineHeight: 20,
+        },
+        actionRow: {
+            flexDirection: "row",
+            gap: 12,
+            marginBottom: 16,
+        },
+        actionButton: {
+            flex: 1,
+            backgroundColor: theme.colors.primary,
+            borderRadius: 12,
+            paddingVertical: 14,
             alignItems: "center",
             justifyContent: "center",
-            marginVertical: 10,
-            marginHorizontal: 20,
+        },
+        actionButtonSecondary: {
+            backgroundColor: theme.mode === "dark" ? "rgba(255,255,255,0.08)" : "#f0f0f0",
+        },
+        actionButtonText: {
+            color: theme.colors.white,
+            fontSize: 15,
+            fontWeight: "700",
+        },
+        actionButtonTextSecondary: {
+            color: theme.colors.primary,
+        },
+        submitButton: {
+            backgroundColor: theme.colors.primary,
+            borderRadius: 12,
+            paddingVertical: 16,
+            alignItems: "center",
+            justifyContent: "center",
         },
         submitButtonText: {
-            color: "#fff",
+            color: theme.colors.white,
             fontSize: 16,
-            fontWeight: "bold",
+            fontWeight: "700",
         },
     });
 
@@ -170,27 +207,29 @@ export function EvaluationDetail({navigation, route}) {
     }
 
     return (
-        <ScrollView ref={scrollViewRef}>
-            {1 && (
-                <>
-                    <TouchableOpacity onPress={FastSubmit} style={styles.submitButton}>
-                        <Text style={styles.submitButtonText}>应用默认评价示例</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => handleSave()} style={styles.submitButton}>
-                        <Text style={styles.submitButtonText}>保存</Text>
-                    </TouchableOpacity>
-                </>
-            )}
+        <ScrollView ref={scrollViewRef} contentContainerStyle={styles.container}>
+            <View style={styles.actionRow}>
+                <TouchableOpacity onPress={FastSubmit} style={[styles.actionButton, styles.actionButtonSecondary]}>
+                    <Text style={[styles.actionButtonText, styles.actionButtonTextSecondary]}>应用示例</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => handleSave()} style={styles.actionButton}>
+                    <Text style={styles.actionButtonText}>保存</Text>
+                </TouchableOpacity>
+            </View>
+
             <View style={styles.card}>
                 <Text style={styles.header}>
-                    {evaluationItem.courseName}——{evaluationItem.teacherName}：{evaluationItem.submitStatus}
+                    {evaluationItem.courseName}——{evaluationItem.teacherName}
+                    {"  "}
+                    <Text style={styles.statusBadge}>{evaluationItem.submitStatus}</Text>
                 </Text>
                 {teachers![0].categories.map((cat: any, catIdx: number) => (
                     <EvaCategory key={cat.name + cat.qzz} cat={cat} catIdx={catIdx} onSelect={onSelect} />
                 ))}
             </View>
-            <View>
-                <Text style={[styles.categoryName, {paddingLeft: "3%"}]}>评语</Text>
+
+            <View style={styles.commentCard}>
+                <Text style={styles.commentLabel}>评语</Text>
                 <TouchableOpacity
                     style={styles.commentInput}
                     onPress={() => {
@@ -202,14 +241,11 @@ export function EvaluationDetail({navigation, route}) {
                             },
                         });
                     }}>
-                    <Text style={{color: "#999"}}>{comment || "请输入评语"}</Text>
+                    <Text style={comment ? styles.commentText : styles.commentPlaceholder}>
+                        {comment || "点击输入评语"}
+                    </Text>
                 </TouchableOpacity>
             </View>
-            {1 && (
-                <TouchableOpacity onPress={() => handleSave()} style={styles.submitButton}>
-                    <Text style={styles.submitButtonText}>保存</Text>
-                </TouchableOpacity>
-            )}
         </ScrollView>
     );
 }

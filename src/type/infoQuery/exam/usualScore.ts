@@ -9,7 +9,7 @@ export interface UsualScore {
     dateDigitSeparator: string;
     //日
     day: string;
-    //机构ID
+    //教工号
     "jgh_id": string;
     //机构名称
     jgmc: string;

@@ -204,12 +204,12 @@ export interface QueryDate {
 }
 
 export const QueryDateSchema = z.object({
-    date: z.string(),
-    dateDigit: z.string(),
-    dateDigitSeparator: z.string(),
-    day: z.string(),
-    month: z.string(),
-    year: z.string(),
+    date: z.string().optional().default(""),
+    dateDigit: z.string().optional().default(""),
+    dateDigitSeparator: z.string().optional().default(""),
+    day: z.string().optional().default(""),
+    month: z.string().optional().default(""),
+    year: z.string().optional().default(""),
 });
 
 /** 教务分页查询时通用属性，目前仅在不带有返回根的接口存在 */
@@ -233,14 +233,14 @@ export interface PageModel extends QueryDate {
 }
 
 export const QueryDataModel = z.object({
-    pageTotal: z.number(),
-    queryModel: z.any(),
-    userModel: z.any(),
-    listnav: z.string(),
-    localeKey: z.string(),
-    pageable: z.boolean(),
-    rangeable: z.boolean(),
-    totalResult: z.string(),
+    pageTotal: z.number().optional().default(0),
+    queryModel: z.any().optional().default({}),
+    userModel: z.any().optional().default({}),
+    listnav: z.string().optional().default("false"),
+    localeKey: z.string().optional().default("zh_CN"),
+    pageable: z.boolean().optional().default(true),
+    rangeable: z.boolean().optional().default(true),
+    totalResult: z.string().optional().default("0"),
 });
 
 /** 课表-班级基础信息 */

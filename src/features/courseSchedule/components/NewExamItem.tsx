@@ -48,10 +48,10 @@ export const NewExamItem = memo(({item, onPress}: NewExamItemProps) => {
                 text: {
                     textAlign: "center",
                     color: textColor,
-                    fontSize: 12,
+                    fontSize: 10,
                 },
                 badge: {
-                    fontSize: 12,
+                    fontSize: 10,
                     fontWeight: "700",
                     color: textColor,
                     opacity: 0.9,
@@ -59,18 +59,18 @@ export const NewExamItem = memo(({item, onPress}: NewExamItemProps) => {
                 title: {
                     textAlign: "center",
                     color: textColor,
-                    fontSize: 12,
+                    fontSize: 10,
                     fontWeight: "700",
                 },
                 meta: {
                     textAlign: "center",
                     color: textColor,
-                    fontSize: 10,
+                    fontSize: 9,
                     opacity: 0.95,
                 },
                 icon: {
                     color: textColor,
-                    fontSize: 11,
+                    fontSize: 9,
                 },
             }),
         [span, y, store(useShallow(s => s.theme)), baseColor, theme.mode],

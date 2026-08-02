@@ -3,9 +3,9 @@ import {Dialog, Image, Input, Text, useTheme} from "@rneui/themed";
 import {useEffect, useState} from "react";
 import {ActivityIndicator, StyleSheet, ToastAndroid, View} from "react-native";
 import {userMgr} from "@/js/mgr/user.ts";
-import {authApi} from "@/js/auth/auth.ts";
 import {attendanceAuthApi} from "@/core/auth/attendance/attendanceAuthApi.ts";
 import {UnPressable} from "@/components/un-ui";
+import {useAttendanceAuth} from "@/core/auth/attendance/hooks/useAttendanceAuth.ts";
 
 export interface AttendanceQuickLoginProps {
     visible?: boolean;
@@ -20,6 +20,7 @@ export function AttendanceQuickLogin(props: AttendanceQuickLoginProps) {
     const [captchaCode, setCaptchaCode] = useState("");
     const [captchaCodeUri, setCaptchaCodeUri] = useState("");
     const [accountData, setAccountData] = useState<{username: string; password: string}>();
+    const {loading, login: loginAttendance} = useAttendanceAuth();
 
     async function refreshCaptchaCode() {
         const dataUri = await attendanceAuthApi.getCaptchaImage();
@@ -31,13 +32,15 @@ export function AttendanceQuickLogin(props: AttendanceQuickLoginProps) {
         props.onSubmit?.(captchaCode);
         ToastAndroid.show("尝试登录考勤系统", ToastAndroid.SHORT);
         if (!accountData) return;
-        const res = await authApi.loginAttendanceSystem(accountData.username, accountData.password, captchaCode);
+        const loginResult = await loginAttendance(accountData.username, accountData.password, captchaCode);
+        if (!loginResult) return;
+        const res = loginResult.loginRes;
         if (res.code === 600) {
             ToastAndroid.show("登录成功", ToastAndroid.SHORT);
             props.onSucceed?.(res);
             props.onClose?.();
         } else {
-            ToastAndroid.show("登录失败", ToastAndroid.SHORT);
+            ToastAndroid.show("登录失败，请检查账号密码是否正确或刷新验证码", ToastAndroid.SHORT);
             props.onFail?.(res);
         }
     }
@@ -85,7 +88,7 @@ export function AttendanceQuickLogin(props: AttendanceQuickLoginProps) {
                         />
                     </View>
                     <Dialog.Actions>
-                        <Dialog.Button title="登录" disabled={captchaCode.length !== 4} onPress={login} />
+                        <Dialog.Button title="登录" disabled={loading || captchaCode.length !== 4} onPress={login} />
                     </Dialog.Actions>
                 </>
             ) : (

@@ -107,8 +107,8 @@ export const ExamStudentSchema = z
         pycc: z.string(),
         jxbmc: z.string(),
         jxbzc: z.string(),
-        cxbj: z.string(),
-        zxbj: z.string(),
+        cxbj: z.string().optional(),
+        zxbj: z.string().optional(),
     })
     .transform(data => ({
         /** 学号ID */ studentIdAlt: data.xh_id,

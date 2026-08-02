@@ -85,4 +85,61 @@ export const userMgr = {
             }
         },
     },
+    //文件系统相关
+    wjxt: {
+        storeAccount: (username: string, password: string) => {
+            return store.save({
+                key: "wjxtAccount",
+                data: {
+                    username,
+                    password,
+                },
+            });
+        },
+
+        getAccount: async () => {
+            try {
+                return await store.load<{username: string; password: string}>({
+                    key: "wjxtAccount",
+                });
+            } catch (e) {
+                console.log(e);
+                return {username: "", password: ""};
+            }
+        },
+
+        /** 存储 OA 登录后的 token */
+        storeToken: (accessToken: string) => {
+            return store.save({
+                key: "wjxtToken",
+                data: accessToken,
+            });
+        },
+
+        /** 获取 OA 的 accessToken，过期时可用 refreshToken 换新 */
+        getToken: async () => {
+            try {
+                return await store.load<string>({
+                    key: "wjxtToken",
+                });
+            } catch (e) {
+                console.log(e);
+                return null;
+            }
+        },
+
+        clearAccountAndToken: async() => {
+            try {
+                await store.remove({
+                    key: "wjxtAccount"
+                });
+                await store.remove({
+                    key: "wjxtToken"
+                });
+            } catch (e) {
+                console.log(e);
+                return null;
+            }
+        }
+    },
 };

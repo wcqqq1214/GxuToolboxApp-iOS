@@ -3,7 +3,7 @@ import {parseWeeks} from "@/js/nextCourses.ts";
 
 const PracticeCourseSchema = z
     .object({
-        qtkcgs: z.string(),
+        qtkcgs: z.string().optional().default("课程名称"),
         qsjsz: z.string().optional().default(""),
         jsxm: z.string().optional().default(""),
     })
@@ -13,10 +13,10 @@ const TheoryCourseSchema = z
     .object({
         cdbh: z.string().optional().default(""),
         cdmc: z.string().optional().default(""),
-        jcs: z.string(),
-        kcmc: z.string(),
-        zcd: z.string(),
-        xqj: z.string().transform(Number),
+        jcs: z.string().optional().default("1-2"),
+        kcmc: z.string().optional().default("课程名称"),
+        zcd: z.string().optional().default("1-16周"),
+        xqj: z.string().optional().default("1").transform(Number),
         xm: z.string().optional().default(""),
         qqqh: z.string().optional().default(""),
     })
