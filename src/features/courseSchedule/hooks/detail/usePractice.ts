@@ -1,33 +1,26 @@
 import {useCallback, useEffect, useState} from "react";
 import {store} from "@/core/store.ts";
 import {SchoolTermValue} from "@/type/global.ts";
-import {ICourse} from "@/features/courseSchedule/type/schema/course.ts";
-import {courseApi} from "@/js/jw/course.ts";
+import {classScheduleApi} from "@/features/classCourseSchedule/api";
+import type {Schedule} from "gxu-tool-adapters/jw";
 
 export function usePractice(year: number, term: SchoolTermValue): {
-    items: ICourse["practiceList"];
+    items: Schedule["practiceList"];
     refresh: () => Promise<void>
 } {
-    const [practiceList, setPracticeList] = useState<ICourse["practiceList"]>();
+    const [practiceList, setPracticeList] = useState<Schedule["practiceList"]>([]);
 
     const fetchPractice = useCallback(async () => {
-        const processAndSet = (raw: any, shouldCache: boolean) => {
-            if (!raw) return;
+        const processAndSet = (schedule: Schedule | null, shouldCache: boolean) => {
+            if (!schedule) return;
 
-            // 总是解析
-            const parsed = ICourse.safeParse(raw);
-            if (!parsed.success) {
-                console.warn("解析原始数据失败", parsed.error);
-                return;
-            }
-
-            const newModel = parsed.data.practiceList;
+            const newModel = schedule.practiceList;
             setPracticeList(currentModel => {
                 if (JSON.stringify(currentModel) === JSON.stringify(newModel)) {
                     return currentModel;
                 }
                 if (shouldCache) {
-                    store.save({key: "originalCourseList", data: raw});
+                    store.save({key: "practiceSchedule", data: schedule});
                 }
                 return newModel;
             });
@@ -35,14 +28,14 @@ export function usePractice(year: number, term: SchoolTermValue): {
 
         // 从内存中加载课程缓存
         try {
-            const cachedRaw = await store.load<CourseScheduleClass>({key: "originalCourseList"}).catch(() => null);
+            const cachedRaw = await store.load<Schedule>({key: "practiceSchedule"}).catch(() => null);
             if (cachedRaw) {
                 processAndSet(cachedRaw, false);
             }
         } catch (e) {}
 
         try {
-            const fetchedRaw = await courseApi.getCourseSchedule(year, term);
+            const fetchedRaw = await classScheduleApi.fetchPersonalSchedule(year, term);
             if (fetchedRaw) {
                 processAndSet(fetchedRaw, true);
             }

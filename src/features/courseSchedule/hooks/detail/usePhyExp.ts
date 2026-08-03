@@ -87,7 +87,7 @@ export const usePhyExp = () => {
     }
 
     function patchCourse(course: CourseClass, day: moment.Moment): CourseClass {
-        if (course.transformed.courseName !== "大学物理实验") return course;
+        if (course._ori.courseName !== "大学物理实验") return course;
         const list = usePhyExpStore.getState().phyExpList;
         if (list.length === 0) return course;
         const dateStr = day.format("YYYYMMDD");
@@ -95,9 +95,9 @@ export const usePhyExp = () => {
         if (!exp) return course;
         return new CourseClass({
             ...course._ori,
-            kcmc: exp.experimentName || exp.courseName,
-            cdmc: exp.location || exp.labName,
-            xm: exp.teacherName || exp.teacherFull,
+            courseName: exp.experimentName || exp.courseName,
+            venueName: exp.location || exp.labName,
+            teacher: exp.teacherName || exp.teacherFull,
         });
     }
 

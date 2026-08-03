@@ -40,7 +40,7 @@ export function normalizeCourse(data: NormalizableCourse): ScheduleTableItem[] {
                 location: course.venueName,
                 teacher: course.teacher,
                 kind: "course",
-                raw: course.raw,
+                raw: course,
                 qq: course.qqGroup,
             });
         });

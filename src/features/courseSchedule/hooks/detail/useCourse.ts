@@ -5,13 +5,13 @@ import {useCallback, useEffect, useMemo} from "react";
 import {useAttendance} from "@/features/courseSchedule/hooks/detail/useAttendance.ts";
 import {useStartDay} from "@/features/courseSchedule/hooks/detail/useStartDay.ts";
 import {ScheduleTableItem} from "@/features/courseSchedule/type/schedule.ts";
-import {Course} from "@/type/infoQuery/course/course.ts";
+import type {AdapterTheoryItem} from "@/class/jw/course.ts";
 
 export function useCourse(
     year: number,
     term: SchoolTermValue,
 ): {
-    items: ScheduleTableItem<Course>[];
+    items: ScheduleTableItem<AdapterTheoryItem>[];
     refresh: () => Promise<void>;
     loading: boolean;
 } {
@@ -54,12 +54,12 @@ export function useCourse(
                 const ext = safePhyList[phyIdx];
                 phyIdx++;
                 if (ext) {
-                    enrichedCourse.teacher = ext.teacher;
-                    enrichedCourse.location = ext.classroom;
+                    enrichedCourse.teacher = ext.teacherName || ext.teacherFull;
+                    enrichedCourse.location = ext.location || ext.labName;
                     enrichedCourse.raw = {
                         ...enrichedCourse.raw,
-                        xm: ext.teacher,
-                        cdmc: ext.classroom,
+                        xm: ext.teacherName || ext.teacherFull,
+                        cdmc: ext.location || ext.labName,
                     };
                 }
             }

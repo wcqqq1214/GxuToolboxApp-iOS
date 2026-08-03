@@ -2,6 +2,7 @@ import {backendHttp} from "@/features/backend/api";
 import {db} from "@/core/db";
 import {eq} from "drizzle-orm";
 import {termStartDay} from "@/core/schema";
+import {ensureJwAuthenticated} from "@/core/auth/Jw/JwMachine.ts";
 
 interface TermStartDay {
     year: number;
@@ -14,6 +15,9 @@ interface TermStartDay {
 let memoryStartDay: TermStartDay | null = null;
 
 export async function fetchStartDay(): Promise<TermStartDay[]> {
+    if (!(await ensureJwAuthenticated())) {
+        return [];
+    }
     const res = await backendHttp.get("/jw/profile/startDay");
     return res.data.data;
 }

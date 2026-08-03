@@ -1,5 +1,5 @@
 import {store} from "@/core/store.ts";
-import {CourseScheduleQueryRes} from "@/type/api/infoQuery/classScheduleAPI.ts";
+import type {OriginalSchedule} from "gxu-tool-adapters/jw";
 import {CourseSchema} from "@/type/infoQuery/course/course.ts";
 import moment from "moment/moment";
 
@@ -56,7 +56,7 @@ export const nextCourses = async () => {
         "20:30\n21:15",
         "21:20\n22:05",
     ];
-    const courseList = await store.load<CourseScheduleQueryRes>({key: "courseRes"}).catch(e => {
+    const courseList = await store.load<OriginalSchedule>({key: "courseRes"}).catch(e => {
         console.warn(e);
         return null;
     });

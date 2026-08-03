@@ -1,5 +1,6 @@
 import {backendHttp} from "@/features/backend/api";
 import type {ClassDetail, Major, Schedule, School} from "gxu-tool-adapters/jw";
+import {ensureJwAuthenticated} from "@/core/auth/Jw/JwMachine.ts";
 
 /**
  * 班级课表相关接口，对应后端 ScheduleController（路由前缀 /jw/schedule）。
@@ -38,7 +39,10 @@ function toLogicalTerm(term: string | number): string | undefined {
 
 export const classScheduleApi = {
     /** 个人课表（需登录，term 接受教务系统码 3/12 或逻辑码 1/2）。后端 parseSchedule 失败时返回 null。 */
-    fetchPersonalSchedule: async (year: string, term: string): Promise<Schedule | null> => {
+    fetchPersonalSchedule: async (year: string | number, term: string | number): Promise<Schedule | null> => {
+        if (!(await ensureJwAuthenticated())) {
+            return null;
+        }
         const logicalTerm = toLogicalTerm(term);
         if (!logicalTerm) throw new Error(`不支持的学期参数: ${term}`);
         const res = await backendHttp.get("/jw/schedule/personal", {params: cleanParams({year, term: logicalTerm})});
@@ -47,12 +51,18 @@ export const classScheduleApi = {
 
     /** 学院列表（硬编码，无需登录） */
     fetchSchools: async (): Promise<School[]> => {
+        if (!(await ensureJwAuthenticated())) {
+            return [];
+        }
         const res = await backendHttp.get("/jw/schedule/schools");
         return res.data.data;
     },
 
     /** 专业列表（需登录） */
     fetchMajors: async (grade: string, school: string): Promise<Major[]> => {
+        if (!(await ensureJwAuthenticated())) {
+            return [];
+        }
         const res = await backendHttp.get("/jw/schedule/majors", {params: cleanParams({grade, school})});
         return res.data.data;
     },
@@ -61,12 +71,15 @@ export const classScheduleApi = {
      *  对应 /jw/schedule/class-schedules；选中某条后用其自带的 major/grade/classid 下钻查 class-schedule 课表，
      *  这样即使年级选“全部”也能拿到每个班级各自的 grade。 */
     fetchFullClasses: async (
-        year: string,
-        term: string,
+        year: string | number,
+        term: string | number,
         school?: string,
         major?: string,
         grade?: string,
     ): Promise<ClassDetail[]> => {
+        if (!(await ensureJwAuthenticated())) {
+            return [];
+        }
         const logicalTerm = toLogicalTerm(term);
         if (!logicalTerm) throw new Error(`不支持的学期参数: ${term}`);
         const res = await backendHttp.get("/jw/schedule/class-schedules", {
@@ -83,6 +96,9 @@ export const classScheduleApi = {
         grade: string,
         classId: string,
     ): Promise<Schedule | null> => {
+        if (!(await ensureJwAuthenticated())) {
+            return null;
+        }
         const logicalTerm = toLogicalTerm(term);
         if (!logicalTerm) throw new Error(`不支持的学期参数: ${term}`);
 
