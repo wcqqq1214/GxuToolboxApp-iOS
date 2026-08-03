@@ -4,8 +4,7 @@ import {ScrollView, StyleSheet, ToastAndroid, View} from "react-native";
 import {BottomSheet, Divider, Input, Text, useTheme} from "@rneui/themed";
 import {UnTermSelector} from "@/components/un-ui/UnTermSelector.tsx";
 import React, {useEffect, useState} from "react";
-import {courseApi, CourseScheduleData} from "@/js/jw/course.ts";
-import {CourseScheduleClass} from "@/class/jw/course.ts";
+import {CourseScheduleData} from "@/js/jw/course.ts";
 import {usePagerView} from "react-native-pager-view";
 import {UnSlider} from "@/components/un-ui/UnSlider.tsx";
 import {IActivity} from "@/type/app/activity.ts";
@@ -28,7 +27,6 @@ export function ScheduleEdit() {
     const [year, setYear] = useState(store(s => s.jw.year));
     const [term, setTerm] = useState(store(s => s.jw.term));
 
-    const [courseRes, setCourseRes] = useState<CourseScheduleClass>();
     // 用户数据中的Index
     const [activityListIndex, setActivityListIndex] = useState(-1);
     const [activityList, setActivityList] = useState<IActivity[]>([]);
@@ -66,11 +64,6 @@ export function ScheduleEdit() {
         setActivityList([...activityList]);
         setEditModalOpen(false);
         save();
-    }
-
-    async function getCourses() {
-        const res = await courseApi.getCourseSchedule(year, term);
-        setCourseRes(res);
     }
 
     function save() {
@@ -113,7 +106,6 @@ export function ScheduleEdit() {
 
     useEffect(() => {
         init();
-        getCourses();
     }, [year, term]);
 
     const style = StyleSheet.create({

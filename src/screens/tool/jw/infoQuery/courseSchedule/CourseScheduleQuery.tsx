@@ -173,9 +173,9 @@ export function CourseScheduleQuery() {
                                         .map(i => patchCourse(new CourseClass(i.raw), day))
                                         .filter(Boolean);
                                     if (courses.length === 0) return null;
-                                    const courseCodes = courses.map(c => c.transformed.courseCode + "_" + c.transformed.staffId).sort();
+                                    const courseCodes = courses.map(c => c._ori.courseName + "_" + c._ori.teacher).sort();
                                     const storedActive = conflictStore.getState().getActive(courseCodes);
-                                    const activeCourse = storedActive ?? (courses[0] ? courses[0].transformed.courseCode + "_" + courses[0].transformed.staffId : "");
+                                    const activeCourse = storedActive ?? (courses[0] ? courses[0]._ori.courseName + "_" + courses[0]._ori.teacher : "");
                                     return (
                                         <StackCourseItem
                                             course={courses}
@@ -229,14 +229,14 @@ export function CourseScheduleQuery() {
                                     type: "itemDetail",
                                     day: sheet.day,
                                     item: {
-                                        id: course.transformed.courseCode,
+                                        id: course._ori.courseName,
                                         week: 0,
                                         day: 1 as ScheduleTableItem["day"],
                                         begin: 1 as ScheduleTableItem["begin"],
                                         end: 1 as ScheduleTableItem["begin"],
-                                        title: course.transformed.courseName,
-                                        location: course.transformed.venueName,
-                                        teacher: course.transformed.name,
+                                        title: course._ori.courseName,
+                                        location: course._ori.venueName,
+                                        teacher: course._ori.teacher,
                                         raw: course,
                                     },
                                 });
