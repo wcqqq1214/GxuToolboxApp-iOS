@@ -92,6 +92,7 @@
         "babel-plugin-inline-import": "^3.0.0",
         "drizzle-kit": "^0.31.10",
         "eslint": "^8.19.0",
+        "gxu-tool-adapters": "git+https://gitlab.unde.site/gxutool/adapter.git",
         "jest": "^29.2.1",
         "prettier": "3.8.1",
         "react-test-renderer": "19.2.3",

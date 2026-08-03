@@ -68,7 +68,7 @@ export function ToolboxStack() {
             <Stack.Screen
                 name="classCourseSchedule"
                 component={lazy(() =>
-                    import("@/screens/tool/jw/infoQuery/courseSchedule/ClassCourseSchedule.tsx").then(m => ({
+                    import("@/features/classCourseSchedule/screen/ClassCourseSchedule.tsx").then(m => ({
                         default: m.ClassCourseSchedule,
                     })),
                 )}

@@ -2,14 +2,15 @@ import {ActivityIndicator, SectionList, StyleSheet, View} from "react-native";
 import {useEffect, useMemo, useState} from "react";
 import {Schools, SchoolTermValue} from "@/type/global.ts";
 import {useUserConfig} from "@/hooks/useUserConfig.ts";
-import {useClassScheduleData} from "@/features/classCourseSchedule/hooks/useClassScheduleData.ts";
-import {Button, Divider, Text,useTheme} from "@rneui/themed";
-import {IClassList} from "@/features/classCourseSchedule/type/schema/classList.ts";
+import {classScheduleApi} from "@/features/classCourseSchedule/api";
+import {normalizeCourse} from "@/features/classCourseSchedule/utils/normalizeCourse.ts";
+import type {ClassDetail, Schedule} from "gxu-tool-adapters/jw";
+import {Button, Divider, Text, useTheme} from "@rneui/themed";
 import {useStartDay} from "@/features/courseSchedule/hooks/detail/useStartDay.ts";
 import moment from "moment";
 import {useCourseData} from "@/hooks/useCourseData.ts";
+import type {ScheduleTableItem} from "@/features/courseSchedule/type/schedule.ts";
 
-type ClassItem = IClassList[number];
 type SchoolType = (typeof Schools)[number];
 const DAY_CN = ["", "一", "二", "三", "四", "五", "六", "日"];
 
@@ -19,20 +20,55 @@ interface TimeProps {
     classIndex: number;
 }
 
-function ClassCard({item, time, onCount}: {item: ClassItem; time: TimeProps; onCount: () => void}) {
-    const {fetchSchedule, theorySchedule} = useClassScheduleData();
-
-    const course = theorySchedule?.find(i => {
-        return i.week === time.week && i.day === time.day && i.begin <= time.classIndex && i.end >= time.classIndex;
-    });
+function ClassCard({
+    item,
+    time,
+    year,
+    term,
+    onCount,
+}: {
+    item: ClassDetail;
+    time: TimeProps;
+    year: number;
+    term: SchoolTermValue;
+    onCount: () => void;
+}) {
+    const [course, setCourse] = useState<ScheduleTableItem | null>(null);
 
     useEffect(() => {
-        fetchSchedule(item);
-    }, [item]);
+        let cancelled = false;
+        (async () => {
+            try {
+                const schedule: Schedule | null = await classScheduleApi.fetchClassSchedule(
+                    String(year),
+                    String(term),
+                    item.majorId,
+                    item.grade,
+                    item.classId,
+                );
+                if (cancelled || !schedule) return;
+                const items = normalizeCourse(schedule);
+                const found = items.find(
+                    i =>
+                        i.week === time.week &&
+                        i.day === time.day &&
+                        i.begin <= time.classIndex &&
+                        i.end >= time.classIndex,
+                );
+                if (!cancelled) setCourse(found ?? null);
+            } catch {
+                // 单个班级查询失败不阻塞整体
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [item, time, year, term]);
 
     useEffect(() => {
         if (course) onCount();
     }, [course]);
+
     return (
         course && (
             <View style={styles.card}>
@@ -42,23 +78,25 @@ function ClassCard({item, time, onCount}: {item: ClassItem; time: TimeProps; onC
                     {course.teacher}
                 </Text>
                 <View style={{flex: 1}} />
-                <Text style={styles.cardClassName}>
-                    {item.className} · {item.studentCount}人
-                </Text>
+                <Text style={styles.cardClassName}>{item.className}</Text>
             </View>
         )
     );
 }
 
 function MajorSection({
-    majorName,
+    majorId,
     classes,
     time,
+    year,
+    term,
     onSchoolCount,
 }: {
-    majorName: string;
-    classes: ClassItem[];
+    majorId: string;
+    classes: ClassDetail[];
     time: TimeProps;
+    year: number;
+    term: SchoolTermValue;
     onSchoolCount: () => void;
 }) {
     const [count, setCount] = useState<number>(0);
@@ -70,12 +108,12 @@ function MajorSection({
         <View style={styles.majorBlock}>
             {count !== 0 && (
                 <Text style={styles.majorName}>
-                    {majorName}（{count}）
+                    {majorId}（{count}）
                 </Text>
             )}
             <View style={styles.classGrid}>
                 {classes.map(item => (
-                    <ClassCard key={item.classId} item={item} time={time} onCount={onCount} />
+                    <ClassCard key={item.classId} item={item} time={time} year={year} term={term} onCount={onCount} />
                 ))}
             </View>
         </View>
@@ -83,10 +121,14 @@ function MajorSection({
 }
 
 function SchoolHeader({school}: {school: SchoolType}) {
-    const {theme}=useTheme();
+    const {theme} = useTheme();
     return (
-        <View style={[styles.sectionHeader,{backgroundColor:theme.colors.background,borderBottomColor:theme.colors.greyOutline}]}>
-            <Text style={[styles.schoolName,{color:theme.colors.black}]}>{school[1]}</Text>
+        <View
+            style={[
+                styles.sectionHeader,
+                {backgroundColor: theme.colors.background, borderBottomColor: theme.colors.greyOutline},
+            ]}>
+            <Text style={[styles.schoolName, {color: theme.colors.black}]}>{school[1]}</Text>
         </View>
     );
 }
@@ -102,13 +144,31 @@ function SchoolContent({
     term: SchoolTermValue;
     time: TimeProps;
 }) {
-    const {fetchList, list, loading, trafficBytes} = useClassScheduleData();
-
+    const [list, setList] = useState<ClassDetail[]>([]);
+    const [loading, setLoading] = useState(false);
     const [totalCount, setTotalCount] = useState<number>(0);
     const onSchoolCount = () => setTotalCount(prev => prev + 1);
 
-    const byMajor = list.reduce<Record<string, ClassItem[]>>((acc, item) => {
-        (acc[item.majorName] ??= []).push(item);
+    const fetchList = async () => {
+        setLoading(true);
+        setTotalCount(0);
+        try {
+            const res = await classScheduleApi.fetchFullClasses(String(year), String(term), school[0], "", "");
+            setList(res ?? []);
+        } catch {
+            setList([]);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchList();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [school, year, term]);
+
+    const byMajor = list.reduce<Record<string, ClassDetail[]>>((acc, item) => {
+        (acc[item.majorId] ??= []).push(item);
         return acc;
     }, {});
 
@@ -120,21 +180,18 @@ function SchoolContent({
                         {totalCount}/{list.length}
                     </Text>
                 )}
-                {trafficBytes > 0 && (
-                    <Text style={{fontSize: 11, color: "#999", marginRight: 6}}>
-                        {(trafficBytes / 1024).toFixed(1)} KB
-                    </Text>
-                )}
-                <Button title="获取数据" size="sm" onPress={() => fetchList(year, term, school[0], "", "", "")} />
+                <Button title="获取数据" size="sm" onPress={fetchList} />
             </View>
             {loading && <ActivityIndicator style={{marginVertical: 6}} />}
             {!loading &&
-                Object.entries(byMajor).map(([majorName, classes]) => (
+                Object.entries(byMajor).map(([majorId, classes]) => (
                     <MajorSection
-                        key={majorName}
-                        majorName={majorName}
+                        key={majorId}
+                        majorId={majorId}
                         classes={classes}
                         time={time}
+                        year={year}
+                        term={term}
                         onSchoolCount={onSchoolCount}
                     />
                 ))}
@@ -145,8 +202,8 @@ function SchoolContent({
 
 type Section = {school: SchoolType; data: [SchoolType]};
 
-export const FullCourseScreen = () =>{
-    const {theme}=useTheme();
+export const FullCourseScreen = () => {
+    const {theme} = useTheme();
     const {store} = useUserConfig();
     const [year] = useState(+store(s => s.jw.year));
     const [term] = useState<SchoolTermValue>(store(s => s.jw.term));
@@ -174,7 +231,7 @@ export const FullCourseScreen = () =>{
         return res > -1 ? res : null;
     }
 
-    const classIndex = getCurrentTimeSpan() + 1;
+    const classIndex = (getCurrentTimeSpan() ?? -1) + 1;
     const time: TimeProps = {week, day, classIndex};
 
     const sections: Section[] = useMemo(
@@ -186,15 +243,15 @@ export const FullCourseScreen = () =>{
         <View style={{flex: 1, backgroundColor: theme.colors.background}}>
             <View style={styles.timeHeader}>
                 <Text style={styles.timeWeek}>
-                    第 <Text style={[styles.timeNum,{color:theme.colors.black}]}>{week}</Text> 周
+                    第 <Text style={[styles.timeNum, {color: theme.colors.black}]}>{week}</Text> 周
                 </Text>
                 <Text style={styles.timeDot}>·</Text>
                 <Text style={styles.timeWeekday}>
-                    星期<Text style={[styles.timeNum,{color:theme.colors.black}]}>{DAY_CN[day]}</Text>
+                    星期<Text style={[styles.timeNum, {color: theme.colors.black}]}>{DAY_CN[day]}</Text>
                 </Text>
                 <Text style={styles.timeDot}>·</Text>
                 <Text style={styles.timeWeekday}>
-                    第<Text style={[styles.timeNum,{color:theme.colors.black}]}>{classIndex}</Text>节课
+                    第<Text style={[styles.timeNum, {color: theme.colors.black}]}>{classIndex}</Text>节课
                 </Text>
             </View>
             <SectionList
