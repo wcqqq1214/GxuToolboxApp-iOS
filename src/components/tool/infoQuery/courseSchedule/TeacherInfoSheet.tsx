@@ -1,6 +1,7 @@
 import {Dimensions, ScrollView, StyleSheet, View} from "react-native";
 import {teacherInfoApi} from "@/js/info/teacherInfo.ts";
 import {BottomSheet, Divider, Image, useTheme} from "@rneui/themed";
+import Clipboard from "@react-native-clipboard/clipboard";
 import React, {useEffect, useState} from "react";
 import {usePagerView} from "react-native-pager-view";
 import {DetailResData, SimpleTeacherInfo} from "@/type/api/teacherInfo/info.ts";
@@ -85,13 +86,15 @@ export function TeacherInfoSheet(props: Props) {
                         />
                     </View>
                     <View key="1" collapsable={false} style={{width: "100%"}}>
-                        <TeacherDetailInfo
-                            onBack={() => {
-                                pagerView.ref.current?.setPage(0);
-                            }}
-                            name={selectedTeacher?.XM}
-                            school={selectedTeacher?.dwmc}
-                        />
+                        {selectedTeacher && (
+                            <TeacherDetailInfo
+                                onBack={() => {
+                                    pagerView.ref.current?.setPage(0);
+                                }}
+                                name={selectedTeacher.XM}
+                                school={selectedTeacher.dwmc}
+                            />
+                        )}
                     </View>
                 </pagerView.AnimatedPagerView>
             </View>
@@ -162,19 +165,13 @@ function TeacherDetailInfo(props: infoProps) {
     const {theme} = useTheme();
     const iconUrl = "https://prof.gxu.edu.cn/images/icon-teacher.jpg";
     const [teacherInfo, setTeacherInfo] = useState<DetailResData>();
-    const [activatedIndex, setActivatedIndex] = useState(null);
 
     const {width: screenWidth, height: screenHeight} = Dimensions.get("window");
     const style = StyleSheet.create({
         sheetContainerStyle: {
-            paddingTop: 16,
+            paddingVertical: 16,
             paddingHorizontal: 12,
             width: screenWidth,
-        },
-        baseInfoContainer: {
-            flexDirection: "row",
-            gap: 16,
-            width: screenWidth * 0.9,
         },
         detailInfoContainer: {
             flexDirection: "column",
@@ -228,6 +225,10 @@ function TeacherDetailInfo(props: infoProps) {
         {label: "学术兼职", value: teacherInfo?.largeMsg.xsjz},
     ];
 
+    function copy(value: string, tip: string) {
+        Clipboard.setString(value);
+    }
+
     async function getDetailInfo() {
         const res = await teacherInfoApi.getDetailInfo(props.name, props.school);
         const info = res.resData;
@@ -239,79 +240,96 @@ function TeacherDetailInfo(props: infoProps) {
     }, [props.name, props.school]);
 
     return (
-        <View style={style.sheetContainerStyle}>
-            <View>
-                <ScrollView>
-                    <View style={style.baseInfoContainer}>
-                        <Image source={{uri: teacherInfo?.baseInfo.pic || iconUrl}} style={style.image} />
-                        <View style={{width: "62%"}}>
-                            <View style={style.columContainer}>
-                                <View style={{flexDirection: "row", alignItems: "flex-end", gap: 10}}>
+        <ScrollView contentContainerStyle={style.sheetContainerStyle}>
+            <Flex gap={8} align="flex-start">
+                <Image source={{uri: teacherInfo?.baseInfo.pic || iconUrl}} style={style.image} />
+                <View style={{flex: 1}}>
+                    <View style={style.columContainer}>
+                        <Flex gap={4} align="center">
+                            <UnText size={22} style={{fontWeight: "bold"}}>
+                                <UnPressable
+                                    onPress={function () {
+                                        return copy(teacherInfo?.baseInfo.XM ?? "", "复制姓名成功");
+                                    }}>
                                     <UnText size={22} style={{fontWeight: "bold"}}>
                                         {teacherInfo?.baseInfo.XM}
                                     </UnText>
-                                    {teacherInfo?.baseInfo.zhicheng && (
-                                        <UnText
-                                            size={14}
-                                            style={style.eduItem}
-                                            color={Color.mix(theme.colors.primary, theme.colors.black, 0.3).rgbaString}>
-                                            {teacherInfo?.baseInfo.zhicheng ? teacherInfo?.baseInfo.zhicheng : "无"}
-                                        </UnText>
-                                    )}
-                                    {teacherInfo?.baseInfo.topedu && teacherInfo.baseInfo.ZHXWMC && (
-                                        <UnText
-                                            size={14}
-                                            style={style.eduItem}
-                                            color={Color.mix(theme.colors.primary, theme.colors.black, 0.3).rgbaString}>
-                                            {teacherInfo?.baseInfo.ZHXWMC} | {teacherInfo?.baseInfo.topedu}
-                                        </UnText>
-                                    )}
-                                </View>
-                                <View style={style.rowContainer}>
-                                    <UnText size={14}>{teacherInfo?.baseInfo.XBM === "1" ? "男" : "女"}</UnText>
-                                    <UnText size={14}>{teacherInfo?.baseInfo.zzmm ?? "暂无政治面貌信息"}</UnText>
-                                </View>
-                                <View style={{flexDirection: "row", width: "83%"}}>
-                                    <UnText size={14}>所在单位：</UnText>
-                                    <UnText size={14}>{teacherInfo?.baseInfo.forEditDwmc}</UnText>
-                                </View>
-                                <View style={style.columContainer}>
-                                    <UnText size={14}>邮箱编码：{teacherInfo?.baseInfo.yzbm ?? "无"}</UnText>
-                                    <View style={{flexDirection: "row"}}>
-                                        <UnText size={14}>邮箱：</UnText>
-                                        <UnText size={14}>
-                                            {teacherInfo?.baseInfo.email?.trim()
-                                                ? teacherInfo?.baseInfo.email?.trim()
-                                                : "无"}
-                                        </UnText>
-                                    </View>
-                                </View>
-                            </View>
-                        </View>
-                    </View>
-                    <Divider orientation={"horizontal"} />
-                    <View style={{marginBottom: 4}}>
-                        {dataList.map((item, index) => (
-                            <>
-                                <View>
-                                    <UnText size={20} color={theme.colors.primary}>
-                                        {item.label}
-                                    </UnText>
-                                </View>
-                                <CollapsedInfo
-                                    key={index}
-                                    info={item}
-                                    isCollapsed={activatedIndex !== index}
-                                    onClick={() => {
-                                        setActivatedIndex((pre: number | null) => (pre === index ? null : index));
+                                </UnPressable>
+                            </UnText>
+                            {teacherInfo?.baseInfo.zhicheng && (
+                                <UnPressable
+                                    onPress={function () {
+                                        return copy(teacherInfo?.baseInfo.zhicheng ?? "", "复制职称成功");
                                     }}>
-                                    <UnText>{item.value?.trim() ? item.value?.trim() : "暂无信息"}</UnText>
-                                </CollapsedInfo>
-                            </>
-                        ))}
+                                    <UnText
+                                        size={14}
+                                        style={style.eduItem}
+                                        color={Color.mix(theme.colors.primary, theme.colors.black, 0.3).rgbaString}>
+                                        {teacherInfo?.baseInfo.zhicheng}
+                                    </UnText>
+                                </UnPressable>
+                            )}
+                            {teacherInfo?.baseInfo.topedu && teacherInfo.baseInfo.ZHXWMC && (
+                                <UnPressable
+                                    onPress={function () {
+                                        return copy(
+                                            `${teacherInfo?.baseInfo.ZHXWMC} | ${teacherInfo?.baseInfo.topedu}`,
+                                            "复制学历学位成功",
+                                        );
+                                    }}>
+                                    <UnText
+                                        size={14}
+                                        style={style.eduItem}
+                                        color={Color.mix(theme.colors.primary, theme.colors.black, 0.3).rgbaString}>
+                                        {teacherInfo?.baseInfo.ZHXWMC} | {teacherInfo?.baseInfo.topedu}
+                                    </UnText>
+                                </UnPressable>
+                            )}
+                        </Flex>
+                        <Flex gap={4}>
+                            <UnText size={14}>{teacherInfo?.baseInfo.XBM === "1" ? "男" : "女"}</UnText>
+                            <UnText size={14}>{teacherInfo?.baseInfo.zzmm ?? "暂无政治面貌信息"}</UnText>
+                        </Flex>
+                        <Flex align="flex-start">
+                            <UnText size={14}>所在单位：</UnText>
+                            <UnPressable
+                                style={{flex: 1}}
+                                onPress={function () {
+                                    return copy(teacherInfo?.baseInfo.forEditDwmc ?? "", "复制所在单位成功");
+                                }}>
+                                <UnText size={14}>{teacherInfo?.baseInfo.forEditDwmc}</UnText>
+                            </UnPressable>
+                        </Flex>
+                        <Flex>
+                            <UnText size={14}>邮政编码：</UnText>
+                            <UnPressable
+                                onPress={function () {
+                                    return copy(teacherInfo?.baseInfo.yzbm ?? "", "复制邮政编码成功");
+                                }}>
+                                <UnText size={14}>{teacherInfo?.baseInfo.yzbm ?? "无"}</UnText>
+                            </UnPressable>
+                        </Flex>
+                        <Flex>
+                            <UnText size={14}>邮箱：</UnText>
+                            <UnPressable
+                                style={{flex: 1}}
+                                onPress={function () {
+                                    return copy(teacherInfo?.baseInfo.email?.trim() ?? "", "复制邮箱成功");
+                                }}>
+                                <UnText size={14}>{teacherInfo?.baseInfo.email?.trim() || "无"}</UnText>
+                            </UnPressable>
+                        </Flex>
                     </View>
-                </ScrollView>
+                </View>
+            </Flex>
+            <Divider orientation={"horizontal"} />
+            <View style={{marginBottom: vh(5)}}>
+                {dataList.map((item, index) => (
+                    <CollapsedInfo label={item.label}>
+                        <UnText>{item.value?.trim() || "暂无信息"}</UnText>
+                    </CollapsedInfo>
+                ))}
             </View>
-        </View>
+        </ScrollView>
     );
 }

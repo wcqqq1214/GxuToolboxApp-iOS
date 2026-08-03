@@ -1,4 +1,4 @@
-import {CourseClass, AdapterTheoryItem} from "@/class/jw/course.ts";
+import {AdapterTheoryItem, CourseClass} from "@/class/jw/course.ts";
 import {Image, Linking, StyleSheet, ToastAndroid, View, ViewProps} from "react-native";
 import {Text, useTheme} from "@rneui/themed";
 import Flex from "@/components/un-ui/Flex.tsx";
@@ -76,7 +76,7 @@ export function CourseDetail(props: Props) {
                         valueRender={(v, course) => <UnText>{course.building + v}</UnText>}
                         labelRender={v => (
                             <UnPressable onPress={() => Pos.parseAndSearchInMap(v)}>
-                                <Flex gap={5} align="center" inline>
+                                <Flex gap={4} align="center" inline>
                                     <UnText weight="bold" size={16}>
                                         上课地点
                                     </UnText>
@@ -96,30 +96,28 @@ export function CourseDetail(props: Props) {
                         prop="teacher"
                         label="上课教师"
                         valueRender={v => (
-                            <>
-                                <Flex direction={"row"} gap={6}>
-                                    {teacherInfoList.length > 1 ? (
-                                        <></>
-                                    ) : (
-                                        <Image
-                                            style={{width: 30, height: 30, borderRadius: 4}}
-                                            source={{uri: teacherInfoList[0]?.pic || iconUrl}}
-                                        />
-                                    )}
-                                    <UnText>{v}</UnText>
-                                </Flex>
-                            </>
+                            <Flex direction={"row"} gap={4}>
+                                {teacherInfoList.length === 1 && (
+                                    <Image
+                                        style={{width: 20, height: 20, borderRadius: 999}}
+                                        source={{uri: teacherInfoList[0]?.pic || iconUrl}}
+                                    />
+                                )}
+                                <UnText>{v}</UnText>
+                            </Flex>
                         )}
                         labelRender={() => (
                             <UnPressable onPress={() => setVisible(true)}>
-                                <UnText weight="bold" size={16}>
-                                    上课教师
+                                <Flex gap={4} align="center" inline>
+                                    <UnText weight="bold" size={16}>
+                                        上课教师
+                                    </UnText>
                                     <Icon
                                         name="magnify"
                                         color={Color.mix(theme.colors.primary, theme.colors.black).rgbaString}
                                         size={16}
                                     />
-                                </UnText>
+                                </Flex>
                             </UnPressable>
                         )}
                     />
@@ -134,7 +132,7 @@ export function CourseDetail(props: Props) {
                         label="QQ群"
                         labelRender={qq =>
                             qq.trim().length > 0 ? (
-                                <Flex gap={5} align="center" inline>
+                                <Flex gap={4} align="center" inline>
                                     <UnText weight="bold" size={16}>
                                         QQ群
                                     </UnText>

@@ -1,25 +1,19 @@
 import {StyleSheet, View} from "react-native";
 import {useTheme} from "@rneui/themed";
-import {UnPressable, UnText} from "@/components/un-ui";
-import React from "react";
-
-type Data = {
-    label: string;
-    value: string;
-};
+import {Flex, Icon, UnPressable, UnText} from "@/components/un-ui";
+import React, {useState} from "react";
 
 interface Props {
-    info: Data;
-    isCollapsed: Boolean;
-    onClick?: () => void;
+    key?: any;
+    label: string;
+    isCollapsed?: Boolean;
+    onClick?: () => void | boolean;
 }
 
 export function CollapsedInfo(props: React.PropsWithChildren<Props>) {
     const {theme} = useTheme();
+    const [collapse, setCollapse] = useState(props.isCollapsed ?? true);
     const style = StyleSheet.create({
-        infoContainer: {
-            height: "auto",
-        },
         rowContainer: {
             flexDirection: "row",
             gap: 10,
@@ -42,19 +36,33 @@ export function CollapsedInfo(props: React.PropsWithChildren<Props>) {
     });
 
     return (
-        <View style={style.infoContainer}>
-            {!props.isCollapsed && props.children}
+        <View key={props.key}>
             <UnPressable
-                style={{marginHorizontal: 8}}
-                onPress={function() {
-                    props.onClick();
+                onPress={function () {
+                    if (props.onClick?.() !== false) setCollapse(!collapse);
                 }}>
-                <View style={style.dividerContainer}>
-                    <View style={style.dividerItem} />
-                    <UnText>{props.isCollapsed ? "展开↓" : "收起↑"}</UnText>
-                    <View style={style.dividerItem} />
-                </View>
+                <Flex justify="space-between" style={{paddingVertical: 4}}>
+                    <UnText size={20} color={theme.colors.primary}>
+                        {props.label}
+                    </UnText>
+                    <Icon name="menu-up" size={20} rotate={collapse ? 180 : 0} />
+                </Flex>
             </UnPressable>
+            {!collapse && (
+                <>
+                    {props.children}
+                    <UnPressable
+                        onPress={function () {
+                            if (props.onClick?.() !== false) setCollapse(true);
+                        }}>
+                        <View style={style.dividerContainer}>
+                            <View style={style.dividerItem} />
+                            <UnText>收起↑</UnText>
+                            <View style={style.dividerItem} />
+                        </View>
+                    </UnPressable>
+                </>
+            )}
         </View>
     );
 }
