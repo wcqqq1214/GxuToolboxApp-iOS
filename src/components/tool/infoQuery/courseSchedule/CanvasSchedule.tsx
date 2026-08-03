@@ -1,11 +1,12 @@
-import React, {useEffect, useState} from "react";
+import React, {useEffect, useMemo, useState} from "react";
 import {Dimensions, StyleSheet, View} from "react-native";
 import Canvas, {CanvasRenderingContext2D} from "react-native-canvas";
 import {Color} from "@/shared/color.ts";
 import {useTheme} from "@rneui/themed";
 import {CourseScheduleData} from "@/js/jw/course.ts";
 import moment from "moment/moment";
-import {CourseScheduleClass, CourseClass} from "@/class/jw/course.ts";
+import {CourseScheduleClass} from "@/class/jw/course.ts";
+import type {Schedule} from "gxu-tool-adapters/jw";
 import {useUserConfig} from "@/hooks/useUserConfig.ts";
 import {useCourseData} from "@/hooks/useCourseData.ts";
 import {useShift} from "@/features/courseSchedule/hooks/detail/useShift.ts";
@@ -26,7 +27,7 @@ export function CanvasSchedule(props: Props) {
     const {store: shiftStore, init: initShift} = useShift();
     const timeShift = shiftStore(s => s.shiftRules);
     const {store: baseCourseStore} = useBaseCourse();
-    const rawCourseList = baseCourseStore(s => s.rawCourseList);
+    const schedule = baseCourseStore(s => s.schedule);
 
     const [courseSchedule, setCourseSchedule] = useState<CourseScheduleClass>();
 
@@ -56,10 +57,22 @@ export function CanvasSchedule(props: Props) {
     const spanHeight = timeSpanHeight; //一个元素高度
 
     useEffect(() => {
-        if (rawCourseList?.length) {
-            setCourseSchedule(new CourseScheduleClass({kbList: rawCourseList}));
+        if (schedule) {
+            setCourseSchedule(new CourseScheduleClass(schedule));
         }
-    }, [rawCourseList]);
+    }, [schedule]);
+
+    const colorMap = useMemo(() => {
+        const map: Record<string, string> = {};
+        schedule?.theoryList.forEach(item => {
+            if (!map[item.courseName]) {
+                map[item.courseName] = CourseScheduleData.randomColor[
+                    Math.floor(Math.random() * CourseScheduleData.randomColor.length)
+                ];
+            }
+        });
+        return map;
+    }, [schedule]);
 
     useEffect(() => {
         initShift();
@@ -165,7 +178,7 @@ export function CanvasSchedule(props: Props) {
         const topCourseSpanY = spanHeight > 40 ? spanHeight + 1 : spanHeight * 2 + 1;
         courseList?.forEach((dailyCourseList, index) => {
             dailyCourseList.forEach(item => {
-                const classPeriod = item.transformed.periodCount.split("-").map(span => +span);
+                const classPeriod = item.sectionRange.split("-").map(span => +span);
                 const radius = 5;
                 const span = classPeriod[1] - classPeriod[0] + 1;
                 const courseSpanX = spanWidth * index + 3 * (index + 1); //矩形左上角x
@@ -218,7 +231,7 @@ export function CanvasSchedule(props: Props) {
                 ctx.arcTo(courseSpanX, courseSpanY, courseSpanX + radius, courseSpanY, radius);
 
                 ctx.closePath();
-                ctx.fillStyle = Color(item.transformed.backgroundColor ?? theme.colors.primary).rgbaString;
+                ctx.fillStyle = Color(colorMap[item.courseName] ?? theme.colors.primary).rgbaString;
                 ctx.globalAlpha = theme.mode === "light" ? 0.3 : 0.1;
                 ctx.fill();
 
@@ -237,13 +250,13 @@ export function CanvasSchedule(props: Props) {
                     return list;
                 }
 
-                function handleInfo(course: CourseClass): string[] {
-                    const locationList = crateSpan(course.transformed.venueName);
-                    const nameList = crateSpan(course.transformed.name);
+                function handleInfo(course: Schedule["theoryList"][number]): string[] {
+                    const locationList = crateSpan(course.venueName);
+                    const nameList = crateSpan(course.teacher);
                     return locationList.concat(nameList);
                 }
 
-                const spanList: string[] = crateSpan(item.transformed.courseName);
+                const spanList: string[] = crateSpan(item.courseName);
                 const infoSpanList: string[] = handleInfo(item);
                 const courseSpanList = spanList.concat(infoSpanList);
                 const bottomLimit = courseSpanHeight - courseItemMargin;
@@ -255,7 +268,7 @@ export function CanvasSchedule(props: Props) {
                     minRows = i + 1;
                 }
                 ctx.globalAlpha = 1;
-                const courseBaseColor = item.transformed.backgroundColor ?? theme.colors.primary;
+                const courseBaseColor = colorMap[item.courseName] ?? theme.colors.primary;
                 ctx.fillStyle = Color.mix(courseBaseColor, theme.colors.black, 0.5).rgbaString;
                 courseSpanList.forEach((span, spanIndex) => {
                     ctx.fillText(

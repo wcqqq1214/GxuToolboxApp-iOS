@@ -19,8 +19,8 @@ interface StackCourseItemProps {
 }
 
 export const StackCourseItem = memo(({course, activeCourse, timeRange, onPress}: StackCourseItemProps) => {
-    const parsed = useMemo(() => course.map(c => c.transformed), [course]);
-    const toKey = (c: typeof parsed[0]) => c.courseCode + "_" + c.staffId;
+    const parsed = useMemo(() => course.map(c => c._ori), [course]);
+    const toKey = (c: typeof parsed[0]) => c.courseName + "_" + c.teacher;
     const activeParsed = useMemo(
         () => parsed.find(c => toKey(c) === activeCourse) ?? parsed[0],
         [parsed, activeCourse],
@@ -104,9 +104,6 @@ export const StackCourseItem = memo(({course, activeCourse, timeRange, onPress}:
                 }}
                 align="center">
                 <Text style={[styles.text, {fontWeight: "bold"}]} numberOfLines={5}>
-                    {active.isAdjusted === "1" && (
-                        <Text style={{color: theme.colors.warning, fontSize: 10, fontWeight: "bold"}}>(调) </Text>
-                    )}
                     {active.courseName}
                 </Text>
                 {!!active.venueName && (
@@ -115,10 +112,10 @@ export const StackCourseItem = memo(({course, activeCourse, timeRange, onPress}:
                         {"\n" + active.venueName.replace("-", "\n")}
                     </Text>
                 )}
-                {!!active.name && (
+                {!!active.teacher && (
                     <Text style={styles.text} ellipsizeMode="tail" numberOfLines={5}>
                         <Icon name="account" style={styles.text} />
-                        {"\n" + active.name}
+                        {"\n" + active.teacher}
                     </Text>
                 )}
             </Flex>

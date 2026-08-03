@@ -1,5 +1,4 @@
-import {CourseParsed} from "@/type/infoQuery/course/course.ts";
-import {CourseClass} from "@/class/jw/course.ts";
+import {CourseClass, AdapterTheoryItem} from "@/class/jw/course.ts";
 import {Image, Linking, StyleSheet, ToastAndroid, View, ViewProps} from "react-native";
 import {Text, useTheme} from "@rneui/themed";
 import Flex from "@/components/un-ui/Flex.tsx";
@@ -17,7 +16,7 @@ import {ExamInfoClass} from "@/class/jw/exam.ts";
 import {parseExamTime} from "@/features/examInfo/utils/timeParser.ts";
 import moment from "moment";
 
-const CourseContext = createContext<CourseParsed | null>(null);
+const CourseContext = createContext<AdapterTheoryItem | null>(null);
 
 interface Props extends ViewProps {
     course: CourseClass;
@@ -27,7 +26,7 @@ interface Props extends ViewProps {
 
 interface Info {
     label: string;
-    key: keyof CourseParsed;
+    key: keyof AdapterTheoryItem;
 }
 
 function copy(value: string, tip: string) {
@@ -41,10 +40,10 @@ export function CourseDetail(props: Props) {
     const {theme} = useTheme();
     const {store} = useUserConfig();
     const devMode = store(s => s.devMode);
-    const course = props.course.transformed;
+    const course = props.course._ori;
 
     const [teacherInfoList, setTeacherInfoList] = useState<SimpleTeacherInfo[]>([]);
-    const name = course.name;
+    const name = course.teacher;
 
     const iconUrl = "https://prof.gxu.edu.cn/images/icon-teacher.jpg";
 
@@ -94,7 +93,7 @@ export function CourseDetail(props: Props) {
                 </Flex>
                 <Flex gap={10}>
                     <CoursePropItem
-                        prop="name"
+                        prop="teacher"
                         label="上课教师"
                         valueRender={v => (
                             <>
@@ -129,7 +128,7 @@ export function CourseDetail(props: Props) {
                 </Flex>
                 <Flex gap={10}>
                     <CoursePropItem prop="enrollmentCount" label="选课人数" />
-                    <CoursePropItem prop="zzrl" label="座位数" />
+                    <CoursePropItem prop="seatCount" label="座位数" />
                     <CoursePropItem
                         prop="qqGroup"
                         label="QQ群"
@@ -166,7 +165,7 @@ export function CourseDetail(props: Props) {
                 </Flex>
                 <TeacherInfoSheet
                     isVisible={visible}
-                    name={course.name}
+                    name={course.teacher}
                     infoList={teacherInfoList}
                     onClose={() => setVisible(false)}
                     openPage={teacherInfoList.length === 1 ? 1 : 0}
@@ -196,9 +195,9 @@ function CourseInfoCard() {
                 {course.courseName}
             </UnText>
             <UnText size={12} color={theme.colors.grey1}>
-                {course.venueName}，{course.name}，{course.courseCategory}，{course.examMethod}，{course.courseFlag}，
-                {course.weekdayName}
-                {course.periodCount}节，{course.weekRange}
+                {course.venueName}，{course.teacher}，{course.courseCategory}，{course.examMethod}
+                {" · "}
+                {course.sectionRange}节，{course.weeks?.join(",")}
             </UnText>
         </View>
     );
@@ -263,12 +262,12 @@ function CourseDebugCard() {
     );
 }
 
-function CoursePropItem<K extends keyof CourseParsed>(props: {
+function CoursePropItem<K extends keyof AdapterTheoryItem>(props: {
     prop: K;
     label: string;
-    labelRender?: (value: CourseParsed[K], item: CourseParsed) => React.ReactNode;
-    valueRender?: (value: CourseParsed[K], item: CourseParsed) => React.ReactNode;
-    onClick?: (value: CourseParsed[K], item: CourseParsed) => void;
+    labelRender?: (value: AdapterTheoryItem[K], item: AdapterTheoryItem) => React.ReactNode;
+    valueRender?: (value: AdapterTheoryItem[K], item: AdapterTheoryItem) => React.ReactNode;
+    onClick?: (value: AdapterTheoryItem[K], item: AdapterTheoryItem) => void;
 }) {
     const course = useContext(CourseContext)!;
     const {theme} = useTheme();
