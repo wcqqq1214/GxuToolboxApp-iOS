@@ -81,7 +81,7 @@ export function CourseDetail(props: Props) {
                                         上课地点
                                     </UnText>
                                     <Icon
-                                        type="Ionicon"
+                                        type="ionicons"
                                         name="navigate"
                                         color={Color.mix(theme.colors.primary, theme.colors.black).rgbaString}
                                         size={16}

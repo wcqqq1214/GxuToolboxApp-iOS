@@ -20,7 +20,7 @@ export type UnIconProps = Omit<IconProps, "type"> & {
           } & FontAwesome6IconProps)
         | {
               name: IoniconsIconName;
-              type: "Ionicon";
+              type: "ionicons";
           }
         | {
               name: MaterialDesignIconsIconName;
@@ -56,7 +56,7 @@ export function Icon({type = "material", name, size = 12, color, rotate, ...prop
                     style={rotateStyle}
                 />
             );
-        case "Ionicon":
+        case "ionicons":
             return (
                 <Ionicons
                     name={name as IoniconsIconName}

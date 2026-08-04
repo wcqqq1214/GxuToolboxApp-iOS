@@ -1,5 +1,5 @@
 import {Text, useTheme} from "@rneui/themed";
-import {Linking, StyleSheet, ToastAndroid, TouchableOpacity, View} from "react-native";
+import {StyleSheet, ToastAndroid, TouchableOpacity, View} from "react-native";
 import {Icon} from "@/components/un-ui/Icon.tsx";
 import Flex from "@/components/un-ui/Flex.tsx";
 import {Color} from "@/shared/color.ts";
@@ -12,10 +12,10 @@ interface Props {
 
 export default function BuildingListItem(props: Props) {
     const openMap = async () => {
-            Pos.searchInMap(props.building).catch(e => {
-                console.error(e);
-                ToastAndroid.show("无法打开地图", ToastAndroid.SHORT);
-            });
+        Pos.searchInMap(props.building).catch(e => {
+            console.error(e);
+            ToastAndroid.show("无法打开地图", ToastAndroid.SHORT);
+        });
     };
 
     const {theme} = useTheme();
@@ -75,7 +75,7 @@ export default function BuildingListItem(props: Props) {
                 </Flex>
                 <View style={styles.iconContainer}>
                     <Icon
-                        type="Ionicon"
+                        type="ionicons"
                         name="navigate"
                         color={Color.mix(theme.colors.primary, theme.colors.black).rgbaString}
                         size={28}

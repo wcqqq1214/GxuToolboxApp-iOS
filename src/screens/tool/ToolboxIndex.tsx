@@ -90,7 +90,7 @@ export function ToolboxIndex() {
                 },
                 {
                     label: "教师信息查询",
-                    icon: <Icon type="Ionicon" name="user" size={iconSize} />,
+                    icon: <Icon type="antdesign" name="user" size={iconSize} />,
                     type: "navigation",
                     navigation: "TeacherQueryInfoScreen",
                 },
