@@ -76,7 +76,7 @@ export function ExamScore() {
         <ScrollView>
             <ChooseTerm
                 onTermSelect={(Year, Term) => {
-                    setYear(Year);
+                    setYear(String(Year));
                     setTerm(Term);
                 }}
                 includeWholeLife={false}

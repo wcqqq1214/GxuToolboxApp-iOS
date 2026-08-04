@@ -2,14 +2,13 @@ import React, {useMemo, useState} from "react";
 import {ScrollView, StyleSheet, TouchableOpacity, View} from "react-native";
 import {Text, useTheme} from "@rneui/themed";
 import Flex from "@/components/un-ui/Flex.tsx";
-import {SchoolTermValue, SchoolYearValue} from "@/type/global.ts";
 import {ScoreRepo} from "@/features/examScore/type";
 import {useUsualScore} from "@/features/examScore/hooks/useUsualScore.ts";
 
 interface Props {
     data: ScoreRepo[];
-    year: SchoolYearValue;
-    term: SchoolTermValue;
+    year: String;
+    term: String;
 }
 
 export const calculatePoint = (score: number) => {
