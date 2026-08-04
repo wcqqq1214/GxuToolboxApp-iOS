@@ -74,8 +74,8 @@ export function CourseDetail(props: Props) {
                         prop="venueName"
                         label="上课地点"
                         valueRender={(v, course) => <UnText>{course.building + v}</UnText>}
-                        labelRender={v => (
-                            <UnPressable onPress={() => Pos.parseAndSearchInMap(v)}>
+                        labelRender={(v, course) => (
+                            <UnPressable onPress={() => Pos.parseAndSearchInMap(course.building + v)}>
                                 <Flex gap={4} align="center" inline>
                                     <UnText weight="bold" size={16}>
                                         上课地点
