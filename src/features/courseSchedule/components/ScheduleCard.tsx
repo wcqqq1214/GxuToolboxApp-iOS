@@ -1,4 +1,4 @@
-import {BottomSheet, Divider, Text, useTheme} from "@rneui/themed";
+import {Divider, Text, useTheme} from "@rneui/themed";
 import {StyleSheet, View} from "react-native";
 import React, {useCallback, useEffect, useMemo, useState} from "react";
 import Flex from "@/components/un-ui/Flex.tsx";
@@ -11,7 +11,7 @@ import {CourseCardSetting} from "@/components/tool/infoQuery/courseSchedule/Cour
 import {useNavigation} from "@react-navigation/native";
 import {ScheduleShareSheet} from "@/components/tool/infoQuery/courseSchedule/ScheduleShareSheet.tsx";
 import {useUserConfig} from "@/hooks/useUserConfig.ts";
-import {UnJsonEditor, UnPressable, UnText} from "@/components/un-ui";
+import {UnBottomSheet, UnJsonEditor, UnPressable, UnText} from "@/components/un-ui";
 import {TimeScheduleView} from "@/components/tool/infoQuery/courseSchedule/TimeScheduleView.tsx";
 import {ScheduleTableItem, TimeScheduleItemData} from "@/features/courseSchedule/type/schedule.ts";
 import {useCourse} from "@/features/courseSchedule/hooks/detail/useCourse.ts";
@@ -31,7 +31,6 @@ import {useAttendanceAuth} from "@/core/auth/attendance/hooks/useAttendanceAuth.
 import {NewCourseItem} from "@/features/courseSchedule/components/NewCourseItem.tsx";
 import {NewExamItem} from "@/features/courseSchedule/components/NewExamItem.tsx";
 import {HolidayItem} from "@/features/courseSchedule/components/HolidayItem.tsx";
-import {Course} from "@/type/infoQuery/course/course.ts";
 import {CourseClass} from "@/class/jw/course.ts";
 import {StackCourseItem} from "@/features/courseSchedule/components/StackCourseItem.tsx";
 import {useConflictCourseStore} from "@/features/courseSchedule/stores/useConflictCourseStore.ts";
@@ -127,15 +126,11 @@ export function ScheduleCard() {
                     stackRender: (items, day, _week, timeRange) => {
                         const courses = items.map(i => patchCourse(new CourseClass(i.raw), day)).filter(Boolean);
                         if (courses.length === 0) return null;
-                        const courseCodes = courses
-                            .map(c => c._ori.courseName + "_" + c._ori.teacher)
-                            .sort();
+                        const courseCodes = courses.map(c => c._ori.courseName + "_" + c._ori.teacher).sort();
                         const storedActive = conflictStore.getState().getActive(courseCodes);
                         const activeCourse =
                             storedActive ??
-                            (courses[0]
-                                ? courses[0]._ori.courseName + "_" + courses[0]._ori.teacher
-                                : "");
+                            (courses[0] ? courses[0]._ori.courseName + "_" + courses[0]._ori.teacher : "");
                         return (
                             <StackCourseItem
                                 course={courses}
@@ -190,14 +185,6 @@ export function ScheduleCard() {
     const style = useMemo(
         () =>
             StyleSheet.create({
-                bottomSheetContainer: {
-                    backgroundColor: theme.colors.background,
-                    padding: "5%",
-                    borderTopLeftRadius: 8,
-                    borderTopRightRadius: 8,
-                    borderColor: Color.mix(theme.colors.primary, theme.colors.background, 0.8).rgbaString,
-                    borderWidth: 1,
-                },
                 cardTitle: {
                     paddingHorizontal: 12,
                 },
@@ -289,8 +276,10 @@ export function ScheduleCard() {
                     <ScheduleDataDebugCard label="查看实践课数据" data={practiceItems} />
                 </Flex>
             )}
-            <BottomSheet isVisible={sheet.type !== "closed"} onBackdropPress={() => setSheet({type: "closed"})}>
-                <View style={style.bottomSheetContainer}>
+            <UnBottomSheet
+                isVisible={sheet.type !== "closed"}
+                onBackdropPress={() => setSheet({type: "closed"})}
+                containerStyle={{padding: "5%"}}>
                     {sheet.type === "menu" && (
                         <>
                             <AuthStatusSection
@@ -403,8 +392,7 @@ export function ScheduleCard() {
                             }}
                         />
                     )}
-                </View>
-            </BottomSheet>
+            </UnBottomSheet>
         </View>
     );
 }

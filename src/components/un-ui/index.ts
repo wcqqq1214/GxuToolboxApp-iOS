@@ -2,6 +2,7 @@ import {Dimensions} from "react-native";
 import Flex, {FlexProps} from "./Flex";
 import {Icon, UnIconProps} from "./Icon";
 import {NumberInput, NumberInputProps} from "./NumberInput";
+import {UnBottomSheet, UnBottomSheetProps} from "./UnBottomSheet";
 import {UnRefreshControl} from "./UnRefreshControl.tsx";
 import {UnTermSelector, UnTermSelectorProps} from "./UnTermSelector.tsx";
 import {UnText, UnTextProps} from "./UnText.tsx";
@@ -20,6 +21,7 @@ function vh(v: number) {
 
 export type {
     FlexProps,
+    UnBottomSheetProps,
     UnIconProps,
     NumberInputProps,
     UnTermSelectorProps,
@@ -32,4 +34,4 @@ export type {
     UnTableCol,
     UnTableCols,
 };
-export {Flex, Icon, NumberInput, UnJsonEditor, UnPressable, UnRefreshControl, UnTermSelector, UnText, UnTooltip, UnCard, UnTable, vw, vh};
+export {Flex, Icon, NumberInput, UnBottomSheet, UnJsonEditor, UnPressable, UnRefreshControl, UnTermSelector, UnText, UnTooltip, UnCard, UnTable, vw, vh};

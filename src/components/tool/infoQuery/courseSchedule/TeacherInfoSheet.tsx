@@ -1,11 +1,11 @@
 import {Dimensions, ScrollView, StyleSheet, View} from "react-native";
 import {teacherInfoApi} from "@/js/info/teacherInfo.ts";
-import {BottomSheet, Divider, Image, useTheme} from "@rneui/themed";
+import {Divider, Image, useTheme} from "@rneui/themed";
 import Clipboard from "@react-native-clipboard/clipboard";
 import React, {useEffect, useState} from "react";
 import {usePagerView} from "react-native-pager-view";
 import {DetailResData, SimpleTeacherInfo} from "@/type/api/teacherInfo/info.ts";
-import {Flex, UnPressable, UnText, vh} from "@/components/un-ui";
+import {Flex, UnBottomSheet, UnPressable, UnText, vh} from "@/components/un-ui";
 import {Color} from "@/shared/color.ts";
 import {CollapsedInfo} from "@/components/tool/infoQuery/courseSchedule/CollapsedInfo.tsx";
 
@@ -22,17 +22,6 @@ export function TeacherInfoSheet(props: Props) {
     const [selectedTeacher, setSelectedTeacher] = useState<SimpleTeacherInfo>();
     const pagerView = usePagerView({pagesAmount: 2});
 
-    const style = StyleSheet.create({
-        bottomSheetContainer: {
-            height: vh(80),
-            backgroundColor: theme.colors.background,
-            borderTopLeftRadius: 8,
-            borderTopRightRadius: 8,
-            borderColor: Color.mix(theme.colors.primary, theme.colors.background, 0.8).rgbaString,
-            borderWidth: 1,
-        },
-    });
-
     useEffect(() => {
         if (!props.isVisible) return;
         pagerView.activePage = props.openPage;
@@ -43,62 +32,61 @@ export function TeacherInfoSheet(props: Props) {
     }, [props.openPage, props.infoList, props.isVisible]);
 
     return (
-        <BottomSheet
+        <UnBottomSheet
             isVisible={props.isVisible}
             onBackdropPress={() => {
                 props.onClose?.();
-            }}>
-            <View style={style.bottomSheetContainer}>
-                <View
-                    style={{
-                        flexDirection: "row",
-                        justifyContent: "space-between",
-                        paddingHorizontal: 16,
-                        paddingVertical: 8,
-                        borderBottomColor: theme.colors.grey4,
-                        borderBottomWidth: 1,
-                    }}>
-                    <UnText size={18}>{pagerView.activePage === 0 ? "检索到以下教师信息" : "教师个人信息"}</UnText>
-                    {pagerView.activePage !== 0 && (
-                        <UnPressable
-                            onPress={function () {
+            }}
+            containerStyle={{height: vh(80), padding: 0}}>
+            <View
+                style={{
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                    paddingHorizontal: 16,
+                    paddingVertical: 8,
+                    borderBottomColor: theme.colors.grey4,
+                    borderBottomWidth: 1,
+                }}>
+                <UnText size={18}>{pagerView.activePage === 0 ? "检索到以下教师信息" : "教师个人信息"}</UnText>
+                {pagerView.activePage !== 0 && (
+                    <UnPressable
+                        onPress={function () {
+                            pagerView.ref.current?.setPage(0);
+                        }}>
+                        <UnText size={16}>返回</UnText>
+                    </UnPressable>
+                )}
+            </View>
+            <pagerView.AnimatedPagerView
+                ref={pagerView.ref}
+                style={{width: "100%", height: "100%"}}
+                initialPage={props.openPage}
+                overScrollMode="never"
+                orientation="horizontal"
+                scrollEnabled={false}
+                onPageSelected={pagerView.onPageSelected}>
+                <View key="0" collapsable={false} style={{width: "100%"}}>
+                    <TeacherInfoList
+                        onSelect={teacher => {
+                            setSelectedTeacher(teacher);
+                            pagerView.ref.current?.setPage(1);
+                        }}
+                        list={props.infoList}
+                    />
+                </View>
+                <View key="1" collapsable={false} style={{width: "100%"}}>
+                    {selectedTeacher && (
+                        <TeacherDetailInfo
+                            onBack={() => {
                                 pagerView.ref.current?.setPage(0);
-                            }}>
-                            <UnText size={16}>返回</UnText>
-                        </UnPressable>
+                            }}
+                            name={selectedTeacher.XM}
+                            school={selectedTeacher.dwmc}
+                        />
                     )}
                 </View>
-                <pagerView.AnimatedPagerView
-                    ref={pagerView.ref}
-                    style={{width: "100%", height: "100%"}}
-                    initialPage={props.openPage}
-                    overScrollMode="never"
-                    orientation="horizontal"
-                    scrollEnabled={false}
-                    onPageSelected={pagerView.onPageSelected}>
-                    <View key="0" collapsable={false} style={{width: "100%"}}>
-                        <TeacherInfoList
-                            onSelect={teacher => {
-                                setSelectedTeacher(teacher);
-                                pagerView.ref.current?.setPage(1);
-                            }}
-                            list={props.infoList}
-                        />
-                    </View>
-                    <View key="1" collapsable={false} style={{width: "100%"}}>
-                        {selectedTeacher && (
-                            <TeacherDetailInfo
-                                onBack={() => {
-                                    pagerView.ref.current?.setPage(0);
-                                }}
-                                name={selectedTeacher.XM}
-                                school={selectedTeacher.dwmc}
-                            />
-                        )}
-                    </View>
-                </pagerView.AnimatedPagerView>
-            </View>
-        </BottomSheet>
+            </pagerView.AnimatedPagerView>
+        </UnBottomSheet>
     );
 }
 

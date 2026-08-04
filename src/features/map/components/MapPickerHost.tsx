@@ -1,9 +1,9 @@
-import {BottomSheet, Button, Text, useTheme} from "@rneui/themed";
+import {Button, Text, useTheme} from "@rneui/themed";
 import {useEffect, useMemo, useRef, useState} from "react";
 import {Image, StyleSheet, View} from "react-native";
 import {useSafeAreaInsets} from "react-native-safe-area-context";
 import {Icon} from "@/components/un-ui/Icon.tsx";
-import {UnPressable} from "@/components/un-ui";
+import {UnBottomSheet, UnPressable} from "@/components/un-ui";
 
 export type MapPickerApp = "amap" | "baidu";
 
@@ -51,10 +51,6 @@ export function MapPickerHost() {
     }, []);
 
     const styles = useMemo(() => StyleSheet.create({
-        sheetWrapper: {
-            paddingHorizontal: 0,
-            paddingBottom: 0,
-        },
         sheetPanel: {
             borderTopLeftRadius: 24,
             borderTopRightRadius: 24,
@@ -173,45 +169,45 @@ export function MapPickerHost() {
     }
 
     return (
-        <BottomSheet isVisible onBackdropPress={() => close(null)}>
-            <View style={styles.sheetWrapper}>
-                <View style={[styles.sheetPanel, {paddingBottom: insets.bottom}]}>
-                    <View style={styles.handleRow}>
-                        <UnPressable style={styles.handleIconWrap} onPress={function() { return close(null); }}>
-                            <Icon name="chevron-down" size={18} color={theme.colors.black} />
-                        </UnPressable>
-                        <View style={{flex: 1, paddingHorizontal: 12}}>
-                            <Text style={styles.title}>{request.title}</Text>
-                            {!!request.message && <Text style={styles.message}>{request.message}</Text>}
-                        </View>
-                        <View style={styles.handleSpacer} />
-                    </View>
-
-                    <View style={styles.optionList}>
-                        {request.options.map((option, index) => (
-                            <View key={option.app}>
-                                {index > 0 && <View style={styles.optionDivider} />}
-                                <UnPressable
-                                    onPress={function() { return close(option.app); }}
-                                    style={function(pressed) { return [styles.optionButton, pressed && styles.optionButtonPressed]; }}>
-                                    {renderMapAppIcon(option.app)}
-                                    <Text style={styles.optionLabel}>{option.label}</Text>
-                                </UnPressable>
-                            </View>
-                        ))}
-                    </View>
-
-                    <View style={styles.footer}>
-                        <Button
-                            title="取消"
-                            type="outline"
-                            buttonStyle={styles.cancelButton}
-                            titleStyle={styles.cancelTitle}
-                            onPress={() => close(null)}
-                        />
-                    </View>
+        <UnBottomSheet
+            isVisible
+            onBackdropPress={() => close(null)}
+            useDefaultContainer={false}
+            containerStyle={[styles.sheetPanel, {paddingBottom: insets.bottom}]}>
+            <View style={styles.handleRow}>
+                <UnPressable style={styles.handleIconWrap} onPress={function() { return close(null); }}>
+                    <Icon name="chevron-down" size={18} color={theme.colors.black} />
+                </UnPressable>
+                <View style={{flex: 1, paddingHorizontal: 12}}>
+                    <Text style={styles.title}>{request.title}</Text>
+                    {!!request.message && <Text style={styles.message}>{request.message}</Text>}
                 </View>
+                <View style={styles.handleSpacer} />
             </View>
-        </BottomSheet>
+
+            <View style={styles.optionList}>
+                {request.options.map((option, index) => (
+                    <View key={option.app}>
+                        {index > 0 && <View style={styles.optionDivider} />}
+                        <UnPressable
+                            onPress={function() { return close(option.app); }}
+                            style={function(pressed) { return [styles.optionButton, pressed && styles.optionButtonPressed]; }}>
+                            {renderMapAppIcon(option.app)}
+                            <Text style={styles.optionLabel}>{option.label}</Text>
+                        </UnPressable>
+                    </View>
+                ))}
+            </View>
+
+            <View style={styles.footer}>
+                <Button
+                    title="取消"
+                    type="outline"
+                    buttonStyle={styles.cancelButton}
+                    titleStyle={styles.cancelTitle}
+                    onPress={() => close(null)}
+                />
+            </View>
+        </UnBottomSheet>
     );
 }

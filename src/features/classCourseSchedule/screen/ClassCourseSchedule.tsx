@@ -1,7 +1,7 @@
 import React, {useCallback, useState} from "react";
 import {ActivityIndicator, ScrollView, StyleSheet, View} from "react-native";
 import {useNavigation} from "@react-navigation/native";
-import {BottomSheet, Button, Card, Divider, Text, useTheme} from "@rneui/themed";
+import {Button, Card, Divider, Text, useTheme} from "@rneui/themed";
 import Flex from "@/components/un-ui/Flex.tsx";
 import {usePagerView} from "react-native-pager-view";
 import {PracticalCourseList} from "@/features/courseSchedule/components/PracticalCourseList.tsx";
@@ -25,7 +25,7 @@ import {useConflictCourseStore} from "@/features/courseSchedule/stores/useConfli
 import {ConflictCourseSheet} from "@/features/courseSchedule/components/ConflictCourseList.tsx";
 import {Color} from "@/shared/color.ts";
 import {useUserConfig} from "@/hooks/useUserConfig.ts";
-import {Icon, UnJsonEditor, UnPressable, UnText} from "@/components/un-ui";
+import {Icon, UnBottomSheet, UnJsonEditor, UnPressable, UnText} from "@/components/un-ui";
 
 type SheetState =
     | {type: "closed"}
@@ -204,9 +204,7 @@ export function ClassCourseSchedule() {
                                                 const activeCourse =
                                                     storedActive ??
                                                     (courses[0]
-                                                        ? courses[0]._ori.courseName +
-                                                          "_" +
-                                                          courses[0]._ori.teacher
+                                                        ? courses[0]._ori.courseName + "_" + courses[0]._ori.teacher
                                                         : "");
                                                 return (
                                                     <StackCourseItem
@@ -240,44 +238,37 @@ export function ClassCourseSchedule() {
                 )}
             </View>
 
-            <BottomSheet isVisible={sheet.type !== "closed"} onBackdropPress={() => setSheet({type: "closed"})}>
-                <View
-                    style={{
-                        backgroundColor: theme.colors.background,
-                        borderTopLeftRadius: 12,
-                        borderTopRightRadius: 12,
-                        borderColor: Color.mix(theme.colors.primary, theme.colors.background, 0.8).rgbaString,
-                        borderWidth: 1,
-                        padding: 16,
-                    }}>
-                    {sheet.type === "itemDetail" && sheet.item.raw && (
-                        <CourseDetail course={new CourseClass(sheet.item.raw)} />
-                    )}
-                    {sheet.type === "courseConflict" && (
-                        <ConflictCourseSheet
-                            courses={sheet.courses}
-                            onSelect={() => setSheet({type: "closed"})}
-                            onPressActiveCourse={course => {
-                                setSheet({
-                                    type: "itemDetail",
-                                    day: sheet.day,
-                                    item: {
-                                        id: course._ori.courseName,
-                                        week: 0,
-                                        day: 1 as ScheduleTableItem["day"],
-                                        begin: 1 as ScheduleTableItem["begin"],
-                                        end: 1 as ScheduleTableItem["begin"],
-                                        title: course._ori.courseName,
-                                        location: course._ori.venueName,
-                                        teacher: course._ori.teacher,
-                                        raw: course,
-                                    },
-                                });
-                            }}
-                        />
-                    )}
-                </View>
-            </BottomSheet>
+            <UnBottomSheet
+                isVisible={sheet.type !== "closed"}
+                onBackdropPress={() => setSheet({type: "closed"})}
+                containerStyle={{borderTopLeftRadius: 12, borderTopRightRadius: 12, padding: 16}}>
+                {sheet.type === "itemDetail" && sheet.item.raw && (
+                    <CourseDetail course={new CourseClass(sheet.item.raw)} />
+                )}
+                {sheet.type === "courseConflict" && (
+                    <ConflictCourseSheet
+                        courses={sheet.courses}
+                        onSelect={() => setSheet({type: "closed"})}
+                        onPressActiveCourse={course => {
+                            setSheet({
+                                type: "itemDetail",
+                                day: sheet.day,
+                                item: {
+                                    id: course._ori.courseName,
+                                    week: 0,
+                                    day: 1 as ScheduleTableItem["day"],
+                                    begin: 1 as ScheduleTableItem["begin"],
+                                    end: 1 as ScheduleTableItem["begin"],
+                                    title: course._ori.courseName,
+                                    location: course._ori.venueName,
+                                    teacher: course._ori.teacher,
+                                    raw: course,
+                                },
+                            });
+                        }}
+                    />
+                )}
+            </UnBottomSheet>
         </ScrollView>
     );
 }
