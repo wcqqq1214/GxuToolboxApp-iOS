@@ -14,11 +14,12 @@ import {TimeScheduleView} from "@/components/tool/infoQuery/courseSchedule/TimeS
 import {Color} from "@/shared/color.ts";
 import {CourseDetail} from "@/features/courseSchedule/components/CourseDetail.tsx";
 import {CourseClass} from "@/class/jw/course.ts";
+import type {Schedule} from "gxu-tool-adapters/jw";
 import {ScheduleTableItem, TimeScheduleItemData} from "@/features/courseSchedule/type/schedule.ts";
-import {useCourse} from "@/features/courseSchedule/hooks/detail/useCourse.ts";
 import {useStartDay} from "@/features/courseSchedule/hooks/detail/useStartDay.ts";
-import {usePractice} from "@/features/courseSchedule/hooks/detail/usePractice.ts";
 import {usePhyExp} from "@/features/courseSchedule/hooks/detail/usePhyExp.ts";
+import {classScheduleApi} from "@/features/classCourseSchedule/api";
+import {normalizeCourse} from "@/features/classCourseSchedule/utils/normalizeCourse.ts";
 import {ChooseTerm} from "@/components/tool/infoQuery/examInfo/ChooseTerm.tsx";
 import {NewCourseItem} from "@/features/courseSchedule/components/NewCourseItem.tsx";
 import {StackCourseItem} from "@/features/courseSchedule/components/StackCourseItem.tsx";
@@ -43,16 +44,34 @@ export function CourseScheduleQuery() {
     const [term, setTerm] = useState<SchoolTermValue>(store(s => s.jw.term));
     const pageView = usePagerView({pagesAmount: 20});
 
-    const {items: courseItems = [], loading} = useCourse(year, term);
-    const {items: practiceItems = [], refresh: refreshPractice} = usePractice(year, term);
     const {init: initPhyExp, patchItem, patchCourse} = usePhyExp();
 
-    // 不绑定全局的startDay，根据year和term动态计算，以免造成混乱
-    const startDay = useStartDay(year, term);
+    const [schedule, setSchedule] = useState<Schedule | null>(null);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        let cancelled = false;
+        setLoading(true);
+        classScheduleApi.fetchPersonalSchedule(year, term)
+            .then(s => {
+                if (!cancelled && s) setSchedule(s);
+            })
+            .catch(e => console.warn("网络请求失败", e))
+            .finally(() => {
+                if (!cancelled) setLoading(false);
+            });
+        return () => { cancelled = true; };
+    }, [year, term]);
 
     useEffect(() => {
         initPhyExp();
     }, [year, term]);
+
+    const courseItems = schedule ? normalizeCourse(schedule) : [];
+    const practiceItems = schedule?.practiceList ?? [];
+
+    // 不绑定全局的startDay，根据year和term动态计算，以免造成混乱
+    const startDay = useStartDay(year, term);
 
     const tableData = useMemo(
         () => courseItems.filter((item, idx, arr) => arr.findIndex(i => i.title === item.title) === idx),
