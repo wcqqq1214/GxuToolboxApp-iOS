@@ -1,6 +1,6 @@
 import React, {useCallback, useState} from "react";
-import {ActivityIndicator, FlatList, Pressable, StyleSheet, ToastAndroid, View} from "react-native";
-import {Flex, UnPressable, UnText, vh, vw} from "@/components/un-ui";
+import {ActivityIndicator, FlatList, StyleSheet, ToastAndroid, View} from "react-native";
+import {Flex, UnCard, UnPressable, UnText, vh, vw} from "@/components/un-ui";
 import {Button, Divider, Image, Input, useTheme} from "@rneui/themed";
 import {teacherInfoApi} from "@/js/info/teacherInfo.ts";
 import {SimpleTeacherInfo} from "@/type/api/teacherInfo/info.ts";
@@ -9,7 +9,29 @@ import {useUserConfig} from "@/hooks/useUserConfig.ts";
 import {DetailInfoScreen} from "@/screens/tool/other/teacherInfo/DetailInfoScreen.tsx";
 import {createNativeStackNavigator} from "@react-navigation/native-stack";
 import {useNavigation} from "@react-navigation/native";
-import {Letter} from "@/screens/tool/other/teacherInfo/Letter.tsx";
+
+type LetterProps = {
+    label: string;
+    onClick: () => void;
+};
+
+export function Letter(props: LetterProps) {
+    return (
+        <UnPressable
+            style={{
+                width: "20%",
+                height: vw(15),
+                marginVertical: 4,
+                alignItems: "center",
+                justifyContent: "center",
+            }}
+            onPress={() => {
+                props.onClick();
+            }}>
+            <UnText size={20}>{props.label}</UnText>
+        </UnPressable>
+    );
+}
 
 type ItemProps = {
     item: SimpleTeacherInfo;
@@ -26,22 +48,22 @@ export function LetterSelector(props: SelectorProps) {
     const style = StyleSheet.create({
         base: {
             justifyContent: "center",
-            backgroundColor: theme.colors.primary,
+            backgroundColor: Color.mix(theme.colors.primary, theme.colors.background, 0.7).rgbaString,
             paddingHorizontal: vw(2),
             paddingVertical: vh(1),
-            borderRadius: 2,
+            borderRadius: 4,
             opacity: 0.8,
         },
         layout: {
             flexDirection: "row",
             flexWrap: "wrap",
-            justifyContent: "flex-start",
+            justifyContent: "space-between",
         },
     });
 
     return (
         <View style={style.base}>
-            <UnText size={18} style={{paddingLeft: vw(6)}}>
+            <UnText size={18} style={{textAlign: "center"}}>
                 点击字母按姓氏查询
             </UnText>
             <Divider />
@@ -67,39 +89,27 @@ export function QueryInfoItem(props: ItemProps) {
     const {store} = useUserConfig();
 
     const navigation = useNavigation();
-    const style = StyleSheet.create({
-        press: {
-            backgroundColor: Color(theme.colors.primary).setAlpha(0.2).rgbaString,
-            width: "100%",
-            paddingHorizontal: 12,
-            paddingVertical: 8,
-            borderRadius: 8,
-            borderWidth: 1,
-            borderColor: Color(theme.colors.primary).setAlpha(0.6).rgbaString,
-        },
-    });
 
     return (
         <UnPressable
-            android_ripple={store(s => s.theme.ripple)}
-            style={style.press}
             onPress={() => {
                 // @ts-ignore
                 navigation.navigate("DetailInfo", {teacher: props.item});
             }}>
-            <Flex gap={12}>
-                <View>
-                    <Image
-                        source={{uri: props.item.pic ? props.item.pic : iconUrl}}
-                        style={{width: 60, height: 60, borderRadius: 4}}
-                    />
-                </View>
-                <Divider orientation={"vertical"} />
-                <View style={{flexDirection: "column", gap: 6, flex: 1}}>
-                    <UnText size={16}>{props.item.XM}</UnText>
-                    <UnText size={12}>{props.item.dwmc}</UnText>
-                </View>
-            </Flex>
+            <UnCard>
+                <Flex gap={12} align="flex-start">
+                    <View>
+                        <Image
+                            source={{uri: props.item.pic ? props.item.pic : iconUrl}}
+                            style={{width: 60, height: 60, borderRadius: 4}}
+                        />
+                    </View>
+                    <Flex gap={4} direction="column" align="flex-start" style={{flex: 1}}>
+                        <UnText size={16}>{props.item.XM}</UnText>
+                        <UnText size={12}>{props.item.dwmc}</UnText>
+                    </Flex>
+                </Flex>
+            </UnCard>
         </UnPressable>
     );
 }
@@ -308,7 +318,7 @@ export function InfoQueryScreen() {
                     </View>
 
                     <FlatList
-                        style={{height: vh(60)}}
+                        style={{height: vh(58)}}
                         data={teacherInfoList}
                         renderItem={ListRenderItems.baseItem}
                         ItemSeparatorComponent={<ListRenderItems.separatorItem />}

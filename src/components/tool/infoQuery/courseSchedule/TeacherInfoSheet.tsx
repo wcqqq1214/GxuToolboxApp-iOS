@@ -5,7 +5,7 @@ import Clipboard from "@react-native-clipboard/clipboard";
 import React, {useEffect, useState} from "react";
 import {usePagerView} from "react-native-pager-view";
 import {DetailResData, SimpleTeacherInfo} from "@/type/api/teacherInfo/info.ts";
-import {Flex, UnBottomSheet, UnPressable, UnText, vh} from "@/components/un-ui";
+import {Flex, UnBottomSheet, UnCard, UnPressable, UnText, vh} from "@/components/un-ui";
 import {Color} from "@/shared/color.ts";
 import {CollapsedInfo} from "@/components/tool/infoQuery/courseSchedule/CollapsedInfo.tsx";
 
@@ -99,47 +99,34 @@ function TeacherInfoList(props: listProps) {
     const iconUrl = "https://prof.gxu.edu.cn/images/icon-teacher.jpg";
 
     const {theme} = useTheme();
-    const style = StyleSheet.create({
-        press: {
-            backgroundColor: Color(theme.colors.primary).setAlpha(0.2).rgbaString,
-            width: "100%",
-            paddingHorizontal: 12,
-            paddingVertical: 8,
-            borderRadius: 8,
-            borderWidth: 1,
-            borderColor: Color(theme.colors.primary).setAlpha(0.6).rgbaString,
-        },
-    });
 
     return (
-        <View>
-            <ScrollView>
-                {props.list ? (
-                    props.list.map((item, index) => (
-                        <View style={{marginTop: 8}}>
-                            <UnPressable
-                                style={style.press}
-                                onPress={() => {
-                                    props.onSelect(item);
-                                }}>
-                                <Flex gap={16} style={{paddingHorizontal: 4}}>
-                                    <Image
-                                        source={{uri: item.pic ? item.pic : iconUrl}}
-                                        style={{width: 60, height: 80, borderRadius: 4}}
-                                    />
-                                    <View style={{flexDirection: "column", gap: 6, flex: 1}}>
-                                        <UnText size={16}>{item.XM}</UnText>
-                                        <UnText size={12}>{item.dwmc}</UnText>
-                                    </View>
-                                </Flex>
-                            </UnPressable>
-                        </View>
-                    ))
-                ) : (
-                    <UnText size={16}>暂无信息</UnText>
-                )}
-            </ScrollView>
-        </View>
+        <ScrollView>
+            {props.list ? (
+                props.list.map((item, index) => (
+                    <UnPressable
+                        style={{marginTop: 8, marginHorizontal: 4}}
+                        onPress={() => {
+                            props.onSelect(item);
+                        }}>
+                        <UnCard>
+                            <Flex gap={8} align="flex-start">
+                                <Image
+                                    source={{uri: item.pic ? item.pic : iconUrl}}
+                                    style={{width: 60, height: 80, borderRadius: 4}}
+                                />
+                                <View style={{flexDirection: "column", gap: 6, flex: 1}}>
+                                    <UnText size={16}>{item.XM}</UnText>
+                                    <UnText size={12}>{item.dwmc}</UnText>
+                                </View>
+                            </Flex>
+                        </UnCard>
+                    </UnPressable>
+                ))
+            ) : (
+                <UnText size={16}>暂无信息</UnText>
+            )}
+        </ScrollView>
     );
 }
 
