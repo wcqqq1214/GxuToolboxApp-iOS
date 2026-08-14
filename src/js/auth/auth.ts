@@ -6,7 +6,6 @@ import axios, {AxiosResponse} from "axios";
 import {EngTrainingTokenRes, EngTrainingTokenResData} from "@/type/api/infoQuery/EngTraining.ts";
 import CryptoJS from "crypto-js";
 import {AttendanceSystemType as AST} from "@/type/api/auth/attendanceSystem.ts";
-import {attendanceSystemApi} from "@/js/auth/attendanceSystem.ts";
 import {SchoolTerms} from "@/type/global.ts";
 
 export const authApi = {
@@ -124,49 +123,5 @@ export const authApi = {
             studentCode,
             data: tokenRes.data.datas,
         };
-    },
-    /**
-     * 登录考勤系统
-     * @param username - 用户名
-     * @param password - 密码（明文）
-     * @param captchaCode - 验证码
-     * @returns 登录响应数据
-     */
-    loginAttendanceSystem: async (
-        username: string,
-        password: string,
-        captchaCode: string,
-    ): Promise<AST.ResRoot<AST.LoginData>> => {
-        // 加密密码
-        const key = CryptoJS.enc.Utf8.parse("k;)*(+nmjdsf$#@d"),
-            encodePwd = CryptoJS.enc.Utf8.parse(password);
-        const encryptedPwd = CryptoJS.AES.encrypt(encodePwd, key, {
-            mode: CryptoJS.mode.ECB,
-            padding: CryptoJS.pad.Pkcs7,
-        }).toString();
-
-        // 构造登录请求数据
-        const data = {
-            client: "web_atd",
-            loginName: username,
-            pwd: encryptedPwd,
-            type: "1",
-            verificationCode: captchaCode,
-        };
-
-        // 发送登录请求
-        const res = await http.post<AST.ResRoot<AST.LoginData>>(
-            "https://yktuipweb.gxu.edu.cn/api/account/loginCheck",
-            data,
-            {
-                headers: {"Content-Type": "application/json;charset=UTF-8"},
-            },
-        );
-
-        await userMgr.attendanceSystem.storeLoginRes(res.data);
-        if (res.data.code === 600) {
-            attendanceSystemApi.getMenuData();
-        }
-        return res.data;
     },
 };

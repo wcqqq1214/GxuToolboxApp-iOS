@@ -5,8 +5,6 @@ import {store} from "@/core/store.ts";
 import moment from "moment";
 import {AttendanceCourseScheduleClass} from "@/class/auth/attendanceSystem.ts";
 import {SchoolTermValue, SchoolYearValue} from "@/type/global.ts";
-import CryptoJS from "crypto-js";
-
 const BASE_URL = "https://yktuipweb.gxu.edu.cn";
 
 // ─── helper：统一处理 token + headers ───
@@ -46,7 +44,7 @@ async function getMenuData(): Promise<AST.ResRoot<AST.MenuData> | undefined> {
     return res;
 }
 
-const calenderData = {
+const                                                                                                                                                                                                                                                                                                                                                                                                      calenderData = {
     async getList() {
         const storeData = await store
             .load<AST.ResRoot<AST.MenuData>>({key: "AttendanceSystemMenuData"})
@@ -81,12 +79,11 @@ const calenderData = {
 
 async function getPersonalData(
     termId?: AST.Calendar["calendarId"],
-    page_size: number = 30,
     data?: Partial<AST.PageQueryParam>,
 ): Promise<AST.PageRes<AST.AttendanceData> | undefined> {
     const body = {
         page_index: 1,
-        page_size: page_size,
+        page_size: 30,
         order_by: "",
         search: {ksrq: "", jsrq: "", courseId: ""},
         ...data,
