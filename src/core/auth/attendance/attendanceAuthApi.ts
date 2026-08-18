@@ -1,48 +1,39 @@
-import {http} from "@/core/http.ts";
 import {userMgr} from "@/js/mgr/user.ts";
 import {AttendanceSystemType as AST} from "@/type/api/auth/attendanceSystem.ts";
-import CryptoJS from "crypto-js";
 import {attendanceApi} from "@/features/attendance/api";
+import {backendHttp} from "@/features/backend/api";
 
-const BASE_URL = "https://yktuipweb.gxu.edu.cn";
+
+let captchaTicket: string | null = null;
 
 // ─── 登录相关 ───
 
 async function getCaptchaCode(): Promise<string> {
-    const res = await http.get("https://yktuipweb.gxu.edu.cn/api/account/getVerify?num=666", {
-        responseType: "arraybuffer",
-    });
-
-    if (!res?.data) throw new Error("获取验证码失败");
-    const base64 = btoa(new Uint8Array(res.data).reduce((data, byte) => data + String.fromCharCode(byte), ""));
-    return `data:image/jpeg;base64,${base64}`;
+    const res = await backendHttp.get<{data: {image: string; ticket: string | null}}>(
+        "/attendance/captcha",
+        {params: {num: 666}},
+    );
+    const payload = res.data?.data;
+    if (!payload?.image) throw new Error("获取验证码失败");
+    captchaTicket = payload.ticket;
+    return payload.image;
 }
 
 async function login(username: string, password: string, captchaCode: string): Promise<AST.ResRoot<AST.LoginData>> {
-    const key = CryptoJS.enc.Utf8.parse("k;)*(+nmjdsf$#@d");
-    const encodePwd = CryptoJS.enc.Utf8.parse(password);
-    const encryptedPwd = CryptoJS.AES.encrypt(encodePwd, key, {
-        mode: CryptoJS.mode.ECB,
-        padding: CryptoJS.pad.Pkcs7,
-    }).toString();
-
-    const data = {
-        client: "web_atd",
-        loginName: username,
-        pwd: encryptedPwd,
-        type: "1",
-        verificationCode: captchaCode,
-    };
-
-    const res = await http.post<AST.ResRoot<AST.LoginData>>(`${BASE_URL}/api/account/loginCheck`, data, {
-        headers: {"Content-Type": "application/json;charset=UTF-8"},
+    const res = await backendHttp.post<{data: AST.ResRoot<AST.LoginData>}>("/attendance/login", {
+        username,
+        password,
+        captchaCode,
+        ...(captchaTicket ? {ticket: captchaTicket} : {}),
     });
 
-    await userMgr.attendanceSystem.storeLoginRes(res.data);
-    if (res.data.code === 600) {
+    const loginRes = res.data.data;
+    await userMgr.attendanceSystem.storeLoginRes(loginRes);
+    if (loginRes.code === 600) {
+        captchaTicket = null;
         await attendanceApi.getMenuData().catch(() => undefined);
     }
-    return res.data;
+    return loginRes;
 }
 
 // ─── Token 检测 ───

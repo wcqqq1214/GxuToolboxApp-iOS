@@ -4,9 +4,6 @@ import cheerio from "react-native-cheerio";
 import {userMgr} from "@/js/mgr/user.ts";
 import axios, {AxiosResponse} from "axios";
 import {EngTrainingTokenRes, EngTrainingTokenResData} from "@/type/api/infoQuery/EngTraining.ts";
-import CryptoJS from "crypto-js";
-import {AttendanceSystemType as AST} from "@/type/api/auth/attendanceSystem.ts";
-import {SchoolTerms} from "@/type/global.ts";
 
 export const authApi = {
     /**
