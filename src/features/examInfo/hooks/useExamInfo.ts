@@ -56,23 +56,21 @@ export function useExamInfo() {
             setIsLoading(true);
             try {
                 const res = await getExamInfo(String(year), String(term));
-                if (res) {
-                    // 落库：按 studentId/year/term 替换
-                    const items: ExamInfoRepo[] = res.map(r => ({
-                        id: r.id,
-                        studentId: username,
-                        year,
-                        term: Number(term),
-                        course: r.course,
-                        classroom: r.classroom,
-                        time: r.time,
-                        type: r.type,
-                        seat: r.seat,
-                        updatedAt: r.updatedAt,
-                    }));
-                    await examInfoRepo.replaceByTerm(username, year, Number(term), items);
-                    setExams(toExamWithMeta(items));
-                }
+                // 远端明确返回空时也要用空集合替换缓存，避免已取消的考试继续残留。
+                const items: ExamInfoRepo[] = (res ?? []).map(r => ({
+                    id: r.id,
+                    studentId: username,
+                    year,
+                    term: Number(term),
+                    course: r.course,
+                    classroom: r.classroom,
+                    time: r.time,
+                    type: r.type,
+                    seat: r.seat,
+                    updatedAt: r.updatedAt,
+                }));
+                await examInfoRepo.replaceByTerm(username, year, Number(term), items);
+                setExams(toExamWithMeta(items));
                 return res;
             } finally {
                 setIsLoading(false);

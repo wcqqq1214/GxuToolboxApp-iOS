@@ -1,102 +1,60 @@
 import {ActivityIndicator, ScrollView, StyleSheet, View} from "react-native";
 import {Divider, Text, useTheme} from "@rneui/themed";
-import React, {useEffect, useState} from "react";
+import React, {useCallback, useEffect, useState} from "react";
 import Flex from "@/components/un-ui/Flex.tsx";
-import {store} from "@/core/store.ts";
 import {Color} from "@/shared/color.ts";
 import {useUserConfig} from "@/hooks/useUserConfig.ts";
-import {getExamInfo} from "@/features/examInfo/api";
 import {ExamInfoCard} from "@/features/examInfo/components/ExamInfoCard.tsx";
 import {ExamWithMeta} from "@/features/examInfo/type/exam.types.ts";
-import {parseExamTime} from "@/features/examInfo/utils/timeParser.ts";
 import {ChooseTerm} from "@/components/tool/infoQuery/examInfo/ChooseTerm.tsx";
 import {Icon, UnJsonEditor, UnPressable, UnText} from "@/components/un-ui";
+import {useExamInfo} from "@/features/examInfo/hooks/useExamInfo.ts";
 
 export function ExamInfo() {
     const {theme} = useTheme();
     const {store: ucStore} = useUserConfig();
     const devMode = ucStore(s => s.devMode);
-    const [examInfo, setExamInfo] = useState<ExamWithMeta[]>([]);
+    const {exams: examInfo, isLoading: loading, loadLocal, fetchRemote} = useExamInfo();
     const [year, setYear] = useState("");
     const [term, setTerm] = useState("");
 
-    // 加载/错误态：首次加载用整页 loading，切换学期用局部 loading
-    const [loading, setLoading] = useState(false);
+    // 错误态：仅远端失败时置位
     const [error, setError] = useState(false);
     const hasData = examInfo.length > 0;
 
-    function init() {
-        store
-            .load({key: "examInfo"})
-            .then(data => {
-                // dayjs 对象经存储序列化后会丢失原型（变成 {}），
-                // 这里用 time 字符串重新解析 date/status
-                const restored: ExamWithMeta[] = (data ?? []).map((item: ExamWithMeta) => {
-                    const {date, status} = parseExamTime(item.time);
-                    return {...item, date, status};
-                });
-                setExamInfo(restored);
-            })
-            .catch(console.warn);
-    }
-
-    async function query() {
+    const query = useCallback(async () => {
         if (!year || !term) return;
 
-        setLoading(true);
         setError(false);
-        try {
-            const res = await getExamInfo(year, term);
-            if (!res) {
-                // 后端返回空或失败：清空旧数据，避免误导用户以为是上个学期的考试
-                setExamInfo([]);
-                return;
-            }
+        // 瞬间加载本地数据顶上（不阻塞）
+        await loadLocal(+year, term);
 
-            res.sort((a, b) => {
-                // 1. 定义 status 优先级：upcoming(0) > tbd(1) > past(2)
-                const statusOrder: Record<string, number> = {
-                    upcoming: 0,
-                    tbd: 1,
-                    past: 2,
-                };
-
-                const orderA = statusOrder[a.status] ?? 3;
-                const orderB = statusOrder[b.status] ?? 3;
-
-                if (orderA !== orderB) {
-                    return orderA - orderB;
-                }
-
-                // upcoming 升序，其他状态降序
-                const sortDirection = orderA === 0 ? 1 : -1;
-                const timeA = a.date?.valueOf() ?? 0;
-                const timeB = b.date?.valueOf() ?? 0;
-                return (timeA - timeB) * sortDirection;
-            });
-
-            setExamInfo(res);
-            await store.save({key: "examInfo", data: res});
-        } catch (e) {
+        // 紧接着发起远端请求静默更新
+        await fetchRemote(+year, term).catch(e => {
             console.warn("查询考试信息失败:", e);
-            setExamInfo([]);
             setError(true);
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    useEffect(() => {
-        init();
-    }, []);
+        });
+    }, [year, term, loadLocal, fetchRemote]);
 
     useEffect(() => {
         query();
-    }, [year, term]);
+    }, [query]);
+
+    // 排序：upcoming 优先，upcoming 升序，其他降序
+    const sortedExams = [...examInfo].sort((a, b) => {
+        const statusOrder: Record<string, number> = {upcoming: 0, tbd: 1, past: 2};
+        const orderA = statusOrder[a.status] ?? 3;
+        const orderB = statusOrder[b.status] ?? 3;
+        if (orderA !== orderB) return orderA - orderB;
+        const sortDirection = orderA === 0 ? 1 : -1;
+        const timeA = a.date?.valueOf() ?? 0;
+        const timeB = b.date?.valueOf() ?? 0;
+        return (timeA - timeB) * sortDirection;
+    });
 
     // 按状态分组渲染：upcoming/tbd 一组（未考），past 一组（已结束）
-    const upcomingList = examInfo.filter(i => i.status !== "past");
-    const pastList = examInfo.filter(i => i.status === "past");
+    const upcomingList = sortedExams.filter(i => i.status !== "past");
+    const pastList = sortedExams.filter(i => i.status === "past");
 
     const renderSection = (title: string, list: ExamWithMeta[]) => {
         if (list.length === 0) return [];
