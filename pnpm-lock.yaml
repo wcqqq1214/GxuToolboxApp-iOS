@@ -233,7 +233,7 @@ importers:
         version: 8.57.1
       gxu-tool-adapters:
         specifier: git+https://gitlab.unde.site/gxutool/adapter.git
-        version: git+https://gitlab.unde.site/gxutool/adapter.git#9aa6820ede35b41a92a92d781c3b93da09954d1f
+        version: git+https://gitlab.unde.site/gxutool/adapter.git#fef1d115e5439390e5e258ece05f5bb417a508eb
       jest:
         specifier: ^29.2.1
         version: 29.7.0(@types/node@25.6.0)
@@ -3245,8 +3245,8 @@ packages:
   graphemer@1.4.0:
     resolution: {integrity: sha512-EtKwoO6kxCL9WO5xipiHTZlSzBm7WLT627TqC/uVRd0HKmq8NXyebnNYxDoBi7wt8eTWrUrKXCOVaFq9x1kgag==}
 
-  gxu-tool-adapters@git+https://gitlab.unde.site/gxutool/adapter.git#9aa6820ede35b41a92a92d781c3b93da09954d1f:
-    resolution: {commit: 9aa6820ede35b41a92a92d781c3b93da09954d1f, repo: https://gitlab.unde.site/gxutool/adapter.git, type: git}
+  gxu-tool-adapters@git+https://gitlab.unde.site/gxutool/adapter.git#fef1d115e5439390e5e258ece05f5bb417a508eb:
+    resolution: {commit: fef1d115e5439390e5e258ece05f5bb417a508eb, repo: https://gitlab.unde.site/gxutool/adapter.git, type: git}
     version: 1.0.0
 
   has-ansi@2.0.0:
@@ -8755,7 +8755,7 @@ snapshots:
 
   graphemer@1.4.0: {}
 
-  gxu-tool-adapters@git+https://gitlab.unde.site/gxutool/adapter.git#9aa6820ede35b41a92a92d781c3b93da09954d1f:
+  gxu-tool-adapters@git+https://gitlab.unde.site/gxutool/adapter.git#fef1d115e5439390e5e258ece05f5bb417a508eb:
     dependencies:
       cheerio: 1.2.0
       zod: 3.25.76
