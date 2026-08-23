@@ -15,7 +15,7 @@ export function useCourse(
     refresh: () => Promise<void>;
     loading: boolean;
 } {
-    const startDay = useStartDay(year, term);
+    const {startDay} = useStartDay(year, term);
     const {store: baseCourseStore, init: refreshBaseCourse, loadCache: loadCourseCache} = useBaseCourse();
     const baseCourse = baseCourseStore(s => s.courseList);
     const {store: phyExpStore, init: initPhyExp, loadCache: loadPhyExpCache} = usePhyExp();

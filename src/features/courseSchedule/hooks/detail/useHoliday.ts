@@ -10,7 +10,7 @@ export interface HolidayRange {
 }
 
 export const useHoliday = (year: number, term: SchoolTermValue) => {
-    const startDay = useStartDay(year, term);
+    const {startDay} = useStartDay(year, term);
 
     const holidays: HolidayRange[] = [
         {title: "清明节", from: "2026-04-04", to: "2026-04-06"},

@@ -69,7 +69,7 @@ export function ClassCourseSchedule() {
     const pageView = usePagerView({pagesAmount: 20});
     const {fetchSchedule, theorySchedule, practiceSchedule, loading, error, hasFetched} = useClassScheduleData();
 
-    const startDay = useStartDay(+year, term);
+    const {startDay} = useStartDay(+year, term);
 
     const [sheet, setSheet] = useState<SheetState>({type: "closed"});
 

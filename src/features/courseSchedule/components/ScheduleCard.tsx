@@ -73,7 +73,7 @@ export function ScheduleCard() {
 
     const [year, setYear] = useState(+ucStore(s => s.jw.year));
     const [term, setTerm] = useState<SchoolTermValue>(ucStore(s => s.jw.term));
-    const startDay = useStartDay(year, term);
+    const {startDay} = useStartDay(year, term);
 
     const {items: courseItems = [], refresh: refreshCourse} = useCourse(year, term);
     const {store: examStore, init: initExam, loadCache: loadExamCache} = useExam();
@@ -280,118 +280,118 @@ export function ScheduleCard() {
                 isVisible={sheet.type !== "closed"}
                 onBackdropPress={() => setSheet({type: "closed"})}
                 containerStyle={{padding: "5%"}}>
-                    {sheet.type === "menu" && (
-                        <>
-                            <AuthStatusSection
-                                jwAuth={JWAuthState}
-                                unifiedAuth={unifiedAuthState}
-                                attendanceAuth={attendanceAuthState}
-                                menuItemStyle={style.menuItem}
+                {sheet.type === "menu" && (
+                    <>
+                        <AuthStatusSection
+                            jwAuth={JWAuthState}
+                            unifiedAuth={unifiedAuthState}
+                            attendanceAuth={attendanceAuthState}
+                            menuItemStyle={style.menuItem}
+                        />
+                        <UnPressable
+                            onPress={function () {
+                                setSheet({type: "closed"});
+                                navigation.navigate("ScheduleEdit");
+                            }}>
+                            <View style={style.menuItem}>
+                                <Icon name="table-edit" size={22} />
+                                <UnText>事件编辑</UnText>
+                            </View>
+                        </UnPressable>
+                        <UnPressable
+                            onPress={function () {
+                                return setSheet({type: "share"});
+                            }}>
+                            <View style={style.menuItem}>
+                                <Icon type="antdesign" name="share-alt" size={22} />
+                                <UnText>分享课表</UnText>
+                            </View>
+                        </UnPressable>
+                        <UnPressable
+                            onPress={function () {
+                                return setSheet({type: "setting"});
+                            }}>
+                            <View style={style.menuItem}>
+                                <Icon name="cog" size={22} />
+                                <UnText>课表设置</UnText>
+                            </View>
+                        </UnPressable>
+                    </>
+                )}
+                {sheet.type === "setting" && (
+                    <CourseCardSetting
+                        year={year}
+                        term={term}
+                        pageViewRest={rest}
+                        onYearChange={setYear}
+                        onTermChange={setTerm}
+                    />
+                )}
+                {sheet.type === "itemDetail" && sheet.item.kind === "exam" && sheet.item.raw && (
+                    <ExamDetail examInfo={new ExamInfoClass(sheet.item.raw as ExamInfo)} />
+                )}
+                {sheet.type === "itemDetail" &&
+                    sheet.item?.raw &&
+                    sheet.item.kind !== "exam" &&
+                    (() => {
+                        const course = patchCourse(new CourseClass(sheet.item.raw), sheet.day);
+                        const courseName = course._ori.courseName;
+                        const matchedExam = examItems
+                            .filter(e => e.raw?.kcmc === courseName)
+                            ?.map(e => new ExamInfoClass(e.raw as ExamInfo));
+                        return (
+                            <CourseDetail
+                                course={course}
+                                examInfo={matchedExam}
+                                onExamPress={exam => {
+                                    const examDate = moment(exam.transformed.examTime.slice(0, 10));
+                                    const week = examDate.diff(startDay, "week") + 1;
+                                    rest.setPage(week - 1);
+                                    setSheet({
+                                        type: "itemDetail",
+                                        day: examDate,
+                                        item: {
+                                            id: exam.transformed.courseCode,
+                                            week,
+                                            day: examDate.isoWeekday() as ScheduleTableItem["day"],
+                                            begin: 1 as ScheduleTableItem["begin"],
+                                            end: 1 as ScheduleTableItem["begin"],
+                                            title: exam.transformed.courseName,
+                                            location: exam.transformed.venueName,
+                                            kind: "exam",
+                                            raw: exam._ori,
+                                        },
+                                    });
+                                }}
                             />
-                            <UnPressable
-                                onPress={function () {
-                                    setSheet({type: "closed"});
-                                    navigation.navigate("ScheduleEdit");
-                                }}>
-                                <View style={style.menuItem}>
-                                    <Icon name="table-edit" size={22} />
-                                    <UnText>事件编辑</UnText>
-                                </View>
-                            </UnPressable>
-                            <UnPressable
-                                onPress={function () {
-                                    return setSheet({type: "share"});
-                                }}>
-                                <View style={style.menuItem}>
-                                    <Icon type="antdesign" name="share-alt" size={22} />
-                                    <UnText>分享课表</UnText>
-                                </View>
-                            </UnPressable>
-                            <UnPressable
-                                onPress={function () {
-                                    return setSheet({type: "setting"});
-                                }}>
-                                <View style={style.menuItem}>
-                                    <Icon name="cog" size={22} />
-                                    <UnText>课表设置</UnText>
-                                </View>
-                            </UnPressable>
-                        </>
-                    )}
-                    {sheet.type === "setting" && (
-                        <CourseCardSetting
-                            year={year}
-                            term={term}
-                            pageViewRest={rest}
-                            onYearChange={setYear}
-                            onTermChange={setTerm}
-                        />
-                    )}
-                    {sheet.type === "itemDetail" && sheet.item.kind === "exam" && sheet.item.raw && (
-                        <ExamDetail examInfo={new ExamInfoClass(sheet.item.raw as ExamInfo)} />
-                    )}
-                    {sheet.type === "itemDetail" &&
-                        sheet.item?.raw &&
-                        sheet.item.kind !== "exam" &&
-                        (() => {
-                            const course = patchCourse(new CourseClass(sheet.item.raw), sheet.day);
-                            const courseName = course._ori.courseName;
-                            const matchedExam = examItems
-                                .filter(e => e.raw?.kcmc === courseName)
-                                ?.map(e => new ExamInfoClass(e.raw as ExamInfo));
-                            return (
-                                <CourseDetail
-                                    course={course}
-                                    examInfo={matchedExam}
-                                    onExamPress={exam => {
-                                        const examDate = moment(exam.transformed.examTime.slice(0, 10));
-                                        const week = examDate.diff(startDay, "week") + 1;
-                                        rest.setPage(week - 1);
-                                        setSheet({
-                                            type: "itemDetail",
-                                            day: examDate,
-                                            item: {
-                                                id: exam.transformed.courseCode,
-                                                week,
-                                                day: examDate.isoWeekday() as ScheduleTableItem["day"],
-                                                begin: 1 as ScheduleTableItem["begin"],
-                                                end: 1 as ScheduleTableItem["begin"],
-                                                title: exam.transformed.courseName,
-                                                location: exam.transformed.venueName,
-                                                kind: "exam",
-                                                raw: exam._ori,
-                                            },
-                                        });
-                                    }}
-                                />
-                            );
-                        })()}
-                    {sheet.type === "share" && (
-                        <ScheduleShareSheet week={rest.activePage + 1} onClose={() => setSheet({type: "closed"})} />
-                    )}
-                    {sheet.type === "courseConflict" && (
-                        <ConflictCourseSheet
-                            courses={sheet.courses}
-                            onSelect={() => setSheet({type: "closed"})}
-                            onPressActiveCourse={course => {
-                                setSheet({
-                                    type: "itemDetail",
-                                    day: sheet.day,
-                                    item: {
-                                        id: course._ori.courseName,
-                                        week: 0,
-                                        day: 1 as ScheduleTableItem["day"],
-                                        begin: 1 as ScheduleTableItem["begin"],
-                                        end: 1 as ScheduleTableItem["begin"],
-                                        title: course._ori.courseName,
-                                        location: course._ori.venueName,
-                                        teacher: course._ori.teacher,
-                                        raw: course,
-                                    },
-                                });
-                            }}
-                        />
-                    )}
+                        );
+                    })()}
+                {sheet.type === "share" && (
+                    <ScheduleShareSheet week={rest.activePage + 1} onClose={() => setSheet({type: "closed"})} />
+                )}
+                {sheet.type === "courseConflict" && (
+                    <ConflictCourseSheet
+                        courses={sheet.courses}
+                        onSelect={() => setSheet({type: "closed"})}
+                        onPressActiveCourse={course => {
+                            setSheet({
+                                type: "itemDetail",
+                                day: sheet.day,
+                                item: {
+                                    id: course._ori.courseName,
+                                    week: 0,
+                                    day: 1 as ScheduleTableItem["day"],
+                                    begin: 1 as ScheduleTableItem["begin"],
+                                    end: 1 as ScheduleTableItem["begin"],
+                                    title: course._ori.courseName,
+                                    location: course._ori.venueName,
+                                    teacher: course._ori.teacher,
+                                    raw: course,
+                                },
+                            });
+                        }}
+                    />
+                )}
             </UnBottomSheet>
         </View>
     );
@@ -402,7 +402,7 @@ function NextEventBanner() {
     const {store: ucStore} = useUserConfig();
     const year = +ucStore(s => s.jw.year);
     const term = ucStore(s => s.jw.term);
-    const startDay = useStartDay(year, term);
+    const {startDay} = useStartDay(year, term);
     const {theme} = useTheme();
     const baseColor = theme.colors.primary;
     const backgroundColor = Color(baseColor).setAlpha(theme.mode === "light" ? 0.3 : 0.1).rgbaString;

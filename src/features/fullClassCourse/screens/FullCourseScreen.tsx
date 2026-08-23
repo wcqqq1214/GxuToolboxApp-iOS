@@ -208,7 +208,7 @@ export const FullCourseScreen = () => {
     const [year] = useState(+store(s => s.jw.year));
     const [term] = useState<SchoolTermValue>(store(s => s.jw.term));
     const [currentTime] = useState(moment().format());
-    const startDay = useStartDay(year, term);
+    const {startDay} = useStartDay(year, term);
 
     const week = moment().diff(startDay, "week") + 1;
     const day = moment().isoWeekday();

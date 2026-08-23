@@ -34,7 +34,7 @@ export function useNextEvent(): NextEventItem | null {
     const {store: ucStore} = useUserConfig();
     const year = +ucStore(s => s.jw.year);
     const term = ucStore(s => s.jw.term);
-    const startDay = useStartDay(year, term);
+    const {startDay} = useStartDay(year, term);
 
     const {items: courseItems = []} = useCourse(year, term);
     const {store: examStore} = useExam();

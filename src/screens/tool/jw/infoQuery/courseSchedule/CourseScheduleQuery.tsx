@@ -52,7 +52,8 @@ export function CourseScheduleQuery() {
     useEffect(() => {
         let cancelled = false;
         setLoading(true);
-        classScheduleApi.fetchPersonalSchedule(year, term)
+        classScheduleApi
+            .fetchPersonalSchedule(year, term)
             .then(s => {
                 if (!cancelled && s) setSchedule(s);
             })
@@ -60,7 +61,9 @@ export function CourseScheduleQuery() {
             .finally(() => {
                 if (!cancelled) setLoading(false);
             });
-        return () => { cancelled = true; };
+        return () => {
+            cancelled = true;
+        };
     }, [year, term]);
 
     useEffect(() => {
@@ -71,7 +74,7 @@ export function CourseScheduleQuery() {
     const practiceItems = schedule?.practiceList ?? [];
 
     // 不绑定全局的startDay，根据year和term动态计算，以免造成混乱
-    const startDay = useStartDay(year, term);
+    const {startDay} = useStartDay(year, term);
 
     const tableData = useMemo(
         () => courseItems.filter((item, idx, arr) => arr.findIndex(i => i.title === item.title) === idx),
@@ -152,6 +155,7 @@ export function CourseScheduleQuery() {
                         }}
                         includeWholeLife={false}
                         includeWholeYear={false}
+                        vacationDefault="future"
                     />
                 </View>
                 {loading && <ActivityIndicator size="large" />}
