@@ -1,10 +1,11 @@
 import {ActivityIndicator, ScrollView, StyleSheet, TouchableOpacity, View} from "react-native";
 import {Button, Divider, Text, useTheme} from "@rneui/themed";
-import React, {useCallback, useEffect, useMemo, useState} from "react";
+import React, {useMemo, useState} from "react";
 import Flex from "@/components/un-ui/Flex.tsx";
 import {Color} from "@/shared/color.ts";
 import {ExamScoreTable} from "@/features/examScore/component/ExamScoreTable.tsx";
 import {useNavigation} from "@react-navigation/native";
+import type {NativeStackNavigationProp} from "@react-navigation/native-stack";
 import {ChooseTerm} from "@/components/tool/infoQuery/examInfo/ChooseTerm.tsx";
 import {useUserConfig} from "@/hooks/useUserConfig.ts";
 import {Icon, UnJsonEditor, UnPressable, UnText} from "@/components/un-ui";
@@ -14,13 +15,11 @@ export function ExamScore() {
     const {store: ucStore} = useUserConfig();
     const devMode = ucStore(s => s.devMode);
     const {theme} = useTheme();
-    const navigation = useNavigation();
+    const navigation = useNavigation<NativeStackNavigationProp<{gpaCalculator: {year: number; term: number}}>>();
     const [year, setYear] = useState("");
     const [term, setTerm] = useState("");
-    const [page, setPage] = useState(1);
-    const {scores, isLoading, loadLocal, fetchRemote, lastSyncTime} = useScore();
+    const {scores, notScore, isLoading, lastSyncTime} = useScore(year, term);
 
-    const [notScore, setNotScore] = useState<string[]>([""]);
     const style = useMemo(() => {
         return StyleSheet.create({
             container: {
@@ -54,24 +53,6 @@ export function ExamScore() {
         });
     }, [theme]);
 
-    const query = useCallback(async () => {
-        if (!year || year === "") return;
-
-        const localTerm = term === "3" ? 1 : 2;
-
-        // 瞬间加载本地数据顶上（不阻塞）
-        await loadLocal(+year, localTerm);
-
-        // 紧接着发起远端请求静默更新
-        // 注意这里不要 await 它，让它在后台慢慢跑，跑完了 Hook 会自动 setScores 刷新界面
-        fetchRemote(+year, term, page).catch(console.error);
-    }, [year, term, page, loadLocal, fetchRemote]);
-
-    // 当学年、学期、页码改变时，自动触发
-    useEffect(() => {
-        query();
-    }, [query]);
-
     return (
         <ScrollView>
             <ChooseTerm
@@ -102,7 +83,7 @@ export function ExamScore() {
                                     </Flex>
                                 </Flex>
                                 <TouchableOpacity
-                                    onPress={() => navigation.navigate("gpaCalculator", {year, term})}
+                                    onPress={() => navigation.navigate("gpaCalculator", {year: +year, term: +term})}
                                     style={style.gpaCal}>
                                     <Text style={{color: "white", fontSize: 16, fontWeight: "bold"}}>绩点计算器</Text>
                                 </TouchableOpacity>
@@ -118,9 +99,9 @@ export function ExamScore() {
                             <Text h4>未出分科目</Text>
                             <Divider style={{marginVertical: 10}} />
                             <View style={{flexDirection: "row", flexWrap: "wrap", gap: 10}}>
-                                {notScore.map((courseName, index) => (
-                                    <Button key={index} type={"outline"} radius={"lg"} color={theme.colors.primary}>
-                                        {courseName}
+                                {notScore.map(c => (
+                                    <Button key={c.classId} type={"outline"} radius={"lg"} color={theme.colors.primary}>
+                                        {c.courseName} {c.type === "实验" ? "(实验)" : ""}
                                     </Button>
                                 ))}
                             </View>
@@ -153,7 +134,7 @@ function ScheduleDataDebugCard({label, data}: {label: string; data: any}) {
         <Flex>
             <UnPressable onPress={() => setModalOpen(true)}>
                 <Flex style={styles.card} justify="flex-start" gap={4}>
-                    <Icon name="console" size={16} inline />
+                    <Icon name="console" size={16} />
                     <UnText weight="bold" size={16}>
                         {label}
                     </UnText>

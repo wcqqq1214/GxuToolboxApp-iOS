@@ -1,19 +1,14 @@
-import {runJw} from "@/core/gateway/jw/run.ts";
-import {SchoolTerms, SchoolTermValue, SchoolYears} from "@/type/global.ts";
-import {ExamScoreQueryRes} from "@/type/api/infoQuery/examInfoAPI.ts";
-import {ensureJwAuthenticated} from "@/core/auth/Jw/JwMachine.ts";
-import {http, objectToFormUrlEncoded} from "@/core/http.ts";
-import {defaultYear} from "@/js/jw/infoQuery.ts";
-import {ToastAndroid} from "react-native";
 import {backendHttp} from "@/features/backend/api";
-import {ScoreData} from "@/features/examScore/type";
+import {ensureJwAuthenticated} from "@/core/auth/Jw/JwMachine.ts";
 import {ApiResponse} from "@/core/type/global.ts";
+import {ScoreData} from "@/features/examScore/type";
 import {UsualScoreItem} from "@/features/examScore/hooks/useUsualScore.ts";
 
 const exam = {
+    /** 远端成绩查询（后端代理 /jw/score，term 为逻辑学期码 1/2）。 */
     remote: async (
         year: number | "" = "",
-        term: number | "" = "",
+        term: string | number | "" = "",
         page: number = 1,
         limit: number = 15,
     ): Promise<ApiResponse<ScoreData> | null> => {
@@ -33,44 +28,16 @@ const exam = {
         const res = await backendHttp.get("/jw/score", {params});
 
         if (typeof res?.data === "object") {
-            console.log(res.data);
             return res.data;
         }
         return null;
-    },
-    local: async (
-        year: number | "" = "",
-        term: SchoolTermValue | "" = "",
-        page: number = 1,
-        limit: number = 15,
-    ): Promise<ExamScoreQueryRes | null> => {
-        if (!(await ensureJwAuthenticated())) {
-            return null;
-        }
-        const reqBody = objectToFormUrlEncoded({
-            xnm: year === "" ? "" : (SchoolYears.find(v => +v[0] === year)?.[0] ?? defaultYear),
-            xqm: term === "" ? "" : (term ?? SchoolTerms[0][0]),
-            queryModel: {
-                showCount: limit,
-                currentPage: page > 0 ? page : 1,
-                sortName: "cjbdsj",
-                sortOrder: "desc",
-            },
-        });
-        const res = await http.post("/cjcx/cjcx_cxXsgrcj.html?doType=query&gnmkdm=N305005", reqBody);
-        if (typeof res.data === "object") {
-            return res.data;
-        } else {
-            ToastAndroid.show("获取考试成绩信息失败", ToastAndroid.SHORT);
-            return null;
-        }
     },
 };
 
 export const usual = {
     remote: async (
         year: number | "" = "",
-        term: number | "" = "",
+        term: string | number | "" = "",
         id: string,
     ): Promise<ApiResponse<UsualScoreItem[]> | null> => {
         if (!(await ensureJwAuthenticated())) {
@@ -86,7 +53,6 @@ export const usual = {
         const res = await backendHttp.get("/jw/score/usual", {params});
 
         if (typeof res?.data === "object") {
-            console.log(res.data);
             return res.data;
         }
         return null;
@@ -95,13 +61,9 @@ export const usual = {
 
 export const getExamScore = (
     year: number | "" = "",
-    term: number | "" = "",
+    term: string | number | "" = "",
     page: number = 1,
     limit: number = 1000,
 ) => {
-    return runJw(
-        () => exam.remote(year, term, page, limit),
-        () => exam.local(year, term as SchoolTermValue, page, limit), // 注意这里的强转，因为你的 local 签名里 term 还是 SchoolTermValue
-    );
+    return exam.remote(year, term, page, limit);
 };
-// export const getUsualScore = () => runJw(usual.remote, usual.local);

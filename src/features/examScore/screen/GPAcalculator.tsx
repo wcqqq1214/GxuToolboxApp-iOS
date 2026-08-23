@@ -1,7 +1,7 @@
 import {Modal, ScrollView, StyleSheet, TouchableOpacity, View} from "react-native";
 import {ChooseTerm} from "@/components/tool/infoQuery/examInfo/ChooseTerm.tsx";
 import {Text, useTheme} from "@rneui/themed";
-import {useCallback, useEffect, useState} from "react";
+import {useState} from "react";
 import {useGpa} from "@/hooks/useGpa.ts";
 import {Icon} from "@/components/un-ui/Icon.tsx";
 import {RouteProp, useRoute} from "@react-navigation/native";
@@ -13,10 +13,10 @@ export function GPAcalculator() {
     const {theme} = useTheme();
     const route = useRoute<RouteProp<{params: {year?: number; term?: number}}, "params">>();
 
-    const [year, setYear] = useState<number>(route.params?.year);
-    const [term, setTerm] = useState<SchoolTermValue>(route.params?.term);
+    const [year, setYear] = useState<number | "" | undefined>(route.params?.year);
+    const [term, setTerm] = useState<SchoolTermValue | undefined>(route.params?.term);
 
-    const {scores, loadLocal, fetchRemote} = useScore();
+    const {scores} = useScore(year, term);
     const gpa = useGpa(scores);
     const [showModal, setShowModal] = useState<boolean>(false);
 
@@ -130,20 +130,6 @@ export function GPAcalculator() {
         },
     });
 
-    const query = useCallback(async () => {
-        let localTerm: number | "" = "";
-        if (term === "3" || term === 3) localTerm = 1;
-        if (term === "12" || term === 12) localTerm = 2;
-
-        // 瞬间加载本地数据顶上（不阻塞）
-        await loadLocal(year, localTerm);
-        fetchRemote(year, term, 1).catch(console.error);
-    }, [year, term, loadLocal, fetchRemote]);
-
-    useEffect(() => {
-        query();
-    }, [query]);
-
     return (
         <View style={styles.container}>
             <ChooseTerm
@@ -161,7 +147,7 @@ export function GPAcalculator() {
                     onPress={() => {
                         setShowModal(true);
                     }}>
-                    <Icon type={"fontawesome"} name={"question-circle"} color={theme.colors.primary} size={18} />
+                    <Icon type="fontawesome" name="circle-question" color={theme.colors.primary} size={18} />
                 </TouchableOpacity>
             </View>
             <ScrollView style={styles.listContainer}>

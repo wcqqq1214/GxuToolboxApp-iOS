@@ -1,78 +1,177 @@
-import {useCallback, useState} from "react";
+import {useCallback, useEffect, useMemo, useRef, useState} from "react";
+import dayjs from "dayjs";
 import {getExamScore} from "@/features/examScore/api";
 import {scoreRepo} from "@/features/examScore/repo/ScoreRepo.ts";
-import {ScoreRepo} from "@/features/examScore/type";
-import dayjs from "dayjs";
+import type {ScoreRepo} from "@/features/examScore/type";
+import {useSelectedCourses} from "@/features/selectedCourse/hooks/useSelectedCourses.ts";
+import type {AcademicTerm, SelectedCourseScope} from "@/features/selectedCourse/type";
+import {isAcademicTerm} from "@/features/selectedCourse/type";
 
-export function useScore() {
+type QueryValue = string | number | null | undefined;
+
+interface ScoreQuery {
+    year: number;
+    term: AcademicTerm;
+}
+
+interface RemoteScoreResult {
+    items: ScoreRepo[];
+    totalCount: number;
+    totalPage: number;
+    syncedAt: number;
+}
+
+function normalizeQuery(year: QueryValue, term: QueryValue): ScoreQuery | null {
+    const normalizedYear = Number(year);
+    const normalizedTerm = Number(term);
+
+    if (
+        year == null ||
+        year === "" ||
+        normalizedYear <= 0 ||
+        !Number.isInteger(normalizedYear) ||
+        !isAcademicTerm(normalizedTerm)
+    ) {
+        return null;
+    }
+    return {year: normalizedYear, term: normalizedTerm};
+}
+
+function formatSyncTime(timestamp: number): string {
+    // 兼容旧缓存中误用毫秒的 updated_at；新数据统一使用秒级 Unix 时间戳。
+    const time = timestamp > 10_000_000_000 ? dayjs(timestamp) : dayjs.unix(timestamp);
+    return time.format("MM月DD日 HH:mm:ss");
+}
+
+async function fetchRemoteScores(query: ScoreQuery): Promise<RemoteScoreResult | null> {
+    const response = await getExamScore(query.year, query.term);
+    if (!response?.data) return null;
+
+    const syncedAt = Math.floor(Date.now() / 1000);
+    const items = (response.data.items ?? []).map(item => ({...item, updated_at: syncedAt}));
+
+    return {
+        items,
+        totalCount: response.data.totalCount ?? 0,
+        totalPage: response.data.totalPage ?? 1,
+        syncedAt,
+    };
+}
+
+function errorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : "考试成绩同步失败";
+}
+
+/**
+ * 考试成绩页的数据入口：成绩与已选课程都按同一学期本地优先加载，并在后台静默刷新。
+ * 页面只提供查询学期，未出分课程通过 SelectedCourse.classId 与 Score.id 的差集得出。
+ */
+export function useScore(year: QueryValue = "", term: QueryValue = "") {
+    const query = useMemo(() => normalizeQuery(year, term), [term, year]);
+    const selectedCourseScope = useMemo<SelectedCourseScope>(
+        () => ({kind: "term", year: query?.year ?? 0, term: query?.term ?? 1}),
+        [query?.term, query?.year],
+    );
+    const {
+        courses,
+        loading: coursesLoading,
+        refreshing: coursesRefreshing,
+        error: coursesError,
+        refresh: refreshCourses,
+    } = useSelectedCourses(selectedCourseScope, {enabled: query !== null});
+
     const [scores, setScores] = useState<ScoreRepo[]>([]);
     const [pageInfo, setPageInfo] = useState({totalCount: 0, totalPage: 1});
-    const [isLoading, setIsLoading] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
+    const [scoreError, setScoreError] = useState<string | null>(null);
+    const [lastSyncTime, setLastSyncTime] = useState("");
+    const requestVersion = useRef(0);
 
-    const [lastSyncTime, setLastSyncTime] = useState<string>("");
+    const refreshScores = useCallback(async (version: number, activeQuery: ScoreQuery) => {
+        if (requestVersion.current === version) {
+            setRefreshing(true);
+            setScoreError(null);
+        }
 
-    // 从本地数据库加载缓存
-    const loadLocal = useCallback(async (year: number | "", term: number | "") => {
-        setIsLoading(true);
         try {
-            const data = await scoreRepo.getList(year, term);
-            if (data && data.length > 0) {
-                setScores(data);
-                setPageInfo({totalCount: data.length, totalPage: 1});
+            const result = await fetchRemoteScores(activeQuery);
+            if (!result || requestVersion.current !== version) return;
 
-                if (data[0].updated_at) {
-                    setLastSyncTime(dayjs(data[0].updated_at).format("MM月DD日 HH:mm:ss"));
+            setScores(result.items);
+            setPageInfo({totalCount: result.totalCount, totalPage: result.totalPage});
+            setLastSyncTime(formatSyncTime(result.syncedAt));
+            await scoreRepo.upsert(result.items);
+        } catch (cause) {
+            if (requestVersion.current === version) setScoreError(errorMessage(cause));
+        } finally {
+            if (requestVersion.current === version) setRefreshing(false);
+        }
+    }, []);
+
+    const refresh = useCallback(async () => {
+        if (!query) return;
+
+        const version = ++requestVersion.current;
+        setLoading(false);
+        await Promise.all([refreshScores(version, query), refreshCourses()]);
+    }, [query, refreshCourses, refreshScores]);
+
+    useEffect(() => {
+        const version = ++requestVersion.current;
+
+        if (!query) {
+            setScores([]);
+            setPageInfo({totalCount: 0, totalPage: 1});
+            setLoading(false);
+            setRefreshing(false);
+            setScoreError(null);
+            setLastSyncTime("");
+            return;
+        }
+
+        const init = async () => {
+            setLoading(true);
+            setScoreError(null);
+            try {
+                const cached = await scoreRepo.getList(query.year, query.term);
+                if (requestVersion.current === version) {
+                    setScores(cached);
+                    setPageInfo({totalCount: cached.length, totalPage: 1});
+                    setLastSyncTime(cached[0]?.updated_at ? formatSyncTime(cached[0].updated_at) : "");
                 }
-            } else {
-                setScores([]); // 切换学期时如果没有缓存要清空
-                setLastSyncTime("");
+            } catch (cause) {
+                if (requestVersion.current === version) setScoreError(errorMessage(cause));
+            } finally {
+                if (requestVersion.current === version) setLoading(false);
             }
-        } finally {
-            setIsLoading(false);
-        }
-    }, []);
 
-    // 从远端请求并更新本地
-    const fetchRemote = useCallback(async (year: number, term: string | number, page: number = 1) => {
-        setIsLoading(true);
-        try {
-            // 教务系统的恶心映射在组件外处理
-            let newTerm: number | "" = "";
-            if (term === "3" || term === 3) newTerm = 1;
-            if (term === "12" || term === 12) newTerm = 2;
+            if (requestVersion.current === version) await refreshScores(version, query);
+        };
 
-            const res = await getExamScore(year, newTerm, page);
+        init().catch(cause => {
+            if (requestVersion.current === version) setScoreError(errorMessage(cause));
+        });
 
-            if (res?.data) {
-                const now = Date.now();
+        return () => {
+            if (requestVersion.current === version) requestVersion.current += 1;
+        };
+    }, [query, refreshScores]);
 
-                // 所有记录的 updated_at 全部强行变成当前时间戳
-                // 刷新界面的时间，也在 upsert 时强行更新数据库里的 updated_at
-                const items = (res.data.items || []).map(item => ({...item, updated_at: now}));
-
-                setScores(items);
-                setPageInfo({
-                    totalCount: res.data.totalCount || 0,
-                    totalPage: res.data.totalPage || 1,
-                });
-
-                setLastSyncTime(dayjs(now).format("MM月DD日 HH:mm:ss"));
-                // 异步落库，不需要 await 等它存完才渲染
-                scoreRepo.upsert(items).catch(console.error);
-                return res.data;
-            }
-        } finally {
-            setIsLoading(false);
-        }
-        return null;
-    }, []);
+    const notScore = useMemo(() => {
+        const scoredClassIds = new Set(scores.map(score => score.id));
+        return courses.filter(course => !scoredClassIds.has(course.classId));
+    }, [courses, scores]);
 
     return {
         scores,
+        notScore,
         pageInfo,
-        isLoading,
+        loading,
+        refreshing,
+        isLoading: loading || refreshing || coursesLoading || coursesRefreshing,
+        error: scoreError ?? coursesError,
         lastSyncTime,
-        loadLocal,
-        fetchRemote,
+        refresh,
     };
 }
