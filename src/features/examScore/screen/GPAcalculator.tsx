@@ -17,8 +17,9 @@ export function GPAcalculator() {
     const [term, setTerm] = useState<SchoolTermValue | undefined>(route.params?.term);
 
     const {scores} = useScore(year, term);
-    const gpa = useGpa(scores);
+    const {gpa,wam} = useGpa(scores);
     const [showModal, setShowModal] = useState<boolean>(false);
+    const [showWam,setShowWam]=useState<boolean>(false);
 
     const styles = StyleSheet.create({
         container: {
@@ -139,15 +140,26 @@ export function GPAcalculator() {
                 }}
             />
             <View style={styles.gpaContainer}>
-                <Text style={styles.gpaValue}>GPA: {gpa.toFixed(3)}</Text>
+                <Text style={styles.gpaValue}>
+                    {showWam?`WAM:${wam.toFixed(2)}`:`GPA:${gpa.toFixed(3)}`}
+                </Text>
             </View>
-            <View style={[styles.listTitle, {flexDirection: "row", alignItems: "center"}]}>
-                <Text style={{fontSize: 18, marginRight: 5}}>计算方法</Text>
+            <View style={[styles.listTitle, {flexDirection: "row", alignItems: "center",justifyContent:"space-between"}]}>
+                <View style={{flexDirection:"row",alignItems:"center"}}>
+                    <Text style={{fontSize: 18, marginRight: 5}}>计算方法</Text>
+                    <TouchableOpacity
+                       onPress={() => {
+                           setShowModal(true);
+                        }}>
+                       <Icon type="fontawesome" name="circle-question" color={theme.colors.primary} size={18} />
+                    </TouchableOpacity>
+                </View>
                 <TouchableOpacity
-                    onPress={() => {
-                        setShowModal(true);
-                    }}>
-                    <Icon type="fontawesome" name="circle-question" color={theme.colors.primary} size={18} />
+                    onPress={()=>setShowWam(prev=>!prev)}
+                    style={{backgroundColor:theme.colors.primary,paddingVertical:10,paddingHorizontal:12,borderRadius:6}}>
+                    <Text style={{color:"white",fontSize:16,fontWeight:"bold"}}>
+                        {showWam?"平均学分绩点":"加权平均成绩"}
+                    </Text>
                 </TouchableOpacity>
             </View>
             <ScrollView style={styles.listContainer}>
