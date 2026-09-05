@@ -67,8 +67,12 @@ export default function BuildingListItem(props: Props) {
                     <Text style={styles.nameText}>{props.building.name}</Text>
                     <Flex style={{flexWrap: "wrap", marginTop: 8}} gap={8}>
                         {props.building.simpleName.map((name, index) => (
-                            <View key={index} style={styles.tag}>
-                                <Text style={styles.tagText}>{name}</Text>
+                            <View
+                                key={index}
+                                style={[styles.tag, name.includes("新生开学报道处") && {borderColor: "#FF0000"}]}>
+                                <Text style={[styles.tagText, name.includes("新生开学报道处") && {color: "#FF0000"}]}>
+                                    {name}
+                                </Text>
                             </View>
                         ))}
                     </Flex>
