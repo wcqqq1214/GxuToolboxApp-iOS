@@ -7,10 +7,12 @@ import {Icon} from "@/components/un-ui/Icon.tsx";
 import Flex from "@/components/un-ui/Flex.tsx";
 import {UnPressable} from "@/components/un-ui";
 import {useUserConfig} from "@/hooks/useUserConfig.ts";
+import {HelpButton} from "@/components/header/HelpButton.tsx";
 
 export interface UnListSection {
     title: string;
     data: UnListItem[];
+    docKey?: string; // 用于在标题右侧显示问号并跳转对应文档
 }
 
 interface UnListItem {
@@ -150,9 +152,12 @@ export function UnSectionList(props: Props & SectionListProps<UnListItem, UnList
                 <View style={style.settingItemContainer}>{renderItem(item, index !== section.data.length - 1)}</View>
             )}
             contentContainerStyle={style.settingSectionContainer}
-            renderSectionHeader={({section: {title}}) => (
+            renderSectionHeader={({section: {title, docKey}}) => (
                 <View style={style.settingSectionHeader}>
-                    <Text h4>{title}</Text>
+                    <View style={{flexDirection: "row", alignItems: "center"}}>
+                        <Text h4>{title}</Text>
+                        {docKey ? <HelpButton docKey={docKey} /> : null}
+                    </View>
                 </View>
             )}
             renderSectionFooter={() => <View style={style.settingSectionFooter} />}

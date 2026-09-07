@@ -30,6 +30,7 @@ export function SettingIndex() {
     const settingList: UnListSection[] = [
         {
             title: "账号",
+            docKey: "账号",
             data: [
                 {
                     label: "查看个人信息",
@@ -60,6 +61,7 @@ export function SettingIndex() {
         },
         {
             title: "主题",
+            docKey: "主题",
             data: [
                 {
                     label: "主题色",
@@ -134,6 +136,7 @@ export function SettingIndex() {
         },
         {
             title: "软件",
+            docKey: "软件",
             data: [
                 {
                     label: "意见反馈",

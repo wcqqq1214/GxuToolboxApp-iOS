@@ -1,10 +1,12 @@
 import React, {lazy} from "react";
 import {createNativeStackNavigator} from "@react-navigation/native-stack";
+import {Text, View} from "react-native";
 import {Color} from "@/shared/color.ts";
 import {Button, useTheme} from "@rneui/themed";
 import {useNavigation} from "@react-navigation/native";
 import {useWebView} from "@/hooks/app.ts";
 import {useUserConfig} from "@/hooks/useUserConfig.ts";
+import {HelpButton} from "@/components/header/HelpButton.tsx";
 
 const Stack = createNativeStackNavigator();
 
@@ -26,6 +28,14 @@ export function SettingStack() {
             </Button>
         );
     };
+    const headerTitleEle = ({children, tintColor}: {children: string; tintColor?: string}) => {
+        return (
+            <View style={{flexDirection: "row", alignItems: "center"}}>
+                <Text style={{fontSize: 17, fontWeight: "600", color: tintColor}}>{children}</Text>
+                <HelpButton docKey={children} />
+            </View>
+        );
+    };
     return (
         <Stack.Navigator
             initialRouteName="settingIndex"
@@ -44,6 +54,7 @@ export function SettingStack() {
                 animation: "fade",
                 animationDuration: 100,
                 headerRight: headerRightEle,
+                headerTitle: headerTitleEle,
             }}>
             <Stack.Screen
                 name="settingIndex"
@@ -52,6 +63,7 @@ export function SettingStack() {
                 )}
                 options={{
                     title: "工具箱设置",
+                    headerTitle: "工具箱设置",
                     contentStyle: {
                         backgroundColor: "transparent",
                     },

@@ -1,8 +1,19 @@
 import {createNativeStackNavigator} from "@react-navigation/native-stack";
 import React, {lazy} from "react";
+import {Text, View} from "react-native";
 import {WebViewScreen} from "@/screens/WebViewScreen.tsx";
+import {HelpButton} from "@/components/header/HelpButton.tsx";
 
 const Stack = createNativeStackNavigator();
+
+const headerTitleEle = ({children, tintColor}: {children: string; tintColor?: string}) => {
+    return (
+        <View style={{flexDirection: "row", alignItems: "center"}}>
+            <Text style={{fontSize: 17, fontWeight: "600", color: tintColor}}>{children}</Text>
+            <HelpButton docKey={children} />
+        </View>
+    );
+};
 
 export function RootStack() {
     return (
@@ -28,6 +39,7 @@ export function RootStack() {
                 name="feedback"
                 options={{
                     title: "意见反馈",
+                    headerTitle: headerTitleEle,
                 }}
                 component={lazy(() =>
                     import("@/features/feedback/screens/FeedbackView.tsx").then(m => ({

@@ -1,9 +1,11 @@
 import React, {lazy} from "react";
 import {createNativeStackNavigator} from "@react-navigation/native-stack";
+import {Text, View} from "react-native";
 import {Color} from "@/shared/color.ts";
 import {Button, useTheme} from "@rneui/themed";
 import {useWebView} from "@/hooks/app.ts";
 import {useUserConfig} from "@/hooks/useUserConfig.ts";
+import {HelpButton} from "@/components/header/HelpButton.tsx";
 import {RescheduleNotificationScreen} from "@/features/notification/screen/RescheduleNotificationScreen.tsx";
 
 const Stack = createNativeStackNavigator();
@@ -25,6 +27,14 @@ export function ToolboxStack() {
             </Button>
         );
     };
+    const headerTitleEle = ({children, tintColor}: {children: string; tintColor?: string}) => {
+        return (
+            <View style={{flexDirection: "row", alignItems: "center"}}>
+                <Text style={{fontSize: 17, fontWeight: "600", color: tintColor}}>{children}</Text>
+                <HelpButton docKey={children} />
+            </View>
+        );
+    };
     return (
         <Stack.Navigator
             initialRouteName="toolboxIndex"
@@ -43,12 +53,14 @@ export function ToolboxStack() {
                 animation: "fade",
                 animationDuration: 100,
                 headerRight: headerRightEle,
+                headerTitle: headerTitleEle,
             }}>
             <Stack.Screen
                 name="toolboxIndex"
                 component={lazy(() => import("@/screens/tool/ToolboxIndex.tsx").then(m => ({default: m.ToolboxIndex})))}
                 options={{
                     title: "工具箱",
+                    headerTitle: "工具箱",
                     contentStyle: {
                         backgroundColor: "transparent",
                     },
