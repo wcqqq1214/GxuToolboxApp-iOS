@@ -3,15 +3,14 @@ import {Image, Linking, StyleSheet, ToastAndroid, View, ViewProps} from "react-n
 import {Text, useTheme} from "@rneui/themed";
 import Flex from "@/components/un-ui/Flex.tsx";
 import Clipboard from "@react-native-clipboard/clipboard";
-import React, {createContext, useContext, useEffect, useState} from "react";
+import React, {createContext, useContext, useState} from "react";
 import {Color} from "@/shared/color.ts";
 import {useUserConfig} from "@/hooks/useUserConfig.ts";
-import {TeacherInfoSheet} from "@/components/tool/infoQuery/courseSchedule/TeacherInfoSheet.tsx";
+import {TeacherSheet} from "@/features/courseSchedule/components/TeacherSheet.tsx";
 import {Icon, UnJsonEditor, UnPressable, UnText} from "@/components/un-ui";
 import {useBlocksColor} from "@/features/courseSchedule/hooks/useBlocksColor.ts";
 import {Pos} from "@/js/pos.ts";
-import {SimpleTeacherInfo} from "@/type/api/teacherInfo/info.ts";
-import {teacherInfoApi} from "@/js/info/teacherInfo.ts";
+import {useLookup} from "@/features/teachersInfo/hooks/useLookup.ts";
 import {ExamInfoClass} from "@/class/jw/exam.ts";
 import {parseExamTime} from "@/features/examInfo/utils/timeParser.ts";
 import moment from "moment";
@@ -22,11 +21,6 @@ interface Props extends ViewProps {
     course: CourseClass;
     examInfo?: ExamInfoClass[];
     onExamPress?: (exam: ExamInfoClass) => void;
-}
-
-interface Info {
-    label: string;
-    key: keyof AdapterTheoryItem;
 }
 
 function copy(value: string, tip: string) {
@@ -42,22 +36,15 @@ export function CourseDetail(props: Props) {
     const devMode = store(s => s.devMode);
     const course = props.course._ori;
 
-    const [teacherInfoList, setTeacherInfoList] = useState<SimpleTeacherInfo[]>([]);
     const name = course.teacher;
+    const {list: teacherInfoList} = useLookup(name);
 
     const iconUrl = "https://prof.gxu.edu.cn/images/icon-teacher.jpg";
-
-    useEffect(() => {
-        teacherInfoApi.getBaseInfo(name, 1).then(res => {
-            const filterData = res.resData.list.filter(item => item.XM.length === name.length);
-            setTeacherInfoList(filterData);
-        });
-    }, [name]);
     return (
         <CourseContext.Provider value={course}>
             <Flex {...props} gap={10} direction="column">
                 <CourseInfoCard />
-                {props.examInfo?.length > 0 && (
+                {props.examInfo && props.examInfo.length > 0 && (
                     <Flex justify="center" direction="column" gap={6}>
                         <Text>相关考试</Text>
                         {props.examInfo.map(exam => (
@@ -100,7 +87,7 @@ export function CourseDetail(props: Props) {
                                 {teacherInfoList.length === 1 && (
                                     <Image
                                         style={{width: 20, height: 20, borderRadius: 999}}
-                                        source={{uri: teacherInfoList[0]?.pic || iconUrl}}
+                                        source={{uri: teacherInfoList[0]?.picUrl || iconUrl}}
                                     />
                                 )}
                                 <UnText>{v}</UnText>
@@ -161,9 +148,8 @@ export function CourseDetail(props: Props) {
                         }}
                     />
                 </Flex>
-                <TeacherInfoSheet
+                <TeacherSheet
                     isVisible={visible}
-                    name={course.teacher}
                     infoList={teacherInfoList}
                     onClose={() => setVisible(false)}
                     openPage={teacherInfoList.length === 1 ? 1 : 0}
@@ -249,7 +235,7 @@ function CourseDebugCard() {
                     return setModalOpen(true);
                 }}>
                 <Flex style={styles.card} justify="flex-start" gap={4}>
-                    <Icon name="console" size={16} inline />
+                    <Icon name="console" size={16} />
                     <UnText weight="bold" size={16}>
                         查看课程数据
                     </UnText>

@@ -169,18 +169,18 @@
 
 ### 基础信息
 
-| 项目 | 内容 |
-|------|------|
-| **baseURL** | `https://prof.gxu.edu.cn/backend/openapi/openSearch` |
-| **Content-Type** | `application/json` |
-| **核心文件** | `src/js/info/teacherInfo.ts` |
+| 项目               | 内容                                                   |
+|------------------|------------------------------------------------------|
+| **baseURL**      | `https://prof.gxu.edu.cn/backend/openapi/openSearch` |
+| **Content-Type** | `application/json`                                   |
+| **核心文件**         | `src/features/teachersInfo/api/index.ts`             |
 
 ### 接口列表
 
-| 方法 | 路径 | 功能 | 文件 |
-|------|------|------|------|
-| `GET` | `/findByCondition` | **按条件查询教师** | `teacherInfo.ts:18` |
-| `GET` | `/getTeachInfoByGH` | **按工号获取教师详细信息** | `teacherInfo.ts:37` |
+| 方法    | 路径                  | 功能              | 文件                |
+|-------|---------------------|-----------------|-------------------|
+| `GET` | `/findByCondition`  | **按条件查询教师**     | `api/index.ts:32` |
+| `GET` | `/getTeachInfoByGH` | **按工号获取教师详细信息** | `api/index.ts:51` |
 
 **查询参数说明**：
 - `xm` — 教师姓名
@@ -422,9 +422,9 @@
 
 ### 12.2 静态资源
 
-| URL | 用途 | 文件 |
-|-----|------|------|
-| `https://prof.gxu.edu.cn/images/icon-teacher.jpg` | 教师信息页默认头像 | `TeacherInfoScreen.tsx:64` |
+| URL                                               | 用途        | 文件                                                       |
+|---------------------------------------------------|-----------|----------------------------------------------------------|
+| `https://prof.gxu.edu.cn/images/icon-teacher.jpg` | 教师信息页默认头像 | `src/features/teachersInfo/components/TeacherCard.tsx:9` |
 
 ---
 
@@ -460,26 +460,26 @@
 
 ## 📁 文件索引
 
-| 文件路径 | 负责的 API 系统 |
-|---------|---------------|
-| `src/core/http.ts` | 教务系统 (jwxt) 核心 HTTP 客户端 |
-| `src/core/auth/Jw/JwAuthClient.ts` | 教务登录认证 |
-| `src/core/auth/attendance/attendanceAuthApi.ts` | 考勤登录认证 |
-| `src/js/auth/auth.ts` | 统一认证 CA + 工程训练中心 |
-| `src/js/auth/attendanceSystem.ts` | 考勤系统数据查询 |
-| `src/js/jw/course.ts` | 课表 + 物理实验 + 工程训练 |
-| `src/js/wjxt/api.ts` | 问卷系统 |
-| `src/js/be.ts` | ACM 竞赛系统 |
-| `src/js/info/teacherInfo.ts` | 教师信息查询 |
-| `src/features/backend/api/index.ts` | 自建后端基础客户端 |
-| `src/features/backend/api/feedback.ts` | 反馈 API |
-| `src/features/backend/api/profile.ts` | 教务配置 API |
-| `src/features/documents/api/index.ts` | OA 文件系统 |
-| `src/features/attendance/api/index.ts` | 考勤系统（新版） |
-| `src/features/examScore/api/index.ts` | 考试成绩（远程 + 本地） |
-| `src/features/courseSchedule/repo/startDay.ts` | 学期开始日 |
-| `src/features/feedback/api/event.ts` | 事件埋点 |
-| `src/core/ota.ts` | OTA 热更新 |
+| 文件路径                                            | 负责的 API 系统              |
+|-------------------------------------------------|-------------------------|
+| `src/core/http.ts`                              | 教务系统 (jwxt) 核心 HTTP 客户端 |
+| `src/core/auth/Jw/JwAuthClient.ts`              | 教务登录认证                  |
+| `src/core/auth/attendance/attendanceAuthApi.ts` | 考勤登录认证                  |
+| `src/js/auth/auth.ts`                           | 统一认证 CA + 工程训练中心        |
+| `src/js/auth/attendanceSystem.ts`               | 考勤系统数据查询                |
+| `src/js/jw/course.ts`                           | 课表 + 物理实验 + 工程训练        |
+| `src/js/wjxt/api.ts`                            | 问卷系统                    |
+| `src/js/be.ts`                                  | ACM 竞赛系统                |
+| `src/features/teachersInfo/api/index.ts`        | 教师信息查询                  |
+| `src/features/backend/api/index.ts`             | 自建后端基础客户端               |
+| `src/features/backend/api/feedback.ts`          | 反馈 API                  |
+| `src/features/backend/api/profile.ts`           | 教务配置 API                |
+| `src/features/documents/api/index.ts`           | OA 文件系统                 |
+| `src/features/attendance/api/index.ts`          | 考勤系统（新版）                |
+| `src/features/examScore/api/index.ts`           | 考试成绩（远程 + 本地）           |
+| `src/features/courseSchedule/repo/startDay.ts`  | 学期开始日                   |
+| `src/features/feedback/api/event.ts`            | 事件埋点                    |
+| `src/core/ota.ts`                               | OTA 热更新                 |
 
 ---
 
