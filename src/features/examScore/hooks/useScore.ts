@@ -11,7 +11,8 @@ type QueryValue = string | number | null | undefined;
 
 interface ScoreQuery {
     year: number;
-    term: AcademicTerm;
+    /** 具体学期（1/2），或 "all" 表示全学年（合并秋、春两学期成绩） */
+    term: AcademicTerm | "all";
 }
 
 interface RemoteScoreResult {
@@ -23,17 +24,18 @@ interface RemoteScoreResult {
 
 function normalizeQuery(year: QueryValue, term: QueryValue): ScoreQuery | null {
     const normalizedYear = Number(year);
-    const normalizedTerm = Number(term);
 
-    if (
-        year == null ||
-        year === "" ||
-        normalizedYear <= 0 ||
-        !Number.isInteger(normalizedYear) ||
-        !isAcademicTerm(normalizedTerm)
-    ) {
+    if (year == null || year === "" || normalizedYear <= 0 || !Number.isInteger(normalizedYear)) {
         return null;
     }
+
+    // 空 term（"" / null / undefined / 0）表示全学年：合并秋、春两学期成绩，不再单独爬取全学年。
+    if (term == null || term === "" || Number(term) === 0) {
+        return {year: normalizedYear, term: "all"};
+    }
+
+    const normalizedTerm = Number(term);
+    if (!isAcademicTerm(normalizedTerm)) return null;
     return {year: normalizedYear, term: normalizedTerm};
 }
 
@@ -44,16 +46,32 @@ function formatSyncTime(timestamp: number): string {
 }
 
 async function fetchRemoteScores(query: ScoreQuery): Promise<RemoteScoreResult | null> {
-    const response = await getExamScore(query.year, query.term);
-    if (!response?.data) return null;
+    // 全学年：分别拉取秋季（1）与春季（2）两学期成绩后合并。
+    // 使用 allSettled，保证某一学期为空或请求失败时，其余学期仍能正常返回。
+    const terms: AcademicTerm[] = query.term === "all" ? [1, 2] : [query.term];
+    const settled = await Promise.allSettled(terms.map(term => getExamScore(query.year, term)));
+
+    const responses = settled.flatMap(result => (result.status === "fulfilled" ? [result.value] : []));
+
+    // 所有学期都请求失败：抛出错误以便上层提示。
+    if (responses.length === 0) {
+        const failed = settled.find(result => result.status === "rejected");
+        if (failed?.status === "rejected") throw failed.reason;
+        return null;
+    }
+
+    // 有响应但都没有数据（例如该学年确实没有成绩）。
+    if (responses.every(response => !response?.data)) return null;
 
     const syncedAt = Math.floor(Date.now() / 1000);
-    const items = (response.data.items ?? []).map(item => ({...item, updated_at: syncedAt}));
+    const items = responses
+        .flatMap(response => response?.data?.items ?? [])
+        .map(item => ({...item, updated_at: syncedAt}));
 
     return {
         items,
-        totalCount: response.data.totalCount ?? 0,
-        totalPage: response.data.totalPage ?? 1,
+        totalCount: responses.reduce((sum, response) => sum + (response?.data?.totalCount ?? 0), 0),
+        totalPage: responses.reduce((sum, response) => sum + (response?.data?.totalPage ?? 0), 0),
         syncedAt,
     };
 }
@@ -68,9 +86,11 @@ function errorMessage(error: unknown): string {
  */
 export function useScore(year: QueryValue = "", term: QueryValue = "") {
     const query = useMemo(() => normalizeQuery(year, term), [term, year]);
+    // 全学年只关心成绩，不涉及已选课程，因此不触发课程同步。
+    const coursesEnabled = query !== null && query.term !== "all";
     const selectedCourseScope = useMemo<SelectedCourseScope>(
-        () => ({kind: "term", year: query?.year ?? 0, term: query?.term ?? 1}),
-        [query?.term, query?.year],
+        () => ({kind: "term", year: query?.year ?? 0, term: query && query.term !== "all" ? query.term : 1}),
+        [query],
     );
     const {
         courses,
@@ -78,7 +98,7 @@ export function useScore(year: QueryValue = "", term: QueryValue = "") {
         refreshing: coursesRefreshing,
         error: coursesError,
         refresh: refreshCourses,
-    } = useSelectedCourses(selectedCourseScope, {enabled: query !== null});
+    } = useSelectedCourses(selectedCourseScope, {enabled: coursesEnabled});
 
     const [scores, setScores] = useState<ScoreRepo[]>([]);
     const [pageInfo, setPageInfo] = useState({totalCount: 0, totalPage: 1});
@@ -134,7 +154,7 @@ export function useScore(year: QueryValue = "", term: QueryValue = "") {
             setLoading(true);
             setScoreError(null);
             try {
-                const cached = await scoreRepo.getList(query.year, query.term);
+                const cached = await scoreRepo.getList(query.year, query.term === "all" ? "" : query.term);
                 if (requestVersion.current === version) {
                     setScores(cached);
                     setPageInfo({totalCount: cached.length, totalPage: 1});
