@@ -4,6 +4,7 @@ import React, {useCallback, useEffect, useMemo, useState} from "react";
 import Flex from "@/components/un-ui/Flex.tsx";
 import {Icon} from "@/components/un-ui/Icon.tsx";
 import moment from "moment";
+import {getWeekOfDate} from "@/features/courseSchedule/utils/weekOfDate.ts";
 import {SchoolTermValue} from "@/type/global.ts";
 import {Color} from "@/shared/color.ts";
 import {usePagerView} from "react-native-pager-view";
@@ -165,7 +166,7 @@ export function ScheduleCard() {
         [courseItems, examItems, holidayItems, defaultItem, onItemPress],
     );
 
-    const realCurrentWeek = Math.ceil(moment.duration(moment().diff(startDay)).asWeeks());
+    const realCurrentWeek = getWeekOfDate(moment(), startDay);
 
     const [refreshing, setRefreshing] = useState(false);
 
@@ -345,7 +346,7 @@ export function ScheduleCard() {
                                 examInfo={matchedExam}
                                 onExamPress={exam => {
                                     const examDate = moment(exam.time.slice(0, 10));
-                                    const week = examDate.diff(startDay, "week") + 1;
+                                    const week = getWeekOfDate(examDate, startDay);
                                     rest.setPage(week - 1);
                                     setSheet({
                                         type: "itemDetail",
