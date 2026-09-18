@@ -117,6 +117,11 @@ export function ScheduleCard() {
         () =>
             [
                 {
+                    data: holidayItems,
+                    needShift: false,
+                    itemRender: (item, day) => <HolidayItem item={item} />,
+                },
+                {
                     data: courseItems,
                     needShift: true,
                     itemRender: (item, day) => (
@@ -145,11 +150,6 @@ export function ScheduleCard() {
                     data: examItems,
                     itemRender: (item, day) => <NewExamItem item={item} onPress={() => onItemPress(item, day)} />,
                 } as TimeScheduleItemData<ScheduleTableItem<ExamWithMeta>>,
-                {
-                    data: holidayItems,
-                    needShift: false,
-                    itemRender: (item, day) => <HolidayItem item={item} />,
-                },
                 {
                     data: defaultItem,
                     itemRender: (item, day) => <NewCourseItem item={item} onPress={() => onItemPress(item, day)} />,

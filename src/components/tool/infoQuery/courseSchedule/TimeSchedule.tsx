@@ -201,9 +201,16 @@ export function TimeSchedule<T = any>(props: TimeScheduleProps<T>) {
                         </View>
                         {(props.scheduleItems ?? []).map((td, tdIndex) => {
                             const day = td.needShift === false ? currentDay : effectiveDay;
-                            const visibleItems = td.data.filter(item => td.isItemShow(item, day, currentWeek));
+                            const realWeek =
+                                td.needShift === false
+                                    ? currentWeek
+                                    : Math.ceil(moment.duration(effectiveDay.diff(startDay)).asWeeks());
+                            const visibleItems = td.data.filter(item => td.isItemShow?.(item, day, realWeek));
                             // 按时段重叠分组
-                            const groups = groupByTimeOverlap(visibleItems, td.isItemStack, day, currentWeek);
+                            const groups = groupByTimeOverlap(visibleItems, td.isItemStack, day, realWeek);
+                            if (day.isSame(moment("2026-09-20", "YYYY-MM-DD"), "d")) {
+                                console.log(groups);
+                            }
                             return groups.map((group, gi) => {
                                 const timeRange: [number, number] = [
                                     Math.min(...group.map(g => (g as any).begin ?? 1)),
@@ -212,9 +219,9 @@ export function TimeSchedule<T = any>(props: TimeScheduleProps<T>) {
                                 return (
                                     <View key={`${tdIndex}-${gi}`}>
                                         {group.length > 1
-                                            ? (td.stackRender?.(group, day, currentWeek, timeRange) ?? null)
+                                            ? (td.stackRender?.(group, day, realWeek, timeRange) ?? null)
                                             : group.map((item, ii) => (
-                                                  <View key={ii}>{td.itemRender?.(item, day, currentWeek)}</View>
+                                                  <View key={ii}>{td.itemRender?.(item, day, realWeek)}</View>
                                               ))}
                                     </View>
                                 );
