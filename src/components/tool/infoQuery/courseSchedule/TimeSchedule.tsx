@@ -2,12 +2,13 @@ import {StyleProp, StyleSheet, TextStyle, View, ViewStyle} from "react-native";
 import moment from "moment/moment";
 import {Color} from "@/shared/color.ts";
 import {Text, useTheme} from "@rneui/themed";
-import {useEffect, useMemo, useState} from "react";
+import {Fragment, useEffect, useMemo, useState} from "react";
 import Flex from "@/components/un-ui/Flex.tsx";
 import {useCourseData} from "@/hooks/useCourseData.ts";
 import {useUserConfig} from "@/hooks/useUserConfig.ts";
 import {TimeScheduleItemData} from "@/features/courseSchedule/type/schedule.ts";
 import {useShift} from "@/features/courseSchedule/hooks/detail/useShift.ts";
+import {getWeekOfDate} from "@/features/courseSchedule/utils/weekOfDate.ts";
 
 function groupByTimeOverlap<T>(
     items: T[],
@@ -58,8 +59,9 @@ export function TimeSchedule<T = any>(props: TimeScheduleProps<T>) {
         const work = new Set<string>();
         const rest = new Set<string>();
         for (const [workDate, restDate] of shiftRules) {
+            // 单向登记：只有补课日需要被替换成被补日。
+            // 调休日（放假那天）整列不排课，不再反向去取配对日的元素。
             map.set(workDate, restDate);
-            map.set(restDate, workDate);
             work.add(workDate);
             rest.add(restDate);
         }
@@ -69,7 +71,7 @@ export function TimeSchedule<T = any>(props: TimeScheduleProps<T>) {
     const defaultStartDay = ucStore(s => s.jw.startDay);
     const startDay = moment(props.startDay ?? defaultStartDay);
     const [currentTime, setCurrentTime] = useState(moment().format());
-    const currentWeek = props.currentWeek ?? Math.ceil(moment.duration(moment().diff(startDay)).asWeeks());
+    const currentWeek = props.currentWeek ?? getWeekOfDate(moment(), startDay);
     const currentTimeSpan = getCurrentTimeSpan();
     useEffect(() => {
         // 时间段刷新定时器
@@ -113,6 +115,45 @@ export function TimeSchedule<T = any>(props: TimeScheduleProps<T>) {
                   ]
                 : [index * 2 + 1, timeSpanList[index * 2]],
         );
+
+    /**
+     * 渲染某数据源在指定「日期 + 教学周」下应显示的元素。
+     *
+     * 把 day/week 做成显式入参，是为了让补课日列复用同一套流程渲染两组元素：
+     * 主组取被补日（effectiveDay），附加组取本列自然日期（currentDay）。
+     * 冲突栈（isItemStack / stackRender）只在各自组内合并，两组之间不会互相吞并。
+     *
+     * 入参：
+     *   - td        数据源配置
+     *   - tdIndex   td 在 scheduleItems 中的下标，与 keyPrefix 一起保证 React key 唯一
+     *   - keyPrefix 组别前缀（"main" / "pre"）
+     *   - day       传给 isItemShow / itemRender / stackRender 的日期
+     *   - week      传给 isItemShow / stackRender 的教学周
+     */
+    function renderItems(
+        td: TimeScheduleItemData<T>,
+        tdIndex: number,
+        keyPrefix: string,
+        day: moment.Moment,
+        week: number,
+    ) {
+        const visibleItems = td.data.filter(item => td.isItemShow?.(item, day, week));
+        // 按时段重叠分组
+        const groups = groupByTimeOverlap(visibleItems, td.isItemStack, day, week);
+        return groups.map((group, gi) => {
+            const timeRange: [number, number] = [
+                Math.min(...group.map(g => (g as any).begin ?? 1)),
+                Math.max(...group.map(g => (g as any).end ?? 1)),
+            ];
+            return (
+                <View key={`${tdIndex}-${keyPrefix}-${gi}`}>
+                    {group.length > 1
+                        ? (td.stackRender?.(group, day, week, timeRange) ?? null)
+                        : group.map((item, ii) => <View key={ii}>{td.itemRender?.(item, day, week)}</View>)}
+                </View>
+            );
+        });
+    }
 
     return (
         <View style={courseScheduleStyle.courseSchedule}>
@@ -163,7 +204,10 @@ export function TimeSchedule<T = any>(props: TimeScheduleProps<T>) {
                     day: index,
                 });
                 const dateKey = currentDay.format("YYYY-MM-DD");
-                const shiftedDate = shiftMap.get(dateKey);
+                // 补课日：这一天改上被补日的课；调休日：这一天放假，整列不排课
+                const isWorkDay = workDates.has(dateKey);
+                const isRestDay = restDates.has(dateKey);
+                const shiftedDate = isWorkDay ? shiftMap.get(dateKey) : undefined;
                 const effectiveDay = shiftedDate ? moment(shiftedDate) : currentDay;
                 const itemStyle = StyleSheet.create({
                     activeContainer: {
@@ -200,32 +244,23 @@ export function TimeSchedule<T = any>(props: TimeScheduleProps<T>) {
                             </Text>
                         </View>
                         {(props.scheduleItems ?? []).map((td, tdIndex) => {
-                            const day = td.needShift === false ? currentDay : effectiveDay;
-                            const realWeek =
-                                td.needShift === false
-                                    ? currentWeek
-                                    : Math.ceil(moment.duration(effectiveDay.diff(startDay)).asWeeks());
-                            const visibleItems = td.data.filter(item => td.isItemShow?.(item, day, realWeek));
-                            // 按时段重叠分组
-                            const groups = groupByTimeOverlap(visibleItems, td.isItemStack, day, realWeek);
-                            if (day.isSame(moment("2026-09-20", "YYYY-MM-DD"), "d")) {
-                                console.log(groups);
-                            }
-                            return groups.map((group, gi) => {
-                                const timeRange: [number, number] = [
-                                    Math.min(...group.map(g => (g as any).begin ?? 1)),
-                                    Math.max(...group.map(g => (g as any).end ?? 1)),
-                                ];
-                                return (
-                                    <View key={`${tdIndex}-${gi}`}>
-                                        {group.length > 1
-                                            ? (td.stackRender?.(group, day, realWeek, timeRange) ?? null)
-                                            : group.map((item, ii) => (
-                                                  <View key={ii}>{td.itemRender?.(item, day, realWeek)}</View>
-                                              ))}
-                                    </View>
-                                );
-                            });
+                            const applyShift = td.needShift !== false;
+                            // 调休日（放假那天）不排课：参与调课的数据源整列跳过
+                            if (applyShift && isRestDay) return null;
+
+                            // 参与调课的数据源取被补日与其所在教学周，其余取本列自然日期与当前周
+                            const targetDay = applyShift ? effectiveDay : currentDay;
+                            const targetWeek = applyShift ? getWeekOfDate(effectiveDay, startDay) : currentWeek;
+
+                            return (
+                                <Fragment key={tdIndex}>
+                                    {renderItems(td, tdIndex, "main", targetDay, targetWeek)}
+                                    {/* 补课日列可选追加：本列在调休前本来应有的元素 */}
+                                    {applyShift && isWorkDay && td.showPreShiftItems
+                                        ? renderItems(td, tdIndex, "pre", currentDay, currentWeek)
+                                        : null}
+                                </Fragment>
+                            );
                         })}
                     </View>
                 );
