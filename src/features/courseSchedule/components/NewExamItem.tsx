@@ -1,6 +1,6 @@
 import {StyleSheet} from "react-native";
 import {useCourseData} from "@/hooks/useCourseData.ts";
-import {ScheduleTableItem} from "@/components/tool/infoQuery/courseSchedule/CourseScheduleTable.tsx";
+import {ScheduleTableItem} from "@/features/courseSchedule/type/schedule.ts";
 import {memo, useMemo} from "react";
 import {Color} from "@/shared/color.ts";
 import {UnPressable} from "@/components/un-ui";
