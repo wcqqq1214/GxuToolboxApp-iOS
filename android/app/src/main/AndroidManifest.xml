@@ -34,11 +34,7 @@
     <!-- 震动权限 -->
     <uses-permission android:name="android.permission.VIBRATE" />
 
-    <!-- 允许应用启动前台服务 -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
-    <!-- Android 13+ 显示通知需要此权限 -->
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
 
     <application
         android:name=".MainApplication"
@@ -94,12 +90,22 @@
             android:name="com.reactnativeandroidwidget.RNWidgetCollectionService"
             android:permission="android.permission.BIND_REMOTEVIEWS" />
 
-        <!-- 分钟级更新服务 -->
-        <service
-            android:name=".TimeTickService"
+        <receiver
+            android:name=".widget.WidgetRefreshReceiver"
             android:enabled="true"
-            android:exported="false"
-            android:foregroundServiceType="specialUse" />
+            android:exported="false"/>
+
+        <receiver
+            android:name=".widget.WidgetSystemEventReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+                <action android:name="android.intent.action.TIME_SET"/>
+                <action android:name="android.intent.action.TIMEZONE_CHANGED"/>
+            </intent-filter>
+        </receiver>
 
         <!-- 课程表小部件 -->
         <receiver
@@ -108,7 +114,6 @@
             android:label="移动教务·课程表">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-                <action android:name="com.yourapppackage.WIDGET_CLICK" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"

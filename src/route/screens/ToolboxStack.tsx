@@ -68,7 +68,7 @@ export function ToolboxStack() {
             <Stack.Screen
                 name="classCourseSchedule"
                 component={lazy(() =>
-                    import("@/screens/tool/jw/infoQuery/courseSchedule/ClassCourseSchedule.tsx").then(m => ({
+                    import("@/features/classCourseSchedule/screen/ClassCourseSchedule.tsx").then(m => ({
                         default: m.ClassCourseSchedule,
                     })),
                 )}
@@ -125,10 +125,10 @@ export function ToolboxStack() {
                 options={{title: "校选课查漏"}}
             />
             <Stack.Screen
-                name="TeacherQueryInfoScreen"
+                name="TeacherInfo"
                 component={lazy(() =>
-                    import("@/screens/tool/other/teacherInfo/TeacherInfoScreen.tsx").then(m => ({
-                        default: m.TeacherQueryInfoScreen,
+                    import("@/features/teachersInfo/screens/HomeScreen.tsx").then(m => ({
+                        default: m.HomeScreen,
                     })),
                 )}
                 options={{title: "教师信息查询"}}

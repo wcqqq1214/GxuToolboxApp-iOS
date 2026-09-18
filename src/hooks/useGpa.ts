@@ -30,28 +30,33 @@ import {ScoreRepo} from "@/features/examScore/type";
  */
 export function useGpa(scoreList: ScoreRepo[] | null | undefined) {
     const [gpa, setGpa] = useState(0);
+    const [wam,setWam]=useState(0);
     // 平均加权成绩
     useEffect(() => {
         if (!scoreList || scoreList.length === 0) {
             setGpa(0);
+            setWam(0);
             return;
         }
         // 分子和分母
-        let numerator = 0;
         let denominator = 0;
+        let wamNumerator=0;
+        let gpaNumerator=0;
 
         scoreList.forEach((item: ScoreRepo) => {
             const point = item.score / 10 - 5;
 
             if (item.score >= 60) {
-                numerator += point * item.credit;
+                gpaNumerator += point * item.credit;
             }
             denominator += item.credit;
+            wamNumerator+=item.credit*item.score;
         });
-        console.log(numerator, denominator);
+        console.log(gpaNumerator, denominator);
         // 暂时将 gpa 也设置为加权平均分，以便在 UI 中显示
-        setGpa(numerator / denominator);
+        setGpa(gpaNumerator / denominator);
+        setWam(wamNumerator/denominator);
     }, [scoreList]);
 
-    return gpa;
+    return {gpa,wam};
 }

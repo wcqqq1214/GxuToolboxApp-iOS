@@ -24,11 +24,9 @@ export const HolidayItem = memo(({item, onPress}: HolidayItemProps) => {
 
     const baseColor = "#10B981";
     const backgroundColor = Color(baseColor).setAlpha(0.12).rgbaString;
-    const borderColor = baseColor;
     const textColor = Color.mix(baseColor, theme.colors.black, 0.7).rgbaString;
 
-    // Dynamic layout based on span
-    const isFullDay = span >= 8; // If holiday covers most of the day
+    const isFullDay = span >= 8;
     const isShort = span <= 2;
 
     const styles = useMemo(
@@ -43,30 +41,27 @@ export const HolidayItem = memo(({item, onPress}: HolidayItemProps) => {
                     height: timeSpanHeight * (timeSpanHeight <= 40 ? 14 : 13),
                     top: y * timeSpanHeight + courseItemMargin,
                     overflow: "hidden",
-                    // Design change: Top accent border (like a sticky note) instead of left border
-                    borderTopWidth: 4,
-                    borderTopColor: borderColor,
+                    borderTopWidth: 3,
+                    borderTopColor: baseColor,
                     justifyContent: "flex-start",
-                    paddingTop: 16,
+                    paddingTop: 14,
                     alignItems: "center",
                 },
                 watermark: {
                     position: "absolute",
-                    top: isFullDay ? "20%" : -10,
-                    right: isFullDay ? "10%" : -10,
-                    opacity: 0.15,
-                    transform: [{rotate: "-10deg"}],
+                    top: isFullDay ? "22%" : -10,
+                    right: isFullDay ? "4%" : -10,
+                    opacity: 0.1,
+                    transform: [{rotate: "-8deg"}],
                 },
                 text: {
                     textAlign: "center",
                     color: textColor,
-                    fontSize: isFullDay ? 16 : 12, // Larger text for full-day holidays
+                    fontSize: isFullDay ? 15 : 12,
+                    lineHeight: isFullDay ? 20 : 16,
                     zIndex: 1,
                     letterSpacing: 1,
                     fontWeight: "800",
-                    textShadowColor: "rgba(0,0,0,0.05)",
-                    textShadowOffset: {width: 0, height: 1},
-                    textShadowRadius: 2,
                 },
                 subText: {
                     textAlign: "center",
@@ -86,15 +81,8 @@ export const HolidayItem = memo(({item, onPress}: HolidayItemProps) => {
             onPress={function () {
                 return onPress?.(item);
             }}>
-            {/* Watermark Icon - Scaled up for impact */}
             <View style={styles.watermark}>
-                <Icon
-                    name="party-popper"
-                    style={{
-                        fontSize: isFullDay ? 80 : 40,
-                        color: baseColor,
-                    }}
-                />
+                <Icon name="party-popper" size={isFullDay ? 64 : 36} color={baseColor} />
             </View>
 
             <Text style={styles.text} numberOfLines={isShort ? 1 : 2}>

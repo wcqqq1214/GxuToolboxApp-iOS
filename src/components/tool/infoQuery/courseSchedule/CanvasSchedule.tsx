@@ -1,11 +1,12 @@
-import React, {useEffect, useState} from "react";
+import React, {useEffect, useMemo, useState} from "react";
 import {Dimensions, StyleSheet, View} from "react-native";
 import Canvas, {CanvasRenderingContext2D} from "react-native-canvas";
 import {Color} from "@/shared/color.ts";
 import {useTheme} from "@rneui/themed";
 import {CourseScheduleData} from "@/js/jw/course.ts";
 import moment from "moment/moment";
-import {CourseScheduleClass, CourseClass} from "@/class/jw/course.ts";
+import {CourseScheduleClass} from "@/class/jw/course.ts";
+import type {Schedule} from "gxu-tool-adapters/jw";
 import {useUserConfig} from "@/hooks/useUserConfig.ts";
 import {useCourseData} from "@/hooks/useCourseData.ts";
 import {useShift} from "@/features/courseSchedule/hooks/detail/useShift.ts";
@@ -16,6 +17,8 @@ type Props = {
     canvasRef: React.RefObject<Canvas | null>;
 };
 
+const EMPTY_WEEK_LIST: Schedule["theoryList"][] = [[], [], [], [], [], [], []];
+
 export function CanvasSchedule(props: Props) {
     const {theme} = useTheme();
     const {store: ucStore} = useUserConfig();
@@ -24,9 +27,18 @@ export function CanvasSchedule(props: Props) {
     const courseItemMargin = courseDataStore(s => s.theme.courseItemMargin);
     const timeSpanList = courseDataStore(s => s.timeSpanList);
     const {store: shiftStore, init: initShift} = useShift();
+
     const timeShift = shiftStore(s => s.shiftRules);
+    const shiftMap = useMemo(() => {
+        const map = new Map<string, string>();
+        for (const [workDate, restDate] of timeShift ?? []) {
+            map.set(workDate, restDate);
+            map.set(restDate, workDate);
+        }
+        return map;
+    }, [timeShift]);
     const {store: baseCourseStore} = useBaseCourse();
-    const rawCourseList = baseCourseStore(s => s.rawCourseList);
+    const schedule = baseCourseStore(s => s.schedule);
 
     const [courseSchedule, setCourseSchedule] = useState<CourseScheduleClass>();
 
@@ -40,7 +52,7 @@ export function CanvasSchedule(props: Props) {
             alignItems: "center",
         },
         canvas: {
-            width: screenWidth * 0.9,
+            width: screenWidth * 0.9 - 4,
             height: timeSpanHeight > 40 ? timeSpanHeight * 14 + 21 : timeSpanHeight * 2 * 8 + 18,
             backgroundColor: theme.colors.background,
         },
@@ -52,14 +64,26 @@ export function CanvasSchedule(props: Props) {
 
     const stringLineHeight = courseScheduleStyle.timeSpanText.fontSize; //行高
     const canvasCssWidth = styles.canvas.width;
-    const spanWidth = (canvasCssWidth - 21) / 8;
+    const spanWidth = (canvasCssWidth - 24) / 8;
     const spanHeight = timeSpanHeight; //一个元素高度
 
     useEffect(() => {
-        if (rawCourseList?.length) {
-            setCourseSchedule(new CourseScheduleClass({kbList: rawCourseList}));
+        if (schedule) {
+            setCourseSchedule(new CourseScheduleClass(schedule));
         }
-    }, [rawCourseList]);
+    }, [schedule]);
+
+    const colorMap = useMemo(() => {
+        const map: Record<string, string> = {};
+        schedule?.theoryList.forEach(item => {
+            if (!map[item.courseName]) {
+                map[item.courseName] = CourseScheduleData.randomColor[
+                    Math.floor(Math.random() * CourseScheduleData.randomColor.length)
+                ];
+            }
+        });
+        return map;
+    }, [schedule]);
 
     useEffect(() => {
         initShift();
@@ -156,19 +180,34 @@ export function CanvasSchedule(props: Props) {
     }
 
     /**
+     * 获取指定周的理论课
+     * @param week
+     */
+    function getWeekCourseList(week: number): Schedule["theoryList"][] {
+        const weekList = courseSchedule?.getCourseListByWeek(week) ?? EMPTY_WEEK_LIST;
+        console.log(weekList);
+        return weekList.map((dailyCourseList, index) => {
+            const currentDay = startDay.clone().add({week: week - 1, day: index});
+            const pairedDate = shiftMap.get(currentDay.format("YYYY-MM-DD"));
+            if (!pairedDate) return dailyCourseList;
+            console.log(moment(pairedDate).isoWeekday() - 1);
+            return weekList[moment(pairedDate).isoWeekday() - 1] ?? [];
+        });
+    }
+
+    /**
      * 课表课程绘制
      * @param ctx
-     * @param course
      */
-    function drawCourse(ctx: CanvasRenderingContext2D, course: CourseScheduleClass) {
-        const courseList = course?.getCourseListByWeek(currentWeek); //当前周的课表
+    function drawCourse(ctx: CanvasRenderingContext2D) {
+        const courseList = getWeekCourseList(currentWeek); //当前周的课表（已应用调休替换）
         const topCourseSpanY = spanHeight > 40 ? spanHeight + 1 : spanHeight * 2 + 1;
-        courseList?.forEach((dailyCourseList, index) => {
+        courseList.forEach((dailyCourseList, index) => {
             dailyCourseList.forEach(item => {
-                const classPeriod = item.transformed.periodCount.split("-").map(span => +span);
+                const classPeriod = item.sectionRange.split("-").map(span => +span);
                 const radius = 5;
                 const span = classPeriod[1] - classPeriod[0] + 1;
-                const courseSpanX = spanWidth * index + 3 * (index + 1); //矩形左上角x
+                const courseSpanX = spanWidth * (index + 1) + 3 * (index + 1); //课程矩形左上角x
                 const courseSpanY =
                     spanHeight > 40
                         ? topCourseSpanY +
@@ -218,7 +257,7 @@ export function CanvasSchedule(props: Props) {
                 ctx.arcTo(courseSpanX, courseSpanY, courseSpanX + radius, courseSpanY, radius);
 
                 ctx.closePath();
-                ctx.fillStyle = Color(item.transformed.backgroundColor ?? theme.colors.primary).rgbaString;
+                ctx.fillStyle = Color(colorMap[item.courseName] ?? theme.colors.primary).rgbaString;
                 ctx.globalAlpha = theme.mode === "light" ? 0.3 : 0.1;
                 ctx.fill();
 
@@ -237,13 +276,13 @@ export function CanvasSchedule(props: Props) {
                     return list;
                 }
 
-                function handleInfo(course: CourseClass): string[] {
-                    const locationList = crateSpan(course.transformed.venueName);
-                    const nameList = crateSpan(course.transformed.name);
+                function handleInfo(course: Schedule["theoryList"][number]): string[] {
+                    const locationList = crateSpan(course.venueName);
+                    const nameList = crateSpan(course.teacher);
                     return locationList.concat(nameList);
                 }
 
-                const spanList: string[] = crateSpan(item.transformed.courseName);
+                const spanList: string[] = crateSpan(item.courseName);
                 const infoSpanList: string[] = handleInfo(item);
                 const courseSpanList = spanList.concat(infoSpanList);
                 const bottomLimit = courseSpanHeight - courseItemMargin;
@@ -255,12 +294,12 @@ export function CanvasSchedule(props: Props) {
                     minRows = i + 1;
                 }
                 ctx.globalAlpha = 1;
-                const courseBaseColor = item.transformed.backgroundColor ?? theme.colors.primary;
+                const courseBaseColor = colorMap[item.courseName] ?? theme.colors.primary;
                 ctx.fillStyle = Color.mix(courseBaseColor, theme.colors.black, 0.5).rgbaString;
                 courseSpanList.forEach((span, spanIndex) => {
                     ctx.fillText(
                         spanIndex < minRows ? span : "",
-                        spanWidth * index + spanWidth / 2 + 3 * (index + 1),
+                        spanWidth * (index + 1) + spanWidth / 2 + 3 * (index + 1),
                         courseSpanY +
                             stringLineHeight * (spanIndex > spanList.length - 1 ? spanIndex + 1 : spanIndex + 0.5),
                         150,
@@ -289,12 +328,12 @@ export function CanvasSchedule(props: Props) {
         drawWeekHeader(ctx);
         drawTimeSpansRects(ctx);
         drawDateSchedule(ctx, courseSchedule);
-        drawCourse(ctx, courseSchedule!);
+        drawCourse(ctx);
     };
 
     useEffect(() => {
         drawSchedule();
-    }, [courseSchedule, timeSpanHeight, currentWeek]);
+    }, [courseSchedule, timeSpanHeight, currentWeek, shiftMap]);
     return (
         <View style={styles.container}>
             <Canvas ref={handleCanvas} style={styles.canvas} />

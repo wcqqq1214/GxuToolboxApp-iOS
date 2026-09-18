@@ -1,4 +1,6 @@
 import {ExamStatus} from "@/features/examInfo/utils/timeParser.ts";
+import type {Exam} from "gxu-tool-adapters/jw";
+import type {Dayjs} from "dayjs";
 
 export interface ExamInformation {
     course: string;
@@ -8,13 +10,16 @@ export interface ExamInformation {
     seat: string | null;
     type: string;
 
-    examDate: Date | null;
+    date: Dayjs | null;
     status: ExamStatus;
 }
 
-export interface ExamInfoApiResponse {
-    currentPage: number;
-    totalPage: number;
-    totalCount: number;
-    items: ExamInformation[];
+/**
+ * adapter 解析出的 Exam 再补上 parseExamTime 的结果。
+ * seat 来自后端原始字段（若存在），默认空串。
+ */
+export interface ExamWithMeta extends Exam {
+    seat: string;
+    date: Dayjs | null;
+    status: ExamStatus;
 }

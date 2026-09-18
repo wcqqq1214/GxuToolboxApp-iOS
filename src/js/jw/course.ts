@@ -1,22 +1,22 @@
 import {BaseColor, Color} from "@/shared/color.ts";
-import {createContext, useCallback, useEffect, useState} from "react";
+import {useCallback, useEffect, useState} from "react";
 import {StyleSheet, ToastAndroid} from "react-native";
 import {store} from "@/core/store.ts";
 import {SchoolTerms, SchoolTermValue, SchoolValue, SchoolYears, SchoolYearValue} from "@/type/global.ts";
 import {
-    ClassScheduleQueryRes,
-    CourseScheduleQueryRes,
     CourseSelectionListRes,
     GetCourseScheduleListRes,
     PhyExpQueryRes,
 } from "@/type/api/infoQuery/classScheduleAPI.ts";
 import {http, objectToFormUrlEncoded} from "@/core/http.ts";
 import {defaultYear} from "@/js/jw/infoQuery.ts";
-import {Course, CourseListTypeId, PhyExp, PracticalCourse} from "@/type/infoQuery/course/course.ts";
+import {CourseListTypeId, PhyExp} from "@/type/infoQuery/course/course.ts";
 import {authApi} from "@/js/auth/auth.ts";
 import axios from "axios";
 import {EngTrainingScheduleRes} from "@/type/api/infoQuery/EngTraining.ts";
 import {CourseScheduleClass} from "@/class/jw/course.ts";
+import {type OriginalSchedule, parseSchedule} from "gxu-tool-adapters/jw";
+import {backendHttp} from "@/features/backend/api";
 import {ensureJwAuthenticated} from "@/core/auth/Jw/JwMachine.ts";
 
 export const CourseScheduleData = {
@@ -170,13 +170,7 @@ export function useCourseScheduleData() {
     return {courseScheduleData, updateCourseScheduleData};
 }
 
-export const CourseScheduleContext = createContext<{
-    courseScheduleData: typeof CourseScheduleData;
-    courseScheduleStyle: ReturnType<typeof generateCourseScheduleStyle>;
-    updateCourseScheduleData: (data: Partial<typeof CourseScheduleData>) => void;
-} | null>(null);
-
-async function randomCourseColor(courseList: (Course | PracticalCourse)[]) {
+async function randomCourseColor(courseList: any[]) {
     const courseData = await store.load({key: "courseScheduleStore"}).catch(() => null);
     const courseColor: Record<string, string> = courseData?.theme?.courseColor ?? {};
     let hasChange = false;
@@ -215,11 +209,12 @@ export const courseApi = {
             xnm: schoolYear[0],
             xqm: term ?? SchoolTerms[0][0],
         });
-        const res = await http.post<CourseScheduleQueryRes>("/kbcx/xskbcx_cxXsgrkb.html", reqBody);
+        const res = await backendHttp.post("/jw/schedule/personal", reqBody);
         if (typeof res.data === "object") {
             await randomCourseColor(res.data.kbList);
             await randomCourseColor(res.data.sjkList);
-            return new CourseScheduleClass(res.data);
+            const schedule = parseSchedule(res.data);
+            if (schedule) return new CourseScheduleClass(schedule);
         } else {
             ToastAndroid.show("获取课表信息失败", ToastAndroid.SHORT);
             return;
@@ -272,7 +267,7 @@ export const courseApi = {
         subjectId: string,
         grade: number,
         classId: string,
-    ): Promise<ClassScheduleQueryRes | null> => {
+    ): Promise<OriginalSchedule | null> => {
         const reqBody = objectToFormUrlEncoded({
             xnm: year,
             xqm: term,
@@ -284,7 +279,7 @@ export const courseApi = {
             tjkbzdm: 1,
             tjkbzxsdm: 0,
         });
-        const res = await http.post<ClassScheduleQueryRes>("/kbdy/bjkbdy_cxBjKb.html", reqBody);
+        const res = await http.post<OriginalSchedule>("/kbdy/bjkbdy_cxBjKb.html", reqBody);
         if (typeof res.data === "object") {
             await randomCourseColor(res.data.kbList);
             await randomCourseColor(res.data.sjkList);
@@ -298,13 +293,13 @@ export const courseApi = {
         year: SchoolYearValue,
         term: SchoolTermValue,
         bh_id: number,
-    ): Promise<ClassScheduleQueryRes | null> => {
+    ): Promise<OriginalSchedule | null> => {
         const reqBody = objectToFormUrlEncoded({
             xnm: year,
             xqm: term,
             bh_id: bh_id,
         });
-        const res = await http.post<ClassScheduleQueryRes>("/kbdy/bjkbdy_cxBjKb.html", reqBody);
+        const res = await http.post<OriginalSchedule>("/kbdy/bjkbdy_cxBjKb.html", reqBody);
         if (typeof res.data === "object") {
             await randomCourseColor(res.data.kbList);
             await randomCourseColor(res.data.sjkList);

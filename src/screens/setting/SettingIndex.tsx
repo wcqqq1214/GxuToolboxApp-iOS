@@ -171,6 +171,12 @@ export function SettingIndex() {
                     url: "https://gitlab.unde.site/gxutool/gxu_tool_app",
                 },
                 {
+                    label:"GitHub 仓库",
+                    type:"link",
+                    value:"GitHub",
+                    url:"https://github.com/GxuTool/GxuToolboxApp",
+                },
+                {
                     label: "软件文档",
                     type: "link",
                     value: "Docs",

@@ -1,9 +1,10 @@
 import {backendHttp} from "@/features/backend/api";
 import {db} from "@/core/db";
-import {eq} from "drizzle-orm";
+import {and, eq} from "drizzle-orm";
 import {termStartDay} from "@/core/schema";
+import {ensureJwAuthenticated} from "@/core/auth/Jw/JwMachine.ts";
 
-interface TermStartDay {
+export interface TermStartDay {
     year: number;
     term: number;
     day: string;
@@ -13,7 +14,20 @@ interface TermStartDay {
 
 let memoryStartDay: TermStartDay | null = null;
 
+function mapRow(row: typeof termStartDay.$inferSelect): TermStartDay {
+    return {
+        year: row.year,
+        term: row.term,
+        day: row.day.toISOString(),
+        week: row.week,
+        is_current: row.isCurrent,
+    };
+}
+
 export async function fetchStartDay(): Promise<TermStartDay[]> {
+    if (!(await ensureJwAuthenticated())) {
+        return [];
+    }
     const res = await backendHttp.get("/jw/profile/startDay");
     return res.data.data;
 }
@@ -52,19 +66,22 @@ export async function getCurrentStartDay(): Promise<TermStartDay | null> {
     const result = await db.select().from(termStartDay).where(eq(termStartDay.isCurrent, true)).limit(1);
 
     if (result && result.length > 0) {
-        const row = result[0];
-        // 转换回旧的接口格式以保证上层业务兼容性
-        const mapped: TermStartDay = {
-            year: row.year,
-            term: row.term,
-            day: row.day.toISOString(),
-            week: row.week,
-            is_current: row.isCurrent,
-        };
+        const mapped = mapRow(result[0]);
         memoryStartDay = mapped;
         return mapped;
     }
     return null;
+}
+
+/** 查询明确学年学期的开学信息；学期使用逻辑码 1/2。 */
+export async function getStartDay(year: number, term: number): Promise<TermStartDay | null> {
+    const result = await db
+        .select()
+        .from(termStartDay)
+        .where(and(eq(termStartDay.year, year), eq(termStartDay.term, term)))
+        .limit(1);
+
+    return result.length > 0 ? mapRow(result[0]) : null;
 }
 
 // 从内存中获取

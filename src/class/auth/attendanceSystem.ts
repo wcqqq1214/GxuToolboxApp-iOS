@@ -24,32 +24,16 @@ export class AttendanceDataClass extends BaseClass<TermAttendanceData> implement
      * @param week 目标周
      */
     getAttendanceRecord(course: CourseClass, week: number): AST.AttendanceData | undefined {
-        const weekSpans = course.transformed.weekRange.split(",");
-        let inTargetWeek = false;
-        // 判断目标周是否有这节课
-        weekSpans.forEach(weekSpan => {
-            const weeks = weekSpan
-                .replace(/[^0-9-]/g, "")
-                .split("-")
-                .map(weekItem => parseInt(weekItem, 10));
-            if (
-                ((weeks.length === 1 && weeks[0] === week) || (weeks[0] <= week && week <= weeks[1])) &&
-                !((/单/.test(weekSpan) && week % 2 === 0) || (/双/.test(weekSpan) && week % 2 === 1))
-            ) {
-                inTargetWeek = true;
-                return;
-            }
-        });
-        if (!inTargetWeek) return; // 不在当周
+        if (!course._ori.weeks?.includes(week)) return; // 不在当周
         const day = moment(this._ori.calenderData.firstWeekBegin).add({
             w: week - 1,
-            day: course.transformed.weekday - 1,
+            day: course._ori.weekday - 1,
         });
         const [startTime, endTime] = course.getAttendanceTimeSpan(day);
         return this._ori.recordList.find(
             record =>
                 moment(record.day).isSame(startTime, "D") &&
-                course.transformed.periodCount.split("-").join(",") === record.periodSplit,
+                course._ori.sectionRange.split("-").join(",") === record.periodSplit,
         );
     }
 
@@ -86,7 +70,7 @@ export class AttendanceDataClass extends BaseClass<TermAttendanceData> implement
         // 计算课程具体日期：从学期第一周开始日期加上周数和星期几的偏移量
         const day = moment(this._ori.calenderData.firstWeekBegin).add({
             w: week - 1,
-            day: course.transformed.weekday - 1,
+            day: course._ori.weekday - 1,
         });
 
         if (!record) return day.isBefore(moment()) ? AST.AttendanceState.NoNeed : AST.AttendanceState.NotStarted;

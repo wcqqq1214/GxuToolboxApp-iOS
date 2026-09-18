@@ -1,8 +1,8 @@
 import {ActivityIndicator, Linking, ScrollView, StyleSheet, ToastAndroid, View} from "react-native";
 import {useNavigation} from "@react-navigation/native";
-import {Icon, UnJsonEditor, UnPressable, UnTable, UnTableCols, UnText} from "@/components/un-ui";
+import {Icon, UnBottomSheet, UnJsonEditor, UnPressable, UnTable, UnTableCols, UnText} from "@/components/un-ui";
 import Flex from "@/components/un-ui/Flex.tsx";
-import {BottomSheet, Button, Card, Divider, Text, useTheme} from "@rneui/themed";
+import {Button, Card, Divider, Text, useTheme} from "@rneui/themed";
 import React, {useCallback, useEffect, useMemo, useState} from "react";
 import {SchoolTermValue} from "@/type/global.ts";
 import {UnSlider} from "@/components/un-ui/UnSlider.tsx";
@@ -14,11 +14,12 @@ import {TimeScheduleView} from "@/components/tool/infoQuery/courseSchedule/TimeS
 import {Color} from "@/shared/color.ts";
 import {CourseDetail} from "@/features/courseSchedule/components/CourseDetail.tsx";
 import {CourseClass} from "@/class/jw/course.ts";
+import type {Schedule} from "gxu-tool-adapters/jw";
 import {ScheduleTableItem, TimeScheduleItemData} from "@/features/courseSchedule/type/schedule.ts";
-import {useCourse} from "@/features/courseSchedule/hooks/detail/useCourse.ts";
 import {useStartDay} from "@/features/courseSchedule/hooks/detail/useStartDay.ts";
-import {usePractice} from "@/features/courseSchedule/hooks/detail/usePractice.ts";
 import {usePhyExp} from "@/features/courseSchedule/hooks/detail/usePhyExp.ts";
+import {classScheduleApi} from "@/features/classCourseSchedule/api";
+import {normalizeCourse} from "@/features/classCourseSchedule/utils/normalizeCourse.ts";
 import {ChooseTerm} from "@/components/tool/infoQuery/examInfo/ChooseTerm.tsx";
 import {NewCourseItem} from "@/features/courseSchedule/components/NewCourseItem.tsx";
 import {StackCourseItem} from "@/features/courseSchedule/components/StackCourseItem.tsx";
@@ -43,16 +44,37 @@ export function CourseScheduleQuery() {
     const [term, setTerm] = useState<SchoolTermValue>(store(s => s.jw.term));
     const pageView = usePagerView({pagesAmount: 20});
 
-    const {items: courseItems = [], loading} = useCourse(year, term);
-    const {items: practiceItems = [], refresh: refreshPractice} = usePractice(year, term);
     const {init: initPhyExp, patchItem, patchCourse} = usePhyExp();
 
-    // 不绑定全局的startDay，根据year和term动态计算，以免造成混乱
-    const startDay = useStartDay(year, term);
+    const [schedule, setSchedule] = useState<Schedule | null>(null);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        let cancelled = false;
+        setLoading(true);
+        classScheduleApi
+            .fetchPersonalSchedule(year, term)
+            .then(s => {
+                if (!cancelled && s) setSchedule(s);
+            })
+            .catch(e => console.warn("网络请求失败", e))
+            .finally(() => {
+                if (!cancelled) setLoading(false);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [year, term]);
 
     useEffect(() => {
         initPhyExp();
     }, [year, term]);
+
+    const courseItems = schedule ? normalizeCourse(schedule) : [];
+    const practiceItems = schedule?.practiceList ?? [];
+
+    // 不绑定全局的startDay，根据year和term动态计算，以免造成混乱
+    const {startDay} = useStartDay(year, term);
 
     const tableData = useMemo(
         () => courseItems.filter((item, idx, arr) => arr.findIndex(i => i.title === item.title) === idx),
@@ -133,6 +155,7 @@ export function CourseScheduleQuery() {
                         }}
                         includeWholeLife={false}
                         includeWholeYear={false}
+                        vacationDefault="future"
                     />
                 </View>
                 {loading && <ActivityIndicator size="large" />}
@@ -173,9 +196,13 @@ export function CourseScheduleQuery() {
                                         .map(i => patchCourse(new CourseClass(i.raw), day))
                                         .filter(Boolean);
                                     if (courses.length === 0) return null;
-                                    const courseCodes = courses.map(c => c.transformed.courseCode + "_" + c.transformed.staffId).sort();
+                                    const courseCodes = courses
+                                        .map(c => c._ori.courseName + "_" + c._ori.teacher)
+                                        .sort();
                                     const storedActive = conflictStore.getState().getActive(courseCodes);
-                                    const activeCourse = storedActive ?? (courses[0] ? courses[0].transformed.courseCode + "_" + courses[0].transformed.staffId : "");
+                                    const activeCourse =
+                                        storedActive ??
+                                        (courses[0] ? courses[0]._ori.courseName + "_" + courses[0]._ori.teacher : "");
                                     return (
                                         <StackCourseItem
                                             course={courses}
@@ -207,44 +234,34 @@ export function CourseScheduleQuery() {
                     <UnTable<ScheduleTableItem> data={tableData} cols={cols} />
                 </ScrollView>
             </View>
-            <BottomSheet isVisible={sheet.type !== "closed"} onBackdropPress={() => setSheet({type: "closed"})}>
-                <View
-                    style={{
-                        backgroundColor: theme.colors.background,
-                        borderTopLeftRadius: 8,
-                        borderTopRightRadius: 8,
-                        borderColor: Color.mix(theme.colors.primary, theme.colors.background, 0.8).rgbaString,
-                        borderWidth: 1,
-                        padding: "2.5%",
-                    }}>
-                    {sheet.type === "itemDetail" && sheet.item.raw && (
-                        <CourseDetail course={new CourseClass(sheet.item.raw)} />
-                    )}
-                    {sheet.type === "courseConflict" && (
-                        <ConflictCourseSheet
-                            courses={sheet.courses}
-                            onSelect={() => setSheet({type: "closed"})}
-                            onPressActiveCourse={course => {
-                                setSheet({
-                                    type: "itemDetail",
-                                    day: sheet.day,
-                                    item: {
-                                        id: course.transformed.courseCode,
-                                        week: 0,
-                                        day: 1 as ScheduleTableItem["day"],
-                                        begin: 1 as ScheduleTableItem["begin"],
-                                        end: 1 as ScheduleTableItem["begin"],
-                                        title: course.transformed.courseName,
-                                        location: course.transformed.venueName,
-                                        teacher: course.transformed.name,
-                                        raw: course,
-                                    },
-                                });
-                            }}
-                        />
-                    )}
-                </View>
-            </BottomSheet>
+            <UnBottomSheet isVisible={sheet.type !== "closed"} onBackdropPress={() => setSheet({type: "closed"})}>
+                {sheet.type === "itemDetail" && sheet.item.raw && (
+                    <CourseDetail course={new CourseClass(sheet.item.raw)} />
+                )}
+                {sheet.type === "courseConflict" && (
+                    <ConflictCourseSheet
+                        courses={sheet.courses}
+                        onSelect={() => setSheet({type: "closed"})}
+                        onPressActiveCourse={course => {
+                            setSheet({
+                                type: "itemDetail",
+                                day: sheet.day,
+                                item: {
+                                    id: course._ori.courseName,
+                                    week: 0,
+                                    day: 1 as ScheduleTableItem["day"],
+                                    begin: 1 as ScheduleTableItem["begin"],
+                                    end: 1 as ScheduleTableItem["begin"],
+                                    title: course._ori.courseName,
+                                    location: course._ori.venueName,
+                                    teacher: course._ori.teacher,
+                                    raw: course,
+                                },
+                            });
+                        }}
+                    />
+                )}
+            </UnBottomSheet>
         </ScrollView>
     );
 }

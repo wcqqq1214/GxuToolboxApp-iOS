@@ -3,7 +3,6 @@ import {AuthState} from "@/core/auth/createAuthCore.ts";
 import {Account} from "@/core/auth/auth.type.ts";
 import {SchoolTermValue} from "@/type/global.ts";
 import {attendanceApi} from "@/features/attendance/api";
-import {attendanceSystemApi} from "@/js/auth/attendanceSystem.ts";
 import {AttendanceSystemType as AST} from "@/type/api/auth/attendanceSystem.ts";
 import moment from "moment";
 import {mmkv} from "@/store/mmkv";
@@ -82,10 +81,10 @@ export const useAttendance = () => {
             useAttendanceStore.setState({status: authState});
             if (authState.status !== "authenticated") return;
 
-            const cal = await attendanceSystemApi.calenderData.getBySchoolTerm(year, term);
+            const cal = await attendanceApi.calenderData.getBySchoolTerm(year, term);
             if (!cal) return;
 
-            const res = await attendanceApi.getPersonalData(cal.calendarId, 1000);
+            const res = await attendanceApi.getPersonalData(cal.calendarId, {page_size:1000});
             const fetchedRaw = res.data.records;
 
             if (fetchedRaw) {

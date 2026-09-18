@@ -1,4 +1,4 @@
-import {integer, primaryKey, sqliteTable, text} from "drizzle-orm/sqlite-core";
+import {integer, primaryKey, real, sqliteTable, text} from "drizzle-orm/sqlite-core";
 
 export const evaluationTemplates = sqliteTable("evaluationTemplates", {
     id: integer("id").primaryKey({autoIncrement: true}),
@@ -48,3 +48,48 @@ export const examScore = sqliteTable("examScore", {
     usualScore: text("usualScore").notNull(),
     updatedAt: integer("updatedAt", {mode: "timestamp"}).notNull(),
 });
+
+export const examInfo = sqliteTable(
+    "examInfo",
+    {
+        id: text("id").notNull(),
+        studentId: text("studentId").notNull(),
+        year: integer("year").notNull(),
+        term: integer("term").notNull(),
+        course: text("course").notNull(),
+        classroom: text("classroom").notNull(),
+        time: text("time").notNull(),
+        type: text("type").notNull(),
+        seat: text("seat").notNull(),
+        updatedAt: integer("updatedAt", {mode: "timestamp"}).notNull(),
+    },
+    table => {
+        return {
+            pk: primaryKey({columns: [table.id, table.studentId, table.year, table.term]}),
+        };
+    },
+);
+
+export const selectedCourses = sqliteTable(
+    "selectedCourses",
+    {
+        studentId: text("studentId").notNull(),
+        year: integer("year").notNull(),
+        term: integer("term").notNull(),
+        classId: text("classId").notNull(),
+        courseId: text("courseId").notNull(),
+        courseName: text("courseName").notNull(),
+        type: text("type").notNull(),
+        selectionType: text("selectionType").notNull(),
+        classification: text("classification").notNull(),
+        belongTo: text("belongTo").notNull(),
+        system: text("system").notNull(),
+        teacher: text("teacher").notNull(),
+        teacherId: text("teacherId").notNull(),
+        credit: real("credit").notNull(),
+        updatedAt: integer("updatedAt", {mode: "timestamp"}).notNull(),
+    },
+    table => ({
+        pk: primaryKey({columns: [table.studentId, table.year, table.term, table.classId]}),
+    }),
+);

@@ -1,7 +1,24 @@
 import {http, objectToFormUrlEncoded} from "@/core/http.ts";
-import {EvaTeacherListRes, TeacherListRes} from "@/features/evaluation/types/schema/TeacherList.ts";
+import {ensureJwAuthenticated} from "@/core/auth/Jw/JwMachine.ts";
+import {backendHttp} from "@/features/backend/api";
+import {EvaTeacherList, EvaTeacherListRes, TeacherListRes} from "@/features/evaluation/types/schema/TeacherList.ts";
 
 export const evaluationApi = {
+    /**
+     * 作者：NieYing
+     * 作用：通过新后端代理读取当前教务会话中的评教任务。
+     * 入参：无；认证状态由当前教务账号和 Cookie 维护。
+     * 出参：评教任务列表；未登录时返回 null，接口异常向调用方抛出。
+     * 修改注意事项：仅新增代理入口，不能替换旧直连接口，直到页面调用方完成单独迁移并验证返回契约。
+     */
+    async getEvaluationListFromBackend(): Promise<EvaTeacherList[] | null> {
+        if (!(await ensureJwAuthenticated())) {
+            return null;
+        }
+
+        const res = await backendHttp.get("/jw/evaluation");
+        return res.data.data;
+    },
     // 获得评价列表
     async getEvaluationList(): Promise<EvaTeacherListRes> {
         const reqBody = objectToFormUrlEncoded({
@@ -21,7 +38,6 @@ export const evaluationApi = {
             console.log("原始响应:", JSON.stringify(res.data));
             throw new Error("数据解析失败");
         }
-
 
         return valiRes.data;
     },

@@ -148,7 +148,7 @@ function ExamPropItem(props: {
                     {props.label}
                 </UnText>
                 <Icon
-                    type="Ionicon"
+                    type="ionicons"
                     name="navigate"
                     color={Color.mix(theme.colors.primary, theme.colors.black).rgbaString}
                     size={16}

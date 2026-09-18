@@ -1,7 +1,7 @@
 import {store} from "@/core/store.ts";
-import {CourseScheduleQueryRes} from "@/type/api/infoQuery/classScheduleAPI.ts";
 import {CourseSchema} from "@/type/infoQuery/course/course.ts";
 import moment from "moment/moment";
+import {loadPersonalSchedule} from "@/features/courseSchedule/cache";
 
 export function parseWeeks(weekStr: string): number[] {
     const result: number[] = [];
@@ -56,14 +56,11 @@ export const nextCourses = async () => {
         "20:30\n21:15",
         "21:20\n22:05",
     ];
-    const courseList = await store.load<CourseScheduleQueryRes>({key: "courseRes"}).catch(e => {
-        console.warn(e);
-        return null;
-    });
-    const list = courseList?.kbList;
+    const list = loadPersonalSchedule();
     if (!list) {
         return;
     }
+    const theoryList = list.theoryList;
     const config = await store.load<any>({key: "userConfig"}).catch(e => {
         console.warn(e);
         return null;

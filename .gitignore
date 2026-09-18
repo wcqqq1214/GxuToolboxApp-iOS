@@ -67,6 +67,16 @@ dist/
 # testing
 /coverage
 
+# Local development assistants and editor state
+/.claude/
+/.cursor/
+/.vscode/
+/.zcode/
+
+# Local debug and release artifacts
+/debug-db/
+/android/app/release/
+
 # Yarn
 .yarn/*
 !.yarn/patches

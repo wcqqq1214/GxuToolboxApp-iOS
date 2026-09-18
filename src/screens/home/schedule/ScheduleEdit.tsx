@@ -1,11 +1,10 @@
 import Flex from "@/components/un-ui/Flex";
-import {UnPressable} from "@/components/un-ui";
+import {UnBottomSheet, UnPressable} from "@/components/un-ui";
 import {ScrollView, StyleSheet, ToastAndroid, View} from "react-native";
-import {BottomSheet, Divider, Input, Text, useTheme} from "@rneui/themed";
+import {Divider, Input, Text, useTheme} from "@rneui/themed";
 import {UnTermSelector} from "@/components/un-ui/UnTermSelector.tsx";
 import React, {useEffect, useState} from "react";
-import {courseApi, CourseScheduleData} from "@/js/jw/course.ts";
-import {CourseScheduleClass} from "@/class/jw/course.ts";
+import {CourseScheduleData} from "@/js/jw/course.ts";
 import {usePagerView} from "react-native-pager-view";
 import {UnSlider} from "@/components/un-ui/UnSlider.tsx";
 import {IActivity} from "@/type/app/activity.ts";
@@ -28,7 +27,6 @@ export function ScheduleEdit() {
     const [year, setYear] = useState(store(s => s.jw.year));
     const [term, setTerm] = useState(store(s => s.jw.term));
 
-    const [courseRes, setCourseRes] = useState<CourseScheduleClass>();
     // 用户数据中的Index
     const [activityListIndex, setActivityListIndex] = useState(-1);
     const [activityList, setActivityList] = useState<IActivity[]>([]);
@@ -68,11 +66,6 @@ export function ScheduleEdit() {
         save();
     }
 
-    async function getCourses() {
-        const res = await courseApi.getCourseSchedule(year, term);
-        setCourseRes(res);
-    }
-
     function save() {
         const s = store.getState();
         const newData = [...s.activity.data];
@@ -82,7 +75,7 @@ export function ScheduleEdit() {
             setActivityListIndex(-1);
         } else if (activityListIndex > -1) {
             // 替换
-            newData[activityListIndex] = { ...newData[activityListIndex], list: activityList };
+            newData[activityListIndex] = {...newData[activityListIndex], list: activityList};
         } else {
             // 不存在就新建
             newData.push({
@@ -92,7 +85,7 @@ export function ScheduleEdit() {
             });
             setActivityListIndex(newData.length - 1);
         }
-        store.getState().update("activity", { ...s.activity, data: newData });
+        store.getState().update("activity", {...s.activity, data: newData});
         ToastAndroid.show("保存日程成功", ToastAndroid.SHORT);
     }
 
@@ -113,7 +106,6 @@ export function ScheduleEdit() {
 
     useEffect(() => {
         init();
-        getCourses();
     }, [year, term]);
 
     const style = StyleSheet.create({
@@ -127,14 +119,6 @@ export function ScheduleEdit() {
         activityListItemText: {
             fontSize: 14,
             fontWeight: "bold",
-        },
-        bottomSheetContainer: {
-            backgroundColor: theme.colors.background,
-            borderTopLeftRadius: 8,
-            borderTopRightRadius: 8,
-            borderColor: Color.mix(theme.colors.primary, theme.colors.background, 0.8).rgbaString,
-            borderWidth: 1,
-            padding: "2.5%",
         },
     });
 
@@ -243,14 +227,10 @@ export function ScheduleEdit() {
                                     </Text>
                                 </Flex>
                                 <Flex gap={5} justify="flex-end">
-                                    <UnPressable
-                                        onPress={() => editActivity(activity, index)}
-                                        style={{padding: 5}}>
+                                    <UnPressable onPress={() => editActivity(activity, index)} style={{padding: 5}}>
                                         <Icon name="edit" size={22} />
                                     </UnPressable>
-                                    <UnPressable
-                                        onPress={() => deleteActivity(index)}
-                                        style={{padding: 5}}>
+                                    <UnPressable onPress={() => deleteActivity(index)} style={{padding: 5}}>
                                         <Icon name="delete" color={theme.colors.error} size={22} />
                                     </UnPressable>
                                 </Flex>
@@ -266,8 +246,8 @@ export function ScheduleEdit() {
                 </Flex>
             </Flex>
             {/* 日程编辑 */}
-            <BottomSheet isVisible={editModalOpen} onBackdropPress={() => closeEditModal()}>
-                <Flex direction="column" align="flex-start" style={style.bottomSheetContainer} gap={10}>
+            <UnBottomSheet isVisible={editModalOpen} onBackdropPress={() => closeEditModal()}>
+                <Flex direction="column" align="flex-start" gap={10}>
                     <Text>活动名称</Text>
                     <Input
                         value={selectedActivity?.name}
@@ -365,20 +345,10 @@ export function ScheduleEdit() {
                         }}
                     />
                 </Flex>
-            </BottomSheet>
-            <BottomSheet isVisible={itemDetailShow} onBackdropPress={() => setItemDetailShow(false)}>
-                <View
-                    style={{
-                        backgroundColor: theme.colors.background,
-                        borderTopLeftRadius: 8,
-                        borderTopRightRadius: 8,
-                        borderColor: Color.mix(theme.colors.primary, theme.colors.background, 0.8).rgbaString,
-                        borderWidth: 1,
-                        padding: "2.5%",
-                    }}>
-                    <ActivityDetail activity={itemDetail} />,
-                </View>
-            </BottomSheet>
+            </UnBottomSheet>
+            <UnBottomSheet isVisible={itemDetailShow} onBackdropPress={() => setItemDetailShow(false)}>
+                <ActivityDetail activity={itemDetail} />,
+            </UnBottomSheet>
         </ScrollView>
     );
 }

@@ -1,7 +1,7 @@
-import {PressableAndroidRippleConfig, ScrollView, StyleSheet, View} from "react-native";
+import {ScrollView, StyleSheet, View} from "react-native";
 import {Text, useTheme} from "@rneui/themed";
 import {Color} from "@/shared/color.ts";
-import {useNavigation} from "@react-navigation/native";
+import {type NavigationProp, type ParamListBase, useNavigation} from "@react-navigation/native";
 import {Icon} from "@/components/un-ui/Icon.tsx";
 import React from "react";
 import {Flex, UnCard, UnPressable} from "@/components/un-ui";
@@ -30,7 +30,7 @@ type ToolboxItem =
 const iconSize = 25;
 
 export function ToolboxIndex() {
-    const navigation = useNavigation();
+    const navigation = useNavigation<NavigationProp<ParamListBase>>();
     const {theme} = useTheme();
     const {openInWeb} = useWebView();
     const {store} = useUserConfig();
@@ -90,9 +90,9 @@ export function ToolboxIndex() {
                 },
                 {
                     label: "教师信息查询",
-                    icon: <Icon type="Ionicons" name="user" size={iconSize} />,
+                    icon: <Icon type="antdesign" name="user" size={iconSize} />,
                     type: "navigation",
-                    navigation: "TeacherQueryInfoScreen",
+                    navigation: "TeacherInfo",
                 },
                 // {
                 //     label: "自主选课",
@@ -169,7 +169,7 @@ export function ToolboxIndex() {
                 },
                 // {
                 //     label: "测试页",
-                //     icon: <Icon name="map" size={iconSize} />,
+                //     icon: <Icon name="database-eye" size={iconSize} />,
                 //     type: "navigation",
                 //     navigation: "TestPage",
                 // },
@@ -204,13 +204,6 @@ export function ToolboxIndex() {
             ],
         },
     ] as settingSection[];
-    const data = {
-        style: {
-            settingItemRipple: {
-                color: theme.colors.grey4,
-            } as PressableAndroidRippleConfig,
-        },
-    };
 
     const style = StyleSheet.create({
         settingContainer: {
