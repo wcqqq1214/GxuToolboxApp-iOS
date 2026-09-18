@@ -23,3 +23,9 @@ export interface ExamWithMeta extends Exam {
     date: Dayjs | null;
     status: ExamStatus;
 }
+
+/**
+ * 可持久化的纯数据形状：去掉运行时计算出来的 date/status。
+ * dayjs 实例过 JSON/MMKV 序列化会丢原型，所以缓存一律用它。
+ */
+export type StoredExam = Omit<ExamWithMeta, "date" | "status">;
