@@ -122,15 +122,6 @@ export function SettingStack() {
                 options={{title: "课程元素详情显示"}}
             />
             <Stack.Screen
-                name="ExamItemDetailSetting"
-                component={lazy(() =>
-                    import("@/screens/setting/account/preference/ExamItemDetailSettingScreen.tsx").then(m => ({
-                        default: m.ExamItemDetailSettingScreen,
-                    })),
-                )}
-                options={{title: "考试元素详情显示"}}
-            />
-            <Stack.Screen
                 name="versionList"
                 component={lazy(() =>
                     import("@/screens/setting/VersionListScreen.tsx").then(m => ({

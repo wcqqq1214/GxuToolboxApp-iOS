@@ -13,11 +13,6 @@ export function UserPreferenceSettingIndex() {
                     type: "navigation",
                     value: "CourseItemDetailSetting",
                 },
-                {
-                    label: "考试元素详情显示",
-                    type: "navigation",
-                    value: "ExamItemDetailSetting",
-                },
             ],
         },
     ];
