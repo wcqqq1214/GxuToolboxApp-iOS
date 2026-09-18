@@ -64,7 +64,9 @@
 - `asWeeks()` 在整周边界返回整数，再 `ceil` 会让每个周首日（周一）**少算一周**；
 - 开学当天差值为 0，会被算成**第 0 周**。
 
-本组件里教学周只出现在两处：`props.currentWeek` 缺省时用 `getWeekOfDate(moment(), startDay)` 现算；补课日列用 `getWeekOfDate(effectiveDay, startDay)` 取**被补日**所在周。普通列直接用 `currentWeek`。
+本组件里教学周都走这个函数，共三处：`props.currentWeek` 缺省时用 `getWeekOfDate(moment(), startDay)` 现算；补课日列用 `getWeekOfDate(effectiveDay, startDay)` 取**被补日**所在周；**普通列也走 `:253` 的同一分支**——`needShift` 默认为 `true`，且普通列既不命中 `workDates` 也不命中 `restDates`，故 `effectiveDay === currentDay`，于是它用**本列自己的日期**调 `getWeekOfDate(currentDay, startDay)` 现算（而不是直接读 `currentWeek`）。
+
+这个值与 `currentWeek` 恒等，但该等价**有前提：`weekdayList.length <= 7`**。列日期是 `startDay + (currentWeek - 1) 周 + index 天`，代入得 `currentWeek + floor(index / 7)`；`index ∈ [0, 6]` 时 `floor(index / 7) = 0`，值就等于 `currentWeek`；一旦有第 8 列（`index === 7`），该列会得到 `currentWeek + 1`。`weekdayList` 当前是 `useCourseData` 的固定默认值、只有 7 天（`src/hooks/useCourseData.ts:65`），所以不发作；把这个列表扩到 8 列会踩到该前提。
 
 ### startDay 必须按「天」归一
 
@@ -133,10 +135,10 @@ interface TimeScheduleItemData<T = any> {
 
 `needShift`：
 
-| 值             | 补课日列                          | 调休日列                     | 普通列                       |
-| -------------- | --------------------------------- | ---------------------------- | ---------------------------- |
-| `true`（默认） | 主组渲染**被补日**的日期 + 教学周 | 整列 `null`                  | 本列自然日期 + `currentWeek` |
-| `false`        | 本列自然日期 + `currentWeek`      | **仍然渲染**（本列自然日期） | 本列自然日期 + `currentWeek` |
+| 值             | 补课日列                          | 调休日列                     | 普通列                                                                                    |
+| -------------- | --------------------------------- | ---------------------------- | ----------------------------------------------------------------------------------------- |
+| `true`（默认） | 主组渲染**被补日**的日期 + 教学周 | 整列 `null`                  | 本列自然日期 + `getWeekOfDate` 现算（值 = `currentWeek`，前提 `weekdayList.length <= 7`） |
+| `false`        | 本列自然日期 + `currentWeek`      | **仍然渲染**（本列自然日期） | 本列自然日期 + `currentWeek`                                                              |
 
 `needShift: false` 是节假日标签能继续显示的原因：调休日那一列的课程 / 考试被清空，但节假日标签按自然日期照常出现。
 
@@ -192,9 +194,9 @@ interface TimeScheduleItemData<T = any> {
 - **`ScheduleEdit` 的外层 pager 与内层课表周口径不一致**：`TimeScheduleView` 自己算 `startDay = props.startDay ?? moment()`，而 `ScheduleEdit` 不传 `startDay`，于是 pager 的 `initialPage` / 长按回到的「本周」按「今天」算（恒为第 1 周），内层列的日期按 `jw.startDay` 算。存量行为，非本次引入；修法是让 `ScheduleEdit` 显式传 `startDay`。详见「使用方对照」。
 - **旧口径周数计算仍在**：`src/class/jw/course.ts:27`（`getCourseListByDay`）与 `:59`（`atDay`）仍是 `Math.ceil(moment.duration(...).asWeeks()) + 1`。目前这两个方法无调用方（只用到 `getCourseListByWeek`），暂不发作，但应迁到 `getWeekOfDate`。
 - **`CanvasSchedule.tsx`（同目录）仍留着本次修掉的同一个问题**：它自建了一份**双向** `shiftMap`，调休日列会去取配对日的课程；`getWeekCourseList` 内还留有 `console.log`。
-- **调休日列整列不排课的新语义尚未在旧页面人工复核**：`CourseScheduleQuery`、`ClassCourseSchedule`、`AttendanceInfoQueryScreen` 与主课表共用本组件，行为被一起改掉了，但只对主课表做过核对。
-- **测试缺口**：`getWeekOfDate` 有单测；本组件的列渲染分支（补课日 / 调休日 / 附加组）没有单测，目前只有结构性论证，缺人工验证记录。
+- **调休日 / 补课日列的语义只有结构性论证，没有人工验证记录**：`CourseScheduleQuery`、`ClassCourseSchedule`、`AttendanceInfoQueryScreen` 与主课表共用本组件，调休日列整列不排课的新语义把它们的行为一起改掉了。这些列渲染分支（补课日列 / 调休日列 / `showPreShiftItems` 附加组）目前只有结构性论证——两组元素各调用一次 `renderItems`、各自独立做冲突分组，两次调用之间不共享状态。人工核对只覆盖到主课表的调休日渲染一处，列渲染分支本身没有被人工验证过；而且仓库里没有留下这次核对的记录（计划里 Step 10 / Step 6 的核对清单均为未勾选，实现者报告也明确记为「未执行且无法执行」）。
+- **测试缺口**：`getWeekOfDate` 有单测；本组件的列渲染分支（补课日 / 调休日 / 附加组）没有单测，人工验证记录同上一条——没有。
 - **同一天既是补课日又是调休日**：表头按 `(补)` 显示（先判 `workDates`），但参与调课的数据源会因 `isRestDay` 短路而整列不渲染，即「标着补课却空列」。取决于远端 `timeShift` 数据，建议数据侧保证两个集合不相交。
 - **左上角月份疑似差一周**：`showDate` 开启时月份取 `startDay.clone().add(currentWeek, "w").month()`，即 `startDay + currentWeek 周`，比各列的 `startDay + (currentWeek - 1) 周` 晚整整一周，而 props 注释写的是「第一天所在月份」。存量行为，非本次引入；跨月的周会显示下一周的月份，改动前先确认是否为刻意取周尾月份。
-- **`useShift.ts` 有死代码与失效导入**：`src/features/courseSchedule/hooks/detail/useShift.ts` 从 `@/components/tool/infoQuery/courseSchedule/CourseScheduleTable.tsx` 导入 `ScheduleTableItem`，该文件不存在（`tsc` 未报出）；同文件导出的 `applyShift()` 已无任何调用方（本组件用自己的 `shiftMap`）。
+- **`useShift.ts` 有死代码与失效导入**：`src/features/courseSchedule/hooks/detail/useShift.ts` 从 `@/components/tool/infoQuery/courseSchedule/CourseScheduleTable.tsx` 导入 `ScheduleTableItem`，该文件不存在（`tsc` **会**报出：`src/features/courseSchedule/hooks/detail/useShift.ts(4,33): error TS2307`。此前没注意到它，只是因为计划的 tsc 门禁是一条 `grep` 过滤管道，而该管道不匹配这个路径；这条错误属于仓库既有的 ~150 条存量 tsc error 基线之一，非本次引入，clean typecheck 不是本仓库的标准）；同文件导出的 `applyShift()` 已无任何调用方（本组件用自己的 `shiftMap`）。
 - **每列各建一次 `StyleSheet.create`**：样式对象在 `weekdayList.map` 的列循环内创建，列数有多少就建多少份（默认 7 份），且每次渲染重建。存量问题，非本次引入。
