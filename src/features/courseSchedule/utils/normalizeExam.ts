@@ -1,4 +1,5 @@
 import moment from "moment";
+import {getWeekOfDate} from "@/features/courseSchedule/utils/weekOfDate.ts";
 import {ScheduleTableItem} from "@/features/courseSchedule/type/schedule.ts";
 import {ExamWithMeta} from "@/features/examInfo/type/exam.types.ts";
 
@@ -56,7 +57,7 @@ export function normalizeExam(data: ExamWithMeta[], startDay: moment.Moment): Sc
             day: date.isoWeekday() as ScheduleTableItem["day"],
             title: exam.course,
             id: exam.id,
-            week: date.diff(startDay, "week") + 1,
+            week: getWeekOfDate(date, startDay),
             begin: timeToTimeSpan(begin),
             end: timeToTimeSpan(end, true),
             location: exam.classroom,
