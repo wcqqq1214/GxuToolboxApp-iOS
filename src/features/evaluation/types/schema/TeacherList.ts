@@ -1,5 +1,4 @@
 import {z} from "zod";
-import {ExamSchema} from "@/features/examInfo/api/schema.ts";
 
 const rawTeacherList = z.object({
     jgh_id: z.string(),
@@ -10,7 +9,7 @@ const rawTeacherList = z.object({
     xsdm: z.string(),
     xsmc: z.string(),
     tjztmc: z.string(),
-    pjmbmcb_id:z.string().optional(),
+    pjmbmcb_id: z.string().optional(),
 });
 
 export const TeacherList = rawTeacherList.transform(i => ({
@@ -41,7 +40,6 @@ export const TeacherListRes = z.object({
     items: z.array(TeacherList),
 });
 
-export type EvaTeacherList = z.infer<typeof TeacherList>
+export type EvaTeacherList = z.infer<typeof TeacherList>;
 
 export type EvaTeacherListRes = z.infer<typeof TeacherListRes>;
-

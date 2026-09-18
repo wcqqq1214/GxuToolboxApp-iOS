@@ -1,67 +1,59 @@
 import React, {useMemo, useState} from "react";
-import {LayoutAnimation, Platform, ScrollView, StyleSheet, TouchableOpacity, UIManager, View} from "react-native";
+import {ScrollView, StyleSheet, TouchableOpacity, View} from "react-native";
 import {Text, useTheme} from "@rneui/themed";
 import Flex from "@/components/un-ui/Flex.tsx";
-import {OldExamScore} from "@/type/infoQuery/exam/oldExamScore.ts";
-import {SchoolTermValue, SchoolYearValue} from "@/type/global.ts";
-import {examApi} from "@/js/jw/exam.ts";
+import {ScoreRepo} from "@/features/examScore/type";
+import {useUsualScore} from "@/features/examScore/hooks/useUsualScore.ts";
+
 interface Props {
-    data: OldExamScore[];
-    year: SchoolYearValue;
-    term: SchoolTermValue;
+    data: ScoreRepo[];
+    year: String;
+    term: String;
 }
 
-interface DetailState {
-    status: "idle" | "loading" | "success" | "error";
-    data?: any[];
-    error?: string;
-}
+export const calculatePoint = (score: number) => {
+    if (isNaN(score)) return "N/A"; // 处理可能出现的等级制成绩
+    if (score < 60) return "0";
+    const gpa = (score - 50) / 10;
+    return gpa.toFixed(2);
+};
 
 interface ScoreDetailRow {
     label: string;
-    key: keyof OldExamScore;
+    key?: keyof ScoreRepo;
+    render?: (item: ScoreRepo) => React.ReactNode | string;
 }
 
 const scoreDetailRows: ScoreDetailRow[] = [
     {
-        key: "cjbdsj",
-        label: "成绩发布时间",
+        key: "upload_at",
+        label: "发布时间",
     },
     {
-        key: "xf",
+        key: "credit",
         label: "学分",
     },
     {
-        key: "jd",
         label: "绩点",
+        render: item => calculatePoint(item.score),
     },
     {
-        key: "jsxm",
-        label: "教师姓名",
+        key: "teacher_name",
+        label: "教师",
     },
 ];
 
-
 export function ExamScoreTable(props: Props) {
     const [expandedId, setExpandedId] = useState<string | null>(null);
-    const [details, setDetails] = useState<Record<string, DetailState>>({});
     const {theme} = useTheme();
-    const handlePressRow = async (item: OldExamScore) => {
-        const newExpandedId = expandedId === item.jxb_id ? null : item.jxb_id;
+
+    const {details, loadUsualScore} = useUsualScore();
+    const handlePressRow = async (item: ScoreRepo) => {
+        const newExpandedId = expandedId === item.id ? null : item.id;
         setExpandedId(newExpandedId);
 
-        if (newExpandedId && !details[newExpandedId]) {
-            setDetails(prev => ({...prev, [newExpandedId]: {status: "loading"}}));
-            try {
-                const res = await examApi.getUsualScore(+props.year, item.xqm, item.jxb_id);
-                setDetails(prev => ({...prev, [newExpandedId]: {status: "success", data: res}}));
-            } catch (e) {
-                console.error("Failed to fetch usual score:", e);
-                setDetails(prev => ({
-                    ...prev,
-                    [newExpandedId]: {status: "error", error: "加载平时成绩失败，请联系开发者"},
-                }));
-            }
+        if (newExpandedId) {
+            await loadUsualScore(item);
         }
     };
 
@@ -127,17 +119,17 @@ export function ExamScoreTable(props: Props) {
             <ScrollView>
                 <Flex direction="column">
                     <View style={styles.scoreItem}>
-                        <Text style={styles.schoolYearText}>{"学年"}</Text>
+                        <Text style={styles.schoolYearText}>{"学年学期"}</Text>
                         <Text style={styles.examCourseName}>{"课程名称"}</Text>
                         <Text style={styles.examScore}>{"成绩"}</Text>
                     </View>
                     {props.data.map((item, index) => (
                         /* 外层 View 必须加 key，否则 React 会报警告 */
                         <ScoreRow
-                            key={item.jxb_id}
+                            key={item.id}
                             item={item}
-                            isExpanded={expandedId === item.jxb_id}
-                            detailState={details[item.jxb_id]}
+                            isExpanded={expandedId === item.id}
+                            detailState={details[item.id]}
                             onPress={() => handlePressRow(item)}
                             styles={styles}
                         />
@@ -154,9 +146,11 @@ function ScoreRow({item, isExpanded, detailState, onPress, styles}) {
             {/* 可点击的行 */}
             <TouchableOpacity activeOpacity={0.7} onPress={() => onPress(item)}>
                 <View style={styles.scoreItem}>
-                    <Text style={[styles.schoolYearText, +item.cj < 60 && {color: "red"}]}>{item.xnmmc}</Text>
-                    <Text style={[styles.examCourseName, +item.cj < 60 && {color: "red"}]}>{item.kcmc}</Text>
-                    <Text style={[styles.examScore, +item.cj < 60 && {color: "red"}]}>{item.cj}</Text>
+                    <Text style={[styles.schoolYearText, item.score < 60 && {color: "red"}]}>
+                        {item.term === 1 ? `${item.year} 秋` : `${item.year + 1} 春`}
+                    </Text>
+                    <Text style={[styles.examCourseName, item.score < 60 && {color: "red"}]}>{item.course_name}</Text>
+                    <Text style={[styles.examScore, item.score < 60 && {color: "red"}]}>{item.score}</Text>
                 </View>
             </TouchableOpacity>
 
@@ -205,7 +199,7 @@ function ScoreRow({item, isExpanded, detailState, onPress, styles}) {
                             </View>
                             <View style={{width: "55%"}}>
                                 <Text style={[styles.detailItemLabel, styles.detailItemValue]}>
-                                    {item[row.key] || "暂无"}
+                                    {row.render ? row.render(item) : row.key ? item[row.key] : "暂无"}
                                 </Text>
                             </View>
                         </Flex>

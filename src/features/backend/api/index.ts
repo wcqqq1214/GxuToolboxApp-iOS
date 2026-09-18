@@ -1,4 +1,4 @@
-import axios from "axios";
+import axios, {AxiosError} from "axios";
 
 export const backendHttp = axios.create({
     baseURL: "http://api.tool.gxutech.xyz",
@@ -8,3 +8,13 @@ export const backendHttp = axios.create({
     withCredentials: true,
     timeout: 10000,
 });
+
+backendHttp.interceptors.response.use(
+    response => {
+        return response;
+    },
+    (error: AxiosError) => {
+        // 关键：必须返回一个 rejected Promise，以便调用方可以 catch 错误
+        return Promise.reject(error);
+    },
+);

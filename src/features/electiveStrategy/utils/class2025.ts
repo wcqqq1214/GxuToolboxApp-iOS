@@ -1,5 +1,5 @@
 import {ElectiveStats, ElectiveStrategy} from "@/features/electiveStrategy/type/types.ts";
-import {CourseList} from "@/features/electiveStrategy/api/schema.ts";
+import {SelectedCourse} from "gxu-tool-adapters/jw";
 
 const REQUIREMENTS = {
     totalScore: 8,
@@ -13,11 +13,11 @@ const REQUIREMENTS = {
     asean: 1,
 };
 
-function calculate2025(courses: any): ElectiveStats {
+function calculate2025(courses: SelectedCourse[]): ElectiveStats {
     const requiredCourses = new Set(["创新创业基础"]);
 
-    const cur: ElectiveStats = courses.reduce(
-        (acc: ElectiveStats, course: CourseList) => {
+    const cur = courses.reduce<Pick<ElectiveStats, "totalScore" | "offlineScore" | "modules">>(
+        (acc, course) => {
             const score = Number(course.credit) || 0;
             acc.totalScore += score;
             if (!(course.belongTo?.includes("网络") || course.teacher === "网络教师")) {

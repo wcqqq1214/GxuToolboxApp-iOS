@@ -1,30 +1,25 @@
-import {ScrollView, StyleSheet, View} from "react-native";
+import {ActivityIndicator, ScrollView, StyleSheet, TouchableOpacity, View} from "react-native";
 import {Button, Divider, Text, useTheme} from "@rneui/themed";
-import React, {useEffect, useMemo, useState} from "react";
+import React, {useMemo, useState} from "react";
 import Flex from "@/components/un-ui/Flex.tsx";
-import {SchoolTermValue} from "@/type/global.ts";
-import {NumberInput} from "@/components/un-ui/NumberInput.tsx";
-import {ExamScoreQueryRes} from "@/type/api/infoQuery/examInfoAPI.ts";
-import {store} from "@/core/store.ts";
 import {Color} from "@/shared/color.ts";
 import {ExamScoreTable} from "@/features/examScore/component/ExamScoreTable.tsx";
-import {examApi} from "@/js/jw/exam.ts";
 import {useNavigation} from "@react-navigation/native";
+import type {NativeStackNavigationProp} from "@react-navigation/native-stack";
 import {ChooseTerm} from "@/components/tool/infoQuery/examInfo/ChooseTerm.tsx";
-import {electiveAPI} from "@/features/electiveStrategy/api";
 import {useUserConfig} from "@/hooks/useUserConfig.ts";
 import {Icon, UnJsonEditor, UnPressable, UnText} from "@/components/un-ui";
+import {useScore} from "@/features/examScore/hooks/useScore.ts";
 
 export function ExamScore() {
     const {store: ucStore} = useUserConfig();
     const devMode = ucStore(s => s.devMode);
     const {theme} = useTheme();
-    const navigation = useNavigation();
-    const [apiRes, setApiRes] = useState<ExamScoreQueryRes>({} as ExamScoreQueryRes);
-    const [year, setYear] = useState(+ucStore(s => s.jw.year));
-    const [term, setTerm] = useState<SchoolTermValue>(ucStore(s => s.jw.term));
-    const [page, setPage] = useState(1);
-    const [notScore, setNotScore] = useState<string[]>([""]);
+    const navigation = useNavigation<NativeStackNavigationProp<{gpaCalculator: {year: number; term: number}}>>();
+    const [year, setYear] = useState("");
+    const [term, setTerm] = useState("");
+    const {scores, notScore, isLoading, lastSyncTime} = useScore(year, term);
+
     const style = useMemo(() => {
         return StyleSheet.create({
             container: {
@@ -49,88 +44,53 @@ export function ExamScore() {
                 ).setAlpha(theme.mode === "dark" ? 0.3 : 0.6).rgbaString,
             },
             tableHeaderText: {},
+            gpaCal: {
+                backgroundColor: theme.colors.primary,
+                paddingVertical: 10,
+                paddingHorizontal: 12,
+                borderRadius: 6,
+            },
         });
     }, [theme]);
-
-    async function init() {
-        const data = await store.load<ExamScoreQueryRes>({key: "examScore"}).catch(e => {
-            console.warn(e);
-            return null;
-        });
-        if (data) {
-            setApiRes(data);
-        }
-    }
-
-    async function query() {
-        const res = await examApi.getExamScore(year, term, page);
-        if (res) {
-            setApiRes(res);
-            await store.save({key: "examScore", data: res});
-            await getCourse(year, term, res);
-        }
-    }
-
-    async function getCourse(year: number, term: SchoolTermValue, scoreRes: ExamScoreQueryRes) {
-        const courseListRes = await electiveAPI.getCourses(year, term).then(res => {
-            if (typeof res?.items === "object") {
-                return res;
-            }
-            return null;
-        });
-
-        if (courseListRes && scoreRes?.items) {
-            const scoredCourses = new Set(scoreRes.items.map(item => item.kcmc));
-            const unscored = courseListRes.items
-                .map(item => item.courseName)
-                .filter(courseName => !scoredCourses.has(courseName));
-            setNotScore([...new Set(unscored)]);
-        }
-    }
-
-    useEffect(() => {
-        init();
-    }, []);
-
-    useEffect(() => {
-        query();
-    }, [year, term, page]);
 
     return (
         <ScrollView>
             <ChooseTerm
                 onTermSelect={(Year, Term) => {
-                    setYear(Year);
+                    setYear(String(Year));
                     setTerm(Term);
                 }}
                 includeWholeLife={false}
                 includeWholeYear={false}
             />
             <View style={style.container}>
-                <Flex direction="column" gap={15} align="flex-start">
-                    {apiRes?.items?.length > 0 && (
+                <Flex direction="column" style={{alignSelf: "stretch", marginBottom: 12}} gap={4}>
+                    {scores.length > 0 && (
                         <>
-                            <Flex align="flex-end" gap={5}>
-                                <Text h4>查询结果</Text>
-                                <Text>{`第${apiRes.currentPage ?? 1}/${apiRes.totalPage ?? 1}页，共有${
-                                    apiRes.totalCount ?? 0
-                                }条结果 `}</Text>
-                            </Flex>
-                            <Flex gap={10} justify="space-between" align="center">
-                                <Flex gap={10} align="center">
-                                    <Text>页数</Text>
-                                    <NumberInput value={page} onChange={setPage} min={1} max={apiRes.totalPage ?? 1} />
-                                    <Text>每页15条记录 </Text>
+                            <Flex
+                                justify="space-between"
+                                align="center"
+                                style={{alignSelf: "stretch", marginBottom: 12}}>
+                                <Flex direction="column" align="flex-start" gap={4}>
+                                    <Text h4 style={{margin: 0}}>
+                                        查询结果
+                                    </Text>
+                                    <Flex align="center" gap={8}>
+                                        {lastSyncTime && (
+                                            <Text style={{fontSize: 12, color: "gray"}}>上次同步: {lastSyncTime}</Text>
+                                        )}
+                                        {isLoading && <ActivityIndicator size="small" color={theme.colors.primary} />}
+                                    </Flex>
                                 </Flex>
-                                <Button onPress={() => navigation.navigate("gpaCalculator")}>绩点计算器</Button>
+                                <TouchableOpacity
+                                    onPress={() => navigation.navigate("gpaCalculator", {year: +year, term: +term})}
+                                    style={style.gpaCal}>
+                                    <Text style={{color: "white", fontSize: 16, fontWeight: "bold"}}>绩点计算器</Text>
+                                </TouchableOpacity>
                             </Flex>
-                            <Flex>
-                                <ExamScoreTable data={apiRes.items ?? []} year={year} term={term} />
-                            </Flex>
-                            <Flex gap={10} align="center">
-                                <Text>页数</Text>
-                                <NumberInput value={page} onChange={setPage} min={1} max={apiRes.totalPage ?? 1} />
-                                <Text>每页15条记录</Text>
+
+                            <Flex style={{width: "100%"}}>
+                                <ExamScoreTable data={scores} year={year} term={term} />
                             </Flex>
                         </>
                     )}
@@ -139,9 +99,9 @@ export function ExamScore() {
                             <Text h4>未出分科目</Text>
                             <Divider style={{marginVertical: 10}} />
                             <View style={{flexDirection: "row", flexWrap: "wrap", gap: 10}}>
-                                {notScore.map((courseName, index) => (
-                                    <Button key={index} type={"outline"} radius={"lg"} color={theme.colors.primary}>
-                                        {courseName}
+                                {notScore.map(c => (
+                                    <Button key={c.classId} type={"outline"} radius={"lg"} color={theme.colors.primary}>
+                                        {c.courseName} {c.type === "实验" ? "(实验)" : ""}
                                     </Button>
                                 ))}
                             </View>
@@ -149,7 +109,7 @@ export function ExamScore() {
                     )}
                     {devMode && (
                         <Flex gap={8} direction="column">
-                            <ScheduleDataDebugCard label="查看考试成绩数据" data={apiRes} />
+                            <ScheduleDataDebugCard label="查看考试成绩数据" data={scores} />
                             <ScheduleDataDebugCard label="查看未出分科目" data={notScore} />
                         </Flex>
                     )}
@@ -174,7 +134,7 @@ function ScheduleDataDebugCard({label, data}: {label: string; data: any}) {
         <Flex>
             <UnPressable onPress={() => setModalOpen(true)}>
                 <Flex style={styles.card} justify="flex-start" gap={4}>
-                    <Icon name="console" size={16} inline />
+                    <Icon name="console" size={16} />
                     <UnText weight="bold" size={16}>
                         {label}
                     </UnText>

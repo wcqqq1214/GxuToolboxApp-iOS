@@ -4,10 +4,10 @@ import {getProfile} from "@/features/backend/api/profile.ts";
 // 30天
 const PROFILE_TTL = 30 * 24 * 60 * 60 * 1000;
 
-export async function syncIfStale(account: string) {
+export async function syncInfo(account: string) {
     const local = await userProfileRepo.get(account);
 
-    if (local && Date.now() - local.updated_at * 1000 < PROFILE_TTL) {
+    if (local && Date.now() - local.updated_at < PROFILE_TTL) {
         return local;
     }
 
@@ -16,10 +16,10 @@ export async function syncIfStale(account: string) {
 
 async function forceSync() {
     const profile = await getProfile();
-    await userProfileRepo.upsert({
-        ...profile,
-        updated_at: Date.now(),
-    });
+    if (!profile || !profile.student_id) {
+        throw new Error("后端未返回有效的个人信息");
+    }
+    await userProfileRepo.upsert(profile);
 
     return profile;
 }

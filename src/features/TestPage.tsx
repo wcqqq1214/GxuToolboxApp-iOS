@@ -1,7 +1,7 @@
 import React, {useCallback, useState} from "react";
 import {ScrollView, StyleSheet, View} from "react-native";
 import {Button, Text, useTheme} from "@rneui/themed";
-import {getDB} from "@/core/db";
+import {expoDb as getDB} from "@/core/db";
 import {useFocusEffect} from "@react-navigation/native";
 
 type Scalar = string | number | boolean | null;
@@ -57,7 +57,7 @@ function quoteIdentifier(value: string) {
  * - 该函数只服务开发调试页；不要在业务流程依赖它，也不要移除 ROW_LIMIT 造成页面卡死。
  */
 async function readDatabaseSnapshot(): Promise<DatabaseSnapshot> {
-    const db = getDB();
+    const db = getDB;
     const schemaResult = await db.execute(
         "SELECT name, type, sql FROM sqlite_schema WHERE type IN ('table', 'view') ORDER BY type, name",
     );

@@ -1,73 +1,22 @@
-import {useEffect, useMemo, useState} from "react";
-import {electiveAPI} from "@/features/electiveStrategy/api";
+import {useMemo} from "react";
 import {ActivityIndicator, ScrollView, StyleSheet, Text, View} from "react-native";
 import {Flex, Icon} from "@/components/un-ui";
 import {useTheme} from "@rneui/themed";
-import {CourseList} from "@/features/electiveStrategy/api/schema.ts";
 import {getStrategy} from "@/features/electiveStrategy/utils";
 import {StatItem} from "@/features/electiveStrategy/component/StatItem.tsx";
-import {userProfile} from "@/core/user/profile.ts";
-import {examApi} from "@/js/jw/exam.ts";
+import {useElectiveStrategyData} from "@/features/electiveStrategy/hooks/useElectiveStrategyData.ts";
 
 export default function ElectiveStrategy() {
     const {theme} = useTheme();
+    const {courses, scores: score, userGrade, loading, error} = useElectiveStrategyData();
 
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    // 唯一的数据源
-    const [courses, setCourses] = useState<CourseList[]>([]);
-    const [score, setScore] = useState<any[]>([]);
-    const [userGrade, setUserGrade] = useState<number>(2025);
-
-    useEffect(() => {
-        const init = async () => {
-            try {
-                setLoading(true);
-                setError(null);
-
-                // 并行获取课程、成绩和用户信息
-                const coursePromise = electiveAPI
-                    .getCourses()
-                    .then(r => r!.items.filter((i: any) => i.selectionType === "通识选修课"));
-                const infoPromise = userProfile.loadUserInfo();
-
-                // 只要已修完，出成绩，并且及格了的科目
-                const scorePromise = examApi
-                    .getExamScore("", "", 1, 1000)
-                    .then(r => r!.items.filter((i: any) => Number(i.cj) >= 60));
-
-                const [fetchedCourses, userInfo, score] = await Promise.all([coursePromise, infoPromise, scorePromise]);
-
-                setScore(
-                    score.map((i: any) => ({
-                        courseName: i.kcmc,
-                        score: Number(i.cj),
-                    })),
-                );
-
-                setCourses(fetchedCourses);
-
-                if (userInfo && userInfo.grade) {
-                    setUserGrade(userInfo.grade);
-                } else {
-                    setUserGrade(2025);
-                }
-            } catch (e) {
-                setError("数据加载失败，请稍后重试。");
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        init();
-    }, []);
-
-    const styles = useMemo(() => style(theme), []);
+    const styles = useMemo(() => style(theme), [theme]);
     const strategy = useMemo(() => getStrategy(userGrade), [userGrade]);
     const stats = useMemo(() => {
+        if (!strategy) return null;
         // 只保留统计已及格的课程
-        const passedCourses = courses.filter(c => score.some((s: any) => s.courseName === c.courseName));
-        return strategy!.calculate(passedCourses);
+        const passedCourses = courses.filter(c => score.some(s => s.courseName === c.courseName));
+        return strategy.calculate(passedCourses);
     }, [courses, strategy, score]);
 
     if (loading) {
@@ -134,15 +83,15 @@ export default function ElectiveStrategy() {
                     <Text style={[styles.title, {fontSize: 12}]}>网课使用图标标记</Text>
                 </View>
                 <View style={styles.divider} />
-                {courses.map((c, index) => {
-                    const scoreRecord = score.find((s: any) => s.courseName === c.courseName);
+                {courses.map(c => {
+                    const scoreRecord = score.find(s => s.courseName === c.courseName);
                     const isPassed = scoreRecord && scoreRecord.score >= 60;
 
                     return (
-                        <View key={index} style={styles.courseRow}>
+                        <View key={c.classId} style={styles.courseRow}>
                             <View style={styles.courseInfo}>
                                 <Flex direction="row" align="center" gap={6}>
-                                    {(c.belongTo.includes("网络") || c.teacher === "网络教师") && (
+                                    {(c.belongTo?.includes("网络") || c.teacher === "网络教师") && (
                                         <Icon name="cast-education" size={16} color={theme.colors.primary} />
                                     )}
                                     <Text style={styles.courseName}>{c.courseName}</Text>

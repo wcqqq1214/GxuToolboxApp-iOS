@@ -5,27 +5,33 @@ import {useCallback, useEffect, useMemo} from "react";
 import {useAttendance} from "@/features/courseSchedule/hooks/detail/useAttendance.ts";
 import {useStartDay} from "@/features/courseSchedule/hooks/detail/useStartDay.ts";
 import {ScheduleTableItem} from "@/features/courseSchedule/type/schedule.ts";
-import {Course} from "@/type/infoQuery/course/course.ts";
+import type {AdapterTheoryItem} from "@/class/jw/course.ts";
 
 export function useCourse(
     year: number,
     term: SchoolTermValue,
 ): {
-    items: ScheduleTableItem<Course>[];
+    items: ScheduleTableItem<AdapterTheoryItem>[];
     refresh: () => Promise<void>;
     loading: boolean;
 } {
-    const startDay = useStartDay(year, term);
-    const {store: baseCourseStore, init: refreshBaseCourse} = useBaseCourse();
+    const {startDay} = useStartDay(year, term);
+    const {store: baseCourseStore, init: refreshBaseCourse, loadCache: loadCourseCache} = useBaseCourse();
     const baseCourse = baseCourseStore(s => s.courseList);
-    const {store: phyExpStore, init: initPhyExp} = usePhyExp();
-    const {store: attStore, init: initAttendance} = useAttendance();
+    const {store: phyExpStore, init: initPhyExp, loadCache: loadPhyExpCache} = usePhyExp();
+    const {store: attStore, init: initAttendance, loadCache: loadAttendanceCache} = useAttendance();
     const phyExpList = phyExpStore(s => s.phyExpList) || [];
     const attendanceList = attStore(s => s.normalizedList);
     const attStatus = attStore(s => s.status);
 
     useEffect(() => {
-        initPhyExp(year, term);
+        // 同步加载MMKV缓存到store，确保首次渲染就有数据
+        loadCourseCache();
+        loadPhyExpCache();
+        loadAttendanceCache();
+
+        // 异步拉取最新数据，成功后覆盖缓存
+        initPhyExp();
         initAttendance(year, term, startDay);
         refreshBaseCourse(year, term);
     }, [year, term]);
@@ -48,12 +54,12 @@ export function useCourse(
                 const ext = safePhyList[phyIdx];
                 phyIdx++;
                 if (ext) {
-                    enrichedCourse.teacher = ext.teacher;
-                    enrichedCourse.location = ext.classroom;
+                    enrichedCourse.teacher = ext.teacherName || ext.teacherFull;
+                    enrichedCourse.location = ext.location || ext.labName;
                     enrichedCourse.raw = {
                         ...enrichedCourse.raw,
-                        xm: ext.teacher,
-                        cdmc: ext.classroom,
+                        xm: ext.teacherName || ext.teacherFull,
+                        cdmc: ext.location || ext.labName,
                     };
                 }
             }

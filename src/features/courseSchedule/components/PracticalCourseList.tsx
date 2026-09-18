@@ -4,13 +4,13 @@ import Flex from "@/components/un-ui/Flex.tsx";
 import {Icon} from "@/components/un-ui/Icon.tsx";
 import {Text, useTheme} from "@rneui/themed";
 import {useEffect, useState} from "react";
-import {ICourse} from "@/features/courseSchedule/type/schema/course.ts";
+import type {Schedule} from "gxu-tool-adapters/jw";
 import {useCourseData} from "@/hooks/useCourseData.ts";
 
-type PracticeItem = ICourse["practiceList"][number];
+type PracticeItem = Schedule["practiceList"][number];
 
 interface Props {
-    courseList: ICourse["practiceList"];
+    courseList: Schedule["practiceList"];
 }
 
 interface PracticalCourseItem extends PracticeItem {
@@ -44,22 +44,22 @@ const staticData = {
 
 export function PracticalCourseList(props: Props) {
     const {theme} = useTheme();
-    const [courseList, setCourseList] = useState<ICourse["practiceList"]>([]);
+    const [courseList, setCourseList] = useState<PracticalCourseItem[]>([]);
     const {courseScheduleStyle} = useCourseData();
     useEffect(() => {
-        randomCourseColor(props.courseList as ICourse["practiceList"]);
-        setCourseList(props.courseList as ICourse["practiceList"]);
+        randomCourseColor(props.courseList as PracticalCourseItem[]);
+        setCourseList(props.courseList as PracticalCourseItem[]);
     }, [props.courseList]);
 
-    function randomCourseColor(courseList: ICourse["practiceList"]) {
+    function randomCourseColor(courseList: PracticalCourseItem[]) {
         //使得相同课程的颜色相同
         const courseColor: Record<string, string> = {};
         courseList.forEach((course: PracticalCourseItem) => {
-            if (!courseColor[course.title]) {
+            if (!courseColor[course.courseName]) {
                 let randomNum = Math.floor(Math.random() * staticData.randomColor.length);
-                course.backgroundColor = courseColor[course.title] = staticData.randomColor[randomNum];
+                course.backgroundColor = courseColor[course.courseName] = staticData.randomColor[randomNum];
             } else {
-                course.backgroundColor = courseColor[course.title];
+                course.backgroundColor = courseColor[course.courseName];
             }
         });
     }
@@ -67,7 +67,7 @@ export function PracticalCourseList(props: Props) {
     return (
         <View>
             <Text style={{textAlign: "center"}}>实践课</Text>
-            {courseList.map((course: PracticalCourseItem, index) => {
+            {courseList.map((course, index) => {
                 const itemStyle = StyleSheet.create({
                     course: {
                         backgroundColor: Color(course.backgroundColor).setAlpha(theme.mode === "light" ? 0.3 : 0.1)
@@ -80,13 +80,13 @@ export function PracticalCourseList(props: Props) {
                 });
                 return (
                     <View
-                        key={`${course.title}-${index}`}
+                        key={`${course.courseName}-${index}`}
                         style={[
                             itemStyle.course,
                             courseScheduleStyle.practicalCourseItem,
                             courseScheduleStyle.courseItem,
                         ]}>
-                        <Text style={itemStyle.text}>{course.title}</Text>
+                        <Text style={itemStyle.text}>{course.courseName}</Text>
                         {course.time && (
                             <Flex gap={5}>
                                 <Icon name="clock" style={itemStyle.text} />

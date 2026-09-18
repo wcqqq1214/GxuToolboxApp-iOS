@@ -1,23 +1,21 @@
-import {CourseParsed} from "@/type/infoQuery/course/course.ts";
-import {CourseClass} from "@/class/jw/course.ts";
-import {Linking, StyleSheet, ToastAndroid, View, ViewProps} from "react-native";
+import {AdapterTheoryItem, CourseClass} from "@/class/jw/course.ts";
+import {Image, Linking, StyleSheet, ToastAndroid, View, ViewProps} from "react-native";
 import {Text, useTheme} from "@rneui/themed";
 import Flex from "@/components/un-ui/Flex.tsx";
 import Clipboard from "@react-native-clipboard/clipboard";
-import React, {createContext, useContext, useEffect, useState} from "react";
+import React, {createContext, useContext, useState} from "react";
 import {Color} from "@/shared/color.ts";
 import {useUserConfig} from "@/hooks/useUserConfig.ts";
-import {TeacherInfoSheet} from "@/components/tool/infoQuery/courseSchedule/TeacherInfoSheet.tsx";
+import {TeacherSheet} from "@/features/courseSchedule/components/TeacherSheet.tsx";
 import {Icon, UnJsonEditor, UnPressable, UnText} from "@/components/un-ui";
 import {useBlocksColor} from "@/features/courseSchedule/hooks/useBlocksColor.ts";
 import {Pos} from "@/js/pos.ts";
-import {SimpleTeacherInfo} from "@/type/api/teacherInfo/info.ts";
-import {teacherInfoApi} from "@/js/info/teacherInfo.ts";
+import {useLookup} from "@/features/teachersInfo/hooks/useLookup.ts";
 import {ExamInfoClass} from "@/class/jw/exam.ts";
 import {parseExamTime} from "@/features/examInfo/utils/timeParser.ts";
 import moment from "moment";
 
-const CourseContext = createContext<CourseParsed | null>(null);
+const CourseContext = createContext<AdapterTheoryItem | null>(null);
 
 interface Props extends ViewProps {
     course: CourseClass;
@@ -25,14 +23,27 @@ interface Props extends ViewProps {
     onExamPress?: (exam: ExamInfoClass) => void;
 }
 
-interface Info {
-    label: string;
-    key: keyof CourseParsed;
-}
-
 function copy(value: string, tip: string) {
     Clipboard.setString(value);
     ToastAndroid.show(tip, ToastAndroid.SHORT);
+}
+
+function handleSportsCollegeLocation(location: string): string {
+    const index = location.search(/[北西东]/);
+    return index === -1 ? location : location.slice(index);
+}
+
+function resolveSportsCollegeMapKeyword(location: string): string | null {
+    if (location.includes("北")) {
+        return "广西大学行健图书馆行健馆";
+    }
+    if (location.includes("西")) {
+        return "西体育馆";
+    }
+    if (location.includes("东")) {
+        return "东体育馆";
+    }
+    return null;
 }
 
 export function CourseDetail(props: Props) {
@@ -41,23 +52,22 @@ export function CourseDetail(props: Props) {
     const {theme} = useTheme();
     const {store} = useUserConfig();
     const devMode = store(s => s.devMode);
-    const course = props.course.transformed;
+    const course = props.course._ori;
 
-    const [teacherInfoList, setTeacherInfoList] = useState<SimpleTeacherInfo[]>([]);
-    const name = course.name;
+    const fullLocation = course.building + course.venueName;
+    const isSportsCollege = fullLocation.includes("体育学院");
+    const displayLocation = isSportsCollege ? handleSportsCollegeLocation(fullLocation) : fullLocation;
+    const sportsCollegeMapKeyword = isSportsCollege ? resolveSportsCollegeMapKeyword(displayLocation) : null;
 
-    useEffect(() => {
-        teacherInfoApi.getBaseInfo(name, 1).then(res => {
-            const {list} = res.resData;
-            const filterData = list.filter(item => item.XM.length === name.length);
-            setTeacherInfoList(filterData);
-        });
-    }, [name]);
+    const name = course.teacher;
+    const {list: teacherInfoList} = useLookup(name);
+
+    const iconUrl = "https://prof.gxu.edu.cn/images/icon-teacher.jpg";
     return (
         <CourseContext.Provider value={course}>
             <Flex {...props} gap={10} direction="column">
                 <CourseInfoCard />
-                {props.examInfo?.length > 0 && (
+                {props.examInfo && props.examInfo.length > 0 && (
                     <Flex justify="center" direction="column" gap={6}>
                         <Text>相关考试</Text>
                         {props.examInfo.map(exam => (
@@ -73,15 +83,20 @@ export function CourseDetail(props: Props) {
                     <CoursePropItem
                         prop="venueName"
                         label="上课地点"
-                        valueRender={(v, course) => <UnText>{course.building + v}</UnText>}
-                        labelRender={v => (
-                            <UnPressable onPress={() => Pos.parseAndSearchInMap(v)}>
-                                <Flex gap={5} align="center" inline>
+                        valueRender={() => <UnText>{displayLocation}</UnText>}
+                        labelRender={() => (
+                            <UnPressable
+                                onPress={() =>
+                                    sportsCollegeMapKeyword
+                                        ? Pos.searchInMap(sportsCollegeMapKeyword)
+                                        : Pos.parseAndSearchInMap(displayLocation)
+                                }>
+                                <Flex gap={4} align="center" inline>
                                     <UnText weight="bold" size={16}>
                                         上课地点
                                     </UnText>
                                     <Icon
-                                        type="Ionicon"
+                                        type="ionicons"
                                         name="navigate"
                                         color={Color.mix(theme.colors.primary, theme.colors.black).rgbaString}
                                         size={16}
@@ -93,19 +108,31 @@ export function CourseDetail(props: Props) {
                 </Flex>
                 <Flex gap={10}>
                     <CoursePropItem
-                        prop="name"
+                        prop="teacher"
                         label="上课教师"
-                        valueRender={v => <UnText>{v}</UnText>}
+                        valueRender={v => (
+                            <Flex direction={"row"} gap={4}>
+                                {teacherInfoList.length === 1 && (
+                                    <Image
+                                        style={{width: 20, height: 20, borderRadius: 999}}
+                                        source={{uri: teacherInfoList[0]?.picUrl || iconUrl}}
+                                    />
+                                )}
+                                <UnText>{v}</UnText>
+                            </Flex>
+                        )}
                         labelRender={() => (
                             <UnPressable onPress={() => setVisible(true)}>
-                                <UnText weight="bold" size={16}>
-                                    上课教师
+                                <Flex gap={4} align="center" inline>
+                                    <UnText weight="bold" size={16}>
+                                        上课教师
+                                    </UnText>
                                     <Icon
                                         name="magnify"
                                         color={Color.mix(theme.colors.primary, theme.colors.black).rgbaString}
                                         size={16}
                                     />
-                                </UnText>
+                                </Flex>
                             </UnPressable>
                         )}
                     />
@@ -114,13 +141,13 @@ export function CourseDetail(props: Props) {
                 </Flex>
                 <Flex gap={10}>
                     <CoursePropItem prop="enrollmentCount" label="选课人数" />
-                    <CoursePropItem prop="zzrl" label="座位数" />
+                    <CoursePropItem prop="seatCount" label="座位数" />
                     <CoursePropItem
                         prop="qqGroup"
                         label="QQ群"
                         labelRender={qq =>
                             qq.trim().length > 0 ? (
-                                <Flex gap={5} align="center" inline>
+                                <Flex gap={4} align="center" inline>
                                     <UnText weight="bold" size={16}>
                                         QQ群
                                     </UnText>
@@ -149,11 +176,11 @@ export function CourseDetail(props: Props) {
                         }}
                     />
                 </Flex>
-                <TeacherInfoSheet
+                <TeacherSheet
                     isVisible={visible}
-                    name={course.name}
                     infoList={teacherInfoList}
                     onClose={() => setVisible(false)}
+                    openPage={teacherInfoList.length === 1 ? 1 : 0}
                 />
                 {devMode && <CourseDebugCard />}
             </Flex>
@@ -180,9 +207,9 @@ function CourseInfoCard() {
                 {course.courseName}
             </UnText>
             <UnText size={12} color={theme.colors.grey1}>
-                {course.venueName}，{course.name}，{course.courseCategory}，{course.examMethod}，{course.courseFlag}，
-                {course.weekdayName}
-                {course.periodCount}节，{course.weekRange}
+                {course.venueName}，{course.teacher}，{course.courseCategory}，{course.examMethod}
+                {" · "}
+                {course.sectionRange}节，{course.weeks?.join(",")}
             </UnText>
         </View>
     );
@@ -236,7 +263,7 @@ function CourseDebugCard() {
                     return setModalOpen(true);
                 }}>
                 <Flex style={styles.card} justify="flex-start" gap={4}>
-                    <Icon name="console" size={16} inline />
+                    <Icon name="console" size={16} />
                     <UnText weight="bold" size={16}>
                         查看课程数据
                     </UnText>
@@ -247,12 +274,12 @@ function CourseDebugCard() {
     );
 }
 
-function CoursePropItem<K extends keyof CourseParsed>(props: {
+function CoursePropItem<K extends keyof AdapterTheoryItem>(props: {
     prop: K;
     label: string;
-    labelRender?: (value: CourseParsed[K], item: CourseParsed) => React.ReactNode;
-    valueRender?: (value: CourseParsed[K], item: CourseParsed) => React.ReactNode;
-    onClick?: (value: CourseParsed[K], item: CourseParsed) => void;
+    labelRender?: (value: AdapterTheoryItem[K], item: AdapterTheoryItem) => React.ReactNode;
+    valueRender?: (value: AdapterTheoryItem[K], item: AdapterTheoryItem) => React.ReactNode;
+    onClick?: (value: AdapterTheoryItem[K], item: AdapterTheoryItem) => void;
 }) {
     const course = useContext(CourseContext)!;
     const {theme} = useTheme();

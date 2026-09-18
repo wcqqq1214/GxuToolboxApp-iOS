@@ -127,5 +127,19 @@ export const userMgr = {
                 return null;
             }
         },
+
+        clearAccountAndToken: async() => {
+            try {
+                await store.remove({
+                    key: "wjxtAccount"
+                });
+                await store.remove({
+                    key: "wjxtToken"
+                });
+            } catch (e) {
+                console.log(e);
+                return null;
+            }
+        }
     },
 };

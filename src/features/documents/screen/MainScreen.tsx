@@ -5,11 +5,13 @@ import {UnText, vh, vw} from "@/components/un-ui";
 import {LoginDialog} from "@/features/documents/components/LoginDialog.tsx";
 import {FilePaginator} from "@/features/documents/components/FilePaginator.tsx";
 import {FileCard} from "@/features/documents/components/FileCard.tsx";
+import {FileTypePicker} from "@/features/documents/components/FileTypePicker.tsx";
+import {InputBar} from "@/features/documents/components/InputBar.tsx";
 import {Divider, useTheme} from "@rneui/themed";
 import {createNativeStackNavigator} from "@react-navigation/native-stack";
 import {FileScreen} from "@/features/documents/screen/FileScreen.tsx";
 import {useNavigation} from "@react-navigation/native";
-import {oaApi} from "@/js/wjxt/oaApi.ts";
+import {index} from "@/features/documents/api";
 import type {FileItem} from "@/type/api/fileSystem/file.ts";
 
 const PAGE_SIZE = 10;
@@ -23,6 +25,8 @@ export function PendingFileListScreen() {
     const [files, setFiles] = useState<FileItem[]>([]);
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(0);
+    const [selectedFileType, setSelectedFileType] = useState<number>(0);
+    const [keyword, setKeyword] = useState<string>("");
     const [Account, setAccount] = useState<{username: string; password: string}>({username: "", password: ""});
 
     const navigation = useNavigation();
@@ -31,13 +35,13 @@ export function PendingFileListScreen() {
     const style = StyleSheet.create({
         loadingView: {
             display: "flex",
-            height: vh(70),
+            height: vh(65),
             justifyContent: "center",
             alignItems: "center",
             gap: 4,
         },
         listView: {
-            height: vh(70),
+            height: vh(65),
             paddingHorizontal: 2,
         },
         emptyView: {
@@ -47,9 +51,12 @@ export function PendingFileListScreen() {
     });
 
     /** 从服务端加载指定页 */
-    async function loadPage(page: number) {
+
+    async function loadPage(page: number, fileTypeId?: number) {
         setIsLoading(true);
-        const res = await oaApi.getFileList({page, pageSize: PAGE_SIZE});
+        const apiFileType = (fileTypeId === 0 && fileTypeId !== undefined) ? null : fileTypeId;
+
+        const res = await index.getFileList({page, pageSize: PAGE_SIZE, fileTypeId: apiFileType, keyword});
         if (res?.code === 200) {
             setFiles(res.result.items);
             setCurrentPage(page);
@@ -77,12 +84,12 @@ export function PendingFileListScreen() {
             return;
         }
 
-        const tokenValid = await oaApi.testToken();
+        const tokenValid = await index.testToken();
         if (tokenValid) {
             setIsLogin(true);
             await loadPage(1);
         } else {
-            const loginRes = await oaApi.login(username, password);
+            const loginRes = await index.login(username, password);
             if (loginRes) {
                 setIsLogin(true);
                 await loadPage(1);
@@ -98,7 +105,7 @@ export function PendingFileListScreen() {
             setIsLogin(false);
             setIsBusy(true);
             setFiles([]);
-            const loginRes = await oaApi.login(username, password);
+            const loginRes = await index.login(username, password);
             if (loginRes) {
                 ToastAndroid.show("登录成功", 500);
                 setIsLogin(true);
@@ -112,6 +119,17 @@ export function PendingFileListScreen() {
         } finally {
             setIsBusy(false);
         }
+    }
+
+    async function logout(){
+        await userMgr.wjxt.clearAccountAndToken();
+        setIsLogin(false);
+        setAccount({username: "", password: ""});
+        setFiles([]);
+        setTotalPages(0);
+        setCurrentPage(0);
+        ToastAndroid.show("已清理账号缓存", 500);
+        return;
     }
 
     // @ts-ignore
@@ -128,15 +146,31 @@ export function PendingFileListScreen() {
                         flexDirection: "row",
                         justifyContent: "space-between",
                         alignItems: "flex-end",
+                        overflow: "visible",
                     }}>
-                    <View>
-                        <UnText size={20}>全部文件</UnText>
-                    </View>
+                    <FileTypePicker
+                        selectedValue={selectedFileType}
+                        onValueChange={async (value) => {
+                            setSelectedFileType(value);
+                            if (isLogin) await loadPage(1, value);
+                        }}
+                        enabled={!isLoading && isLogin}
+                    />
                     <TouchableOpacity onPress={() => setIsLoginModel(true)}>
                         <UnText size={18} color={theme.colors.primary}>
                             登录
                         </UnText>
                     </TouchableOpacity>
+                </View>
+                <View style={{marginTop: 8}}>
+                    <InputBar
+                        keyword={keyword}
+                        onKeywordChange={setKeyword}
+                        onSubmit={async () => {
+                            if (isLogin) await loadPage(1);
+                        }}
+                        disabled={!isLogin || isLoading}
+                    />
                 </View>
                 <Divider orientation="horizontal" />
 
@@ -169,6 +203,7 @@ export function PendingFileListScreen() {
 
                 {isLogin && (
                     <FilePaginator
+                        visible={isLogin}
                         currentPage={currentPage}
                         totalPages={totalPages}
                         onPrev={() => goToPage(currentPage - 1)}
@@ -179,11 +214,15 @@ export function PendingFileListScreen() {
             <LoginDialog
                 isVisible={isLoginModel}
                 isBusy={isBusy}
+                isLogin={isLogin}
                 username={Account.username}
                 password={Account.password}
                 onBackdropPress={() => setIsLoginModel(false)}
                 handleLogin={async (username, password) => {
                     await handleLogin(username, password);
+                }}
+                logout={async () => {
+                    await logout();
                 }}
             />
         </>

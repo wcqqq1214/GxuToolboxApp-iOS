@@ -6,8 +6,10 @@ import {StyleSheet, View} from "react-native";
 type Props = {
     isVisible: boolean;
     isBusy: boolean;
+    isLogin: boolean;
     onBackdropPress: () => void;
     handleLogin: (username: string, password: string) => void;
+    logout: () => void;
     username: string;
     password: string;
 };
@@ -76,6 +78,14 @@ export function LoginDialog(props: Props) {
                 disabled={props.isBusy}
                 loading={props.isBusy}
                 onPress={() => props.handleLogin(username, password)}
+                style={{marginBottom: 8}}
+            />
+            <Button
+                title="退出登录"
+                color={theme.colors.primary}
+                disabled={props.isLogin}
+                loading={props.isBusy}
+                onPress={() => props.logout()}
             />
         </Dialog>
     );

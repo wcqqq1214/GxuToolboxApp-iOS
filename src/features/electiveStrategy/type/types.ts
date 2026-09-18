@@ -1,12 +1,12 @@
 // 描述毕业要求的“策略”
-import {CourseList} from "@/features/electiveStrategy/api/schema.ts";
+import {SelectedCourse} from "gxu-tool-adapters/jw";
 
 export interface ElectiveStrategy {
     id: string; // 唯一标识，如 'grade-2024'
     name: string; // 显示在界面的标题，如 '非 2025 级毕业要求'
 
     // 一个函数，接收学生已修课程，返回计算后的统计数据
-    calculate: (courses: CourseList[]) => ElectiveStats;
+    calculate: (courses: SelectedCourse[]) => ElectiveStats;
 
     // UI 展示需要的元数据
     ui: {

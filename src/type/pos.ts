@@ -1,3 +1,5 @@
+import {theme} from "@/shared/theme.ts";
+
 export interface IPos {
     type: "教学楼" | "学院" | "食堂" | "校门" | "综合性建筑" | "体育场" | "店铺" | "宿舍" | "快递驿站" | "其他";
     test: RegExp | ((text: string) => boolean);
@@ -7,6 +9,13 @@ export interface IPos {
 }
 
 export const BuildingList: IPos[] = [
+    {
+        type:"体育场",
+        name:"西体育馆",
+        fullName:"广西大学西校园新西体育馆",
+        simpleName:["西体","新生开学报道处"],
+        test: /#/,
+    },
     {
         type: "教学楼",
         name: "东校园第六教学楼",

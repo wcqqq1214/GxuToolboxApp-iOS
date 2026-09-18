@@ -1,4 +1,3 @@
-
 /**
  * 文件系统 API 通用响应包装
  * @template T - result 字段的具体类型
@@ -130,15 +129,6 @@ export interface FileItem {
 }
 
 
-/**
- * 文件列表查询 — 完整 API 响应类型
- */
-export type FileListRes = FileSystemApiRes<FileListPageResult<FileItem>>;
-
-
-/**
- * 登录成功后返回的 result 数据
- */
 export interface LoginResult {
     /** JWT 访问令牌 */
     accessToken: string;
@@ -152,7 +142,79 @@ export interface LoginResult {
     needChangePassword: boolean;
 }
 
+
+
 /**
- * 登录接口 — 完整 API 响应类型
+ * OA 文件搜索接口响应类型
  */
-export type LoginRes = FileSystemApiRes<LoginResult>;
+export interface SearchFileRes {
+    code: number;
+    elapsed: string;
+    extras: null | unknown;
+    message: string;
+    result: FileListPageResult<SearchFileItem>[];
+    time: string;
+    type: string;
+}
+
+/**
+ * 搜索接口的文件条目
+ */
+export interface SearchFileItem {
+    /** 评论内容 */
+    comment: unknown | null;
+
+    /** 联系人姓名 */
+    contactPerson: unknown | null;
+
+    /** 联系人电话/手机号 */
+    contactPhone: unknown | null;
+
+    /** 内容摘要/预览片段*/
+    contentSnippet: unknown | null;
+
+    /** 所属部门/机构 */
+    department: string;
+
+    /** 文档生成/创建时间*/
+    docTime: string;
+
+    /** 文件编号/序号 */
+    fileNum: string;
+
+    /** 文件编码 */
+    fileNumber: string;
+
+    /** 文件类型 */
+    fileType: number;
+
+    /** 流程状态 */
+    flowStatus: unknown | null;
+
+    /** 记录唯一标识ID */
+    id: number;
+
+    /** 是否在前台显示 */
+    isShowFront: boolean;
+
+    /** 是否紧急标记 */
+    isUrgent: boolean;
+
+    /** 是否部门级紧急 */
+    isUrgentDept: boolean;
+
+    /** 脱敏状态 */
+    mskState: unknown | null;
+
+    /** 来源名称 */
+    sourceName: string;
+
+    /** 来源类型 */
+    sourceType: string;
+
+    /** 文档标题/名称 */
+    title: string;
+
+    /** 文档类型名称 */
+    typeName: string;
+}

@@ -1,13 +1,14 @@
 import {http, urlWithParams} from "@/core/http.ts";
-import {AxiosResponse} from "axios";
+import axios, {AxiosResponse} from "axios";
 import {getEncryptedPassword} from "@/shared/rasPassword";
 import {SchoolTerms} from "@/type/global.ts";
 import {UserInfo} from "@/type/infoQuery/base.ts";
 import {personalInfoParser} from "@/js/HTMLparser/personalInfoParser.ts";
 import CookieManager from "@preeternal/react-native-cookie-manager";
 import {runJw} from "@/core/gateway/jw/run.ts";
-import {backendHttp} from "@/features/backend/api";
 
+const JW_COOKIE_URL = "https://jwxt2018.gxu.edu.cn/jwglxt";
+const BACKEND_COOKIE_URL = "http://api.tool.gxutech.xyz";
 async function local(username: string, password: string): Promise<boolean> {
     await JwAuthClient.clearSession();
     const keys = await JwAuthClient.getPublicKey();
@@ -24,16 +25,39 @@ async function local(username: string, password: string): Promise<boolean> {
         ok = await JwAuthClient.testTokenRaw();
     }
 
+    if (ok) {
+        const saved = await CookieManager.get(JW_COOKIE_URL);
+
+        if (saved.JSESSIONID) {
+            await CookieManager.set(BACKEND_COOKIE_URL, {
+                name: "JSESSIONID",
+                value: saved.JSESSIONID.value,
+            });
+        }
+        if (saved.route) {
+            await CookieManager.set(BACKEND_COOKIE_URL, {
+                name: "route",
+                value: saved.route.value,
+            });
+        }
+    }
+
     return ok;
 }
 
 async function remote(username: string, password: string): Promise<boolean> {
-    const JW_COOKIE_URL = "https://jwxt2018.gxu.edu.cn/jwglxt";
-    const BACKEND_COOKIE_URL = "http://api.tool.gxutech.xyz";
-
     await CookieManager.clearAll();
 
-    const res = await backendHttp.post("/jw/login", {username, password});
+    const res = await axios.post(
+        BACKEND_COOKIE_URL + "/jw/login",
+        {username, password},
+        {
+            headers: {"Content-Type": "application/json"},
+            withCredentials: true,
+            timeout: 10000,
+        },
+    );
+
     const header = readHeader(res.headers["set-cookie"]);
 
     const session = pick(header, "JSESSIONID");

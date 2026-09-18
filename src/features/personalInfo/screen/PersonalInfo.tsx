@@ -21,8 +21,12 @@ export const PersonalInfo = () => {
     const [loading, setLoading] = useState(true);
     const init = async () => {
         const res = await getPersonalInfo();
+        console.log(res);
         setInfo(res);
         setLoading(false);
+        // const profile: UserProfile = {
+        //     student_id: res
+        // }
     };
 
     useEffect(() => {

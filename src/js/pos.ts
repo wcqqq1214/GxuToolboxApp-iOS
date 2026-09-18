@@ -96,17 +96,25 @@ function chooseInstalledMapApp(availableMaps: AvailableMaps): Promise<MapApp | n
 
 export const Pos = {
     parseStr: (str: string): IPos | null => {
-        let res: IPos | null = null;
+        if (!str) {
+            return null;
+        }
+        // 1. 优先使用 test 规则匹配（兼容 "6A-102"、"西3-408" 等场地编号格式）
         for (const pos of BuildingList) {
             if (
                 (typeof pos.test === "function" && pos.test(str)) ||
                 (pos.test instanceof RegExp && "test" in pos.test && pos.test.test(str))
             ) {
-                res = pos;
-                break;
+                return pos;
             }
         }
-        return res;
+        // 2. 回退：按楼栋别名 / 名称做子串匹配（兼容 "西三教3-406" 这类带楼栋名的格式）
+        for (const pos of BuildingList) {
+            if (pos.simpleName.some(alias => alias.length > 0 && str.includes(alias)) || str.includes(pos.name)) {
+                return pos;
+            }
+        }
+        return null;
     },
     searchInMap: async (pos: IPos | string) => {
         if (!pos) {

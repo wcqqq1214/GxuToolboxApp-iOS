@@ -1,4 +1,4 @@
-import {BottomSheet, Divider, Text, useTheme} from "@rneui/themed";
+import {Divider, Text, useTheme} from "@rneui/themed";
 import {StyleSheet, View} from "react-native";
 import React, {useCallback, useEffect, useMemo, useState} from "react";
 import Flex from "@/components/un-ui/Flex.tsx";
@@ -11,13 +11,13 @@ import {CourseCardSetting} from "@/components/tool/infoQuery/courseSchedule/Cour
 import {useNavigation} from "@react-navigation/native";
 import {ScheduleShareSheet} from "@/components/tool/infoQuery/courseSchedule/ScheduleShareSheet.tsx";
 import {useUserConfig} from "@/hooks/useUserConfig.ts";
-import {UnJsonEditor, UnPressable, UnText} from "@/components/un-ui";
+import {UnBottomSheet, UnJsonEditor, UnPressable, UnText} from "@/components/un-ui";
 import {TimeScheduleView} from "@/components/tool/infoQuery/courseSchedule/TimeScheduleView.tsx";
 import {ScheduleTableItem, TimeScheduleItemData} from "@/features/courseSchedule/type/schedule.ts";
 import {useCourse} from "@/features/courseSchedule/hooks/detail/useCourse.ts";
 import {useStartDay} from "@/features/courseSchedule/hooks/detail/useStartDay.ts";
 import {useExam} from "@/features/courseSchedule/hooks/detail/useExam.ts";
-import {useNextCourse} from "@/features/courseSchedule/hooks/detail/useNextCourse.ts";
+import {useNextEvent} from "@/features/courseSchedule/hooks/detail/useNextCourse.ts";
 import {usePractice} from "@/features/courseSchedule/hooks/detail/usePractice.ts";
 import {PracticalCourseList} from "@/features/courseSchedule/components/PracticalCourseList.tsx";
 import {CourseDetail} from "@/features/courseSchedule/components/CourseDetail.tsx";
@@ -31,7 +31,6 @@ import {useAttendanceAuth} from "@/core/auth/attendance/hooks/useAttendanceAuth.
 import {NewCourseItem} from "@/features/courseSchedule/components/NewCourseItem.tsx";
 import {NewExamItem} from "@/features/courseSchedule/components/NewExamItem.tsx";
 import {HolidayItem} from "@/features/courseSchedule/components/HolidayItem.tsx";
-import {Course} from "@/type/infoQuery/course/course.ts";
 import {CourseClass} from "@/class/jw/course.ts";
 import {StackCourseItem} from "@/features/courseSchedule/components/StackCourseItem.tsx";
 import {useConflictCourseStore} from "@/features/courseSchedule/stores/useConflictCourseStore.ts";
@@ -41,6 +40,7 @@ import {ExamInfoClass} from "@/class/jw/exam.ts";
 import {ExamDetail} from "@/components/tool/infoQuery/examInfo/ExamDetail.tsx";
 import {JwMachine} from "@/core/auth/Jw/JwMachine.ts";
 import {AuthStateMap} from "@/core/auth/auth.type.ts";
+import {switchByField} from "@/utils/objectUtils.ts";
 
 // 菜单的类型
 type SheetState =
@@ -73,18 +73,22 @@ export function ScheduleCard() {
 
     const [year, setYear] = useState(+ucStore(s => s.jw.year));
     const [term, setTerm] = useState<SchoolTermValue>(ucStore(s => s.jw.term));
-    const startDay = useStartDay(year, term);
+    const {startDay} = useStartDay(year, term);
 
     const {items: courseItems = [], refresh: refreshCourse} = useCourse(year, term);
-    const {store: examStore, init: initExam} = useExam();
+    const {store: examStore, init: initExam, loadCache: loadExamCache} = useExam();
     const examItems = examStore(s => s.examList) || [];
     const holidayItems = useHoliday(year, term) ?? [];
     const {items: practiceItems = [], refresh: refreshPractice} = usePractice(year, term);
 
     async function init() {
+        // 同步加载MMKV缓存到store，避免等待网络时页面空白
+        loadExamCache();
+
         if (JWAuthState.status !== AuthStateMap.Authenticated) {
             await JwMachine.refreshToken();
         } else {
+            // 异步拉取最新考试和物理实验数据
             await initExam(year, term, startDay);
             await initPhyExp();
         }
@@ -95,7 +99,7 @@ export function ScheduleCard() {
     }, [year, term]);
 
     const defaultItem: ScheduleTableItem[] = useMemo(
-        () => (JWAuthState.status !== "no_account" ? [] : defaultItems),
+        () => (JWAuthState.status !== "no_account" || courseItems.length > 0 ? [] : defaultItems),
         [JWAuthState.status],
     );
 
@@ -103,8 +107,6 @@ export function ScheduleCard() {
         () => [...courseItems, ...examItems, ...holidayItems, ...defaultItem],
         [courseItems, examItems, holidayItems, defaultItem],
     );
-    const nextCourse = useNextCourse(rawItems, startDay);
-
     const [sheet, setSheet] = useState<SheetState>({type: "closed"});
 
     const onItemPress = useCallback(
@@ -124,15 +126,11 @@ export function ScheduleCard() {
                     stackRender: (items, day, _week, timeRange) => {
                         const courses = items.map(i => patchCourse(new CourseClass(i.raw), day)).filter(Boolean);
                         if (courses.length === 0) return null;
-                        const courseCodes = courses
-                            .map(c => c.transformed.courseCode + "_" + c.transformed.staffId)
-                            .sort();
+                        const courseCodes = courses.map(c => c._ori.courseName + "_" + c._ori.teacher).sort();
                         const storedActive = conflictStore.getState().getActive(courseCodes);
                         const activeCourse =
                             storedActive ??
-                            (courses[0]
-                                ? courses[0].transformed.courseCode + "_" + courses[0].transformed.staffId
-                                : "");
+                            (courses[0] ? courses[0]._ori.courseName + "_" + courses[0]._ori.teacher : "");
                         return (
                             <StackCourseItem
                                 course={courses}
@@ -142,7 +140,7 @@ export function ScheduleCard() {
                             />
                         );
                     },
-                } as TimeScheduleItemData<ScheduleTableItem<Course>>,
+                } as TimeScheduleItemData<ScheduleTableItem>,
                 {
                     data: examItems,
                     itemRender: (item, day) => <NewExamItem item={item} onPress={() => onItemPress(item, day)} />,
@@ -187,14 +185,6 @@ export function ScheduleCard() {
     const style = useMemo(
         () =>
             StyleSheet.create({
-                bottomSheetContainer: {
-                    backgroundColor: theme.colors.background,
-                    padding: "5%",
-                    borderTopLeftRadius: 8,
-                    borderTopRightRadius: 8,
-                    borderColor: Color.mix(theme.colors.primary, theme.colors.background, 0.8).rgbaString,
-                    borderWidth: 1,
-                },
                 cardTitle: {
                     paddingHorizontal: 12,
                 },
@@ -269,18 +259,7 @@ export function ScheduleCard() {
                 </Flex>
             </Flex>
             <Divider />
-            {nextCourse !== null ? (
-                <View style={style.nextCourse}>
-                    <Text style={{fontSize: 18, color: textColor}}>
-                        下一节课：{nextCourse.item.title}
-                        {nextCourse.item.location ? ` · ${nextCourse.item.location}` : ""}
-                    </Text>
-                </View>
-            ) : (
-                <View style={style.nextCourse}>
-                    <Text style={{fontSize: 18, color: textColor}}>下一节课：高等数学{` · 6A-102`}（示例）</Text>
-                </View>
-            )}
+            <NextEventBanner />
             <TimeScheduleView
                 showDate
                 showTimeSpanHighlight
@@ -297,122 +276,181 @@ export function ScheduleCard() {
                     <ScheduleDataDebugCard label="查看实践课数据" data={practiceItems} />
                 </Flex>
             )}
-            <BottomSheet isVisible={sheet.type !== "closed"} onBackdropPress={() => setSheet({type: "closed"})}>
-                <View style={style.bottomSheetContainer}>
-                    {sheet.type === "menu" && (
-                        <>
-                            <AuthStatusSection
-                                jwAuth={JWAuthState}
-                                unifiedAuth={unifiedAuthState}
-                                attendanceAuth={attendanceAuthState}
-                                menuItemStyle={style.menuItem}
+            <UnBottomSheet
+                isVisible={sheet.type !== "closed"}
+                onBackdropPress={() => setSheet({type: "closed"})}
+                containerStyle={{padding: "5%"}}>
+                {sheet.type === "menu" && (
+                    <>
+                        <AuthStatusSection
+                            jwAuth={JWAuthState}
+                            unifiedAuth={unifiedAuthState}
+                            attendanceAuth={attendanceAuthState}
+                            menuItemStyle={style.menuItem}
+                        />
+                        <UnPressable
+                            onPress={function () {
+                                setSheet({type: "closed"});
+                                navigation.navigate("ScheduleEdit");
+                            }}>
+                            <View style={style.menuItem}>
+                                <Icon name="table-edit" size={22} />
+                                <UnText>事件编辑</UnText>
+                            </View>
+                        </UnPressable>
+                        <UnPressable
+                            onPress={function () {
+                                return setSheet({type: "share"});
+                            }}>
+                            <View style={style.menuItem}>
+                                <Icon type="antdesign" name="share-alt" size={22} />
+                                <UnText>分享课表</UnText>
+                            </View>
+                        </UnPressable>
+                        <UnPressable
+                            onPress={function () {
+                                return setSheet({type: "setting"});
+                            }}>
+                            <View style={style.menuItem}>
+                                <Icon name="cog" size={22} />
+                                <UnText>课表设置</UnText>
+                            </View>
+                        </UnPressable>
+                    </>
+                )}
+                {sheet.type === "setting" && (
+                    <CourseCardSetting
+                        year={year}
+                        term={term}
+                        pageViewRest={rest}
+                        onYearChange={setYear}
+                        onTermChange={setTerm}
+                    />
+                )}
+                {sheet.type === "itemDetail" && sheet.item.kind === "exam" && sheet.item.raw && (
+                    <ExamDetail examInfo={new ExamInfoClass(sheet.item.raw as ExamInfo)} />
+                )}
+                {sheet.type === "itemDetail" &&
+                    sheet.item?.raw &&
+                    sheet.item.kind !== "exam" &&
+                    (() => {
+                        const course = patchCourse(new CourseClass(sheet.item.raw), sheet.day);
+                        const courseName = course._ori.courseName;
+                        const matchedExam = examItems
+                            .filter(e => e.raw?.kcmc === courseName)
+                            ?.map(e => new ExamInfoClass(e.raw as ExamInfo));
+                        return (
+                            <CourseDetail
+                                course={course}
+                                examInfo={matchedExam}
+                                onExamPress={exam => {
+                                    const examDate = moment(exam.transformed.examTime.slice(0, 10));
+                                    const week = examDate.diff(startDay, "week") + 1;
+                                    rest.setPage(week - 1);
+                                    setSheet({
+                                        type: "itemDetail",
+                                        day: examDate,
+                                        item: {
+                                            id: exam.transformed.courseCode,
+                                            week,
+                                            day: examDate.isoWeekday() as ScheduleTableItem["day"],
+                                            begin: 1 as ScheduleTableItem["begin"],
+                                            end: 1 as ScheduleTableItem["begin"],
+                                            title: exam.transformed.courseName,
+                                            location: exam.transformed.venueName,
+                                            kind: "exam",
+                                            raw: exam._ori,
+                                        },
+                                    });
+                                }}
                             />
-                            <UnPressable
-                                onPress={function () {
-                                    setSheet({type: "closed"});
-                                    navigation.navigate("ScheduleEdit");
-                                }}>
-                                <View style={style.menuItem}>
-                                    <Icon name="table-edit" size={22} />
-                                    <UnText>事件编辑</UnText>
-                                </View>
-                            </UnPressable>
-                            <UnPressable
-                                onPress={function () {
-                                    return setSheet({type: "share"});
-                                }}>
-                                <View style={style.menuItem}>
-                                    <Icon type="antdesign" name="share-alt" size={22} />
-                                    <UnText>分享课表</UnText>
-                                </View>
-                            </UnPressable>
-                            <UnPressable
-                                onPress={function () {
-                                    return setSheet({type: "setting"});
-                                }}>
-                                <View style={style.menuItem}>
-                                    <Icon name="cog" size={22} />
-                                    <UnText>课表设置</UnText>
-                                </View>
-                            </UnPressable>
-                        </>
-                    )}
-                    {sheet.type === "setting" && (
-                        <CourseCardSetting
-                            year={year}
-                            term={term}
-                            pageViewRest={rest}
-                            onYearChange={setYear}
-                            onTermChange={setTerm}
-                        />
-                    )}
-                    {sheet.type === "itemDetail" && sheet.item.kind === "exam" && sheet.item.raw && (
-                        <ExamDetail examInfo={new ExamInfoClass(sheet.item.raw as ExamInfo)} />
-                    )}
-                    {sheet.type === "itemDetail" &&
-                        sheet.item?.raw &&
-                        sheet.item.kind !== "exam" &&
-                        (() => {
-                            const course = patchCourse(new CourseClass(sheet.item.raw), sheet.day);
-                            const courseName = course.transformed.courseName;
-                            const matchedExam = examItems
-                                .filter(e => e.raw?.kcmc === courseName)
-                                ?.map(e => new ExamInfoClass(e.raw as ExamInfo));
-                            return (
-                                <CourseDetail
-                                    course={course}
-                                    examInfo={matchedExam}
-                                    onExamPress={exam => {
-                                        const examDate = moment(exam.transformed.examTime.slice(0, 10));
-                                        const week = examDate.diff(startDay, "week") + 1;
-                                        rest.setPage(week - 1);
-                                        setSheet({
-                                            type: "itemDetail",
-                                            day: examDate,
-                                            item: {
-                                                id: exam.transformed.courseCode,
-                                                week,
-                                                day: examDate.isoWeekday() as ScheduleTableItem["day"],
-                                                begin: 1 as ScheduleTableItem["begin"],
-                                                end: 1 as ScheduleTableItem["begin"],
-                                                title: exam.transformed.courseName,
-                                                location: exam.transformed.venueName,
-                                                kind: "exam",
-                                                raw: exam._ori,
-                                            },
-                                        });
-                                    }}
-                                />
-                            );
-                        })()}
-                    {sheet.type === "share" && (
-                        <ScheduleShareSheet week={rest.activePage + 1} onClose={() => setSheet({type: "closed"})} />
-                    )}
-                    {sheet.type === "courseConflict" && (
-                        <ConflictCourseSheet
-                            courses={sheet.courses}
-                            onSelect={() => setSheet({type: "closed"})}
-                            onPressActiveCourse={course => {
-                                setSheet({
-                                    type: "itemDetail",
-                                    day: sheet.day,
-                                    item: {
-                                        id: course.transformed.courseCode,
-                                        week: 0,
-                                        day: 1 as ScheduleTableItem["day"],
-                                        begin: 1 as ScheduleTableItem["begin"],
-                                        end: 1 as ScheduleTableItem["begin"],
-                                        title: course.transformed.courseName,
-                                        location: course.transformed.venueName,
-                                        teacher: course.transformed.name,
-                                        raw: course,
-                                    },
-                                });
-                            }}
-                        />
-                    )}
-                </View>
-            </BottomSheet>
+                        );
+                    })()}
+                {sheet.type === "share" && (
+                    <ScheduleShareSheet week={rest.activePage + 1} onClose={() => setSheet({type: "closed"})} />
+                )}
+                {sheet.type === "courseConflict" && (
+                    <ConflictCourseSheet
+                        courses={sheet.courses}
+                        onSelect={() => setSheet({type: "closed"})}
+                        onPressActiveCourse={course => {
+                            setSheet({
+                                type: "itemDetail",
+                                day: sheet.day,
+                                item: {
+                                    id: course._ori.courseName,
+                                    week: 0,
+                                    day: 1 as ScheduleTableItem["day"],
+                                    begin: 1 as ScheduleTableItem["begin"],
+                                    end: 1 as ScheduleTableItem["begin"],
+                                    title: course._ori.courseName,
+                                    location: course._ori.venueName,
+                                    teacher: course._ori.teacher,
+                                    raw: course,
+                                },
+                            });
+                        }}
+                    />
+                )}
+            </UnBottomSheet>
+        </View>
+    );
+}
+
+function NextEventBanner() {
+    const nextEvent = useNextEvent();
+    const {store: ucStore} = useUserConfig();
+    const year = +ucStore(s => s.jw.year);
+    const term = ucStore(s => s.jw.term);
+    const {startDay} = useStartDay(year, term);
+    const {theme} = useTheme();
+    const baseColor = theme.colors.primary;
+    const backgroundColor = Color(baseColor).setAlpha(theme.mode === "light" ? 0.3 : 0.1).rgbaString;
+    const textColor = Color.mix(baseColor, theme.colors.black, 0.5).rgbaString;
+
+    const daysFromNow = (item: {week: number; day: number}) => {
+        if (!startDay) return "未知时间";
+        const eventDay = startDay
+            .clone()
+            .add(item.week - 1, "weeks")
+            .add(item.day - 1, "days")
+            .startOf("day");
+        const diff = eventDay.diff(moment().startOf("day"), "days");
+        if (diff <= 0) return "今天";
+        if (diff === 1) return "明天";
+        return `${diff}天后`;
+    };
+
+    const style = StyleSheet.create({
+        container: {
+            paddingHorizontal: 12,
+            paddingVertical: 10,
+            borderRadius: 8,
+            marginHorizontal: 6,
+            justifyContent: "center",
+            alignItems: "center",
+            backgroundColor: backgroundColor,
+        },
+    });
+
+    if (!nextEvent && startDay) {
+        const updateTime = startDay.add(20, "week").format("MM月DD日");
+        return (
+            <View style={style.container}>
+                <Text style={{fontSize: 16, color: textColor}}>所有活动已结束，将在{updateTime}更新至下个学期</Text>
+            </View>
+        );
+    }
+
+    return (
+        <View style={style.container}>
+            <Text style={{fontSize: 18, color: textColor}}>
+                {switchByField(nextEvent, "kind", {
+                    course: ev => `下节课：${ev.title}${ev.location ? ` · ${ev.location}` : ""}`,
+                    exam: ev => `下场考试：${ev.title}${ev.location ? ` · ${ev.location}` : ""}（${daysFromNow(ev)}）`,
+                    holiday: ev => `下个假期：${ev.title}（${daysFromNow(ev)}）`,
+                })}
+            </Text>
         </View>
     );
 }

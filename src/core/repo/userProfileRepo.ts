@@ -1,4 +1,6 @@
-import {getDB} from "@/core/db.ts";
+import {db} from "@/core/db";
+import {userProfiles} from "@/core/schema";
+import {eq} from "drizzle-orm";
 
 export interface UserProfile {
     /** 学号 */
@@ -16,38 +18,43 @@ export interface UserProfile {
 
 export const userProfileRepo = {
     async upsert(profile: UserProfile): Promise<void> {
-        const db = getDB();
-        await db.execute(
-            `
-                INSERT INTO user_profiles (student_id, name, id_card, grade, college, major, class_name, study_years)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(student_id) DO UPDATE
-                    SET name        = excluded.name,
-                        id_card     = excluded.id_card,
-                        grade       = excluded.grade,
-                        college     = excluded.college,
-                        major       = excluded.major,
-                        class_name  = excluded.class_name,
-                        study_years = excluded.study_years,
-                        updated_at  = strftime('%s', 'now')
-            `,
-            [
-                profile.student_id,
-                profile.name,
-                profile.id_card,
-                profile.grade,
-                profile.college,
-                profile.major,
-                profile.class_name,
-                profile.study_years,
-            ],
-        );
+        const data = {
+            name: profile.name,
+            idCard: profile.id_card,
+            grade: profile.grade,
+            college: profile.college,
+            major: profile.major,
+            className: profile.class_name,
+            studyYears: profile.study_years,
+            updatedAt: new Date(),
+        };
+
+        await db
+            .insert(userProfiles)
+            .values({studentId: profile.student_id, ...data})
+            .onConflictDoUpdate({
+                target: userProfiles.studentId,
+                set: data,
+            });
     },
     async get(student_id: string): Promise<UserProfile | null> {
-        const db = getDB();
+        const result = await db.select().from(userProfiles).where(eq(userProfiles.studentId, student_id)).limit(1);
 
-        const result = await db.execute("SELECT * FROM user_profiles WHERE student_id = ? LIMIT 1", [student_id]);
+        if (result && result.length > 0) {
+            const row = result[0];
+            return {
+                student_id: row.studentId,
+                name: row.name || "",
+                id_card: row.idCard || "",
+                grade: row.grade || "",
+                college: row.college || "",
+                major: row.major || "",
+                class_name: row.className || "",
+                study_years: row.studyYears || 0,
+                updated_at: row.updatedAt.getTime(),
+            };
+        }
 
-        return (result.rows[0] as unknown as UserProfile | undefined) ?? null;
+        return null;
     },
 };

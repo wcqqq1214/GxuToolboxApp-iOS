@@ -28,11 +28,11 @@ export function ConflictCourseList({
             </Text>
             <ScrollView style={{maxHeight: 300}}>
                 {courses.map(c => {
-                    const t = c.transformed;
-                    const isActive = t.courseCode + "_" + t.staffId === activeCourseCode;
+                    const t = c._ori;
+                    const isActive = t.courseName + "_" + t.teacher === activeCourseCode;
                     return (
                         <UnPressable
-                            key={t.courseCode + "_" + t.staffId}
+                            key={t.courseName + "_" + t.teacher}
                             onPress={function () {
                                 return isActive ? onPressActiveCourse(c) : onSelect(c);
                             }}
@@ -49,7 +49,7 @@ export function ConflictCourseList({
                             }}>
                             <Text style={{fontWeight: isActive ? "bold" : "normal"}}>{t.courseName}</Text>
                             <Text style={{fontSize: 12, color: theme.colors.grey3}}>
-                                {[t.name, t.venueName].filter(Boolean).join(" · ")}
+                                {[t.teacher, t.venueName].filter(Boolean).join(" · ")}
                             </Text>
                         </UnPressable>
                     );
@@ -67,10 +67,10 @@ interface ConflictCourseSheetProps {
 
 export function ConflictCourseSheet({courses, onSelect, onPressActiveCourse}: ConflictCourseSheetProps) {
     const {store: conflictStore} = useConflictCourseStore();
-    const courseCodes = courses.map(c => c.transformed.courseCode + "_" + c.transformed.staffId).sort();
+    const courseCodes = courses.map(c => c._ori.courseName + "_" + c._ori.teacher).sort();
     const storedActive = conflictStore.getState().getActive(courseCodes);
     const activeCourseCode =
-        storedActive ?? (courses[0] ? courses[0].transformed.courseCode + "_" + courses[0].transformed.staffId : "");
+        storedActive ?? (courses[0] ? courses[0]._ori.courseName + "_" + courses[0]._ori.teacher : "");
 
     return (
         <ConflictCourseList
@@ -79,7 +79,7 @@ export function ConflictCourseSheet({courses, onSelect, onPressActiveCourse}: Co
             onSelect={course => {
                 conflictStore
                     .getState()
-                    .setActive(courseCodes, course.transformed.courseCode + "_" + course.transformed.staffId);
+                    .setActive(courseCodes, course._ori.courseName + "_" + course._ori.teacher);
                 onSelect(course);
             }}
             onPressActiveCourse={onPressActiveCourse}

@@ -2,7 +2,7 @@ import {ActivityIndicator, View} from "react-native";
 import {useEffect, useState} from "react";
 import WebView from "react-native-webview";
 import {useTheme} from "@rneui/themed";
-import {oaApi} from "@/js/wjxt/oaApi";
+import {index} from "@/features/documents/api";
 import {UnText} from "@/components/un-ui";
 
 /**
@@ -19,7 +19,7 @@ export function FileScreen({route}) {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        oaApi.getFileDetail(fileId).then(res => {
+        index.getFileDetail(fileId).then(res => {
             if (res?.code === 200) {
                 const body = res.result.fileBody;
                 if (body) {

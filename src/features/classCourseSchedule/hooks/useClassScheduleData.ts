@@ -1,80 +1,51 @@
-import {useEffect, useState} from "react";
-import {courseApi} from "@/js/jw/course.ts";
-import {ICourse} from "@/features/courseSchedule/type/schema/course.ts";
-import {normalizeCourse} from "@/features/courseSchedule/utils/normalizeCourse.ts";
-import {IClassList} from "@/features/classCourseSchedule/type/schema/classList.ts";
-import {SchoolTermValue, SchoolValue} from "@/type/global.ts";
+import {useState} from "react";
+import type {Schedule} from "gxu-tool-adapters/jw";
+import {classScheduleApi} from "@/features/classCourseSchedule/api";
+import {normalizeCourse} from "@/features/classCourseSchedule/utils/normalizeCourse.ts";
 
 export const useClassScheduleData = () => {
-    const [list, setList] = useState<IClassList>([]);
-    const [index, setIndex] = useState(0);
-    const [theorySchedule, setTheorySchedule] = useState(null);
-    const [practicalSchedule, setPracticalSchedule] = useState(null);
+    const [theorySchedule, setTheorySchedule] = useState<ReturnType<typeof normalizeCourse> | null>(null);
+    const [practiceSchedule, setPracticeSchedule] = useState<Schedule["practiceList"] | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [hasFetched, setHasFetched] = useState(false);
 
-    const [trafficBytes, setTrafficBytes] = useState(0);
-
-    const [loading, setLoading] = useState<boolean>(false);
-
-    const fetchList = async (year?, term?, school?, subject?, grade?, classId?) => {
-        setLoading(true);
-        const res = await courseApi.getClassCourseScheduleList(year, term, school, subject, grade, classId);
-
-        const parsed = IClassList.safeParse(res.items);
-        if (!parsed.success) {
-            console.warn("解析原始数据失败", parsed.error);
-            return;
-        }
-        setTrafficBytes(prev => prev + new Blob([JSON.stringify(res.items)]).size);
-        setList(parsed.data);
-        setIndex(0);
-        setLoading(false);
+    const applySchedule = (schedule: Schedule) => {
+        setTheorySchedule(normalizeCourse(schedule));
+        setPracticeSchedule(schedule.practiceList);
     };
 
-    const process = (raw: any) => {
-        if (!raw) return;
-
-        // 总是解析
-        const parsed = ICourse.safeParse(raw);
-        if (!parsed.success) {
-            console.warn("解析原始数据失败", parsed.error);
-            return;
-        }
-
-        const theory = normalizeCourse(parsed.data);
-        const practical = parsed.data.practiceList;
-        setTheorySchedule(theory);
-        setPracticalSchedule(practical);
-    };
-
-    // list 变了 → 自动拉第一条
-    useEffect(() => {
-        const item = list[0];
-        if (!item) return;
-        fetchSchedule(item);
-    }, [list]);
-
-    // 手动触发
-    const fetchSchedule = (item = list[index]) => {
+    // 直接以用户选的班级 classId 查班级课表，不再先拉教学班列表（class-schedules）
+    const fetchSchedule = async (
+        year: string | number,
+        term: string | number,
+        major: string,
+        grade: string,
+        classId: string,
+    ) => {
         setLoading(true);
-        if (!item) {
+        setError(null);
+        try {
+            const res = await classScheduleApi.fetchClassSchedule(String(year), String(term), major, grade, classId);
+
+            // 后端 parseSchedule 解析教务原始数据失败（或教务返回空）时会返回 null。
+            // 真正的"无课程"会被解析成空数组而非 null，故 null 视作异常。
+            if (res == null) {
+                setError("未获取到课表数据，请确认班级与学期或稍后重试");
+                setHasFetched(true);
+                return;
+            }
+
+            applySchedule(res);
+            setHasFetched(true);
+        } catch (e: any) {
+            console.warn("查询班级课表失败", e);
+            setError(e?.response?.data?.message || e?.message || "查询失败，请稍后重试");
+            setHasFetched(true);
+        } finally {
             setLoading(false);
-            return;
         }
-        courseApi
-            .getClassCourseSchedule(
-                item.year,
-                item.term as SchoolTermValue,
-                item.schoolId as SchoolValue,
-                item.majorId,
-                item.gradeId,
-                item.classId,
-            )
-            .then(res => {
-                setTrafficBytes(prev => prev + new Blob([JSON.stringify(res)]).size);
-                if (res) process(res);
-                setLoading(false);
-            });
     };
 
-    return {list, index, setIndex, fetchList, fetchSchedule, theorySchedule, practicalSchedule, loading, trafficBytes};
+    return {fetchSchedule, theorySchedule, practiceSchedule, loading, error, hasFetched};
 };

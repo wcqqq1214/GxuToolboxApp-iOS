@@ -10,6 +10,7 @@ import {ToastAndroid} from "react-native";
 import {useUserConfig} from "@/hooks/useUserConfig.ts";
 import {useCourseData} from "@/hooks/useCourseData.ts";
 import {Color} from "@/shared/color.ts";
+import {getCurrentOTAVersionCode} from "@/core/ota.ts";
 
 export function SettingIndex() {
     const {store: ucStore} = useUserConfig();
@@ -151,15 +152,29 @@ export function SettingIndex() {
                     ),
                 },
                 {
-                    label: "代码版本号",
-                    type: "text",
-                    value: packageJson.version,
+                    label: `软件版本 <${packageJson.version}>`,
+                    type: "navigation",
+                    value: "versionList",
+                },
+                {
+                    label: `代码版本 <${(() => {
+                        const code = getCurrentOTAVersionCode();
+                        return code > 0 ? String(code) : "无";
+                    })()}>`,
+                    type: "navigation",
+                    value: "otaList",
                 },
                 {
                     label: "源代码",
                     type: "link",
                     value: "GitLab",
                     url: "https://gitlab.unde.site/gxutool/gxu_tool_app",
+                },
+                {
+                    label:"GitHub 仓库",
+                    type:"link",
+                    value:"GitHub",
+                    url:"https://github.com/GxuTool/GxuToolboxApp",
                 },
                 {
                     label: "软件文档",

@@ -20,7 +20,7 @@ import {
 import {useUserConfig} from "@/hooks/useUserConfig.ts";
 import {AttendanceQuickLogin} from "@/components/tool/auth/AttendanceQuickLogin.tsx";
 import {AttendanceSystemType as AST} from "@/type/api/auth/attendanceSystem.ts";
-import {attendanceSystemApi} from "@/js/auth/attendanceSystem.ts";
+import {attendanceApi} from "@/features/attendance/api/index.ts";
 import {AttendanceCourseClass, AttendanceDataClass} from "@/class/auth/attendanceSystem.ts";
 import moment from "moment/moment";
 import {AttendanceCourseItem} from "@/components/tool/auth/AttendanceCourseItem.tsx";
@@ -29,6 +29,7 @@ import {useWebView} from "@/hooks/app.ts";
 import {TimeScheduleItemData} from "@/features/courseSchedule/type/schedule.ts";
 import {AttendanceStateIcon} from "@/features/courseSchedule/components/AttendanceStateIcon.tsx";
 import {useAttendance} from "@/features/courseSchedule/hooks/detail/useAttendance.ts";
+import {attendanceAuthApi} from "@/core/auth/attendance/attendanceAuthApi.ts";
 
 const style = StyleSheet.create({
     container: {
@@ -49,11 +50,11 @@ export default function AttendanceInfoQueryScreen() {
     const [quickLoginShow, setQuickLoginShow] = useState(false);
 
     async function init() {
-        setCalender(await attendanceSystemApi.calenderData.getBySchoolTerm(year, term));
+        setCalender(await attendanceApi.calenderData.getBySchoolTerm(year, term));
     }
 
     async function testToken() {
-        const testRes = await attendanceSystemApi.testTokenExpired();
+        const testRes = await attendanceAuthApi.testToken();
         if (!testRes) {
             setQuickLoginShow(true);
             ToastAndroid.show("考勤系统Token已过期，请输入验证码快速登录", ToastAndroid.SHORT);
@@ -128,7 +129,7 @@ function TableScreen(props: ScreenType) {
     const {update: updateAttendance} = useAttendance();
 
     async function getData() {
-        const res = await attendanceSystemApi.getAttendanceTable(week, props.calender?.calendarId);
+        const res = await attendanceApi.getAttendanceTable(week, props.calender?.calendarId);
         if (res) {
             setCourseList(res.getCourseList.flat());
         }
@@ -136,7 +137,7 @@ function TableScreen(props: ScreenType) {
 
     async function getAttendanceData() {
         if (!props.calender) return;
-        const res = await attendanceSystemApi.getPersonalData(props.calender?.calendarId, {
+        const res = await attendanceApi.getPersonalData(props.calender?.calendarId, {
             page_size: 1000,
         });
         if (res && props.calender) {
@@ -277,7 +278,7 @@ function RecordScreen(props: ScreenType) {
     }
 
     async function getData() {
-        const res = await attendanceSystemApi.getPersonalData(props.calender?.calendarId ?? 18, {
+        const res = await attendanceApi.getPersonalData(props.calender?.calendarId ?? 18, {
             page_index: page,
             page_size: 20,
         });

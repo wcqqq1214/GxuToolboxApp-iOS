@@ -1,4 +1,4 @@
-import {store} from "@/core/store.ts";
+import {mmkv} from "@/store/mmkv";
 import {SchoolTermValue} from "@/type/global.ts";
 import {IExam} from "@/features/courseSchedule/type/schema/exam.ts";
 import {normalizeExam} from "@/features/courseSchedule/utils/normalizeExam.ts";
@@ -14,12 +14,32 @@ interface ExamStoreState {
     examList: ScheduleTableItem<ExamInfo>[];
 }
 
-const useExamStore = create<ExamStoreState>()(() => ({
-    examRaw: [],
-    examList: [],
-}));
+const useExamStore = create<ExamStoreState>()(() => {
+    // 同步加载MMKV缓存，避免首次渲染空白
+    const cached = mmkv.getObject<ExamInfoQueryRes>("originalExamList");
+    const startDayStr = mmkv.getString("examStartDay");
+    if (cached && startDayStr) {
+        const parsed = IExam.safeParse(cached.items);
+        if (parsed.success) {
+            return {
+                examRaw: cached.items,
+                examList: normalizeExam(parsed.data, moment(startDayStr), cached.items),
+            };
+        }
+    }
+    return {examRaw: cached?.items ?? [], examList: []};
+});
 
 export const useExam = () => {
+    function loadCache(): ExamInfoQueryRes | undefined {
+        return mmkv.getObject<ExamInfoQueryRes>("originalExamList");
+    }
+
+    function saveCache(data: ExamInfoQueryRes, startDay: moment.Moment) {
+        mmkv.set("originalExamList", data);
+        mmkv.set("examStartDay", startDay.toISOString());
+    }
+
     async function init(year: number, term: SchoolTermValue, startDay: moment.Moment) {
         const setData = (raw: ExamInfoQueryRes, shouldCache: boolean) => {
             if (!raw) return;
@@ -32,7 +52,7 @@ export const useExam = () => {
             const newModel = normalizeExam(parsed.data, startDay, raw.items);
 
             if (shouldCache) {
-                store.save({key: "originalExamList", data: raw});
+                saveCache(raw, startDay);
             }
 
             const current = useExamStore.getState().examList;
@@ -43,13 +63,15 @@ export const useExam = () => {
             });
         };
 
+        // 先从MMKV读取缓存快速渲染
         try {
-            const cachedRaw = await store.load<ExamInfoQueryRes>({key: "originalExamList"}).catch(() => null);
+            const cachedRaw = loadCache();
             if (cachedRaw) {
                 setData(cachedRaw, false);
             }
         } catch {}
 
+        // 网络请求获取最新考试数据，成功后覆盖MMKV缓存
         try {
             const fetchedRaw = await examApi.getExamInfo(year, term);
             if (fetchedRaw) {
@@ -63,5 +85,7 @@ export const useExam = () => {
     return {
         store: useExamStore,
         init,
+        loadCache,
+        saveCache,
     };
 };

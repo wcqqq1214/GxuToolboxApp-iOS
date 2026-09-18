@@ -16,7 +16,7 @@ export interface TimeScheduleItemData<T = any> {
     needShift?: boolean;
 }
 
-export interface ScheduleTableItem<T = any> {
+export interface ScheduleTableItem<T = any, K extends string = string> {
     id: string;
     week: number;
     day: 1 | 2 | 3 | 4 | 5 | 6 | 7;
@@ -27,7 +27,7 @@ export interface ScheduleTableItem<T = any> {
     location?: string;
     teacher?: string;
     color?: string;
-    kind?: string;
+    kind?: K;
     seat?: string;
     status?: number;
     isShift?: boolean;

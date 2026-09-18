@@ -1,8 +1,8 @@
-import {useState, useEffect} from "react";
-import {ExamScoreQueryRes} from "@/type/exam.ts";
+import {useEffect, useState} from "react";
+import {ScoreRepo} from "@/features/examScore/type";
 
 /**
- * @param score 成绩查询结果对象
+ * @param scoreList 成绩查询结果对象
  * @returns 计算出的 GPA（平均学分绩点） 值
  * @description 计算所依据的文件：《广西大学普通本科学生课程修读、考核及成绩管理办法（2019年修订）》
  *
@@ -28,29 +28,35 @@ import {ExamScoreQueryRes} from "@/type/exam.ts";
  *
  * （五）原则上计算学生课程学分绩点、平均学分绩点、加权平均成绩时，计算结果一般按四舍五入法保留至小数后两位。
  */
-export function useGpa(score: ExamScoreQueryRes | null | undefined) {
+export function useGpa(scoreList: ScoreRepo[] | null | undefined) {
     const [gpa, setGpa] = useState(0);
+    const [wam,setWam]=useState(0);
     // 平均加权成绩
     useEffect(() => {
-        if (!score?.items || score.items.length === 0) {
+        if (!scoreList || scoreList.length === 0) {
             setGpa(0);
+            setWam(0);
             return;
         }
         // 分子和分母
-        let numerator = 0;
         let denominator = 0;
+        let wamNumerator=0;
+        let gpaNumerator=0;
 
-        score.items.forEach((item: any) => {
-            if (item.cj >= 60) {
-                numerator += item.jd * item.xf;
+        scoreList.forEach((item: ScoreRepo) => {
+            const point = item.score / 10 - 5;
+
+            if (item.score >= 60) {
+                gpaNumerator += point * item.credit;
             }
-            denominator += item.xf * 1;
+            denominator += item.credit;
+            wamNumerator+=item.credit*item.score;
         });
-        console.log(numerator,denominator);
+        console.log(gpaNumerator, denominator);
         // 暂时将 gpa 也设置为加权平均分，以便在 UI 中显示
-        setGpa(numerator / denominator);
+        setGpa(gpaNumerator / denominator);
+        setWam(wamNumerator/denominator);
+    }, [scoreList]);
 
-    }, [score]);
-
-    return gpa;
+    return {gpa,wam};
 }
