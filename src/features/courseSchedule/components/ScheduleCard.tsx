@@ -434,7 +434,7 @@ function NextEventBanner() {
     });
 
     if (!nextEvent && startDay) {
-        const updateTime = startDay.add(20, "week").format("MM月DD日");
+        const updateTime = startDay.clone().add(20, "week").format("MM月DD日");
         return (
             <View style={style.container}>
                 <Text style={{fontSize: 16, color: textColor}}>所有活动已结束，将在{updateTime}更新至下个学期</Text>
