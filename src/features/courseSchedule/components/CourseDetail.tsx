@@ -28,6 +28,24 @@ function copy(value: string, tip: string) {
     ToastAndroid.show(tip, ToastAndroid.SHORT);
 }
 
+function handleSportsCollegeLocation(location: string): string {
+    const index = location.search(/[北西东]/);
+    return index === -1 ? location : location.slice(index);
+}
+
+function resolveSportsCollegeMapKeyword(location: string): string | null {
+    if (location.includes("北")) {
+        return "广西大学行健图书馆行健馆";
+    }
+    if (location.includes("西")) {
+        return "西体育馆";
+    }
+    if (location.includes("东")) {
+        return "东体育馆";
+    }
+    return null;
+}
+
 export function CourseDetail(props: Props) {
     const [visible, setVisible] = useState(false);
 
@@ -35,6 +53,11 @@ export function CourseDetail(props: Props) {
     const {store} = useUserConfig();
     const devMode = store(s => s.devMode);
     const course = props.course._ori;
+
+    const fullLocation = course.building + course.venueName;
+    const isSportsCollege = fullLocation.includes("体育学院");
+    const displayLocation = isSportsCollege ? handleSportsCollegeLocation(fullLocation) : fullLocation;
+    const sportsCollegeMapKeyword = isSportsCollege ? resolveSportsCollegeMapKeyword(displayLocation) : null;
 
     const name = course.teacher;
     const {list: teacherInfoList} = useLookup(name);
@@ -60,9 +83,14 @@ export function CourseDetail(props: Props) {
                     <CoursePropItem
                         prop="venueName"
                         label="上课地点"
-                        valueRender={(v, course) => <UnText>{course.building + v}</UnText>}
-                        labelRender={(v, course) => (
-                            <UnPressable onPress={() => Pos.parseAndSearchInMap(course.building + v)}>
+                        valueRender={() => <UnText>{displayLocation}</UnText>}
+                        labelRender={() => (
+                            <UnPressable
+                                onPress={() =>
+                                    sportsCollegeMapKeyword
+                                        ? Pos.searchInMap(sportsCollegeMapKeyword)
+                                        : Pos.parseAndSearchInMap(displayLocation)
+                                }>
                                 <Flex gap={4} align="center" inline>
                                     <UnText weight="bold" size={16}>
                                         上课地点
