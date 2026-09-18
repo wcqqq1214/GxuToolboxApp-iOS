@@ -7,7 +7,7 @@ import {type HolidayRange, useHoliday} from "@/features/courseSchedule/hooks/det
 import {useStartDay} from "@/features/courseSchedule/hooks/detail/useStartDay.ts";
 import {useUserConfig} from "@/hooks/useUserConfig.ts";
 import type {Course} from "@/type/infoQuery/course/course.ts";
-import type {ExamInfo} from "@/type/infoQuery/exam/examInfo.ts";
+import type {ExamWithMeta} from "@/features/examInfo/type/exam.types.ts";
 
 const TIME_SPAN_START = [
     "08:00",
@@ -27,7 +27,7 @@ const TIME_SPAN_START = [
 
 export type NextEventItem =
     | ScheduleTableItem<Course, "course">
-    | ScheduleTableItem<ExamInfo, "exam">
+    | ScheduleTableItem<ExamWithMeta, "exam">
     | ScheduleTableItem<HolidayRange, "holiday">;
 
 export function useNextEvent(): NextEventItem | null {

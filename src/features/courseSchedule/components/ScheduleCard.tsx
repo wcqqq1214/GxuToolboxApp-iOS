@@ -35,8 +35,7 @@ import {CourseClass} from "@/class/jw/course.ts";
 import {StackCourseItem} from "@/features/courseSchedule/components/StackCourseItem.tsx";
 import {useConflictCourseStore} from "@/features/courseSchedule/stores/useConflictCourseStore.ts";
 import {ConflictCourseSheet} from "@/features/courseSchedule/components/ConflictCourseList.tsx";
-import {ExamInfo} from "@/type/infoQuery/exam/examInfo.ts";
-import {ExamInfoClass} from "@/class/jw/exam.ts";
+import {ExamWithMeta} from "@/features/examInfo/type/exam.types.ts";
 import {ExamDetail} from "@/components/tool/infoQuery/examInfo/ExamDetail.tsx";
 import {JwMachine} from "@/core/auth/Jw/JwMachine.ts";
 import {AuthStateMap} from "@/core/auth/auth.type.ts";
@@ -119,6 +118,7 @@ export function ScheduleCard() {
             [
                 {
                     data: courseItems,
+                    needShift: true,
                     itemRender: (item, day) => (
                         <NewCourseItem item={patchItem(item, day)} onPress={() => onItemPress(item, day)} />
                     ),
@@ -144,7 +144,7 @@ export function ScheduleCard() {
                 {
                     data: examItems,
                     itemRender: (item, day) => <NewExamItem item={item} onPress={() => onItemPress(item, day)} />,
-                } as TimeScheduleItemData<ScheduleTableItem<ExamInfo>>,
+                } as TimeScheduleItemData<ScheduleTableItem<ExamWithMeta>>,
                 {
                     data: holidayItems,
                     needShift: false,
@@ -328,7 +328,7 @@ export function ScheduleCard() {
                     />
                 )}
                 {sheet.type === "itemDetail" && sheet.item.kind === "exam" && sheet.item.raw && (
-                    <ExamDetail examInfo={new ExamInfoClass(sheet.item.raw as ExamInfo)} />
+                    <ExamDetail exam={sheet.item.raw as ExamWithMeta} />
                 )}
                 {sheet.type === "itemDetail" &&
                     sheet.item?.raw &&
@@ -337,29 +337,29 @@ export function ScheduleCard() {
                         const course = patchCourse(new CourseClass(sheet.item.raw), sheet.day);
                         const courseName = course._ori.courseName;
                         const matchedExam = examItems
-                            .filter(e => e.raw?.kcmc === courseName)
-                            ?.map(e => new ExamInfoClass(e.raw as ExamInfo));
+                            .filter(e => e.raw?.course === courseName)
+                            ?.map(e => e.raw as ExamWithMeta);
                         return (
                             <CourseDetail
                                 course={course}
                                 examInfo={matchedExam}
                                 onExamPress={exam => {
-                                    const examDate = moment(exam.transformed.examTime.slice(0, 10));
+                                    const examDate = moment(exam.time.slice(0, 10));
                                     const week = examDate.diff(startDay, "week") + 1;
                                     rest.setPage(week - 1);
                                     setSheet({
                                         type: "itemDetail",
                                         day: examDate,
                                         item: {
-                                            id: exam.transformed.courseCode,
+                                            id: exam.id,
                                             week,
                                             day: examDate.isoWeekday() as ScheduleTableItem["day"],
                                             begin: 1 as ScheduleTableItem["begin"],
                                             end: 1 as ScheduleTableItem["begin"],
-                                            title: exam.transformed.courseName,
-                                            location: exam.transformed.venueName,
+                                            title: exam.course,
+                                            location: exam.classroom,
                                             kind: "exam",
-                                            raw: exam._ori,
+                                            raw: exam,
                                         },
                                     });
                                 }}
