@@ -38,10 +38,10 @@ function resolveSportsCollegeMapKeyword(location: string): string | null {
         return "广西大学行健图书馆行健馆";
     }
     if (location.includes("西")) {
-        return "西体育馆";
+        return "广西大学西校园综合体育馆";
     }
     if (location.includes("东")) {
-        return "东体育馆";
+        return "广西大学东校园体育场";
     }
     return null;
 }
