@@ -48,7 +48,7 @@ function toTermInfo(term: TermStartDay): TermInfo {
 function emptyTermInfo(year?: number, term?: SchoolTermValue | string): TermInfo {
     return {
         // 保持旧页面在数据尚未就绪时仍能获得 Moment；ready=false 表示该日期不可作为业务判断依据。
-        startDay: moment("2025-09-08"),
+        startDay: moment("2026-09-07"),
         weekCount: 0,
         isStarted: false,
         isEnded: false,
