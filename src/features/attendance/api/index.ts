@@ -1,7 +1,6 @@
 import {AttendanceSystemType as AST} from "@/type/api/auth/attendanceSystem.ts";
 import {store} from "@/core/store.ts";
 import moment from "moment";
-import {AttendanceCourseScheduleClass} from "@/class/auth/attendanceSystem.ts";
 import {SchoolTermValue, SchoolYearValue} from "@/type/global.ts";
 import {backendHttp} from "@/features/backend/api";
 import {mmkv} from "@/store/mmkv.ts";
@@ -52,18 +51,9 @@ const calenderData = {
         return list.find(c => dateM.isBetween(c.firstWeekBegin, c.lastWeekEnd, "d", "[]"));
     },
 
-    async getByTermId(termId: number) {
-        const list = await calenderData.getList();
-        return list.find(c => c.calendarId === termId);
-    },
-
     async getBySchoolTerm(year: SchoolYearValue | number, term: SchoolTermValue | number) {
         const list = await calenderData.getList();
         return list.find(c => c.calendarName === `${year}-${term}`);
-    },
-
-    async getCurrent() {
-        return (await calenderData.getList()).find(c => c.isCurrent);
     },
 };
 
@@ -105,40 +95,12 @@ async function getTableDataV2(year: number, term: number, currentWeek: number): 
     return res?.data as Schedule;
 }
 
-async function getPersonalDataCount(
-    termId?: AST.Calendar["calendarId"],
-    data?: AST.SearchParam,
-): Promise<AST.ResRoot<AST.AttendanceDataStatistic[]> | undefined> {
-    return authGet<AST.ResRoot<AST.AttendanceDataStatistic[]>>("/personal-data-count", {
-        cal: termId,
-        ksrq: data?.ksrq,
-        jsrq: data?.jsrq,
-        courseId: data?.courseId,
-    });
-}
-
-async function getAttendanceTable(week: number, termId?: number): Promise<AttendanceCourseScheduleClass | undefined> {
-    const session = mmkv.getObject<AttendanceSession>("attendanceSession");
-    if (!session?.token) return;
-    const cal = termId ?? (await calenderData.getCurrent())?.calendarId;
-    const res = await authGet<AST.ResRoot<AST.AttendanceCourseSchedule>>("/schedule", {
-        cal,
-        currentWeek: week,
-        userId: session.userId,
-    });
-    if (!res) return;
-    return new AttendanceCourseScheduleClass(res.data);
-}
-
 // ─── 导出 ───
 
 export const attendanceApi = {
-    getAuthHeaders,
     getMenuData,
     calenderData,
     getPersonalData,
-    getPersonalDataCount,
-    getAttendanceTable,
     getPersonalDataV2,
     getTableDataV2,
 };

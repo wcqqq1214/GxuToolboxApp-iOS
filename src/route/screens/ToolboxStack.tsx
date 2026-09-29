@@ -75,15 +75,6 @@ export function ToolboxStack() {
                 options={{title: "班级课表查询"}}
             />
             <Stack.Screen
-                name="AttendanceInfoQueryScreen"
-                component={lazy(() =>
-                    import("@/screens/tool/auth/attendanceSystem/AttendanceInfoQueryScreen.tsx").then(m => ({
-                        default: m.default,
-                    })),
-                )}
-                options={{title: "考勤信息查询"}}
-            />
-            <Stack.Screen
                 name="AttendanceScreen"
                 component={lazy(() =>
                     import("@/features/attendance/screens/AttendanceScreen.tsx").then(m => ({

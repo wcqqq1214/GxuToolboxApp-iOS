@@ -41,7 +41,7 @@ export function ToolboxIndex() {
             title: "信息查询",
             data: [
                 {
-                    label: "课表",
+                    label: "个人课表",
                     icon: <Icon name="calendar-month" size={iconSize} />,
                     type: "navigation",
                     navigation: "courseScheduleQuery",
@@ -72,12 +72,6 @@ export function ToolboxIndex() {
                 },
                 {
                     label: "考勤信息",
-                    icon: <Icon name="clock" size={iconSize} />,
-                    type: "navigation",
-                    navigation: "AttendanceInfoQueryScreen",
-                },
-                {
-                    label: "新考勤信息",
                     icon: <Icon name="clock" size={iconSize} />,
                     type: "navigation",
                     navigation: "AttendanceScreen",
