@@ -1,54 +1,36 @@
-import {userMgr} from "@/js/mgr/user.ts";
-import {AttendanceSystemType as AST} from "@/type/api/auth/attendanceSystem.ts";
 import {attendanceApi} from "@/features/attendance/api";
 import {backendHttp} from "@/features/backend/api";
-
-
-let captchaTicket: string | null = null;
+import {mmkv} from "@/store/mmkv.ts";
+import type {AttendanceLoginInput, AttendanceSession} from "@/core/auth/attendance/attendance.type.ts";
 
 // ─── 登录相关 ───
 
-async function getCaptchaCode(): Promise<string> {
-    const res = await backendHttp.get<{data: {image: string; ticket: string | null}}>(
-        "/attendance/captcha",
-        {params: {num: 666}},
-    );
-    const payload = res.data?.data;
-    if (!payload?.image) throw new Error("获取验证码失败");
-    captchaTicket = payload.ticket;
-    return payload.image;
+async function getCaptcha(): Promise<{challengeToken: string | null; imageUrl: string; text: string | null}> {
+    const {data} = await backendHttp.get<{
+        data: {imageUrl: string; challengeToken: string | null; text: string | null};
+    }>("/attendance/v2/captcha");
+
+    return data.data;
 }
 
-async function login(username: string, password: string, captchaCode: string): Promise<AST.ResRoot<AST.LoginData>> {
-    const res = await backendHttp.post<{data: AST.ResRoot<AST.LoginData>}>("/attendance/login", {
-        username,
-        password,
-        captchaCode,
-        ...(captchaTicket ? {ticket: captchaTicket} : {}),
-    });
+async function login(input: AttendanceLoginInput): Promise<AttendanceSession> {
+    const {data} = await backendHttp.post<{code: number; data: AttendanceSession}>("/attendance/v2/login", input);
 
-    const loginRes = res.data.data;
-    await userMgr.attendanceSystem.storeLoginRes(loginRes);
-    if (loginRes.code === 600) {
-        captchaTicket = null;
-        await attendanceApi.getMenuData().catch(() => undefined);
-    }
-    return loginRes;
+    return data.data;
 }
 
 // ─── Token 检测 ───
 
 async function testToken(): Promise<boolean> {
-    try {
-        const res = await attendanceApi.getMenuData();
-        return res?.code === 600;
-    } catch {
-        return false;
-    }
+    const session = mmkv.getObject<AttendanceSession>("attendanceSession");
+    if (!session?.userId) return false;
+
+    const res = await attendanceApi.getMenuData();
+    return res?.code === 200;
 }
 
 export const attendanceAuthApi = {
     login,
-    getCaptchaImage: getCaptchaCode,
+    getCaptcha,
     testToken,
 };

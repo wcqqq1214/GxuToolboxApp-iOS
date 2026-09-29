@@ -83,6 +83,15 @@ export function ToolboxStack() {
                 )}
                 options={{title: "考勤信息查询"}}
             />
+            <Stack.Screen
+                name="AttendanceScreen"
+                component={lazy(() =>
+                    import("@/features/attendance/screens/AttendanceScreen.tsx").then(m => ({
+                        default: m.AttendanceScreen,
+                    })),
+                )}
+                options={{title: "考勤信息查询"}}
+            />
 
             <Stack.Screen
                 name="examInfo"

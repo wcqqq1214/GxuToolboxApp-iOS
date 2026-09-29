@@ -77,6 +77,12 @@ export function ToolboxIndex() {
                     navigation: "AttendanceInfoQueryScreen",
                 },
                 {
+                    label: "新考勤信息",
+                    icon: <Icon name="clock" size={iconSize} />,
+                    type: "navigation",
+                    navigation: "AttendanceScreen",
+                },
+                {
                     label: "选课课程列表",
                     icon: <Icon name="list-box" size={iconSize} />,
                     type: "navigation",

@@ -18,7 +18,7 @@ import {
     vw,
 } from "@/components/un-ui";
 import {useUserConfig} from "@/hooks/useUserConfig.ts";
-import {AttendanceQuickLogin} from "@/components/tool/auth/AttendanceQuickLogin.tsx";
+import {QuickLogin} from "@/features/attendance/components/QuickLogin.tsx";
 import {AttendanceSystemType as AST} from "@/type/api/auth/attendanceSystem.ts";
 import {attendanceApi} from "@/features/attendance/api/index.ts";
 import {AttendanceCourseClass, AttendanceDataClass} from "@/class/auth/attendanceSystem.ts";
@@ -42,6 +42,7 @@ const style = StyleSheet.create({
 
 export default function AttendanceInfoQueryScreen() {
     const {year, term, setBoth} = useSchoolTerm();
+    // const {year, term} = useStartDay();
     const {openInWeb} = useWebView();
     const [calender, setCalender] = useState<AST.Calendar>();
     const {theme} = useTheme();
@@ -76,7 +77,7 @@ export default function AttendanceInfoQueryScreen() {
 
     return (
         <>
-            <AttendanceQuickLogin visible={quickLoginShow} onClose={() => setQuickLoginShow(false)} onSucceed={init} />
+            <QuickLogin visible={quickLoginShow} onClose={() => setQuickLoginShow(false)} onSucceed={init} />
             <UnTermSelector year={year} term={term} onChange={setBoth} disableSelectAll />
             <Button
                 onPress={() =>

@@ -4,12 +4,11 @@ import {Button, Image, Input, Text} from "@rneui/themed";
 import React, {useEffect, useMemo, useState} from "react";
 import {Icon} from "@/components/un-ui/Icon.tsx";
 import {UnPressable} from "@/components/un-ui";
-import {attendanceAuthApi} from "@/core/auth/attendance/attendanceAuthApi.ts";
-import {attendanceMachine} from "@/core/auth/attendance/attendanceMachine.ts";
 import {Account, AuthStateMap} from "@/core/auth/auth.type.ts";
 import {AuthState} from "@/core/auth/createAuthCore.ts";
 import {useWebView} from "@/hooks/app.ts";
 import {useAttendanceAuth} from "@/core/auth/attendance/hooks/useAttendanceAuth.ts";
+import {useAttendanceAccount} from "@/core/auth/attendance/hooks/useAttendanceAccount.ts";
 
 function statusMeta(state: AuthState<Account>) {
     switch (state.status) {
@@ -26,14 +25,13 @@ function statusMeta(state: AuthState<Account>) {
 
 export function AttendanceSystemAccountScreen() {
     const {openInWeb} = useWebView();
-    const [username, setUsername] = useState("");
-    const [password, setPassword] = useState("");
-    const [captchaCode, setCaptchaCode] = useState("");
-    const [captchaUri, setCaptchaUri] = useState("");
+
+    const {username, password, setPassword, hydrating, saveAccount} = useAttendanceAccount();
+    const {authState, loading, login, refreshCaptcha, captchaUri, captchaLoading, captchaCode, setCaptchaCode} =
+        useAttendanceAuth();
+
     const [showPwd, setShowPwd] = useState(false);
-    const [hydrating, setHydrating] = useState(true);
-    const [captchaLoading, setCaptchaLoading] = useState(false);
-    const {authState, loading, login} = useAttendanceAuth();
+
     const [result, setResult] = useState<{kind: "idle" | "success" | "error"; title: string; message?: string}>({
         kind: "idle",
         title: "",
@@ -42,29 +40,11 @@ export function AttendanceSystemAccountScreen() {
     const meta = useMemo(() => statusMeta(authState), [authState]);
     const busy = hydrating || loading;
 
-    async function refreshCaptcha() {
-        setCaptchaLoading(true);
-        setCaptchaCode("");
-        try {
-            const uri = await attendanceAuthApi.getCaptchaImage();
-            setCaptchaUri(uri);
-        } finally {
-            setCaptchaLoading(false);
-        }
-    }
-
     useEffect(() => {
         (async () => {
             try {
-                const account = await attendanceMachine.loadAccount();
-                if (account) {
-                    setUsername(account.username);
-                    setPassword(account.password);
-                }
                 await refreshCaptcha();
-            } finally {
-                setHydrating(false);
-            }
+            } catch (e) {}
         })();
     }, []);
 
@@ -72,30 +52,38 @@ export function AttendanceSystemAccountScreen() {
         const u = username.trim();
         const p = password.trim();
         const c = captchaCode.trim();
-        if (!u || !p) {
-            setResult({kind: "error", title: "输入无效", message: "账号或密码为空"});
-            return;
-        }
-        if (!c || c.length !== 4) {
-            setResult({kind: "error", title: "输入无效", message: "请输入4位验证码"});
-            return;
-        }
 
+        if (!u || !p) {
+            setResult({
+                kind: "error",
+                title: "输入无效",
+                message: "账号或密码为空",
+            });
+            return;
+        }
+        if (c.length !== 4) {
+            setResult({
+                kind: "error",
+                title: "输入无效",
+                message: "请输入4位验证码",
+            });
+            return;
+        }
         setResult({kind: "idle", title: ""});
 
         try {
-            const loginResult = await login(u, p, c);
-            if (!loginResult) return;
-            const {loginRes} = loginResult;
+            await login(u, p, c);
+            setResult({
+                kind: "success",
+                title: "登录成功",
+            });
+        } catch (error: any) {
+            setResult({
+                kind: "error",
+                title: "登录失败",
+                message: error?.response?.data?.message ?? error?.message ?? "请检查密码或验证码",
+            });
 
-            if (loginRes.code === 600) {
-                setResult({kind: "success", title: "登录成功"});
-            } else {
-                setResult({kind: "error", title: "登录失败", message: loginRes.msg || "请检查帐密或验证码"});
-            }
-        } catch (e: any) {
-            setResult({kind: "error", title: "发生异常", message: e?.message ? String(e.message) : "未知错误"});
-        } finally {
             await refreshCaptcha();
         }
     }
@@ -103,118 +91,126 @@ export function AttendanceSystemAccountScreen() {
     return (
         <SafeAreaView style={styles.container} edges={["bottom"]}>
             <ScrollView>
-            <View style={styles.card}>
-                {/* ── 状态指示器 ── */}
-                <View style={styles.cardTopRow}>
-                    <View style={styles.statusDotWrap}>
-                        <View style={[styles.statusDot, {backgroundColor: meta.color}]} />
+                <View style={styles.card}>
+                    {/* ── 状态指示器 ── */}
+                    <View style={styles.cardTopRow}>
+                        <View style={styles.statusDotWrap}>
+                            <View style={[styles.statusDot, {backgroundColor: meta.color}]} />
+                        </View>
+                        <View style={styles.statusTextWrap}>
+                            <Text style={styles.statusLabel}>当前状态</Text>
+                            <Text style={[styles.statusValue, {color: meta.color}]}>{meta.label}</Text>
+                        </View>
+                        {busy && (
+                            <View style={styles.spinnerWrap}>
+                                <ActivityIndicator size="small" />
+                            </View>
+                        )}
                     </View>
-                    <View style={styles.statusTextWrap}>
-                        <Text style={styles.statusLabel}>当前状态</Text>
-                        <Text style={[styles.statusValue, {color: meta.color}]}>{meta.label}</Text>
-                    </View>
-                    {busy && (
-                        <View style={styles.spinnerWrap}>
-                            <ActivityIndicator size="small" />
+
+                    {/* ── 结果反馈 ── */}
+                    {result.kind !== "idle" && (
+                        <View
+                            style={[
+                                styles.banner,
+                                result.kind === "success" ? styles.bannerSuccess : styles.bannerError,
+                            ]}>
+                            <Text style={styles.bannerTitle}>{result.title}</Text>
+                            {!!result.message && <Text style={styles.bannerMsg}>{result.message}</Text>}
                         </View>
                     )}
-                </View>
 
-                {/* ── 结果反馈 ── */}
-                {result.kind !== "idle" && (
-                    <View
-                        style={[styles.banner, result.kind === "success" ? styles.bannerSuccess : styles.bannerError]}>
-                        <Text style={styles.bannerTitle}>{result.title}</Text>
-                        {!!result.message && <Text style={styles.bannerMsg}>{result.message}</Text>}
-                    </View>
-                )}
+                    {/* ── 学号 ── */}
+                    <Input
+                        value={username}
+                        label="学号（来自教务系统）"
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        disabled={true}
+                        inputStyle={styles.inputText}
+                        labelStyle={styles.inputLabel}
+                        containerStyle={styles.inputContainer}
+                        leftIcon={<Icon type="fontawesome" name="user" size={16} style={styles.leftIcon} />}
+                    />
 
-                {/* ── 学号 ── */}
-                <Input
-                    value={username}
-                    onChangeText={v => setUsername(v)}
-                    label="学号"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    disabled={busy}
-                    inputStyle={styles.inputText}
-                    labelStyle={styles.inputLabel}
-                    containerStyle={styles.inputContainer}
-                    leftIcon={<Icon type="fontawesome" name="user" size={16} style={styles.leftIcon} />}
-                />
-
-                {/* ── 密码 ── */}
-                <Input
-                    value={password}
-                    onChangeText={v => setPassword(v)}
-                    label="密码"
-                    placeholder="默认为身份证后6位"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    secureTextEntry={!showPwd}
-                    disabled={busy}
-                    inputStyle={styles.inputText}
-                    labelStyle={styles.inputLabel}
-                    containerStyle={styles.inputContainer}
-                    leftIcon={<Icon name="lock" size={16} style={styles.leftIcon} />}
-                    rightIcon={
-                        <UnPressable onPress={function() { return setShowPwd(function(s) { return !s; }); }} disabled={busy}>
-                            <Icon
-                                type="fontawesome"
-                                name={showPwd ? "eye-slash" : "eye"}
-                                size={18}
-                                style={styles.rightIcon}
-                            />
-                        </UnPressable>
-                    }
-                />
-
-                {/* ── 验证码 ── */}
-                <Input
-                    value={captchaCode}
-                    onChangeText={v => setCaptchaCode(v)}
-                    label="验证码"
-                    placeholder="请输入验证码"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    maxLength={4}
-                    disabled={busy}
-                    inputStyle={styles.inputText}
-                    labelStyle={styles.inputLabel}
-                    containerStyle={styles.inputContainer}
-                    leftIcon={<Icon name="shield-check-outline" size={16} style={styles.leftIcon} />}
-                    rightIcon={
-                        <UnPressable onPress={refreshCaptcha} disabled={busy || captchaLoading}>
-                            {captchaUri ? (
-                                <Image
-                                    style={styles.captchaImage}
-                                    source={{uri: captchaUri}}
-                                    PlaceholderContent={<ActivityIndicator />}
+                    {/* ── 密码 ── */}
+                    <Input
+                        value={password}
+                        onChangeText={v => setPassword(v)}
+                        label="密码"
+                        placeholder="默认为身份证后6位"
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        secureTextEntry={!showPwd}
+                        disabled={busy}
+                        inputStyle={styles.inputText}
+                        labelStyle={styles.inputLabel}
+                        containerStyle={styles.inputContainer}
+                        leftIcon={<Icon name="lock" size={16} style={styles.leftIcon} />}
+                        rightIcon={
+                            <UnPressable
+                                onPress={function () {
+                                    return setShowPwd(function (s) {
+                                        return !s;
+                                    });
+                                }}
+                                disabled={busy}>
+                                <Icon
+                                    type="fontawesome"
+                                    name={showPwd ? "eye-slash" : "eye"}
+                                    size={18}
+                                    style={styles.rightIcon}
                                 />
-                            ) : (
-                                <ActivityIndicator size="small" />
-                            )}
-                        </UnPressable>
-                    }
-                />
+                            </UnPressable>
+                        }
+                    />
 
-                {/* ── 按钮区 ── */}
-                <View style={styles.actions}>
-                    <Button onPress={handleLogin} disabled={busy} loading={loading}>
-                        登录
-                    </Button>
-                    <Button
-                        type="outline"
-                        onPress={() => openInWeb("考勤系统", {uri: "https://yktuipweb.gxu.edu.cn/#/StudentHome"})}
-                        disabled={busy}>
-                        在浏览器打开考勤系统（全天需要校园网）
-                    </Button>
+                    {/* ── 验证码 ── */}
+                    <Input
+                        value={captchaCode}
+                        onChangeText={v => setCaptchaCode(v)}
+                        label="验证码"
+                        placeholder="请输入验证码"
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        maxLength={4}
+                        disabled={busy}
+                        inputStyle={styles.inputText}
+                        labelStyle={styles.inputLabel}
+                        containerStyle={styles.inputContainer}
+                        leftIcon={<Icon name="shield-check-outline" size={16} style={styles.leftIcon} />}
+                        rightIcon={
+                            <UnPressable onPress={refreshCaptcha} disabled={busy || captchaLoading}>
+                                {captchaUri ? (
+                                    <Image
+                                        style={styles.captchaImage}
+                                        source={{uri: captchaUri}}
+                                        PlaceholderContent={<ActivityIndicator />}
+                                    />
+                                ) : (
+                                    <ActivityIndicator size="small" />
+                                )}
+                            </UnPressable>
+                        }
+                    />
+
+                    {/* ── 按钮区 ── */}
+                    <View style={styles.actions}>
+                        <Button onPress={handleLogin} disabled={busy} loading={loading}>
+                            登录
+                        </Button>
+                        <Button
+                            type="outline"
+                            onPress={() => openInWeb("考勤系统", {uri: "https://yktuipweb.gxu.edu.cn/#/StudentHome"})}
+                            disabled={busy}>
+                            在浏览器打开考勤系统（全天需要校园网）
+                        </Button>
+                    </View>
+
+                    <Text style={styles.note}>
+                        仅用于工具获取考勤信息{"\n"}图片中的验证码由OCR识别后自动填入{"\n"}若OCR不可用请手动输入
+                    </Text>
                 </View>
-
-                <Text style={styles.note}>
-                    仅用于工具获取考勤信息{"\n"}请输入图片中的验证码完成登录
-                </Text>
-            </View>
             </ScrollView>
         </SafeAreaView>
     );
