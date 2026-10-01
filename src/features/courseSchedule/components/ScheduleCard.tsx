@@ -18,7 +18,6 @@ import {ScheduleTableItem, TimeScheduleItemData} from "@/features/courseSchedule
 import {useCourse} from "@/features/courseSchedule/hooks/detail/useCourse.ts";
 import {useStartDay} from "@/features/courseSchedule/hooks/detail/useStartDay.ts";
 import {useExam} from "@/features/courseSchedule/hooks/detail/useExam.ts";
-import {useNextEvent} from "@/features/courseSchedule/hooks/detail/useNextCourse.ts";
 import {usePractice} from "@/features/courseSchedule/hooks/detail/usePractice.ts";
 import {PracticalCourseList} from "@/features/courseSchedule/components/PracticalCourseList.tsx";
 import {CourseDetail} from "@/features/courseSchedule/components/CourseDetail.tsx";
@@ -40,7 +39,7 @@ import {ExamWithMeta} from "@/features/examInfo/type/exam.types.ts";
 import {ExamDetail} from "@/components/tool/infoQuery/examInfo/ExamDetail.tsx";
 import {JwMachine} from "@/core/auth/Jw/JwMachine.ts";
 import {AuthStateMap} from "@/core/auth/auth.type.ts";
-import {switchByField} from "@/utils/objectUtils.ts";
+import {NextEventBanner} from "@/features/courseSchedule/components/NextEventBanner.tsx";
 
 // 菜单的类型
 type SheetState =
@@ -73,7 +72,8 @@ export function ScheduleCard() {
 
     const [year, setYear] = useState(+ucStore(s => s.jw.year));
     const [term, setTerm] = useState<SchoolTermValue>(ucStore(s => s.jw.term));
-    const {startDay} = useStartDay(year, term);
+
+    const {startDay} = useStartDay();
 
     const {items: courseItems = [], refresh: refreshCourse} = useCourse(year, term);
     const {store: examStore, init: initExam, loadCache: loadExamCache} = useExam();
@@ -394,64 +394,6 @@ export function ScheduleCard() {
                     />
                 )}
             </UnBottomSheet>
-        </View>
-    );
-}
-
-function NextEventBanner() {
-    const nextEvent = useNextEvent();
-    const {store: ucStore} = useUserConfig();
-    const year = +ucStore(s => s.jw.year);
-    const term = ucStore(s => s.jw.term);
-    const {startDay} = useStartDay(year, term);
-    const {theme} = useTheme();
-    const baseColor = theme.colors.primary;
-    const backgroundColor = Color(baseColor).setAlpha(theme.mode === "light" ? 0.3 : 0.1).rgbaString;
-    const textColor = Color.mix(baseColor, theme.colors.black, 0.5).rgbaString;
-
-    const daysFromNow = (item: {week: number; day: number}) => {
-        if (!startDay) return "未知时间";
-        const eventDay = startDay
-            .clone()
-            .add(item.week - 1, "weeks")
-            .add(item.day - 1, "days")
-            .startOf("day");
-        const diff = eventDay.diff(moment().startOf("day"), "days");
-        if (diff <= 0) return "今天";
-        if (diff === 1) return "明天";
-        return `${diff}天后`;
-    };
-
-    const style = StyleSheet.create({
-        container: {
-            paddingHorizontal: 12,
-            paddingVertical: 10,
-            borderRadius: 8,
-            marginHorizontal: 6,
-            justifyContent: "center",
-            alignItems: "center",
-            backgroundColor: backgroundColor,
-        },
-    });
-
-    if (!nextEvent && startDay) {
-        const updateTime = startDay.clone().add(20, "week").format("MM月DD日");
-        return (
-            <View style={style.container}>
-                <Text style={{fontSize: 16, color: textColor}}>所有活动已结束，将在{updateTime}更新至下个学期</Text>
-            </View>
-        );
-    }
-
-    return (
-        <View style={style.container}>
-            <Text style={{fontSize: 18, color: textColor}}>
-                {switchByField(nextEvent, "kind", {
-                    course: ev => `下节课：${ev.title}${ev.location ? ` · ${ev.location}` : ""}`,
-                    exam: ev => `下场考试：${ev.title}${ev.location ? ` · ${ev.location}` : ""}（${daysFromNow(ev)}）`,
-                    holiday: ev => `下个假期：${ev.title}（${daysFromNow(ev)}）`,
-                })}
-            </Text>
         </View>
     );
 }

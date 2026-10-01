@@ -5,7 +5,6 @@ import {useCourse} from "@/features/courseSchedule/hooks/detail/useCourse.ts";
 import {useExam} from "@/features/courseSchedule/hooks/detail/useExam.ts";
 import {type HolidayRange, useHoliday} from "@/features/courseSchedule/hooks/detail/useHoliday.ts";
 import {useStartDay} from "@/features/courseSchedule/hooks/detail/useStartDay.ts";
-import {useUserConfig} from "@/hooks/useUserConfig.ts";
 import type {Course} from "@/type/infoQuery/course/course.ts";
 import type {ExamWithMeta} from "@/features/examInfo/type/exam.types.ts";
 
@@ -31,10 +30,7 @@ export type NextEventItem =
     | ScheduleTableItem<HolidayRange, "holiday">;
 
 export function useNextEvent(): NextEventItem | null {
-    const {store: ucStore} = useUserConfig();
-    const year = +ucStore(s => s.jw.year);
-    const term = ucStore(s => s.jw.term);
-    const {startDay} = useStartDay(year, term);
+    const {year, term, startDay} = useStartDay();
 
     const {items: courseItems = []} = useCourse(year, term);
     const {store: examStore} = useExam();
@@ -43,7 +39,7 @@ export function useNextEvent(): NextEventItem | null {
 
     // 聚合所有日程项
     const allItems: NextEventItem[] = useMemo(
-        () => [...courseItems, ...examItems, ...holidayItems] as NextEventItem[],
+        () => [...courseItems, ...examItems, ...holidayItems].filter(item => item.title !== "") as NextEventItem[],
         [courseItems, examItems, holidayItems],
     );
 
