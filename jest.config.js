@@ -8,4 +8,7 @@ module.exports = {
     transformIgnorePatterns: [
         "node_modules/(?!(?:\\.pnpm/[^/]+/node_modules/)?((jest-)?react-native|@react-native(-community)?)/)",
     ],
+    // 根目录 test.ts 是手动运行的空闲教室冒烟脚本（npx tsx test.ts），不是 Jest 用例；
+    // 默认 testMatch 会把它当成测试文件，导致 npm test 报 "must contain at least one test"。
+    testPathIgnorePatterns: ["/node_modules/", "<rootDir>/test.ts"],
 };
