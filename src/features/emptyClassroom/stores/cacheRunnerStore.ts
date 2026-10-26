@@ -1,11 +1,7 @@
 import {create} from "zustand/react";
 import {ensureJwAuthenticated} from "@/core/auth/Jw/JwMachine";
 import {mmkv} from "@/store/mmkv";
-import {
-    EmptyClassroomAuthError,
-    fetchDay,
-    type EmptyClassroomFetchSession,
-} from "../api";
+import {EmptyClassroomAuthError, fetchDay, type EmptyClassroomFetchSession} from "../api";
 import {emptyClassroomRepo} from "../repo/EmptyClassroomRepo";
 import {runWeekCache} from "../services/cacheRunner";
 import type {LogicalTerm} from "../type";
@@ -154,9 +150,7 @@ export const useCacheRunnerStore = create<CacheRunnerState>((set, get) => ({
                             mmkv.set(MMKV_LAST_CACHE_STARTED_AT_KEY, startedAt);
                             set(state => ({
                                 lastStartedAt: startedAt,
-                                task: state.task
-                                    ? {...state.task, pageSize: session.pageSize}
-                                    : state.task,
+                                task: state.task ? {...state.task, pageSize: session.pageSize} : state.task,
                             }));
                         },
                         onProgress: progress => {

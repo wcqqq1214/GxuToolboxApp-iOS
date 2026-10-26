@@ -43,17 +43,9 @@ const fetchWholeDay: DayRequester = async (request, _session, onPeriod) => {
 
 function buildHarness(options: {completed?: number[]; fetchDay?: DayRequester} = {}) {
     const completed = options.completed ?? [];
-    const getCompletedDays = jest.fn(
-        async (_year: number, _term: LogicalTerm, _week: number) => [...completed],
-    );
+    const getCompletedDays = jest.fn(async (_year: number, _term: LogicalTerm, _week: number) => [...completed]);
     const saveDay = jest.fn(
-        async (
-            _year: number,
-            _term: LogicalTerm,
-            _week: number,
-            _day: number,
-            _payload: DayPayload,
-        ) => undefined,
+        async (_year: number, _term: LogicalTerm, _week: number, _day: number, _payload: DayPayload) => undefined,
     );
     const completeWeek = jest.fn(async (_year: number, _term: LogicalTerm, _week: number) => undefined);
     const fetchDay = jest.fn(options.fetchDay ?? fetchWholeDay);
@@ -268,18 +260,12 @@ describe("fetchDay 旧后端页大小兼容", () => {
 
         expect(getSpy).toHaveBeenCalledTimes(14);
         expect((getSpy.mock.calls[0][1] as {params: {pageSize: number}}).params.pageSize).toBe(PAGE_SIZE);
-        expect((getSpy.mock.calls[1][1] as {params: {pageSize: number}}).params.pageSize).toBe(
-            PAGE_SIZE_FALLBACK,
-        );
-        expect((getSpy.mock.calls[13][1] as {params: {pageSize: number}}).params.pageSize).toBe(
-            PAGE_SIZE_FALLBACK,
-        );
+        expect((getSpy.mock.calls[1][1] as {params: {pageSize: number}}).params.pageSize).toBe(PAGE_SIZE_FALLBACK);
+        expect((getSpy.mock.calls[13][1] as {params: {pageSize: number}}).params.pageSize).toBe(PAGE_SIZE_FALLBACK);
         expect(session.pageSize).toBe(PAGE_SIZE_FALLBACK);
 
         const key = roomKey("教学楼", "R101");
-        expect(payload.rooms.get(key)).toEqual(
-            expect.objectContaining({building: "教学楼", name: "R101"}),
-        );
+        expect(payload.rooms.get(key)).toEqual(expect.objectContaining({building: "教学楼", name: "R101"}));
         expect(payload.freePeriods.get(key)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
     });
 });

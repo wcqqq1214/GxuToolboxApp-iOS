@@ -24,13 +24,7 @@ export type CacheRunnerProgress = {
 /** runner 依赖的 repo 子集（便于 Jest 注入 fake）。 */
 export type CacheRunnerRepo = {
     getCompletedDays: (year: number, term: LogicalTerm, week: number) => Promise<number[]>;
-    saveDay: (
-        year: number,
-        term: LogicalTerm,
-        week: number,
-        day: number,
-        payload: DayPayload,
-    ) => Promise<void>;
+    saveDay: (year: number, term: LogicalTerm, week: number, day: number, payload: DayPayload) => Promise<void>;
     completeWeek: (year: number, term: LogicalTerm, week: number) => Promise<void>;
 };
 
@@ -81,10 +75,7 @@ function normalizeDay(value: number): boolean {
  * - 抓完一整天后即使已经收到取消也先 saveDay，再停止；
  * - 非取消错误直接抛出，已保存的天保留在 DB。
  */
-export async function runWeekCache(
-    range: CacheRunnerRange,
-    deps: CacheRunnerDeps,
-): Promise<CacheRunResult> {
+export async function runWeekCache(range: CacheRunnerRange, deps: CacheRunnerDeps): Promise<CacheRunResult> {
     const initialDays = await deps.repo.getCompletedDays(range.year, range.term, range.week);
     let completedDays = [...new Set(initialDays.filter(normalizeDay))].sort((left, right) => left - right);
 

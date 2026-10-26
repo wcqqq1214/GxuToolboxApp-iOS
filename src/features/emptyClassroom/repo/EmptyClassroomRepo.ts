@@ -1,11 +1,6 @@
 import {and, asc, countDistinct, eq, inArray} from "drizzle-orm";
 import {db} from "@/core/db";
-import {
-    emptyClassroomDays,
-    emptyClassroomRooms,
-    emptyClassroomSlots,
-    emptyClassroomSnapshots,
-} from "@/core/schema";
+import {emptyClassroomDays, emptyClassroomRooms, emptyClassroomSlots, emptyClassroomSnapshots} from "@/core/schema";
 import type {DayPayload, FreePeriodRow, LogicalTerm, RoomRecord, WeekSnapshot} from "../type";
 import {DAYS, ROOM_BATCH_SIZE, SLOT_BATCH_SIZE} from "../utils/constants";
 import {roomKey} from "../utils/roomKey";
@@ -162,13 +157,7 @@ export const emptyClassroomRepo = {
      * 修改注意：整个操作走模块写队列并包在一个事务里；任一步失败则该天回滚，
      * 下次续传会重抓这一天。
      */
-    async saveDay(
-        year: number,
-        term: LogicalTerm,
-        week: number,
-        day: number,
-        payload: DayPayload,
-    ): Promise<void> {
+    async saveDay(year: number, term: LogicalTerm, week: number, day: number, payload: DayPayload): Promise<void> {
         await enqueueWrite(() =>
             db.transaction(async tx => {
                 const fetchedAt = new Date();
@@ -341,27 +330,17 @@ export const emptyClassroomRepo = {
         const roomIds = [...new Set(idRows.map(row => row.roomId))];
         const rooms: RoomRecord[] = [];
         for (const batch of chunked(roomIds, ROOM_ID_CHUNK_SIZE)) {
-            const rows = await db
-                .select()
-                .from(emptyClassroomRooms)
-                .where(inArray(emptyClassroomRooms.id, batch));
+            const rows = await db.select().from(emptyClassroomRooms).where(inArray(emptyClassroomRooms.id, batch));
             rooms.push(...rows);
         }
 
-        rooms.sort(
-            (left, right) =>
-                left.building.localeCompare(right.building) || left.name.localeCompare(right.name),
-        );
+        rooms.sort((left, right) => left.building.localeCompare(right.building) || left.name.localeCompare(right.name));
         return rooms;
     },
 
     /** 作用：按 id 读取单间教室元数据；不存在返回 null。 */
     async getRoom(roomId: number): Promise<RoomRecord | null> {
-        const rows = await db
-            .select()
-            .from(emptyClassroomRooms)
-            .where(eq(emptyClassroomRooms.id, roomId))
-            .limit(1);
+        const rows = await db.select().from(emptyClassroomRooms).where(eq(emptyClassroomRooms.id, roomId)).limit(1);
         return rows[0] ?? null;
     },
 
@@ -369,12 +348,7 @@ export const emptyClassroomRepo = {
      * 作用：读取某教室在若干周内的空闲节次行。
      * 入参 weeks 为空时直接返回 []，避免 inArray 空数组。
      */
-    async getRoomWeekSlots(
-        year: number,
-        term: LogicalTerm,
-        roomId: number,
-        weeks: number[],
-    ): Promise<FreePeriodRow[]> {
+    async getRoomWeekSlots(year: number, term: LogicalTerm, roomId: number, weeks: number[]): Promise<FreePeriodRow[]> {
         if (weeks.length === 0) return [];
 
         return db
@@ -392,10 +366,6 @@ export const emptyClassroomRepo = {
                     inArray(emptyClassroomSlots.week, weeks),
                 ),
             )
-            .orderBy(
-                asc(emptyClassroomSlots.week),
-                asc(emptyClassroomSlots.day),
-                asc(emptyClassroomSlots.period),
-            );
+            .orderBy(asc(emptyClassroomSlots.week), asc(emptyClassroomSlots.day), asc(emptyClassroomSlots.period));
     },
 };
