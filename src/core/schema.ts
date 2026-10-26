@@ -1,4 +1,4 @@
-import {integer, primaryKey, real, sqliteTable, text} from "drizzle-orm/sqlite-core";
+import {integer, primaryKey, real, sqliteTable, text, uniqueIndex} from "drizzle-orm/sqlite-core";
 
 export const evaluationTemplates = sqliteTable("evaluationTemplates", {
     id: integer("id").primaryKey({autoIncrement: true}),
@@ -91,5 +91,79 @@ export const selectedCourses = sqliteTable(
     },
     table => ({
         pk: primaryKey({columns: [table.studentId, table.year, table.term, table.classId]}),
+    }),
+);
+
+/** 空闲教室维表。正方接口没有稳定教室编号，业务键为 (building, name)。 */
+export const emptyClassroomRooms = sqliteTable(
+    "emptyClassroomRooms",
+    {
+        id: integer("id").primaryKey({autoIncrement: true}),
+        name: text("name").notNull(),
+        building: text("building").notNull(),
+        placeType: text("placeType").notNull().default(""),
+        seatCount: integer("seatCount"),
+        seatCountForExam: integer("seatCountForExam"),
+        owner: text("owner").notNull().default(""),
+        allowToUse: text("allowToUse").notNull().default(""),
+        updatedAt: integer("updatedAt", {mode: "timestamp"}).notNull(),
+    },
+    table => ({
+        buildingNameUnique: uniqueIndex("emptyClassroomRooms_building_name_idx").on(
+            table.building,
+            table.name,
+        ),
+    }),
+);
+
+/** 教室-节次事实表，仅存空闲节次。不额外建索引，按复合主键前缀查询。 */
+export const emptyClassroomSlots = sqliteTable(
+    "emptyClassroomSlots",
+    {
+        year: integer("year").notNull(),
+        term: integer("term").notNull(),
+        week: integer("week").notNull(),
+        day: integer("day").notNull(),
+        period: integer("period").notNull(),
+        roomId: integer("roomId").notNull(),
+    },
+    table => ({
+        pk: primaryKey({
+            columns: [table.year, table.term, table.week, table.day, table.period, table.roomId],
+        }),
+    }),
+);
+
+/** 按天抓取进度，断点续传的唯一真相。 */
+export const emptyClassroomDays = sqliteTable(
+    "emptyClassroomDays",
+    {
+        year: integer("year").notNull(),
+        term: integer("term").notNull(),
+        week: integer("week").notNull(),
+        day: integer("day").notNull(),
+        fetchedAt: integer("fetchedAt", {mode: "timestamp"}).notNull(),
+        slotCount: integer("slotCount").notNull().default(0),
+    },
+    table => ({
+        pk: primaryKey({columns: [table.year, table.term, table.week, table.day]}),
+    }),
+);
+
+/** 周缓存快照元数据，不存 sizeBytes，大小由 slotCount/roomCount 实时估算。 */
+export const emptyClassroomSnapshots = sqliteTable(
+    "emptyClassroomSnapshots",
+    {
+        year: integer("year").notNull(),
+        term: integer("term").notNull(),
+        week: integer("week").notNull(),
+        fetchedAt: integer("fetchedAt", {mode: "timestamp"}).notNull(),
+        completedDays: integer("completedDays").notNull().default(0),
+        slotCount: integer("slotCount").notNull().default(0),
+        roomCount: integer("roomCount").notNull().default(0),
+        complete: integer("complete", {mode: "boolean"}).notNull().default(false),
+    },
+    table => ({
+        pk: primaryKey({columns: [table.year, table.term, table.week]}),
     }),
 );
