@@ -133,6 +133,30 @@ interface TimeScheduleItemData<T = any> {
 | `needShift`         | `true`             | 是否参与调课，见下表                                                                                                                                                                                                 |
 | `showPreShiftItems` | `false`            | 补课日列是否追加渲染本列自然日期的元素，见下文                                                                                                                                                                       |
 
+### TimeScheduleViewProps
+
+`TimeScheduleView` 复用 `TimeScheduleProps`，并额外接收：
+
+```ts
+interface TimeScheduleViewProps extends TimeScheduleProps {
+    /** 首次挂载时停留的页（0-based）；只在首次挂载生效 */
+    initialPage?: number;
+    /** pager 切页回调（0-based） */
+    onPageChanged?: (pageIndex: number) => void;
+    pageView: ReturnType<typeof usePagerView>;
+}
+```
+
+| 字段            | 默认                  | 语义与坑                                                                                                                                                     |
+| --------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `initialPage`   | `realCurrentWeek - 1` | **0-based**，自动夹到 `[0, pages.length - 1]`。**只在 pager 首次挂载生效**：之后修改该 prop 不会移动页面；需要外部改页时调用 `pageView.setPage(pageIndex)`。 |
+| `onPageChanged` | —                     | 用户滑动/程序切页后触发，参数为 0-based 页码。内部会先调用 `pageView.onPageSelected` 保持 `activePage` 更新，再调用本回调；现有调用方不传时行为不变。        |
+
+使用注意：
+
+- 不要用 `useEffect` 读 `pageView.activePage` 回写外部周次：`activePage` 初始为 0，会把持久化的周次覆盖成第 1 周。正确做法是 pager 初始化传 `initialPage={week - 1}`，用户滑动时用 `onPageChanged={page => setWeek(page + 1)}` 反向同步；外部（切学期/目标周）需要跳页时再单向调用 `setPage`。
+- 长按「回到本周」的目标页也做了 `[0, pages.length - 1]` 夹取，开学前 `realCurrentWeek` 为 0 或负数时不会越界。
+
 `needShift`：
 
 | 值             | 补课日列                          | 调休日列                     | 普通列                                                                                    |
@@ -167,9 +191,10 @@ interface TimeScheduleItemData<T = any> {
 `TimeScheduleView`（同目录）是多数页面的入口包装。它复用 `TimeSchedule` 的全部 props，并额外负责：
 
 - 从 `pageView` 取出 pager 组件，把每个数据源的 `data` 摊平后交给 `buildColorMap` 生成一张配色表，经 `ColorMapContext.Provider` 提供给所有页（`:21-27, 48`）；
-- 逐页渲染 `TimeSchedule`，并为每一页传 `currentWeek={index + 1}`（`:61-71`）；
-- `initialPage={realCurrentWeek - 1}`，即打开时停在「本周」（`:52`）；
-- 给每一页包一层 `Pressable`，长按震动并跳回 `realCurrentWeek`（`:29-32, 64`）；
+- 逐页渲染 `TimeSchedule`，并为每一页传 `currentWeek={index + 1}`（`:80-90`）；
+- `initialPage` 默认 `realCurrentWeek - 1`（打开时停在「本周」），可由同名 prop 覆盖；仅在首次挂载生效（`:24-29, 71`）；
+- 把 `pageView.onPageSelected` 包一层，先保持原有 `activePage` 更新，再回调 `onPageChanged`（`:45-51`）；
+- 给每一页包一层 `Pressable`，长按震动并跳回 `realCurrentWeek`（已夹到有效页范围）（`:39-43, 83`）；
 - 按 `theme.timeSpanHeight` / `theme.weekdayHeight` 计算 pager 自身的高度（`:36-45`）。
 
 **关键差异：它自己算 `startDay = props.startDay ?? moment()`（`:18`）——缺省值是「今天」，不是 `TimeSchedule` 用的 `jw.startDay`。** 而 `realCurrentWeek = getWeekOfDate(moment(), startDay)` 由它算，`initialPage` 与长按「回到本周」都取这个值。
