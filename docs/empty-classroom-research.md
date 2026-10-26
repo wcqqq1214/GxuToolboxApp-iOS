@@ -404,3 +404,22 @@ npx tsx test.ts --check-unauth  # 未登录是否返回 401
 | 2026-10-25 | 讨论全量采集：91 次/周、31.8 MB/周、gzip 24.6×、SQLite 体积 |
 | 2026-10-26 | SQLite 实测：单格、整周、单表 vs 抽离；索引空间/时间对比与 `ANALYZE` 影响 |
 | 2026-10-26 | 三维模型分析；确定「空间优先、索引省掉、只留当前周」的最终方案 |
+
+---
+
+## 11. 2026-10-26 后端调整（落地实现）
+
+调研结论里"一周 364 次请求、31.8 MB 未压缩"是按 `pageSize=500` 算的。实现阶段后端做了两项配合改动（mono 仓库分支 `feat/empty-classroom-page-size-gzip`，本地提交 `21576e1`）：
+
+| 改动 | 位置 | 效果 |
+|---|---|---|
+| `pageSize` 上限 500 → 10000 | `apps/backend/.../dto/emptyRoom.dto.ts` + spec | 每个 `(day, period)` 预期 1 页，整周约 **91 次请求** |
+| 全局 gzip（threshold 1KB） | `apps/backend/src/main.ts`（`compression`） | 整周响应约 **1.3 MB**（未压缩约 32 MB） |
+| 删除 `console.log(res)` | `emptyClassroom.service.ts` | 避免每次约 350KB、整周约 32MB 的日志 |
+
+注意：
+
+- **正方是否接受 `showCount=10000` 未实测**；若正方仍强制按 500 返回，客户端 pagination 会按 `totalCount` 继续翻页，功能不变但请求数回到约 364/周。
+- app 端不手动设置 `Accept-Encoding`，由 OkHttp 自动加头并透明解压；`test.ts` 是 Node/axios，显式用 `Accept-Encoding: identity` 便于断言。
+- 旧后端（仍 `@Max(500)`）对 `pageSize=10000` 返回 400；app API 会在本次缓存任务内回退到 500，先部署后端再发 app 可避免这一路径。
+- SQLite 存储量不变（只存空闲记录，约 5.5 MB/周）。
