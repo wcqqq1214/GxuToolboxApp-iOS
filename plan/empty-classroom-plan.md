@@ -631,4 +631,17 @@ services/__tests__/cacheRunner.test.ts
 - **单主机**：缓存任务在 JS 内存中，杀 App 后任务消失；已完成天在 SQLite，可续传；冷却时间在 MMKV。
 - **第一屏查询**：单教室跨已缓存周只靠 PK；默认按 active ±2 窗口加载（5 周），避免 20 周全量扫描在真机 0.5–1.5s。窗口外页面显示加载占位。
 - **room picker 查询**：`SELECT DISTINCT roomId` 随已缓存周线性增长，20 周可能 1–2s；已设计为打开 sheet 才懒加载 + 内存缓存 + spinner，不加索引。
-- **backend 仍无按天聚合接口**：放页大小只减少每节页数（91 请求/周），一天仍需 13 次请求；若后续后端增加按天接口，只需把 `api.fetchDay` 内部从 13 个节次循环换成一次后端请求，存储/UI 不变。
+- **backend 仍无按天聚合接口**：放页大小只减少每节页数（91 请求/周），一天仍需 13 次请求；当前已把 13 个节次并发发出。若后续后端增加按天接口，只需把 `api.fetchDay` 内部 13 个并发请求换成一次后端请求，存储/UI 不变。
+
+---
+
+## 11. 实现调整（2026-10-27）
+
+- **单天 13 节并发**：`api.fetchDay` 由顺序 `for period` 改为 `Promise.all` 并发；7 天仍由 runner 顺序执行。并发下：
+  - 重登改为共享 `authPromise`，13 个 401 只调用一次 `ensureAuth`；
+  - `pageSize` 回退按“本次请求实际发出的页大小”判断，13 个并发 400 都能各自回退到 500；
+  - 结果按 period 升序合并，`rooms`/`freePeriods` 仍确定；`onPeriod` 完成顺序可能乱序，进度可跳变。
+- **首页崩溃修复**：`usePagerView.onPageSelected` 在 native driver 下是 `AnimatedEvent` 对象（不可调用）。`TimeScheduleView` 现在把原对象继续传给 `AnimatedPagerView`，通过 `__addListener/__removeListener` 订阅 `onPageChanged`，不再包装调用。
+- **RoomPickerSheet**：移除 `SectionList`（RNEUI BottomSheet 内部已是 ScrollView，嵌套 VirtualizedList 会警告），改为普通 `ScrollView` + 展平行 + `stickyHeaderIndices`。
+- **缓存周行**：未缓存不显示任何体积预估；未完成行即使无内容也保留“未完成 X/7 天”（有 slotCount 才附大小）；行高压缩；缓存/继续/重试按钮放右上角。
+- 本地提交：`12a6658` 并发抓取、`96e9754` 周行压缩、`4b674cd` adapter tarball integrity；崩溃/room picker 修复随后提交。

@@ -423,3 +423,13 @@ npx tsx test.ts --check-unauth  # 未登录是否返回 401
 - app 端不手动设置 `Accept-Encoding`，由 OkHttp 自动加头并透明解压；`test.ts` 是 Node/axios，显式用 `Accept-Encoding: identity` 便于断言。
 - 旧后端（仍 `@Max(500)`）对 `pageSize=10000` 返回 400；app API 会在本次缓存任务内回退到 500，先部署后端再发 app 可避免这一路径。
 - SQLite 存储量不变（只存空闲记录，约 5.5 MB/周）。
+
+---
+
+## 12. 2026-10-27 实现调整
+
+- **单天 13 个节次并发请求**（7 天仍串行）：总请求数不变，单周缓存时间缩短；并发下重登改为共享 Promise（13 个 401 只重登一次），旧后端的 `pageSize=10000 → 500` 回退按“本次请求实际页大小”判断，13 个并发 400 都能各自回退。
+- **首页 pager 崩溃修复**：`usePagerView.onPageSelected` 在 native driver 下是 `AnimatedEvent` 对象而非函数；不能包装调用，需继续把对象传给 `AnimatedPagerView`，通过 `__addListener` 订阅额外回调。
+- **RoomPickerSheet**：避免 `SectionList` 嵌套在 RNEUI BottomSheet 的 ScrollView 里（VirtualizedLists 警告），改用普通 ScrollView + 展平行。
+- **缓存管理周行**：未缓存不显示体积预估；未完成行无大小也保留状态块；行高压缩；下载按钮右上角。
+- 并行请求让正方/后端瞬时承受 13 个同一天节次请求；若观察到 429/5xx，可在 `fetchDay` 加并发上限（例如 4–6）而不改存储/UI。
