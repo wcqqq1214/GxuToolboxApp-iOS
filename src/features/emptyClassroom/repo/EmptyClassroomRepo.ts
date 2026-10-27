@@ -11,7 +11,7 @@ type WriteTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 export type EmptyClassroomStorageUsage = {
     roomsBytes: number;
-    weeksBytes: number;
+    availabilityBytes: number;
 };
 
 /**
@@ -274,7 +274,7 @@ export const emptyClassroomRepo = {
     /**
      * 作用：读取空闲教室数据在当前数据库中的占用估算。
      * 入参：无；统计范围覆盖本机所有学期。
-     * 出参：教室维表和周事实数据分别对应的字节数。
+     * 出参：教室维表和空闲情况分别对应的字节数。
      * 修改注意：周数据从 snapshot.slotCount 汇总，避免扫描最多数十万条 slots。
      */
     async getStorageUsage(): Promise<EmptyClassroomStorageUsage> {
@@ -289,7 +289,7 @@ export const emptyClassroomRepo = {
 
         return {
             roomsBytes: estimateSizeBytes(0, roomCount),
-            weeksBytes: estimateSizeBytes(slotCount, 0),
+            availabilityBytes: estimateSizeBytes(slotCount, 0),
         };
     },
 

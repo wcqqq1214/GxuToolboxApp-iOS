@@ -43,7 +43,7 @@ function taskProgressOf(task: CacheTask): number {
     return Math.max(0, Math.min(1, (task.completedDays.length + periodFraction) / DAYS));
 }
 
-type StorageRowProps = {
+type StorageMetricProps = {
     label: string;
     value: string;
     clearing: boolean;
@@ -54,24 +54,18 @@ type StorageRowProps = {
     refreshing?: boolean;
 };
 
-function StorageRow(props: StorageRowProps) {
+function StorageMetric(props: StorageMetricProps) {
+    const {theme} = useTheme();
+
     return (
-        <Flex justify="space-between" align="center" gap={8} style={styles.storageRow}>
-            <Flex inline align="center" gap={6}>
-                <UnText size={13}>{props.label}</UnText>
-                <UnText size={13} bold>
-                    {props.value}
-                </UnText>
-            </Flex>
-            <Flex inline align="center">
-                <Button
-                    size="sm"
-                    type="clear"
-                    title="清除"
-                    loading={props.clearing}
-                    disabled={props.clearDisabled}
-                    onPress={props.onClear}
-                />
+        <View style={styles.storageMetric}>
+            <UnText size={12} color={theme.colors.grey2}>
+                {props.label}
+            </UnText>
+            <UnText size={16} bold>
+                {props.value}
+            </UnText>
+            <View style={styles.storageActions}>
                 {props.onRefresh && (
                     <Button
                         size="sm"
@@ -82,8 +76,17 @@ function StorageRow(props: StorageRowProps) {
                         onPress={props.onRefresh}
                     />
                 )}
-            </Flex>
-        </Flex>
+                <Button
+                    size="sm"
+                    type="clear"
+                    color={theme.colors.error}
+                    title="清除"
+                    loading={props.clearing}
+                    disabled={props.clearDisabled}
+                    onPress={props.onClear}
+                />
+            </View>
+        </View>
     );
 }
 
@@ -203,7 +206,7 @@ export function EmptyClassroomCacheScreen() {
             return;
         }
 
-        ToastAndroid.show(target === "rooms" ? "已清除教室和全部周数据" : "已清除全部周数据", ToastAndroid.SHORT);
+        ToastAndroid.show(target === "rooms" ? "已清除教室和全部空闲情况" : "已清除全部空闲情况", ToastAndroid.SHORT);
     }, [clearTarget, storage]);
 
     if (!selection.hydrated) {
@@ -222,24 +225,27 @@ export function EmptyClassroomCacheScreen() {
     return (
         <View style={styles.screen}>
             <View style={styles.header}>
-                <UnCard title="数据库占用" style={styles.storageCard}>
-                    <StorageRow
-                        label="教室数据"
-                        value={storageValueOf(storage.usage?.roomsBytes)}
-                        clearing={storage.clearing === "rooms"}
-                        clearDisabled={storageDisabled}
-                        refreshDisabled={storage.loading || storage.clearing !== null}
-                        onRefresh={storage.refresh}
-                        refreshing={storage.loading}
-                        onClear={() => setClearTarget("rooms")}
-                    />
-                    <StorageRow
-                        label="周数据"
-                        value={storageValueOf(storage.usage?.weeksBytes)}
-                        clearing={storage.clearing === "weeks"}
-                        clearDisabled={storageDisabled}
-                        onClear={() => setClearTarget("weeks")}
-                    />
+                <UnCard title="缓存数据存储占用" titleStyle={styles.storageTitle} style={styles.storageCard}>
+                    <View style={styles.storageMetrics}>
+                        <StorageMetric
+                            label="教室"
+                            value={storageValueOf(storage.usage?.roomsBytes)}
+                            clearing={storage.clearing === "rooms"}
+                            clearDisabled={storageDisabled}
+                            refreshDisabled={storage.loading || storage.clearing !== null}
+                            onRefresh={storage.refresh}
+                            refreshing={storage.loading}
+                            onClear={() => setClearTarget("rooms")}
+                        />
+                        <View style={[styles.storageDivider, {backgroundColor: theme.colors.grey4}]} />
+                        <StorageMetric
+                            label="空闲情况"
+                            value={storageValueOf(storage.usage?.availabilityBytes)}
+                            clearing={storage.clearing === "weeks"}
+                            clearDisabled={storageDisabled}
+                            onClear={() => setClearTarget("weeks")}
+                        />
+                    </View>
                     {storage.error && (
                         <UnText size={12} color={theme.colors.error} style={styles.storageError}>
                             {`读取占用失败：${storage.error}`}
@@ -389,6 +395,7 @@ export function EmptyClassroomCacheScreen() {
                     />
                     <Dialog.Button
                         title={deleting ? "删除中..." : "删除"}
+                        color={theme.colors.error}
                         loading={deleting}
                         disabled={deleting}
                         onPress={confirmDelete}
@@ -402,12 +409,12 @@ export function EmptyClassroomCacheScreen() {
                     if (storage.clearing === null) setClearTarget(null);
                 }}
                 overlayStyle={styles.dialog}>
-                <Dialog.Title title={clearTarget === "rooms" ? "清除教室数据" : "清除周数据"} />
+                <Dialog.Title title={clearTarget === "rooms" ? "清除教室数据" : "清除空闲情况"} />
                 <View style={styles.dialogBody}>
                     <UnText size={13} style={styles.dialogText}>
                         {clearTarget === "rooms"
-                            ? "会清除全部教室和所有周数据，之后需要重新缓存。"
-                            : "会清除所有周数据，教室信息会保留；之后需要重新缓存。"}
+                            ? "会清除全部教室和所有空闲情况，之后需要重新缓存。"
+                            : "会清除所有空闲情况，教室信息会保留；之后需要重新缓存。"}
                     </UnText>
                 </View>
                 <Dialog.Actions>
@@ -419,6 +426,7 @@ export function EmptyClassroomCacheScreen() {
                     />
                     <Dialog.Button
                         title="清除"
+                        color={theme.colors.error}
                         loading={storage.clearing !== null}
                         disabled={storage.clearing !== null}
                         onPress={confirmClearStorage}
@@ -444,15 +452,34 @@ const styles = StyleSheet.create({
         gap: 10,
     },
     storageCard: {
-        paddingHorizontal: 10,
         paddingBottom: 4,
     },
-    storageRow: {
-        minHeight: 42,
+    storageTitle: {
+        marginLeft: -8,
+    },
+    storageMetrics: {
+        flexDirection: "row",
+        alignItems: "stretch",
+        gap: 10,
+        marginHorizontal: -8,
+    },
+    storageMetric: {
+        flex: 1,
+        gap: 2,
+    },
+    storageDivider: {
+        width: StyleSheet.hairlineWidth,
+    },
+    storageActions: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "flex-end",
+        marginTop: 2,
     },
     storageError: {
         marginTop: 2,
         marginBottom: 6,
+        marginHorizontal: -8,
     },
     filterRow: {
         flexDirection: "row",
@@ -469,6 +496,7 @@ const styles = StyleSheet.create({
     summaryCard: {
         paddingHorizontal: 12,
         paddingVertical: 10,
+        marginBottom: 4,
     },
     partialHint: {
         marginTop: 4,

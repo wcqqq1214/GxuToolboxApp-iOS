@@ -77,10 +77,10 @@ export function useEmptyClassroomStorage(): EmptyClassroomStorageState {
         try {
             if (target === "rooms") {
                 await emptyClassroomRepo.clearAll();
-                setUsage({roomsBytes: 0, weeksBytes: 0});
+                setUsage({roomsBytes: 0, availabilityBytes: 0});
             } else {
                 await emptyClassroomRepo.clearWeeks();
-                setUsage(current => (current ? {...current, weeksBytes: 0} : current));
+                setUsage(current => (current ? {...current, availabilityBytes: 0} : current));
             }
             useCacheRunnerStore.getState().invalidate();
             return {ok: true};
