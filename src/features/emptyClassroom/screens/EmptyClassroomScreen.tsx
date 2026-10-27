@@ -333,7 +333,7 @@ export function EmptyClassroomScreen() {
                         startDay={startDay}
                         showDate={ready}
                         showDayHighlight={ready}
-                        showTimeSpanHighlight={false}
+                        showTimeSpanHighlight
                         scheduleItems={scheduleItems}
                     />
                 </View>

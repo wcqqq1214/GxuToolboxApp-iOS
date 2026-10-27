@@ -1,14 +1,14 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {ActivityIndicator, ScrollView, StyleSheet, ToastAndroid, View} from "react-native";
-import {Button, Dialog, LinearProgress, useTheme} from "@rneui/themed";
+import {Button, Dialog, useTheme} from "@rneui/themed";
 import {Flex, UnCard, UnTermSelector, UnText} from "@/components/un-ui";
 import {useStartDay} from "@/features/courseSchedule/hooks/detail/useStartDay.ts";
 import {WeekCacheRow} from "../components/WeekCacheRow";
 import {useEmptyClassroomCache} from "../hooks/useEmptyClassroomCache";
 import {useEmptyClassroomStorage, type StorageClearTarget} from "../hooks/useEmptyClassroomStorage";
-import type {CacheStartResult, CacheTask} from "../stores/cacheRunnerStore";
+import type {CacheStartResult} from "../stores/cacheRunnerStore";
 import {useSelection, useSelectionInit, useSelectionTermSwitcher} from "../stores/selectionStore";
-import {DAYS, MAX_WEEKS, PERIODS} from "../utils/constants";
+import {DAYS, MAX_WEEKS} from "../utils/constants";
 import {formatBytes} from "../utils/format";
 import {toLegacyTerm} from "../utils/terms";
 
@@ -28,19 +28,6 @@ function startErrorMessage(result: CacheStartResult): string {
         default:
             return "无法开始缓存";
     }
-}
-
-function taskPhaseText(task: CacheTask): string {
-    if (task.phase === "auth") return "正在登录教务系统...";
-    if (task.phase === "canceling") return "正在取消...";
-    if (task.day > 0) return `第 ${task.day}/7 天 · 第 ${task.period}/13 节`;
-    return "准备中...";
-}
-
-function taskProgressOf(task: CacheTask): number {
-    const currentDayIncluded = task.completedDays.includes(task.day);
-    const periodFraction = task.day > 0 && task.period > 0 && !currentDayIncluded ? (task.period - 1) / PERIODS : 0;
-    return Math.max(0, Math.min(1, (task.completedDays.length + periodFraction) / DAYS));
 }
 
 type StorageMetricProps = {
@@ -79,9 +66,10 @@ function StorageMetric(props: StorageMetricProps) {
                 <Button
                     size="sm"
                     type="clear"
-                    color={theme.colors.error}
                     title="清除"
+                    titleStyle={{color: theme.colors.error}}
                     loading={props.clearing}
+                    loadingProps={{color: theme.colors.error}}
                     disabled={props.clearDisabled}
                     onPress={props.onClear}
                 />
@@ -93,7 +81,6 @@ function StorageMetric(props: StorageMetricProps) {
 /**
  * 作用：缓存管理页；按周缓存/续传/删除空闲教室数据，并展示全局任务与冷却状态。
  * 修改注意：
- * - 任务来自 runner store，可能属于其他学期，全局 banner 不受学期选择器影响；
  * - startWeek 返回 ok 只代表任务结束，不代表 7 天已齐，因此不弹「缓存完成」；
  * - 删除不受冷却限制，但当前运行周由 hook 拒绝；
  * - 目标周 = selection.week，滚动仅作辅助，失败时保留高亮。
@@ -130,8 +117,6 @@ export function EmptyClassroomCacheScreen() {
     }, [cache.snapshots]);
 
     const task = cache.task;
-    const taskProgress = useMemo(() => (task ? taskProgressOf(task) : 0), [task]);
-    const cooldownSeconds = Math.ceil(cache.cooldown.remainingMs / 1000);
 
     const targetKey = `${selection.year}|${selection.term}|${selection.week}`;
     const scrollToTarget = useCallback(
@@ -279,42 +264,6 @@ export function EmptyClassroomCacheScreen() {
                     )}
                 </UnCard>
 
-                {cache.cooldown.blocked && (
-                    <UnCard color="warning" style={styles.banner}>
-                        <UnText size={12} color={theme.colors.warning}>
-                            {`每分钟仅可缓存一周，还需 ${cooldownSeconds} 秒`}
-                        </UnText>
-                    </UnCard>
-                )}
-
-                {task && (
-                    <UnCard color="primary" style={styles.banner} title="缓存进行中">
-                        <UnText size={13}>
-                            {`${task.year}-${task.year + 1} 学年 · ${
-                                task.term === 1 ? "秋季" : "春季"
-                            }学期 · 第 ${task.week} 周`}
-                        </UnText>
-                        <UnText size={12} color={theme.colors.grey2} style={styles.taskPhase}>
-                            {taskPhaseText(task)}
-                        </UnText>
-                        <LinearProgress
-                            value={taskProgress}
-                            variant="determinate"
-                            color={theme.colors.primary}
-                            style={styles.progress}
-                        />
-                        <Flex justify="flex-end" style={styles.taskActions}>
-                            <Button
-                                size="sm"
-                                type="clear"
-                                title={task.phase === "canceling" ? "取消中..." : "取消"}
-                                disabled={task.phase === "canceling"}
-                                onPress={cache.cancel}
-                            />
-                        </Flex>
-                    </UnCard>
-                )}
-
                 {cache.loading && (
                     <Flex justify="center" align="center" gap={6} style={styles.loadingRow}>
                         <ActivityIndicator color={theme.colors.primary} />
@@ -395,7 +344,8 @@ export function EmptyClassroomCacheScreen() {
                     />
                     <Dialog.Button
                         title={deleting ? "删除中..." : "删除"}
-                        color={theme.colors.error}
+                        titleStyle={{color: theme.colors.error}}
+                        loadingProps={{color: theme.colors.error}}
                         loading={deleting}
                         disabled={deleting}
                         onPress={confirmDelete}
@@ -426,7 +376,8 @@ export function EmptyClassroomCacheScreen() {
                     />
                     <Dialog.Button
                         title="清除"
-                        color={theme.colors.error}
+                        titleStyle={{color: theme.colors.error}}
+                        loadingProps={{color: theme.colors.error}}
                         loading={storage.clearing !== null}
                         disabled={storage.clearing !== null}
                         onPress={confirmClearStorage}
@@ -452,6 +403,7 @@ const styles = StyleSheet.create({
         gap: 10,
     },
     storageCard: {
+        paddingHorizontal: 10,
         paddingBottom: 4,
     },
     storageTitle: {
@@ -461,7 +413,6 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "stretch",
         gap: 10,
-        marginHorizontal: -8,
     },
     storageMetric: {
         flex: 1,
@@ -479,7 +430,6 @@ const styles = StyleSheet.create({
     storageError: {
         marginTop: 2,
         marginBottom: 6,
-        marginHorizontal: -8,
     },
     filterRow: {
         flexDirection: "row",
@@ -504,14 +454,6 @@ const styles = StyleSheet.create({
     banner: {
         paddingHorizontal: 12,
         paddingVertical: 10,
-    },
-    taskPhase: {
-        marginTop: 4,
-    },
-    progress: {
-        height: 6,
-        borderRadius: 3,
-        marginTop: 8,
     },
     taskActions: {
         marginTop: 6,

@@ -168,8 +168,8 @@ export function WeekCacheRow(props: WeekCacheRowProps) {
                                 <Button
                                     size="sm"
                                     type="clear"
-                                    color={theme.colors.error}
                                     title="删除"
+                                    titleStyle={{color: theme.colors.error}}
                                     onPress={onDelete}
                                 />
                             )}
