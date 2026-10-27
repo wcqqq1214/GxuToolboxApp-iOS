@@ -29,10 +29,7 @@ export function ActivityItem(props: ActivityItemProps) {
                 position: "absolute",
                 backgroundColor: Color(item.color ?? theme.colors.primary).setAlpha(theme.mode === "light" ? 0.3 : 0.1)
                     .rgbaString,
-                top:
-                    weekdayHeight +
-                    y * timeSpanHeight +
-                    courseItemMargin,
+                top: y * timeSpanHeight,
                 borderWidth: 2,
                 borderColor: Color.mix(theme.colors.primary, theme.colors.white, 0.2).rgbaString,
             },
@@ -41,33 +38,20 @@ export function ActivityItem(props: ActivityItemProps) {
                 color: Color.mix(item.color ?? theme.colors.primary, theme.colors.black, 0.5).rgbaString,
             },
         });
-    }, [
-        item.color,
-        courseItemMargin,
-        timeSpanHeight,
-        weekdayHeight,
-        span,
-        theme.colors.grey4,
-        theme.mode,
-        y,
-    ]);
+    }, [item.color, courseItemMargin, timeSpanHeight, weekdayHeight, span, theme.colors.grey4, theme.mode, y]);
     return (
         // 课程元素
         <UnPressable
-            onPress={function(e) {
+            onPress={function () {
                 props.onPress?.(item);
             }}
             style={[props.style, courseScheduleStyle.courseItem, itemStyle.item]}>
             <Flex direction="column" gap={5}>
                 <Text style={[itemStyle.text, {fontWeight: "bold"}]}>{item.name}</Text>
                 {item.weekSpan[0] === item.weekSpan[1] ? (
-                    <Text style={itemStyle.text}>
-                        仅第{item.weekSpan[0]}周
-                    </Text>
+                    <Text style={itemStyle.text}>仅第{item.weekSpan[0]}周</Text>
                 ) : (
-                    <Text style={itemStyle.text}>
-                        {item.weekSpan.join("-")}周
-                    </Text>
+                    <Text style={itemStyle.text}>{item.weekSpan.join("-")}周</Text>
                 )}
             </Flex>
         </UnPressable>
