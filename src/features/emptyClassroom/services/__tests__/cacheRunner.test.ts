@@ -8,7 +8,7 @@ import {
 } from "@/features/emptyClassroom/api";
 import {runWeekCache, type CacheRunnerDeps} from "@/features/emptyClassroom/services/cacheRunner";
 import type {DayPayload, LogicalTerm, RoomPayload} from "@/features/emptyClassroom/type";
-import {PAGE_SIZE, PAGE_SIZE_FALLBACK} from "@/features/emptyClassroom/utils/constants";
+import {PAGE_SIZE, PAGE_SIZE_FALLBACK, PERIODS} from "@/features/emptyClassroom/utils/constants";
 import {roomKey} from "@/features/emptyClassroom/utils/roomKey";
 
 type DayRequester = (
@@ -226,18 +226,18 @@ describe("runWeekCache", () => {
     });
 });
 
-describe("fetchDay 旧后端页大小兼容", () => {
+describe("fetchDay 并发请求兼容", () => {
     afterEach(() => {
         jest.restoreAllMocks();
     });
 
-    it("HTTP 400 后全任务回退到 500，且只回退一次", async () => {
-        const getSpy = jest.spyOn(backendHttp, "get");
-        const badRequest = Object.assign(new Error("Request failed with status code 400"), {
-            isAxiosError: true,
-            response: {status: 400},
-        });
-        getSpy.mockRejectedValueOnce(badRequest).mockResolvedValue({
+    const badRequest = Object.assign(new Error("Request failed with status code 400"), {
+        isAxiosError: true,
+        response: {status: 400},
+    });
+
+    function okResponse(): Awaited<ReturnType<typeof backendHttp.get>> {
+        return {
             data: {
                 code: 200,
                 message: "",
@@ -247,25 +247,105 @@ describe("fetchDay 旧后端页大小兼容", () => {
                     items: [{classroomName: "R101", building: "教学楼"}],
                 },
             },
-        } as Awaited<ReturnType<typeof backendHttp.get>>);
+        } as Awaited<ReturnType<typeof backendHttp.get>>;
+    }
 
-        const session: EmptyClassroomFetchSession = {
+    function unauthorizedResponse(): Awaited<ReturnType<typeof backendHttp.get>> {
+        return {
+            data: {code: 401, message: "未登录", data: null},
+        } as Awaited<ReturnType<typeof backendHttp.get>>;
+    }
+
+    function makeSession(overrides: Partial<EmptyClassroomFetchSession> = {}): EmptyClassroomFetchSession {
+        return {
             pageSize: PAGE_SIZE,
             authRetried: false,
             ensureAuth: jest.fn(async () => true),
             shouldCancel: jest.fn(() => false),
+            ...overrides,
         };
+    }
 
+    function pageSizesOf(getSpy: jest.SpyInstance): number[] {
+        return getSpy.mock.calls.map(call => (call[1] as {params: {pageSize: number}}).params.pageSize);
+    }
+
+    it("13 个节次并发请求 10000 均收到 400 时，每个节次都回退到 500 重试一次", async () => {
+        const getSpy = jest.spyOn(backendHttp, "get");
+        getSpy.mockImplementation(async (_url, config) => {
+            const pageSize = (config as {params: {pageSize: number}}).params.pageSize;
+            if (pageSize === PAGE_SIZE) {
+                throw badRequest;
+            }
+            return okResponse();
+        });
+
+        const session = makeSession();
         const payload = await fetchDayApi({year: 2026, term: 1, week: 3, day: 2}, session);
 
-        expect(getSpy).toHaveBeenCalledTimes(14);
-        expect((getSpy.mock.calls[0][1] as {params: {pageSize: number}}).params.pageSize).toBe(PAGE_SIZE);
-        expect((getSpy.mock.calls[1][1] as {params: {pageSize: number}}).params.pageSize).toBe(PAGE_SIZE_FALLBACK);
-        expect((getSpy.mock.calls[13][1] as {params: {pageSize: number}}).params.pageSize).toBe(PAGE_SIZE_FALLBACK);
+        // 13 次首发（10000）+ 13 次回退重试（500），不是串行时代的 14 次。
+        expect(getSpy).toHaveBeenCalledTimes(PERIODS * 2);
+        expect(pageSizesOf(getSpy).filter(size => size === PAGE_SIZE)).toHaveLength(PERIODS);
+        expect(pageSizesOf(getSpy).filter(size => size === PAGE_SIZE_FALLBACK)).toHaveLength(PERIODS);
+        for (let period = 1; period <= PERIODS; period += 1) {
+            const requested = getSpy.mock.calls
+                .map(call => (call[1] as {params: {timeList: number[]; pageSize: number}}).params)
+                .filter(params => params.timeList[0] === period)
+                .map(params => params.pageSize);
+            expect(requested).toEqual([PAGE_SIZE, PAGE_SIZE_FALLBACK]);
+        }
         expect(session.pageSize).toBe(PAGE_SIZE_FALLBACK);
+        expect(session.authRetried).toBe(false);
+        expect(session.ensureAuth).not.toHaveBeenCalled();
 
         const key = roomKey("教学楼", "R101");
         expect(payload.rooms.get(key)).toEqual(expect.objectContaining({building: "教学楼", name: "R101"}));
         expect(payload.freePeriods.get(key)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
+    });
+
+    it("13 个节次并发 401 时共享一次 ensureAuth，所有节次都重试", async () => {
+        const getSpy = jest.spyOn(backendHttp, "get");
+        let callCount = 0;
+        getSpy.mockImplementation(async () => {
+            callCount += 1;
+            return callCount <= PERIODS ? unauthorizedResponse() : okResponse();
+        });
+
+        const ensureAuth = jest.fn(async () => true);
+        const session = makeSession({ensureAuth});
+        const payload = await fetchDayApi({year: 2026, term: 1, week: 3, day: 2}, session);
+
+        expect(ensureAuth).toHaveBeenCalledTimes(1);
+        expect(getSpy).toHaveBeenCalledTimes(PERIODS * 2);
+        expect(session.authRetried).toBe(true);
+
+        const key = roomKey("教学楼", "R101");
+        expect(payload.freePeriods.get(key)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
+    });
+
+    it("共享重登成功后的再次 401 抛 auth error，不会无限重试", async () => {
+        const getSpy = jest.spyOn(backendHttp, "get");
+        getSpy.mockImplementation(async () => unauthorizedResponse());
+
+        const ensureAuth = jest.fn(async () => true);
+        const session = makeSession({ensureAuth});
+
+        await expect(fetchDayApi({year: 2026, term: 1, week: 3, day: 2}, session)).rejects.toBeInstanceOf(
+            EmptyClassroomAuthError,
+        );
+
+        expect(ensureAuth).toHaveBeenCalledTimes(1);
+        // 13 次首发 + 13 次重登后的重试；重试仍 401 时直接失败。
+        expect(getSpy).toHaveBeenCalledTimes(PERIODS * 2);
+    });
+
+    it("启动 13 个并发请求前已取消时直接抛取消错误", async () => {
+        const getSpy = jest.spyOn(backendHttp, "get");
+        const session = makeSession({shouldCancel: jest.fn(() => true)});
+
+        await expect(fetchDayApi({year: 2026, term: 1, week: 3, day: 2}, session)).rejects.toBeInstanceOf(
+            EmptyClassroomCacheCanceledError,
+        );
+        expect(getSpy).not.toHaveBeenCalled();
     });
 });

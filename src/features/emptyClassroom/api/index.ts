@@ -15,12 +15,22 @@ const MAX_TRANSIENT_RETRIES = 2;
 /** 瞬时错误重试间隔。 */
 const TRANSIENT_RETRY_DELAY_MS = 800;
 
-/** 一次缓存任务内共享的请求上下文；pageSize/authRetried 会被本模块就地更新。 */
+/** 一次缓存任务内共享的请求上下文；pageSize/authRetried/authPromise 会被本模块就地更新。 */
 export type EmptyClassroomFetchSession = {
     /** 当前有效页大小；旧后端返回 400 后回退到 PAGE_SIZE_FALLBACK。 */
     pageSize: number;
     /** 本任务是否已经为 401/403 触发过重新鉴权，保证每任务最多一次。 */
     authRetried: boolean;
+    /**
+     * 本任务共享的重登 Promise；13 个节次并发收到 401 时只调用一次 ensureAuth。
+     * 由本模块首次需要重登时创建，store 无需设置。
+     */
+    authPromise?: Promise<boolean>;
+    /**
+     * 共享重登是否已结束。用于区分「重登前发出的请求」与「重登后仍 401 的请求」：
+     * 后者必须直接失败，避免拿同一个成功 Promise 无限重试。由本模块维护。
+     */
+    authSettled?: boolean;
     /** 重新鉴权；返回是否已登录。 */
     ensureAuth: () => Promise<boolean>;
     /** 用户是否已请求取消。 */
@@ -80,24 +90,40 @@ function delay(ms: number): Promise<void> {
 }
 
 /**
- * 作用：为当前任务重新鉴权一次；同任务第二次要求鉴权时直接抛 auth error。
- * 入参：session 为整个缓存任务共享的请求上下文。
+ * 作用：为当前任务重新鉴权一次；同任务后续请求再收到 401 时直接抛 auth error。
+ * 入参：
+ * - session：整个缓存任务共享的请求上下文；
+ * - sentBeforeAuthSettled：本次请求是否在共享重登完成前发出。
  * 出参：无；失败抛 EmptyClassroomAuthError。
- * 修改注意：authRetried 必须在调用 ensureAuth 前置位，防止并发页同时触发多轮重登。
+ * 修改注意：
+ * - 13 个节次并发时可能同时收到 401，所有调用方共享同一个 authPromise，ensureAuth 只调用一次；
+ * - 并发请求的 401 即使晚于重登完成才返回，只要请求发出时重登尚未完成，仍可复用结果重试；
+ * - 重登完成后发出的请求若仍收到 401，说明重登无效，直接抛错，避免无限重试；
+ * - authRetried 必须在创建 authPromise 前置位，防止并发调用创建多轮重登。
  */
-async function reauthenticate(session: EmptyClassroomFetchSession): Promise<void> {
-    if (session.authRetried) {
-        throw new EmptyClassroomAuthError();
-    }
-    session.authRetried = true;
+async function reauthenticate(session: EmptyClassroomFetchSession, sentBeforeAuthSettled: boolean): Promise<void> {
+    if (!session.authPromise) {
+        if (session.authRetried) {
+            throw new EmptyClassroomAuthError();
+        }
+        session.authRetried = true;
 
-    let ok = false;
-    try {
-        ok = await session.ensureAuth();
-    } catch {
-        ok = false;
+        const authPromise = (async () => {
+            try {
+                return await session.ensureAuth();
+            } catch {
+                return false;
+            }
+        })();
+        session.authPromise = authPromise;
+        // 先于所有 await 方注册，确保重登结果落定后才允许后续请求判断「重登后仍 401」。
+        authPromise.then(() => {
+            session.authSettled = true;
+        });
     }
-    if (!ok) {
+
+    const ok = await session.authPromise;
+    if (!ok || !sentBeforeAuthSettled) {
         throw new EmptyClassroomAuthError();
     }
 }
@@ -131,8 +157,9 @@ function toRoomPayload(item: ClassroomItem, key: string): RoomPayload {
  * - session：共享页大小、鉴权重试与取消状态。
  * 出参：Zod 校验后的 ClassroomPage。
  * 修改注意：
- * - 401/403、envelope code 401、data 疑似登录失效都走同一次重登，最多一次；
- * - 旧后端对 pageSize=10000 返回 400 时整个任务回退到 500，且只回退一次；
+ * - 401/403、envelope code 401、data 疑似登录失效都走同一次共享重登，最多一次；
+ * - 旧后端对 pageSize=10000 返回 400 时整个任务回退到 500；必须用「本次请求实际发出的页大小」
+ *   判断，13 个节次并发收到 400 时各自都能重试一次，而不是只有第一个能回退；
  * - 网络错误/5xx 最多重试 2 次；其他 4xx 不重试。
  */
 async function requestPage(
@@ -148,6 +175,10 @@ async function requestPage(
             throw new EmptyClassroomCacheCanceledError();
         }
 
+        // 必须在发送前快照：并发请求可能在本请求返回前就把共享 session 改掉。
+        const requestedPageSize = session.pageSize;
+        const sentBeforeAuthSettled = session.authSettled !== true;
+
         try {
             const response = await backendHttp.get("/jw/emptyClassroom", {
                 params: {
@@ -157,7 +188,7 @@ async function requestPage(
                     year: range.year,
                     term: range.term,
                     pageNum,
-                    pageSize: session.pageSize,
+                    pageSize: requestedPageSize,
                 },
                 paramsSerializer: {indexes: null},
                 timeout: REQUEST_TIMEOUT_MS,
@@ -165,7 +196,7 @@ async function requestPage(
 
             const envelope = parseBackendEnvelope(response.data);
             if (envelope.code === 401) {
-                await reauthenticate(session);
+                await reauthenticate(session, sentBeforeAuthSettled);
                 continue;
             }
             if (envelope.code !== 200) {
@@ -178,7 +209,7 @@ async function requestPage(
                 return parseClassroomPage(envelope.data);
             } catch (error) {
                 if (error instanceof EmptyClassroomDataError && error.isLikelyAuthFailure) {
-                    await reauthenticate(session);
+                    await reauthenticate(session, sentBeforeAuthSettled);
                     continue;
                 }
                 throw error;
@@ -195,10 +226,10 @@ async function requestPage(
 
             const status = httpStatusOf(error);
             if (status === 401 || status === 403) {
-                await reauthenticate(session);
+                await reauthenticate(session, sentBeforeAuthSettled);
                 continue;
             }
-            if (status === 400 && session.pageSize === PAGE_SIZE) {
+            if (status === 400 && requestedPageSize === PAGE_SIZE) {
                 session.pageSize = PAGE_SIZE_FALLBACK;
                 continue;
             }
@@ -221,13 +252,15 @@ async function requestPage(
 }
 
 /**
- * 作用：顺序抓取一天 13 个节次的空闲教室，并合并为按 roomKey 索引的 DayPayload。
+ * 作用：并发抓取一天 13 个节次的空闲教室，并合并为按 roomKey 索引的 DayPayload。
  * 入参：
  * - range：year/term/week/day；
  * - session：共享页大小、鉴权重试与取消状态（store 持有同一个对象）；
- * - onPeriod：每个节次完整抓完后回调，用于进度展示。
+ * - onPeriod：每个节次完整抓完后回调；并发完成顺序不固定，进度可能跳变。
  * 出参：DayPayload；中途取消抛 EmptyClassroomCacheCanceledError，鉴权失败抛 EmptyClassroomAuthError。
  * 修改注意：
+ * - 13 个节次同时发出；7 天仍由 runner 顺序执行，总请求数不变；
+ * - Promise.all 的结果顺序与输入一致，按节次升序合并，保证 rooms 首份元数据与 freePeriods 确定；
  * - 每页请求都带 year+term；数组参数必须用重复键序列化（indexes:null）；
  * - 不设置 Accept-Encoding，交给 OkHttp 透明 gzip；
  * - 教室元数据第一份为准；页面数组用完即弃，只保留 Map。
@@ -237,19 +270,27 @@ export async function fetchDay(
     session: EmptyClassroomFetchSession,
     onPeriod?: (day: number, period: number) => void,
 ): Promise<DayPayload> {
+    if (session.shouldCancel()) {
+        throw new EmptyClassroomCacheCanceledError();
+    }
+
+    const periodsToFetch = Array.from({length: PERIODS}, (_, index) => index + 1);
+    const results = await Promise.all(
+        periodsToFetch.map(async period => {
+            const page = await collectSlotPages(pageNum => requestPage(range, period, pageNum, session), {
+                pageSize: session.pageSize,
+                maxPages: MAX_PAGES,
+            });
+            onPeriod?.(range.day, period);
+            return {period, page};
+        }),
+    );
+
     const rooms = new Map<string, RoomPayload>();
     const freePeriods = new Map<string, number[]>();
 
-    for (let period = 1; period <= PERIODS; period += 1) {
-        if (session.shouldCancel()) {
-            throw new EmptyClassroomCacheCanceledError();
-        }
-
-        const page = await collectSlotPages(pageNum => requestPage(range, period, pageNum, session), {
-            pageSize: session.pageSize,
-            maxPages: MAX_PAGES,
-        });
-
+    // 显式按节次升序合并，不依赖完成顺序。
+    for (const {period, page} of [...results].sort((left, right) => left.period - right.period)) {
         for (const item of page.items) {
             const building = item.building.trim();
             const name = item.classroomName.trim();
@@ -269,8 +310,6 @@ export async function fetchDay(
                 freePeriods.set(key, [period]);
             }
         }
-
-        onPeriod?.(range.day, period);
     }
 
     for (const [key, periods] of freePeriods) {
