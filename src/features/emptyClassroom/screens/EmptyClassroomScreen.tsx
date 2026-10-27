@@ -242,7 +242,7 @@ export function EmptyClassroomScreen() {
     const room = overview.room;
     const roomLabel = room ? `${room.building} · ${room.name}` : selection.roomId ? "正在加载教室信息..." : "选择教室";
     const roomMeta = room
-        ? [room.placeType, room.seatCount !== null ? `${room.seatCount} 座` : ""].filter(Boolean).join(" · ")
+        ? [room.placeType, room.seatCount !== null ? `${room.seatCount} 座位` : ""].filter(Boolean).join(" · ")
         : "";
 
     return (
@@ -274,10 +274,10 @@ export function EmptyClassroomScreen() {
                                 {borderColor: theme.colors.grey4, backgroundColor: theme.colors.grey5},
                             ]}
                             onPress={openRoomPicker}>
-                            <Flex justify="space-between" align="center" gap={8}>
-                                <Flex inline align="center" gap={6} style={styles.roomLabel}>
+                            <Flex justify="space-between" align="flex-start" gap={8}>
+                                <Flex inline align="flex-start" gap={6} style={styles.roomLabel}>
                                     <Icon name="door" size={18} color={theme.colors.grey2} />
-                                    <UnText size={15} numberOfLines={1} style={styles.roomText}>
+                                    <UnText size={15} style={styles.roomText}>
                                         {roomLabel}
                                     </UnText>
                                 </Flex>
