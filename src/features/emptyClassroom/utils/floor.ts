@@ -1,27 +1,34 @@
-import type {RoomRecord} from "../type";
+import type {RoomBuildingSummary, RoomRecord} from "../type";
 
-/** 楼层分组；“其他教室”用 floor=null 表示。 */
+export const OTHER_BUILDING_TITLE = "其他楼栋";
+export const OTHER_FLOOR_TITLE = "其他楼层";
+
+/** 楼层分组；“其他楼层”用 floor=null 表示。 */
 export type FloorGroup = {
     /** 识别出的楼层；null 表示无法从教室名识别楼层。 */
     floor: number | null;
-    /** 展示标题，例如 “3 层” / “其他教室”。 */
+    /** 展示标题，例如 “3 层” / “其他楼层”。 */
     title: string;
     /** 该楼层下的教室，已按名称排序。 */
     rooms: RoomRecord[];
 };
 
-/** 单个楼栋的分组结果。 */
-export type BuildingGroup = {
-    /** 楼栋名。 */
+/** 带展示标题的楼栋摘要；空楼栋名统一显示为“其他楼栋”。 */
+export type BuildingSummaryGroup = RoomBuildingSummary & {
     building: string;
-    /** 楼栋内全部教室，已按名称排序。 */
+    title: string;
+    isOther: boolean;
+};
+
+/** 全库教室搜索结果中的“楼栋 · 楼层”区域。 */
+export type RoomSearchSection = {
+    key: string;
+    building: string;
+    buildingTitle: string;
+    floor: number | null;
+    floorTitle: string;
+    title: string;
     rooms: RoomRecord[];
-    /** 楼层组：楼层升序，“其他教室”永远最后。 */
-    floors: FloorGroup[];
-    /** 识别出的不同楼层数（不含“其他教室”）。 */
-    floorCount: number;
-    /** 无法识别楼层的教室数。 */
-    unknownFloorCount: number;
 };
 
 const MIN_FLOOR = 1;
@@ -117,53 +124,84 @@ function compareName(left: string, right: string): number {
 }
 
 function floorTitle(floor: number | null): string {
-    return floor === null ? "其他教室" : `${floor} 层`;
+    return floor === null ? OTHER_FLOOR_TITLE : `${floor} 层`;
 }
 
 /**
- * 作用：把教室列表按楼栋、楼层分组，供教室选择器逐级展示。
- * 出参：楼栋按名称升序；楼层数字升序，“其他教室”永远最后；
- * 每个楼栋附带楼层数（不含“其他教室”）与未知楼层教室数。
+ * 作用：整理首层楼栋摘要。
+ * 出参：“其他楼栋”固定置顶，其余按中文数字名称升序。
  */
-export function groupRoomsByBuilding(rooms: RoomRecord[]): BuildingGroup[] {
-    const grouped = new Map<string, RoomRecord[]>();
-    for (const room of rooms) {
-        const list = grouped.get(room.building);
-        if (list) list.push(room);
-        else grouped.set(room.building, [room]);
-    }
-
-    const result: BuildingGroup[] = [];
-    for (const [building, buildingRooms] of grouped) {
-        const sortedRooms = [...buildingRooms].sort((left, right) => compareName(left.name, right.name));
-        const roomsByFloor = new Map<number | null, RoomRecord[]>();
-        for (const room of sortedRooms) {
-            const floor = detectFloor(room.name, room.building);
-            const list = roomsByFloor.get(floor);
-            if (list) list.push(room);
-            else roomsByFloor.set(floor, [room]);
-        }
-
-        const floors: FloorGroup[] = [...roomsByFloor.entries()]
-            .sort(([left], [right]) => {
-                if (left === null) return 1;
-                if (right === null) return -1;
-                return left - right;
-            })
-            .map(([floor, floorRooms]) => ({
-                floor,
-                title: floorTitle(floor),
-                rooms: floorRooms,
-            }));
-
-        result.push({
-            building,
-            rooms: sortedRooms,
-            floors,
-            floorCount: floors.filter(group => group.floor !== null).length,
-            unknownFloorCount: roomsByFloor.get(null)?.length ?? 0,
+export function groupRoomBuildings(summaries: RoomBuildingSummary[]): BuildingSummaryGroup[] {
+    return summaries
+        .map(summary => {
+            const isOther = summary.building.trim().length === 0;
+            return {
+                ...summary,
+                title: isOther ? OTHER_BUILDING_TITLE : summary.building,
+                isOther,
+            };
+        })
+        .sort((left, right) => {
+            if (left.isOther) return right.isOther ? 0 : -1;
+            if (right.isOther) return 1;
+            return compareName(left.title, right.title);
         });
+}
+
+/**
+ * 作用：把单个楼栋的教室按楼层分组。
+ * 出参：楼层数字升序；无法识别的“其他楼层”固定置顶。
+ */
+export function groupRoomsByFloor(rooms: RoomRecord[]): FloorGroup[] {
+    const roomsByFloor = new Map<number | null, RoomRecord[]>();
+    for (const room of [...rooms].sort((left, right) => compareName(left.name, right.name))) {
+        const floor = detectFloor(room.name, room.building);
+        const list = roomsByFloor.get(floor);
+        if (list) list.push(room);
+        else roomsByFloor.set(floor, [room]);
     }
 
-    return result.sort((left, right) => compareName(left.building, right.building));
+    return [...roomsByFloor.entries()]
+        .sort(([left], [right]) => {
+            if (left === null) return right === null ? 0 : -1;
+            if (right === null) return 1;
+            return left - right;
+        })
+        .map(([floor, floorRooms]) => ({
+            floor,
+            title: floorTitle(floor),
+            rooms: floorRooms,
+        }));
+}
+
+/**
+ * 作用：把全库教室搜索结果按楼栋、楼层整理为区域列表。
+ * 出参：“其他楼栋”“其他楼层”分别置顶，其余按名称和楼层数字升序。
+ */
+export function groupRoomSearchResults(rooms: RoomRecord[]): RoomSearchSection[] {
+    const roomsByBuilding = new Map<string, RoomRecord[]>();
+    for (const room of rooms) {
+        const group = roomsByBuilding.get(room.building);
+        if (group) group.push(room);
+        else roomsByBuilding.set(room.building, [room]);
+    }
+
+    const buildingGroups = groupRoomBuildings(
+        [...roomsByBuilding].map(([building, buildingRooms]) => ({
+            building,
+            roomCount: buildingRooms.length,
+        })),
+    );
+
+    return buildingGroups.flatMap(buildingGroup =>
+        groupRoomsByFloor(roomsByBuilding.get(buildingGroup.building) ?? []).map(floorGroup => ({
+            key: JSON.stringify([buildingGroup.building, floorGroup.floor]),
+            building: buildingGroup.building,
+            buildingTitle: buildingGroup.title,
+            floor: floorGroup.floor,
+            floorTitle: floorGroup.title,
+            title: `${buildingGroup.title} · ${floorGroup.title}`,
+            rooms: floorGroup.rooms,
+        })),
+    );
 }

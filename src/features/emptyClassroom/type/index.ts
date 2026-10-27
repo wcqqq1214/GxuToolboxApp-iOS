@@ -28,6 +28,13 @@ export type RoomRecord = Omit<RoomPayload, "key"> & {
     updatedAt: Date;
 };
 
+/** 教室选择器首层：楼栋及该楼栋的教室数。 */
+export type RoomBuildingSummary = {
+    /** 原始楼栋名；空串表示教务未返回可识别楼栋。 */
+    building: string;
+    roomCount: number;
+};
+
 /** 按天进度行。 */
 export type DayRecord = {
     year: number;

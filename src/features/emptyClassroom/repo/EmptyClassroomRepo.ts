@@ -1,13 +1,10 @@
-import {and, asc, countDistinct, eq, inArray} from "drizzle-orm";
+import {and, asc, count, countDistinct, eq, inArray, like, or} from "drizzle-orm";
 import {db, expoDb} from "@/core/db";
 import {emptyClassroomDays, emptyClassroomRooms, emptyClassroomSlots, emptyClassroomSnapshots} from "@/core/schema";
-import type {DayPayload, FreePeriodRow, LogicalTerm, RoomRecord, WeekSnapshot} from "../type";
+import type {DayPayload, FreePeriodRow, LogicalTerm, RoomBuildingSummary, RoomRecord, WeekSnapshot} from "../type";
 import {DAYS, ROOM_BATCH_SIZE, SLOT_BATCH_SIZE} from "../utils/constants";
 import {estimateSizeBytes} from "../utils/format";
 import {roomKey} from "../utils/roomKey";
-
-/** listRooms 按 id 分块查询，避开 SQLite 变量上限。 */
-const ROOM_ID_CHUNK_SIZE = 500;
 
 /** drizzle 事务回调参数类型。 */
 type WriteTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -371,25 +368,52 @@ export const emptyClassroomRepo = {
     },
 
     /**
-     * 作用：列出某学期 slot 中出现过的教室（只读 roomId，走 slots 复合主键前缀）。
-     * 出参：RoomRecord[]，按 building/name 排序。
-     * 修改注意：不要在关键路径调用；room picker 打开时懒加载并按 revision 缓存。
+     * 作用：教室选择器首层，直接聚合全局教室维表，避免扫描 slot 事实表。
+     * 出参：楼栋及教室数；排序与“其他楼栋”置顶由 UI 工具处理。
      */
-    async listRooms(year: number, term: LogicalTerm): Promise<RoomRecord[]> {
-        const idRows = await db
-            .selectDistinct({roomId: emptyClassroomSlots.roomId})
-            .from(emptyClassroomSlots)
-            .where(and(eq(emptyClassroomSlots.year, year), eq(emptyClassroomSlots.term, term)));
+    async listRoomBuildings(): Promise<RoomBuildingSummary[]> {
+        const rows = await db
+            .select({
+                building: emptyClassroomRooms.building,
+                roomCount: count(),
+            })
+            .from(emptyClassroomRooms)
+            .groupBy(emptyClassroomRooms.building);
 
-        const roomIds = [...new Set(idRows.map(row => row.roomId))];
-        const rooms: RoomRecord[] = [];
-        for (const batch of chunked(roomIds, ROOM_ID_CHUNK_SIZE)) {
-            const rows = await db.select().from(emptyClassroomRooms).where(inArray(emptyClassroomRooms.id, batch));
-            rooms.push(...rows);
-        }
+        return rows.map(row => ({
+            building: row.building,
+            roomCount: Number(row.roomCount),
+        }));
+    },
 
-        rooms.sort((left, right) => left.building.localeCompare(right.building) || left.name.localeCompare(right.name));
-        return rooms;
+    /** 作用：进入某楼栋后按需读取该楼栋教室，使用 building/name 唯一索引。 */
+    async listRoomsByBuilding(building: string): Promise<RoomRecord[]> {
+        return db
+            .select()
+            .from(emptyClassroomRooms)
+            .where(eq(emptyClassroomRooms.building, building))
+            .orderBy(asc(emptyClassroomRooms.name));
+    },
+
+    /**
+     * 作用：直接搜索教室名或场地类别。
+     * 入参 building 为 undefined 时搜索全部楼栋；空串仍表示只搜索“其他楼栋”。
+     */
+    async searchRooms(keyword: string, building?: string): Promise<RoomRecord[]> {
+        const normalizedKeyword = keyword.trim();
+        if (!normalizedKeyword) return [];
+
+        const pattern = `%${normalizedKeyword}%`;
+        return db
+            .select()
+            .from(emptyClassroomRooms)
+            .where(
+                and(
+                    or(like(emptyClassroomRooms.name, pattern), like(emptyClassroomRooms.placeType, pattern)),
+                    building === undefined ? undefined : eq(emptyClassroomRooms.building, building),
+                ),
+            )
+            .orderBy(asc(emptyClassroomRooms.building), asc(emptyClassroomRooms.name));
     },
 
     /** 作用：按 id 读取单间教室元数据；不存在返回 null。 */

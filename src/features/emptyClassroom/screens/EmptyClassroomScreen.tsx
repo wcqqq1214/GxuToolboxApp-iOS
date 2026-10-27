@@ -342,8 +342,6 @@ export function EmptyClassroomScreen() {
             <RoomPickerSheet
                 visible={roomSheetVisible}
                 onClose={closeRoomPicker}
-                year={selection.year}
-                term={selection.term}
                 selectedRoomId={selection.roomId}
                 onSelect={item => setRoom(item.id)}
                 onOpenCacheManager={() => {

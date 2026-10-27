@@ -1,4 +1,9 @@
-import {detectFloor, groupRoomsByBuilding} from "@/features/emptyClassroom/utils/floor.ts";
+import {
+    detectFloor,
+    groupRoomBuildings,
+    groupRoomSearchResults,
+    groupRoomsByFloor,
+} from "@/features/emptyClassroom/utils/floor.ts";
 import type {RoomRecord} from "@/features/emptyClassroom/type";
 
 /** 构造测试用教室行，只关心分组相关字段。 */
@@ -72,55 +77,81 @@ describe("detectFloor", () => {
     });
 });
 
-describe("groupRoomsByBuilding", () => {
-    const rooms = [
-        makeRoom("教10", "教10-203", 1),
-        makeRoom("教10", "教10-101", 2),
-        makeRoom("教10", "教10-报告厅", 3),
-        makeRoom("教2", "303", 4),
-        makeRoom("教2", "101", 5),
-        makeRoom("教2", "201", 6),
-    ];
+describe("groupRoomBuildings", () => {
+    it("只按教室数整理楼栋摘要，并把无法识别的楼栋置顶", () => {
+        const groups = groupRoomBuildings([
+            {building: "教10", roomCount: 30},
+            {building: "", roomCount: 4},
+            {building: "教2", roomCount: 20},
+        ]);
 
-    it("按楼栋名称做中文数字排序并统计楼层/教室数", () => {
-        const groups = groupRoomsByBuilding(rooms);
-        expect(groups.map(group => group.building)).toEqual(["教2", "教10"]);
-
-        const [jiao2, jiao10] = groups;
-        expect(jiao2.floorCount).toBe(3);
-        expect(jiao2.unknownFloorCount).toBe(0);
-        expect(jiao2.rooms).toHaveLength(3);
-
-        expect(jiao10.floorCount).toBe(2);
-        expect(jiao10.unknownFloorCount).toBe(1);
-        expect(jiao10.rooms).toHaveLength(3);
-    });
-
-    it("楼层升序，“其他教室”永远最后", () => {
-        const groups = groupRoomsByBuilding(rooms);
-        const jiao10 = groups[1];
-        expect(jiao10.floors.map(group => group.title)).toEqual(["1 层", "2 层", "其他教室"]);
-        expect(jiao10.floors.map(group => group.floor)).toEqual([1, 2, null]);
-        expect(jiao10.floors[0].rooms.map(room => room.name)).toEqual(["教10-101"]);
-        expect(jiao10.floors[1].rooms.map(room => room.name)).toEqual(["教10-203"]);
-        expect(jiao10.floors[2].rooms.map(room => room.name)).toEqual(["教10-报告厅"]);
-    });
-
-    it("楼栋内教室按名称排序", () => {
-        const groups = groupRoomsByBuilding(rooms);
-        expect(groups[1].rooms.map(room => room.name)).toEqual(["教10-101", "教10-203", "教10-报告厅"]);
-        expect(groups[0].rooms.map(room => room.name)).toEqual(["101", "201", "303"]);
-    });
-
-    it("整栋都无法识别楼层时只产生“其他教室”组", () => {
-        const groups = groupRoomsByBuilding([makeRoom("体育馆", "报告厅")]);
-        expect(groups).toHaveLength(1);
-        expect(groups[0].floorCount).toBe(0);
-        expect(groups[0].unknownFloorCount).toBe(1);
-        expect(groups[0].floors.map(group => group.title)).toEqual(["其他教室"]);
+        expect(groups.map(group => group.title)).toEqual(["其他楼栋", "教2", "教10"]);
+        expect(groups.map(group => group.roomCount)).toEqual([4, 20, 30]);
     });
 
     it("空列表返回空数组", () => {
-        expect(groupRoomsByBuilding([])).toEqual([]);
+        expect(groupRoomBuildings([])).toEqual([]);
+    });
+});
+
+describe("groupRoomsByFloor", () => {
+    const jiao10Rooms = [
+        makeRoom("教10", "教10-203", 1),
+        makeRoom("教10", "教10-101", 2),
+        makeRoom("教10", "教10-报告厅", 3),
+    ];
+    const jiao2Rooms = [makeRoom("教2", "303", 4), makeRoom("教2", "101", 5), makeRoom("教2", "201", 6)];
+
+    it("按楼层数字升序分组", () => {
+        const groups = groupRoomsByFloor(jiao2Rooms);
+        expect(groups.map(group => group.title)).toEqual(["1 层", "2 层", "3 层"]);
+        expect(groups.map(group => group.rooms.length)).toEqual([1, 1, 1]);
+    });
+
+    it("无法识别的楼层显示为“其他楼层”并置顶", () => {
+        const groups = groupRoomsByFloor(jiao10Rooms);
+        expect(groups.map(group => group.title)).toEqual(["其他楼层", "1 层", "2 层"]);
+        expect(groups.map(group => group.floor)).toEqual([null, 1, 2]);
+        expect(groups[0].rooms.map(room => room.name)).toEqual(["教10-报告厅"]);
+    });
+
+    it("组内教室按名称排序", () => {
+        expect(groupRoomsByFloor(jiao2Rooms).flatMap(group => group.rooms.map(room => room.name))).toEqual([
+            "101",
+            "201",
+            "303",
+        ]);
+    });
+
+    it("整栋都无法识别楼层时只产生“其他楼层”组", () => {
+        const groups = groupRoomsByFloor([makeRoom("体育馆", "报告厅")]);
+        expect(groups).toHaveLength(1);
+        expect(groups[0].title).toBe("其他楼层");
+        expect(groups[0].rooms).toHaveLength(1);
+    });
+
+    it("空列表返回空数组", () => {
+        expect(groupRoomsByFloor([])).toEqual([]);
+    });
+});
+
+describe("groupRoomSearchResults", () => {
+    it("按楼栋和楼层生成区域头，并将其他楼栋、其他楼层置顶", () => {
+        const sections = groupRoomSearchResults([
+            makeRoom("教10", "教10-203", 1),
+            makeRoom("教10", "教10-101", 2),
+            makeRoom("教10", "教10-报告厅", 3),
+            makeRoom("教2", "101", 4),
+            makeRoom("", "报告厅", 5),
+        ]);
+
+        expect(sections.map(section => section.title)).toEqual([
+            "其他楼栋 · 其他楼层",
+            "教2 · 1 层",
+            "教10 · 其他楼层",
+            "教10 · 1 层",
+            "教10 · 2 层",
+        ]);
+        expect(sections[0].rooms.map(room => room.name)).toEqual(["报告厅"]);
     });
 });
