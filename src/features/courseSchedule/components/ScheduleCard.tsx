@@ -4,6 +4,7 @@ import React, {useCallback, useEffect, useMemo, useState} from "react";
 import Flex from "@/components/un-ui/Flex.tsx";
 import {Icon} from "@/components/un-ui/Icon.tsx";
 import moment from "moment";
+import {getWeekOfDate} from "@/features/courseSchedule/utils/weekOfDate.ts";
 import {SchoolTermValue} from "@/type/global.ts";
 import {Color} from "@/shared/color.ts";
 import {usePagerView} from "react-native-pager-view";
@@ -17,7 +18,6 @@ import {ScheduleTableItem, TimeScheduleItemData} from "@/features/courseSchedule
 import {useCourse} from "@/features/courseSchedule/hooks/detail/useCourse.ts";
 import {useStartDay} from "@/features/courseSchedule/hooks/detail/useStartDay.ts";
 import {useExam} from "@/features/courseSchedule/hooks/detail/useExam.ts";
-import {useNextEvent} from "@/features/courseSchedule/hooks/detail/useNextCourse.ts";
 import {usePractice} from "@/features/courseSchedule/hooks/detail/usePractice.ts";
 import {PracticalCourseList} from "@/features/courseSchedule/components/PracticalCourseList.tsx";
 import {CourseDetail} from "@/features/courseSchedule/components/CourseDetail.tsx";
@@ -35,12 +35,11 @@ import {CourseClass} from "@/class/jw/course.ts";
 import {StackCourseItem} from "@/features/courseSchedule/components/StackCourseItem.tsx";
 import {useConflictCourseStore} from "@/features/courseSchedule/stores/useConflictCourseStore.ts";
 import {ConflictCourseSheet} from "@/features/courseSchedule/components/ConflictCourseList.tsx";
-import {ExamInfo} from "@/type/infoQuery/exam/examInfo.ts";
-import {ExamInfoClass} from "@/class/jw/exam.ts";
+import {ExamWithMeta} from "@/features/examInfo/type/exam.types.ts";
 import {ExamDetail} from "@/components/tool/infoQuery/examInfo/ExamDetail.tsx";
 import {JwMachine} from "@/core/auth/Jw/JwMachine.ts";
 import {AuthStateMap} from "@/core/auth/auth.type.ts";
-import {switchByField} from "@/utils/objectUtils.ts";
+import {NextEventBanner} from "@/features/courseSchedule/components/NextEventBanner.tsx";
 
 // 菜单的类型
 type SheetState =
@@ -73,7 +72,8 @@ export function ScheduleCard() {
 
     const [year, setYear] = useState(+ucStore(s => s.jw.year));
     const [term, setTerm] = useState<SchoolTermValue>(ucStore(s => s.jw.term));
-    const {startDay} = useStartDay(year, term);
+
+    const {startDay} = useStartDay();
 
     const {items: courseItems = [], refresh: refreshCourse} = useCourse(year, term);
     const {store: examStore, init: initExam, loadCache: loadExamCache} = useExam();
@@ -118,7 +118,13 @@ export function ScheduleCard() {
         () =>
             [
                 {
+                    data: holidayItems,
+                    needShift: false,
+                    itemRender: (item, day) => <HolidayItem item={item} />,
+                },
+                {
                     data: courseItems,
+                    needShift: true,
                     itemRender: (item, day) => (
                         <NewCourseItem item={patchItem(item, day)} onPress={() => onItemPress(item, day)} />
                     ),
@@ -144,12 +150,7 @@ export function ScheduleCard() {
                 {
                     data: examItems,
                     itemRender: (item, day) => <NewExamItem item={item} onPress={() => onItemPress(item, day)} />,
-                } as TimeScheduleItemData<ScheduleTableItem<ExamInfo>>,
-                {
-                    data: holidayItems,
-                    needShift: false,
-                    itemRender: (item, day) => <HolidayItem item={item} />,
-                },
+                } as TimeScheduleItemData<ScheduleTableItem<ExamWithMeta>>,
                 {
                     data: defaultItem,
                     itemRender: (item, day) => <NewCourseItem item={item} onPress={() => onItemPress(item, day)} />,
@@ -165,7 +166,7 @@ export function ScheduleCard() {
         [courseItems, examItems, holidayItems, defaultItem, onItemPress],
     );
 
-    const realCurrentWeek = Math.ceil(moment.duration(moment().diff(startDay)).asWeeks());
+    const realCurrentWeek = getWeekOfDate(moment(), startDay);
 
     const [refreshing, setRefreshing] = useState(false);
 
@@ -328,7 +329,7 @@ export function ScheduleCard() {
                     />
                 )}
                 {sheet.type === "itemDetail" && sheet.item.kind === "exam" && sheet.item.raw && (
-                    <ExamDetail examInfo={new ExamInfoClass(sheet.item.raw as ExamInfo)} />
+                    <ExamDetail exam={sheet.item.raw as ExamWithMeta} />
                 )}
                 {sheet.type === "itemDetail" &&
                     sheet.item?.raw &&
@@ -337,29 +338,29 @@ export function ScheduleCard() {
                         const course = patchCourse(new CourseClass(sheet.item.raw), sheet.day);
                         const courseName = course._ori.courseName;
                         const matchedExam = examItems
-                            .filter(e => e.raw?.kcmc === courseName)
-                            ?.map(e => new ExamInfoClass(e.raw as ExamInfo));
+                            .filter(e => e.raw?.course === courseName)
+                            ?.map(e => e.raw as ExamWithMeta);
                         return (
                             <CourseDetail
                                 course={course}
                                 examInfo={matchedExam}
                                 onExamPress={exam => {
-                                    const examDate = moment(exam.transformed.examTime.slice(0, 10));
-                                    const week = examDate.diff(startDay, "week") + 1;
+                                    const examDate = moment(exam.time.slice(0, 10));
+                                    const week = getWeekOfDate(examDate, startDay);
                                     rest.setPage(week - 1);
                                     setSheet({
                                         type: "itemDetail",
                                         day: examDate,
                                         item: {
-                                            id: exam.transformed.courseCode,
+                                            id: exam.id,
                                             week,
                                             day: examDate.isoWeekday() as ScheduleTableItem["day"],
                                             begin: 1 as ScheduleTableItem["begin"],
                                             end: 1 as ScheduleTableItem["begin"],
-                                            title: exam.transformed.courseName,
-                                            location: exam.transformed.venueName,
+                                            title: exam.course,
+                                            location: exam.classroom,
                                             kind: "exam",
-                                            raw: exam._ori,
+                                            raw: exam,
                                         },
                                     });
                                 }}
@@ -393,64 +394,6 @@ export function ScheduleCard() {
                     />
                 )}
             </UnBottomSheet>
-        </View>
-    );
-}
-
-function NextEventBanner() {
-    const nextEvent = useNextEvent();
-    const {store: ucStore} = useUserConfig();
-    const year = +ucStore(s => s.jw.year);
-    const term = ucStore(s => s.jw.term);
-    const {startDay} = useStartDay(year, term);
-    const {theme} = useTheme();
-    const baseColor = theme.colors.primary;
-    const backgroundColor = Color(baseColor).setAlpha(theme.mode === "light" ? 0.3 : 0.1).rgbaString;
-    const textColor = Color.mix(baseColor, theme.colors.black, 0.5).rgbaString;
-
-    const daysFromNow = (item: {week: number; day: number}) => {
-        if (!startDay) return "未知时间";
-        const eventDay = startDay
-            .clone()
-            .add(item.week - 1, "weeks")
-            .add(item.day - 1, "days")
-            .startOf("day");
-        const diff = eventDay.diff(moment().startOf("day"), "days");
-        if (diff <= 0) return "今天";
-        if (diff === 1) return "明天";
-        return `${diff}天后`;
-    };
-
-    const style = StyleSheet.create({
-        container: {
-            paddingHorizontal: 12,
-            paddingVertical: 10,
-            borderRadius: 8,
-            marginHorizontal: 6,
-            justifyContent: "center",
-            alignItems: "center",
-            backgroundColor: backgroundColor,
-        },
-    });
-
-    if (!nextEvent && startDay) {
-        const updateTime = startDay.add(20, "week").format("MM月DD日");
-        return (
-            <View style={style.container}>
-                <Text style={{fontSize: 16, color: textColor}}>所有活动已结束，将在{updateTime}更新至下个学期</Text>
-            </View>
-        );
-    }
-
-    return (
-        <View style={style.container}>
-            <Text style={{fontSize: 18, color: textColor}}>
-                {switchByField(nextEvent, "kind", {
-                    course: ev => `下节课：${ev.title}${ev.location ? ` · ${ev.location}` : ""}`,
-                    exam: ev => `下场考试：${ev.title}${ev.location ? ` · ${ev.location}` : ""}（${daysFromNow(ev)}）`,
-                    holiday: ev => `下个假期：${ev.title}（${daysFromNow(ev)}）`,
-                })}
-            </Text>
         </View>
     );
 }

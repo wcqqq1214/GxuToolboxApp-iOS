@@ -2,6 +2,7 @@ import {SchoolTermValue} from "@/type/global.ts";
 import {ScheduleTableItem} from "@/features/courseSchedule/type/schedule.ts";
 import moment from "moment";
 import {useStartDay} from "@/features/courseSchedule/hooks/detail/useStartDay.ts";
+import {getWeekOfDate} from "@/features/courseSchedule/utils/weekOfDate.ts";
 
 export interface HolidayRange {
     title: string;
@@ -20,7 +21,6 @@ export const useHoliday = (year: number, term: SchoolTermValue) => {
     ];
 
     if (!startDay) return [];
-    const normalizedStartDay = moment(startDay).startOf("day");
 
     return holidays.flatMap(h => {
         const start = moment(h.from);
@@ -28,7 +28,7 @@ export const useHoliday = (year: number, term: SchoolTermValue) => {
         const days: ScheduleTableItem<HolidayRange>[] = [];
 
         for (let d = start.clone(); d.isSameOrBefore(end); d.add(1, "day")) {
-            const weekDiff = Math.floor(d.diff(normalizedStartDay, "days") / 7) + 1;
+            const weekDiff = getWeekOfDate(d, startDay);
             const dayOfWeek = d.isoWeekday(); // 1=周一, 7=周日
 
             days.push({

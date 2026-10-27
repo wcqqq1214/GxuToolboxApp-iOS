@@ -1,7 +1,6 @@
 import {PressableAndroidRippleConfig} from "react-native";
 import {SchoolTerms, SchoolTermValue, SchoolYearValue} from "@/type/global.ts";
 import {Course} from "@/type/infoQuery/course/course.ts";
-import {ExamInfoParsed} from "@/type/infoQuery/exam/examInfo.ts";
 import {DefaultUserTheme} from "@/shared/theme.ts";
 import moment from "moment";
 import {IUserActivity} from "@/type/app/activity.ts";
@@ -33,8 +32,6 @@ export interface IUserJwConfig {
 export interface IUserPreference {
     /** 课程元素详情 */
     courseDetail: Record<keyof Omit<Course, "queryModel" | "userModel" | "backgroundColor">, IDetailItem>;
-    /** 考试元素详情 */
-    examDetail: Record<keyof ExamInfoParsed, IDetailItem>;
 }
 
 /** 元素详情元素 */
@@ -145,44 +142,6 @@ export const defaultUserConfig: IUserConfig = {
             zyhxkcbj: {label: "", show: false},
             zzmm: {label: "", show: false},
             zzrl: {label: "座位数", show: true},
-        },
-        examDetail: {
-            courseName: {label: "课程名称", show: true},
-            examTime: {label: "考试时间", show: true},
-            venueName: {label: "地点", show: true},
-            seat: {label: "座位号", show: true},
-            examName: {label: "考试名称", show: true},
-            className: {label: "", show: false},
-            venueCode: {label: "", show: false},
-            venueShortName: {label: "", show: false},
-            venueAnniversaryName: {label: "", show: false},
-            collegeName: {label: "", show: false},
-            teacherInfo: {label: "", show: false},
-            teachingClassName: {label: "", show: false},
-            teachingClassComposition: {label: "", show: false},
-            teachingLocation: {label: "", show: false},
-            courseCode: {label: "", show: false},
-            examMethod: {label: "", show: false},
-            openCollege: {label: "", show: false},
-            gradeName: {label: "", show: false},
-            educationLevel: {label: "", show: false},
-            rowId: {label: "", show: false},
-            paperId: {label: "", show: false},
-            classTime: {label: "", show: false},
-            totalResult: {label: "", show: false},
-            gender: {label: "", show: false},
-            credits: {label: "", show: false},
-            studentId: {label: "", show: false},
-            studentIdAlt: {label: "", show: false},
-            name: {label: "", show: false},
-            academicYearCode: {label: "", show: false},
-            academicYear: {label: "", show: false},
-            term: {label: "", show: false},
-            campus: {label: "", show: false},
-            termName: {label: "", show: false},
-            majorName: {label: "", show: false},
-            retakeClass: {label: "", show: false},
-            retakeFlag: {label: "", show: false},
         },
     },
 };

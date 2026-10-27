@@ -1,5 +1,4 @@
 import {SchoolTerms, SchoolTermValue, SchoolYears} from "@/type/global.ts";
-import {ExamInfoQueryRes} from "@/type/api/infoQuery/examInfoAPI.ts";
 import {jwxt} from "@/js/jw/jwxt.ts";
 import {http, objectToFormUrlEncoded} from "@/core/http.ts";
 import {defaultYear} from "@/js/jw/infoQuery.ts";

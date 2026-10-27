@@ -1,7 +1,7 @@
-import {IExam} from "@/features/courseSchedule/type/schema/exam.ts";
 import moment from "moment";
-import {ExamInfo} from "@/type/infoQuery/exam/examInfo.ts";
+import {getWeekOfDate} from "@/features/courseSchedule/utils/weekOfDate.ts";
 import {ScheduleTableItem} from "@/features/courseSchedule/type/schedule.ts";
+import {ExamWithMeta} from "@/features/examInfo/type/exam.types.ts";
 
 const timeSpanList = [
     "08:00\n08:45",
@@ -19,8 +19,8 @@ const timeSpanList = [
     "21:20\n22:05",
 ];
 
-export function normalizeExam(data: IExam, startDay: moment.Moment, rawItems?: ExamInfo[]): ScheduleTableItem<ExamInfo>[] {
-    const items: ScheduleTableItem<ExamInfo>[] = [];
+export function normalizeExam(data: ExamWithMeta[], startDay: moment.Moment): ScheduleTableItem<ExamWithMeta>[] {
+    const items: ScheduleTableItem<ExamWithMeta>[] = [];
 
     function timeToTimeSpan(time: string, endTime: boolean = false) {
         let res = -1;
@@ -44,20 +44,26 @@ export function normalizeExam(data: IExam, startDay: moment.Moment, rawItems?: E
         return (res + 1) as ScheduleTableItem["begin"];
     }
 
-    data.forEach((exam, index) => {
-        const [begin, end] = exam.time.match(/(?<=\().*?(?=\))/g)?.[0].split("-") as [string, string];
+    data.forEach(exam => {
+        // 容错：time 不含 (HH:mm-HH:mm) 时跳过该条，避免 undefined.split 抛错。
+        const timeRange = exam.time.match(/(?<=\().*?(?=\))/g)?.[0];
+        if (!timeRange) return;
+
+        const [begin, end] = timeRange.split("-") as [string, string];
+        if (!begin || !end) return;
+
         const date = moment(exam.time.slice(0, 10));
         items.push({
             day: date.isoWeekday() as ScheduleTableItem["day"],
             title: exam.course,
-            id: exam.courseId,
-            week: date.diff(startDay, "week") + 1,
+            id: exam.id,
+            week: getWeekOfDate(date, startDay),
             begin: timeToTimeSpan(begin),
             end: timeToTimeSpan(end, true),
             location: exam.classroom,
             seat: exam.seat || "未知",
             kind: "exam",
-            raw: rawItems?.[index],
+            raw: exam,
         });
     });
 

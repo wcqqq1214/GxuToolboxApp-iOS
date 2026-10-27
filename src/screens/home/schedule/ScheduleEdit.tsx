@@ -228,10 +228,10 @@ export function ScheduleEdit() {
                                 </Flex>
                                 <Flex gap={5} justify="flex-end">
                                     <UnPressable onPress={() => editActivity(activity, index)} style={{padding: 5}}>
-                                        <Icon name="edit" size={22} />
+                                        <Icon type="antdesign" name="edit" size={22} />
                                     </UnPressable>
                                     <UnPressable onPress={() => deleteActivity(index)} style={{padding: 5}}>
-                                        <Icon name="delete" color={theme.colors.error} size={22} />
+                                        <Icon type="material" name="delete" color={theme.colors.error} size={22} />
                                     </UnPressable>
                                 </Flex>
                             </Flex>

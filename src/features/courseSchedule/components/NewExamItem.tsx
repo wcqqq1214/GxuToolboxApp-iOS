@@ -1,6 +1,6 @@
 import {StyleSheet} from "react-native";
 import {useCourseData} from "@/hooks/useCourseData.ts";
-import {ScheduleTableItem} from "@/components/tool/infoQuery/courseSchedule/CourseScheduleTable.tsx";
+import {ScheduleTableItem} from "@/features/courseSchedule/type/schedule.ts";
 import {memo, useMemo} from "react";
 import {Color} from "@/shared/color.ts";
 import {UnPressable} from "@/components/un-ui";
@@ -9,11 +9,11 @@ import {Text, useTheme} from "@rneui/themed";
 import {Icon} from "@/components/un-ui/Icon.tsx";
 import {useBlocksColor} from "@/features/courseSchedule/hooks/useBlocksColor.ts";
 import {useShallow} from "zustand/react/shallow";
-import {ExamInfo} from "@/type/infoQuery/exam/examInfo.ts";
+import {ExamWithMeta} from "@/features/examInfo/type/exam.types.ts";
 
 interface NewExamItemProps {
-    item: ScheduleTableItem<ExamInfo>;
-    onPress?: (item: ScheduleTableItem<ExamInfo>) => void;
+    item: ScheduleTableItem<ExamWithMeta>;
+    onPress?: (item: ScheduleTableItem<ExamWithMeta>) => void;
 }
 export const NewExamItem = memo(({item, onPress}: NewExamItemProps) => {
     const {store} = useCourseData();
