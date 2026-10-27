@@ -2,7 +2,7 @@ import axios from "axios";
 import {backendHttp} from "@/features/backend/api";
 import {EmptyClassroomDataError, parseBackendEnvelope, parseClassroomPage} from "../schema";
 import type {ClassroomItem, ClassroomPage, DayPayload, LogicalTerm, RoomPayload} from "../type";
-import {MAX_PAGES, PAGE_SIZE, PAGE_SIZE_FALLBACK, PERIODS} from "../utils/constants";
+import {MAX_PAGES, PAGE_SIZE, PERIODS} from "../utils/constants";
 import {roomKey} from "../utils/roomKey";
 import {collectSlotPages} from "./pagination";
 
@@ -15,10 +15,8 @@ const MAX_TRANSIENT_RETRIES = 2;
 /** 瞬时错误重试间隔。 */
 const TRANSIENT_RETRY_DELAY_MS = 800;
 
-/** 一次缓存任务内共享的请求上下文；pageSize/authRetried/authPromise 会被本模块就地更新。 */
+/** 一次缓存任务内共享的请求上下文；authRetried/authPromise 会被本模块就地更新。 */
 export type EmptyClassroomFetchSession = {
-    /** 当前有效页大小；旧后端返回 400 后回退到 PAGE_SIZE_FALLBACK。 */
-    pageSize: number;
     /** 本任务是否已经为 401/403 触发过重新鉴权，保证每任务最多一次。 */
     authRetried: boolean;
     /**
@@ -154,12 +152,10 @@ function toRoomPayload(item: ClassroomItem, key: string): RoomPayload {
  * 作用：请求并解析某个节次的一页空闲教室数据。
  * 入参：
  * - range/period/pageNum：定位请求；
- * - session：共享页大小、鉴权重试与取消状态。
+ * - session：共享鉴权重试与取消状态。
  * 出参：Zod 校验后的 ClassroomPage。
  * 修改注意：
  * - 401/403、envelope code 401、data 疑似登录失效都走同一次共享重登，最多一次；
- * - 旧后端对 pageSize=10000 返回 400 时整个任务回退到 500；必须用「本次请求实际发出的页大小」
- *   判断，13 个节次并发收到 400 时各自都能重试一次，而不是只有第一个能回退；
  * - 网络错误/5xx 最多重试 2 次；其他 4xx 不重试。
  */
 async function requestPage(
@@ -175,8 +171,6 @@ async function requestPage(
             throw new EmptyClassroomCacheCanceledError();
         }
 
-        // 必须在发送前快照：并发请求可能在本请求返回前就把共享 session 改掉。
-        const requestedPageSize = session.pageSize;
         const sentBeforeAuthSettled = session.authSettled !== true;
 
         try {
@@ -188,7 +182,7 @@ async function requestPage(
                     year: range.year,
                     term: range.term,
                     pageNum,
-                    pageSize: requestedPageSize,
+                    pageSize: PAGE_SIZE,
                 },
                 paramsSerializer: {indexes: null},
                 timeout: REQUEST_TIMEOUT_MS,
@@ -229,10 +223,6 @@ async function requestPage(
                 await reauthenticate(session, sentBeforeAuthSettled);
                 continue;
             }
-            if (status === 400 && requestedPageSize === PAGE_SIZE) {
-                session.pageSize = PAGE_SIZE_FALLBACK;
-                continue;
-            }
             if (status !== undefined && !isTransientStatus(status)) {
                 throw new EmptyClassroomRequestError(`空闲教室请求失败（HTTP ${status}）`, status);
             }
@@ -255,7 +245,7 @@ async function requestPage(
  * 作用：并发抓取一天 13 个节次的空闲教室，并合并为按 roomKey 索引的 DayPayload。
  * 入参：
  * - range：year/term/week/day；
- * - session：共享页大小、鉴权重试与取消状态（store 持有同一个对象）；
+ * - session：共享鉴权重试与取消状态（store 持有同一个对象）；
  * - onPeriod：每个节次完整抓完后回调；并发完成顺序不固定，进度可能跳变。
  * 出参：DayPayload；中途取消抛 EmptyClassroomCacheCanceledError，鉴权失败抛 EmptyClassroomAuthError。
  * 修改注意：
@@ -278,7 +268,7 @@ export async function fetchDay(
     const results = await Promise.all(
         periodsToFetch.map(async period => {
             const page = await collectSlotPages(pageNum => requestPage(range, period, pageNum, session), {
-                pageSize: session.pageSize,
+                pageSize: PAGE_SIZE,
                 maxPages: MAX_PAGES,
             });
             onPeriod?.(range.day, period);

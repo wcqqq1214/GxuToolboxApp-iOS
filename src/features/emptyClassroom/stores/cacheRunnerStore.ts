@@ -5,7 +5,7 @@ import {EmptyClassroomAuthError, fetchDay, type EmptyClassroomFetchSession} from
 import {emptyClassroomRepo} from "../repo/EmptyClassroomRepo";
 import {runWeekCache} from "../services/cacheRunner";
 import type {LogicalTerm} from "../type";
-import {COOLDOWN_MS, DAYS, MMKV_LAST_CACHE_STARTED_AT_KEY, PAGE_SIZE} from "../utils/constants";
+import {COOLDOWN_MS, DAYS, MMKV_LAST_CACHE_STARTED_AT_KEY} from "../utils/constants";
 
 export type CacheTaskPhase = "auth" | "running" | "canceling";
 
@@ -21,8 +21,6 @@ export type CacheTask = {
     period: number;
     /** 已落库的天，升序。 */
     completedDays: number[];
-    /** 当前任务实际使用的页大小（旧后端会从 10000 回退到 500）。 */
-    pageSize: number;
 };
 
 export type CacheTaskError = {
@@ -122,12 +120,10 @@ export const useCacheRunnerStore = create<CacheRunnerState>((set, get) => ({
                     day: 0,
                     period: 0,
                     completedDays,
-                    pageSize: PAGE_SIZE,
                 },
             });
 
             const session: EmptyClassroomFetchSession = {
-                pageSize: PAGE_SIZE,
                 authRetried: false,
                 ensureAuth: ensureJwAuthenticated,
                 shouldCancel: () => cancelFlag,
@@ -148,10 +144,7 @@ export const useCacheRunnerStore = create<CacheRunnerState>((set, get) => ({
                         beforeFirstRequest: () => {
                             const startedAt = Date.now();
                             mmkv.set(MMKV_LAST_CACHE_STARTED_AT_KEY, startedAt);
-                            set(state => ({
-                                lastStartedAt: startedAt,
-                                task: state.task ? {...state.task, pageSize: session.pageSize} : state.task,
-                            }));
+                            set({lastStartedAt: startedAt});
                         },
                         onProgress: progress => {
                             set(state =>
@@ -163,7 +156,6 @@ export const useCacheRunnerStore = create<CacheRunnerState>((set, get) => ({
                                               day: progress.day,
                                               period: progress.period,
                                               completedDays: progress.completedDays,
-                                              pageSize: session.pageSize,
                                           },
                                       }
                                     : {},
@@ -171,9 +163,7 @@ export const useCacheRunnerStore = create<CacheRunnerState>((set, get) => ({
                         },
                         onDaySaved: (_day, days) => {
                             set(state => ({
-                                task: state.task
-                                    ? {...state.task, completedDays: days, pageSize: session.pageSize}
-                                    : state.task,
+                                task: state.task ? {...state.task, completedDays: days} : state.task,
                                 revision: state.revision + 1,
                             }));
                         },

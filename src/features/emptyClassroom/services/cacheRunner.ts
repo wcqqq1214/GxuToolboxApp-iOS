@@ -5,7 +5,7 @@ import {
     type EmptyClassroomFetchSession,
 } from "../api";
 import type {DayPayload, LogicalTerm} from "../type";
-import {DAYS, PAGE_SIZE} from "../utils/constants";
+import {DAYS} from "../utils/constants";
 
 /** 一次缓存任务的范围。 */
 export type CacheRunnerRange = {
@@ -48,7 +48,7 @@ export type CacheRunnerDeps = {
     onDaySaved?: (day: number, completedDays: number[]) => void;
     shouldCancel: () => boolean;
     /**
-     * 可选的共享请求上下文。store 传入同一个对象，以便 pageSize 回退可被界面观察；
+     * 可选的共享请求上下文。store 传入同一个对象以共享鉴权与取消状态；
      * 缺省时 runner 自建（供纯测试使用）。
      */
     session?: EmptyClassroomFetchSession;
@@ -97,7 +97,6 @@ export async function runWeekCache(range: CacheRunnerRange, deps: CacheRunnerDep
     const session: EmptyClassroomFetchSession =
         deps.session ??
         ({
-            pageSize: PAGE_SIZE,
             authRetried: false,
             ensureAuth: deps.ensureAuth,
             shouldCancel: deps.shouldCancel,

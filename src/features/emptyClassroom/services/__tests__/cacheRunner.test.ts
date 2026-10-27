@@ -2,13 +2,14 @@ import {backendHttp} from "@/features/backend/api";
 import {
     EmptyClassroomAuthError,
     EmptyClassroomCacheCanceledError,
+    EmptyClassroomRequestError,
     fetchDay as fetchDayApi,
     type EmptyClassroomDayRequest,
     type EmptyClassroomFetchSession,
 } from "@/features/emptyClassroom/api";
 import {runWeekCache, type CacheRunnerDeps} from "@/features/emptyClassroom/services/cacheRunner";
 import type {DayPayload, LogicalTerm, RoomPayload} from "@/features/emptyClassroom/type";
-import {PAGE_SIZE, PAGE_SIZE_FALLBACK, PERIODS} from "@/features/emptyClassroom/utils/constants";
+import {PAGE_SIZE, PERIODS} from "@/features/emptyClassroom/utils/constants";
 import {roomKey} from "@/features/emptyClassroom/utils/roomKey";
 
 type DayRequester = (
@@ -258,7 +259,6 @@ describe("fetchDay 并发请求兼容", () => {
 
     function makeSession(overrides: Partial<EmptyClassroomFetchSession> = {}): EmptyClassroomFetchSession {
         return {
-            pageSize: PAGE_SIZE,
             authRetried: false,
             ensureAuth: jest.fn(async () => true),
             shouldCancel: jest.fn(() => false),
@@ -270,37 +270,19 @@ describe("fetchDay 并发请求兼容", () => {
         return getSpy.mock.calls.map(call => (call[1] as {params: {pageSize: number}}).params.pageSize);
     }
 
-    it("13 个节次并发请求 10000 均收到 400 时，每个节次都回退到 500 重试一次", async () => {
+    it("13 个节次并发请求均使用 10000，收到 400 时不回退", async () => {
         const getSpy = jest.spyOn(backendHttp, "get");
-        getSpy.mockImplementation(async (_url, config) => {
-            const pageSize = (config as {params: {pageSize: number}}).params.pageSize;
-            if (pageSize === PAGE_SIZE) {
-                throw badRequest;
-            }
-            return okResponse();
-        });
+        getSpy.mockRejectedValue(badRequest);
 
         const session = makeSession();
-        const payload = await fetchDayApi({year: 2026, term: 1, week: 3, day: 2}, session);
+        await expect(fetchDayApi({year: 2026, term: 1, week: 3, day: 2}, session)).rejects.toBeInstanceOf(
+            EmptyClassroomRequestError,
+        );
 
-        // 13 次首发（10000）+ 13 次回退重试（500），不是串行时代的 14 次。
-        expect(getSpy).toHaveBeenCalledTimes(PERIODS * 2);
-        expect(pageSizesOf(getSpy).filter(size => size === PAGE_SIZE)).toHaveLength(PERIODS);
-        expect(pageSizesOf(getSpy).filter(size => size === PAGE_SIZE_FALLBACK)).toHaveLength(PERIODS);
-        for (let period = 1; period <= PERIODS; period += 1) {
-            const requested = getSpy.mock.calls
-                .map(call => (call[1] as {params: {timeList: number[]; pageSize: number}}).params)
-                .filter(params => params.timeList[0] === period)
-                .map(params => params.pageSize);
-            expect(requested).toEqual([PAGE_SIZE, PAGE_SIZE_FALLBACK]);
-        }
-        expect(session.pageSize).toBe(PAGE_SIZE_FALLBACK);
+        expect(getSpy).toHaveBeenCalledTimes(PERIODS);
+        expect(pageSizesOf(getSpy)).toEqual(Array<number>(PERIODS).fill(PAGE_SIZE));
         expect(session.authRetried).toBe(false);
         expect(session.ensureAuth).not.toHaveBeenCalled();
-
-        const key = roomKey("教学楼", "R101");
-        expect(payload.rooms.get(key)).toEqual(expect.objectContaining({building: "教学楼", name: "R101"}));
-        expect(payload.freePeriods.get(key)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
     });
 
     it("13 个节次并发 401 时共享一次 ensureAuth，所有节次都重试", async () => {
