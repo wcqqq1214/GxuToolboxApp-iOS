@@ -1384,7 +1384,7 @@ packages:
     engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
 
   '@gxutool/adapters@https://gitlab.unde.site/api/v4/projects/86/packages/npm/@gxutool/adapters/-/@gxutool/adapters-1.1.1.tgz':
-    resolution: {tarball: https://gitlab.unde.site/api/v4/projects/86/packages/npm/@gxutool/adapters/-/@gxutool/adapters-1.1.1.tgz}
+    resolution: {integrity: sha512-vmoL5aOepuhBBnT/dnNUHPeFJdnqW3t2DfuL1bOAiiw3FGGjffDdtrDrZJvNYpKlNQkYiWz994m08Ctlge/Gyw==, tarball: https://gitlab.unde.site/api/v4/projects/86/packages/npm/@gxutool/adapters/-/@gxutool/adapters-1.1.1.tgz}
     version: 1.1.1
 
   '@hapi/hoek@9.3.0':
