@@ -1,4 +1,4 @@
-import React, {memo, useCallback, useMemo} from "react";
+import React, {memo, useCallback, useEffect, useMemo} from "react";
 import {Pressable, StyleSheet, Vibration, View} from "react-native";
 import {TimeSchedule, TimeScheduleProps} from "@/components/tool/infoQuery/courseSchedule/TimeSchedule.tsx";
 import {usePagerView, type PagerViewOnPageSelectedEvent} from "react-native-pager-view";
@@ -15,6 +15,18 @@ export interface TimeScheduleViewProps extends TimeScheduleProps {
     /** pager 切页回调（0-based）；原有的 pageView.onPageSelected 仍会先执行。 */
     onPageChanged?: (pageIndex: number) => void;
 }
+
+type PageSelectedHandler = (event: PagerViewOnPageSelectedEvent) => void;
+
+/**
+ * usePagerView 的 onPageSelected 在 native driver 下是 Animated.event 返回的
+ * AnimatedEvent 对象（不可调用），只能通过内部 __addListener/__removeListener 订阅。
+ * 非 native 路径下它才是普通函数。
+ */
+type AnimatedPageSelectedEvent = {
+    __addListener?: (listener: PageSelectedHandler) => void;
+    __removeListener?: (listener: PageSelectedHandler) => void;
+};
 
 export const TimeScheduleView = memo(function TimeScheduleView(props: TimeScheduleViewProps) {
     const {store} = useCourseData();
@@ -42,13 +54,26 @@ export const TimeScheduleView = memo(function TimeScheduleView(props: TimeSchedu
         ref.current?.setPage(Math.min(lastPage, Math.max(0, realCurrentWeek - 1)));
     }, [lastPage, realCurrentWeek, ref]);
 
-    const handlePageSelected = useCallback(
-        (event: PagerViewOnPageSelectedEvent) => {
-            rest.onPageSelected?.(event);
-            props.onPageChanged?.(event.nativeEvent.position);
+    // 运行时 Animated.event 返回的是对象而非函数，这里用联合类型表达两种形态。
+    const pageSelected = rest.onPageSelected as unknown as PageSelectedHandler | AnimatedPageSelectedEvent;
+    const {onPageChanged} = props;
+
+    // 非 native 路径（onPageSelected 是普通函数）才需要包一层；native 路径保持原对象直传。
+    const handlePageSelected = useCallback<PageSelectedHandler>(
+        event => {
+            if (typeof pageSelected === "function") pageSelected(event);
+            onPageChanged?.(event.nativeEvent.position);
         },
-        [rest.onPageSelected, props.onPageChanged],
+        [pageSelected, onPageChanged],
     );
+
+    useEffect(() => {
+        if (!onPageChanged || typeof pageSelected === "function") return;
+        if (typeof pageSelected.__addListener !== "function") return;
+        const listener: PageSelectedHandler = event => onPageChanged(event.nativeEvent.position);
+        pageSelected.__addListener(listener);
+        return () => pageSelected.__removeListener?.(listener);
+    }, [pageSelected, onPageChanged]);
 
     const timeSpanHeight = store(s => s.theme.timeSpanHeight);
     const weekdayHeight = store(s => s.theme.weekdayHeight);
@@ -72,8 +97,11 @@ export const TimeScheduleView = memo(function TimeScheduleView(props: TimeSchedu
                 layoutDirection="ltr"
                 scrollEnabled={rest.scrollEnabled}
                 pageMargin={10}
-                onPageSelected={handlePageSelected}
-                onPageScrollStateChanged={rest.onPageScrollStateChanged}
+                onPageSelected={
+                    // 库的事件类型与 RN 0.84 的 DirectEventHandler 不兼容；native 路径必须直传 AnimatedEvent 对象。
+                    (typeof pageSelected === "function" ? handlePageSelected : pageSelected) as any
+                }
+                onPageScrollStateChanged={rest.onPageScrollStateChanged as any}
                 offscreenPageLimit={2}
                 overScrollMode="never"
                 orientation="horizontal">

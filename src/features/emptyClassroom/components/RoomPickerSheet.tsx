@@ -1,5 +1,5 @@
-import {useEffect, useMemo, useState} from "react";
-import {ActivityIndicator, SectionList, StyleSheet, TextInput, View} from "react-native";
+import {useEffect, useMemo, useState, type ReactNode} from "react";
+import {ActivityIndicator, ScrollView, StyleSheet, TextInput, View} from "react-native";
 import {Button, useTheme} from "@rneui/themed";
 import {Flex, Icon, UnBottomSheet, UnPressable, UnText, vh} from "@/components/un-ui";
 import {useRoomList} from "../hooks/useRoomList";
@@ -30,7 +30,10 @@ function roomSubtitle(room: RoomRecord): string {
  * 修改注意：
  * - 数据只在 visible=true 时通过 useRoomList 懒加载；
  * - 行必须用 room.id 作为 key（楼层+名称不是稳定主键）；
- * - SectionList 与外层 BottomSheet ScrollView 都需要 keyboardShouldPersistTaps="handled"，
+ * - 不要用 SectionList/FlatList：RNEUI BottomSheet 内部已经是 ScrollView，
+ *   再嵌套 VirtualizedList 会触发 "VirtualizedLists should never be nested" 警告；
+ *   这里用普通 ScrollView + 展平后的行，stickyHeaderIndices 保留吸顶分组；
+ * - 内层 ScrollView 与外层 BottomSheet ScrollView 都需要 keyboardShouldPersistTaps="handled"，
  *   否则键盘打开时第一次点击会被吞。
  */
 export function RoomPickerSheet(props: RoomPickerSheetProps) {
@@ -108,6 +111,46 @@ export function RoomPickerSheet(props: RoomPickerSheetProps) {
         },
     });
 
+    // 展平成普通节点；stickyHeaderIndices 按 ScrollView 直接子节点下标吸顶分组标题。
+    const roomRows: ReactNode[] = [];
+    const stickyHeaderIndices: number[] = [];
+    for (const section of sections) {
+        stickyHeaderIndices.push(roomRows.length);
+        roomRows.push(
+            <View key={`section-${section.title}`} style={styles.sectionHeader}>
+                <UnText size={13} bold color={theme.colors.grey2}>
+                    {section.title}
+                </UnText>
+            </View>,
+        );
+        for (const item of section.data) {
+            const selected = item.id === selectedRoomId;
+            roomRows.push(
+                <UnPressable
+                    key={item.id}
+                    style={[styles.row, selected && styles.rowSelected]}
+                    onPress={() => {
+                        onSelect(item);
+                        onClose();
+                    }}>
+                    <Flex justify="space-between" gap={8}>
+                        <Flex direction="column" align="flex-start" flex={1} gap={2}>
+                            <UnText size={15} bold={selected}>
+                                {item.name}
+                            </UnText>
+                            {!!roomSubtitle(item) && (
+                                <UnText size={11} color={theme.colors.grey2}>
+                                    {roomSubtitle(item)}
+                                </UnText>
+                            )}
+                        </Flex>
+                        {selected && <Icon name="check" size={18} color={theme.colors.primary} />}
+                    </Flex>
+                </UnPressable>,
+            );
+        }
+    }
+
     return (
         <UnBottomSheet
             isVisible={visible}
@@ -128,78 +171,46 @@ export function RoomPickerSheet(props: RoomPickerSheetProps) {
                     returnKeyType="search"
                 />
             </View>
-            <SectionList
-                style={styles.list}
-                sections={sections}
-                keyExtractor={item => String(item.id)}
-                keyboardShouldPersistTaps="handled"
-                stickySectionHeadersEnabled
-                initialNumToRender={24}
-                renderSectionHeader={({section}) => (
-                    <View style={styles.sectionHeader}>
-                        <UnText size={13} bold color={theme.colors.grey2}>
-                            {section.title}
-                        </UnText>
-                    </View>
-                )}
-                renderItem={({item}) => {
-                    const selected = item.id === selectedRoomId;
-                    return (
-                        <UnPressable
-                            style={[styles.row, selected && styles.rowSelected]}
-                            onPress={() => {
-                                onSelect(item);
-                                onClose();
-                            }}>
-                            <Flex justify="space-between" gap={8}>
-                                <Flex direction="column" align="flex-start" flex={1} gap={2}>
-                                    <UnText size={15} bold={selected}>
-                                        {item.name}
-                                    </UnText>
-                                    {!!roomSubtitle(item) && (
-                                        <UnText size={11} color={theme.colors.grey2}>
-                                            {roomSubtitle(item)}
-                                        </UnText>
-                                    )}
-                                </Flex>
-                                {selected && <Icon name="check" size={18} color={theme.colors.primary} />}
-                            </Flex>
-                        </UnPressable>
-                    );
-                }}
-                ListEmptyComponent={
-                    <View style={styles.empty}>
-                        {loading ? (
-                            <>
-                                <ActivityIndicator color={theme.colors.primary} />
-                                <UnText size={13} color={theme.colors.grey2}>
-                                    正在加载教室列表...
-                                </UnText>
-                            </>
-                        ) : error ? (
-                            <>
-                                <UnText size={13} color={theme.colors.error} style={styles.emptyText}>
-                                    {error}
-                                </UnText>
-                                <Button type="clear" title="重试" onPress={reload} />
-                            </>
-                        ) : rooms.length === 0 ? (
-                            <>
-                                <UnText size={14} style={styles.emptyText}>
-                                    本学期已缓存的周次中没有教室数据，请先在缓存管理中缓存至少一周
-                                </UnText>
-                                {onOpenCacheManager && (
-                                    <Button type="clear" title="去缓存管理" onPress={onOpenCacheManager} />
-                                )}
-                            </>
-                        ) : (
-                            <UnText size={14} color={theme.colors.grey2} style={styles.emptyText}>
-                                没有匹配的教室
+            {sections.length === 0 ? (
+                <View style={styles.empty}>
+                    {loading ? (
+                        <>
+                            <ActivityIndicator color={theme.colors.primary} />
+                            <UnText size={13} color={theme.colors.grey2}>
+                                正在加载教室列表...
                             </UnText>
-                        )}
-                    </View>
-                }
-            />
+                        </>
+                    ) : error ? (
+                        <>
+                            <UnText size={13} color={theme.colors.error} style={styles.emptyText}>
+                                {error}
+                            </UnText>
+                            <Button type="clear" title="重试" onPress={reload} />
+                        </>
+                    ) : rooms.length === 0 ? (
+                        <>
+                            <UnText size={14} style={styles.emptyText}>
+                                本学期已缓存的周次中没有教室数据，请先在缓存管理中缓存至少一周
+                            </UnText>
+                            {onOpenCacheManager && (
+                                <Button type="clear" title="去缓存管理" onPress={onOpenCacheManager} />
+                            )}
+                        </>
+                    ) : (
+                        <UnText size={14} color={theme.colors.grey2} style={styles.emptyText}>
+                            没有匹配的教室
+                        </UnText>
+                    )}
+                </View>
+            ) : (
+                <ScrollView
+                    style={styles.list}
+                    keyboardShouldPersistTaps="handled"
+                    nestedScrollEnabled
+                    stickyHeaderIndices={stickyHeaderIndices}>
+                    {roomRows}
+                </ScrollView>
+            )}
         </UnBottomSheet>
     );
 }
