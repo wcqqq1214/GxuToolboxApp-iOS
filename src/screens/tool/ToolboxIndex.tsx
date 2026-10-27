@@ -94,6 +94,12 @@ export function ToolboxIndex() {
                     type: "navigation",
                     navigation: "TeacherInfo",
                 },
+                {
+                    label: "空闲教室",
+                    icon: <Icon name="calendar-search" size={iconSize} />,
+                    type: "navigation",
+                    navigation: "emptyClassroom",
+                },
                 // {
                 //     label: "自主选课",
                 //     icon: <Icon name="barschart" size={iconSize} />,

@@ -16,7 +16,7 @@
         "build-ota": "react-native bundle --platform android --dev false --entry-file index.js --bundle-output dist/index.android.bundle && npx tsx scripts/gen-ota-info.ts"
     },
     "dependencies": {
-        "@gxutool/adapters": "1.0.1",
+        "@gxutool/adapters": "https://gitlab.unde.site/api/v4/projects/86/packages/npm/@gxutool/adapters/-/@gxutool/adapters-1.1.1.tgz",
         "@op-engineering/op-sqlite": "^17.1.1",
         "@preeternal/react-native-cookie-manager": "^6.3.0",
         "@react-native-async-storage/async-storage": "^2.2.0",
@@ -93,7 +93,7 @@
         "babel-plugin-inline-import": "^3.0.0",
         "drizzle-kit": "^0.31.10",
         "eslint": "^8.19.0",
-        "gxu-tool-adapters": "git+https://gitlab.unde.site/gxutool/adapter.git",
+        "gxu-tool-adapters": "https://gitlab.unde.site/api/v4/projects/86/packages/npm/@gxutool/adapters/-/@gxutool/adapters-1.1.1.tgz",
         "jest": "^29.2.1",
         "prettier": "3.8.1",
         "react-test-renderer": "19.2.3",
