@@ -404,7 +404,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         paddingTop: 10,
         paddingBottom: 24,
-        gap: 10,
+        gap: 6,
     },
     dialog: {
         borderRadius: 8,

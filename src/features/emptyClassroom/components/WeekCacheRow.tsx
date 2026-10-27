@@ -42,12 +42,21 @@ function dateRangeOf(startDay: moment.MomentInput | undefined, week: number): st
     return `${start.month() + 1}.${start.date()}–${end.month() + 1}.${end.date()}`;
 }
 
+function runningDetailOf(task: CacheTask): string {
+    if (task.phase === "auth") return "正在登录教务系统...";
+    if (task.phase === "canceling") return "正在取消...";
+    if (task.day <= 0) return "准备中...";
+    return `第 ${Math.max(1, task.day)}/7 天 · 第 ${Math.max(1, task.period)}/13 节`;
+}
+
 /**
  * 作用：缓存管理页的单周行；纯展示，不调用 repo。
  * 状态优先级：running > complete > partial > none。
  * 修改注意：
  * - 当前运行周不显示删除（由 hook 拒绝删除）；
  * - 冷却只禁用开始/继续/重试，不影响删除；
+ * - 未缓存周不展示任何体积预估，只有缓存成功/未完成且已有数据时才显示大小；
+ * - 未完成周即使没有可展示的大小也要保留状态块；
  * - 错误只在本行内联展示，不弹 Toast。
  */
 export function WeekCacheRow(props: WeekCacheRowProps) {
@@ -70,6 +79,7 @@ export function WeekCacheRow(props: WeekCacheRowProps) {
     const completedDays = snapshot?.completedDays ?? 0;
     const complete = !runningTask && (snapshot?.complete === true || completedDays >= DAYS);
     const partial = !runningTask && !complete && completedDays > 0;
+    const slotCount = snapshot?.slotCount ?? 0;
 
     const weekRange = useMemo(() => dateRangeOf(startDay, week), [startDay, week]);
 
@@ -88,18 +98,16 @@ export function WeekCacheRow(props: WeekCacheRowProps) {
     const startLabel = cooldown.blocked ? `冷却中 ${cooldownSeconds}s` : rowError ? "重试" : "缓存";
 
     const statusText = runningTask
-        ? runningTask.phase === "auth"
-            ? "正在登录教务系统..."
-            : runningTask.phase === "canceling"
-              ? "正在取消..."
-              : `第 ${Math.max(1, runningTask.day)}/7 天 · 第 ${Math.max(1, runningTask.period)}/13 节`
+        ? "正在缓存"
         : complete
-          ? `已缓存 · 约 ${formatBytes(estimateSizeBytes(snapshot?.slotCount ?? 0, snapshot?.roomCount ?? 0))}${
+          ? `已缓存 · 约 ${formatBytes(estimateSizeBytes(slotCount, snapshot?.roomCount ?? 0))}${
                 snapshot?.fetchedAt ? ` · ${formatCacheTime(snapshot.fetchedAt)}` : ""
             }`
           : partial
-            ? `未完成 ${completedDays}/7 天 · 约 ${formatBytes(estimateSizeBytes(snapshot?.slotCount ?? 0, 0))}`
-            : "未缓存 · gzip 约 1.3 MB（未压缩约 32 MB）";
+            ? `未完成 ${completedDays}/7 天${slotCount > 0 ? ` · 约 ${formatBytes(estimateSizeBytes(slotCount, 0))}` : ""}`
+            : "未缓存";
+
+    const progressText = runningTask ? runningDetailOf(runningTask) : "";
 
     const styles = useMemo(
         () =>
@@ -114,18 +122,24 @@ export function WeekCacheRow(props: WeekCacheRowProps) {
                           ? theme.colors.white
                           : theme.colors.grey5,
                     paddingHorizontal: 12,
-                    paddingVertical: 10,
-                    gap: 6,
+                    paddingVertical: 8,
+                    gap: 4,
+                },
+                title: {
+                    flexShrink: 1,
                 },
                 status: {
-                    lineHeight: 18,
+                    lineHeight: 16,
+                },
+                progressTrack: {
+                    flex: 1,
                 },
                 progress: {
                     height: 6,
                     borderRadius: 3,
                 },
                 error: {
-                    lineHeight: 18,
+                    lineHeight: 16,
                 },
             }),
         [targetHighlighted, theme],
@@ -134,15 +148,48 @@ export function WeekCacheRow(props: WeekCacheRowProps) {
     return (
         <View style={styles.row}>
             <Flex justify="space-between" align="center" gap={8}>
-                <UnText size={15} bold>
+                <UnText size={15} bold numberOfLines={1} style={styles.title}>
                     {`第 ${week} 周`}
                     {weekRange ? ` · ${weekRange}` : ""}
                 </UnText>
-                {runningTask && (
-                    <UnText size={12} color={theme.colors.grey2}>
-                        {`${runningTask.completedDays.length}/7 天`}
-                    </UnText>
-                )}
+
+                <Flex inline gap={2} align="center">
+                    {runningTask ? (
+                        <Button
+                            size="sm"
+                            type="clear"
+                            title={runningTask.phase === "canceling" ? "取消中..." : "取消"}
+                            disabled={runningTask.phase === "canceling"}
+                            onPress={onCancel}
+                        />
+                    ) : (
+                        <>
+                            {(complete || partial) && (
+                                <Button
+                                    size="sm"
+                                    type="clear"
+                                    color={theme.colors.error}
+                                    title="删除"
+                                    onPress={onDelete}
+                                />
+                            )}
+                            {!complete && (
+                                <Button
+                                    size="sm"
+                                    title={
+                                        partial
+                                            ? cooldown.blocked
+                                                ? `冷却中 ${cooldownSeconds}s`
+                                                : "继续"
+                                            : startLabel
+                                    }
+                                    disabled={startDisabled}
+                                    onPress={onStart}
+                                />
+                            )}
+                        </>
+                    )}
+                </Flex>
             </Flex>
 
             <UnText size={12} color={theme.colors.grey2} style={styles.status}>
@@ -150,12 +197,19 @@ export function WeekCacheRow(props: WeekCacheRowProps) {
             </UnText>
 
             {runningTask && (
-                <LinearProgress
-                    value={progress}
-                    variant="determinate"
-                    color={theme.colors.primary}
-                    style={styles.progress}
-                />
+                <Flex gap={8} align="center">
+                    <View style={styles.progressTrack}>
+                        <LinearProgress
+                            value={progress}
+                            variant="determinate"
+                            color={theme.colors.primary}
+                            style={styles.progress}
+                        />
+                    </View>
+                    <UnText size={11} color={theme.colors.grey2} numberOfLines={1}>
+                        {progressText}
+                    </UnText>
+                </Flex>
             )}
 
             {rowError && (
@@ -163,32 +217,6 @@ export function WeekCacheRow(props: WeekCacheRowProps) {
                     {rowError.message}
                 </UnText>
             )}
-
-            <Flex gap={6} justify="flex-end">
-                {runningTask ? (
-                    <Button
-                        size="sm"
-                        type="clear"
-                        title={runningTask.phase === "canceling" ? "取消中..." : "取消"}
-                        disabled={runningTask.phase === "canceling"}
-                        onPress={onCancel}
-                    />
-                ) : complete ? (
-                    <Button size="sm" type="clear" color={theme.colors.error} title="删除" onPress={onDelete} />
-                ) : partial ? (
-                    <>
-                        <Button size="sm" type="clear" color={theme.colors.error} title="删除" onPress={onDelete} />
-                        <Button
-                            size="sm"
-                            title={cooldown.blocked ? `冷却中 ${cooldownSeconds}s` : "继续"}
-                            disabled={startDisabled}
-                            onPress={onStart}
-                        />
-                    </>
-                ) : (
-                    <Button size="sm" title={startLabel} disabled={startDisabled} onPress={onStart} />
-                )}
-            </Flex>
         </View>
     );
 }
