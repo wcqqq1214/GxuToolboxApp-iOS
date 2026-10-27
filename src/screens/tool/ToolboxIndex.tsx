@@ -47,12 +47,6 @@ export function ToolboxIndex() {
                     navigation: "courseScheduleQuery",
                 },
                 {
-                    label: "空闲教室",
-                    icon: <Icon name="calendar-search" size={iconSize} />,
-                    type: "navigation",
-                    navigation: "emptyClassroom",
-                },
-                {
                     label: "班级课表",
                     icon: <Icon name="calendar-month-outline" size={iconSize} />,
                     type: "navigation",
@@ -99,6 +93,12 @@ export function ToolboxIndex() {
                     icon: <Icon type="antdesign" name="user" size={iconSize} />,
                     type: "navigation",
                     navigation: "TeacherInfo",
+                },
+                {
+                    label: "空闲教室",
+                    icon: <Icon name="calendar-search" size={iconSize} />,
+                    type: "navigation",
+                    navigation: "emptyClassroom",
                 },
                 // {
                 //     label: "自主选课",

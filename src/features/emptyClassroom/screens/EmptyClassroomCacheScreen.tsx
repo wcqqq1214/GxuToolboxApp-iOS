@@ -5,10 +5,11 @@ import {Flex, UnCard, UnTermSelector, UnText} from "@/components/un-ui";
 import {useStartDay} from "@/features/courseSchedule/hooks/detail/useStartDay.ts";
 import {WeekCacheRow} from "../components/WeekCacheRow";
 import {useEmptyClassroomCache} from "../hooks/useEmptyClassroomCache";
+import {useEmptyClassroomStorage, type StorageClearTarget} from "../hooks/useEmptyClassroomStorage";
 import type {CacheStartResult, CacheTask} from "../stores/cacheRunnerStore";
 import {useSelection, useSelectionInit, useSelectionTermSwitcher} from "../stores/selectionStore";
-import {DAYS, MAX_WEEKS, PERIODS, SLOT_ROW_BYTES} from "../utils/constants";
-import {estimateSizeBytes, formatBytes} from "../utils/format";
+import {DAYS, MAX_WEEKS, PERIODS} from "../utils/constants";
+import {formatBytes} from "../utils/format";
 import {toLegacyTerm} from "../utils/terms";
 
 const WEEKS = Array.from({length: MAX_WEEKS}, (_, index) => index + 1);
@@ -42,6 +43,50 @@ function taskProgressOf(task: CacheTask): number {
     return Math.max(0, Math.min(1, (task.completedDays.length + periodFraction) / DAYS));
 }
 
+type StorageRowProps = {
+    label: string;
+    value: string;
+    clearing: boolean;
+    clearDisabled: boolean;
+    refreshDisabled?: boolean;
+    onClear: () => void;
+    onRefresh?: () => void;
+    refreshing?: boolean;
+};
+
+function StorageRow(props: StorageRowProps) {
+    return (
+        <Flex justify="space-between" align="center" gap={8} style={styles.storageRow}>
+            <Flex inline align="center" gap={6}>
+                <UnText size={13}>{props.label}</UnText>
+                <UnText size={13} bold>
+                    {props.value}
+                </UnText>
+            </Flex>
+            <Flex inline align="center">
+                <Button
+                    size="sm"
+                    type="clear"
+                    title="清除"
+                    loading={props.clearing}
+                    disabled={props.clearDisabled}
+                    onPress={props.onClear}
+                />
+                {props.onRefresh && (
+                    <Button
+                        size="sm"
+                        type="clear"
+                        title="刷新"
+                        loading={props.refreshing}
+                        disabled={props.refreshDisabled}
+                        onPress={props.onRefresh}
+                    />
+                )}
+            </Flex>
+        </Flex>
+    );
+}
+
 /**
  * 作用：缓存管理页；按周缓存/续传/删除空闲教室数据，并展示全局任务与冷却状态。
  * 修改注意：
@@ -56,31 +101,29 @@ export function EmptyClassroomCacheScreen() {
     const selection = useSelection();
     const switchTerm = useSelectionTermSwitcher();
     const cache = useEmptyClassroomCache({year: selection.year, term: selection.term});
+    const storage = useEmptyClassroomStorage();
     const {startDay, ready} = useStartDay(selection.year, selection.term);
 
     const scrollRef = useRef<ScrollView>(null);
     const rowOffsetsRef = useRef<Record<number, number>>({});
     const scrolledKeyRef = useRef("");
-    const [startTarget, setStartTarget] = useState<number | null>(null);
     const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
+    const [clearTarget, setClearTarget] = useState<StorageClearTarget | null>(null);
     const [deleting, setDeleting] = useState(false);
 
     const summary = useMemo(() => {
         let completeCount = 0;
         let partialCount = 0;
-        let totalBytes = 0;
 
         for (const snapshot of cache.snapshots) {
             if (snapshot.complete || snapshot.completedDays >= DAYS) {
                 completeCount += 1;
-                totalBytes += estimateSizeBytes(snapshot.slotCount, snapshot.roomCount);
             } else if (snapshot.completedDays > 0) {
                 partialCount += 1;
-                totalBytes += SLOT_ROW_BYTES * snapshot.slotCount;
             }
         }
 
-        return {completeCount, partialCount, totalBytes};
+        return {completeCount, partialCount};
     }, [cache.snapshots]);
 
     const task = cache.task;
@@ -116,30 +159,19 @@ export function EmptyClassroomCacheScreen() {
         return () => clearTimeout(timer);
     }, [selection.hydrated, targetKey, scrollToTarget]);
 
-    const startSnapshot = startTarget !== null ? cache.snapshotByWeek.get(startTarget) : undefined;
-    const startCompletedDays = startSnapshot?.completedDays ?? 0;
-    const startIsPartial = !!startSnapshot && startCompletedDays > 0 && !startSnapshot.complete;
-    const startRemainingDays = Math.max(1, DAYS - startCompletedDays);
-    const startEstimatedSeconds = Math.max(3, Math.ceil((20 * startRemainingDays) / DAYS));
-    const startEstimatedMegabytes = Math.max(1, Math.round((5.5 * startRemainingDays) / DAYS));
-    const startMessage = startIsPartial
-        ? `第 ${startTarget} 周已完成 ${startCompletedDays}/7 天，预计还需约 ${startEstimatedSeconds} 秒、缓存约 ${startEstimatedMegabytes} MB。\n完成下载后可查看实际缓存大小。`
-        : "预计约 20 秒、缓存约 5.5 MB。\n完成下载后可查看实际缓存大小。";
+    const startCache = useCallback(
+        async (target: number) => {
+            cache.clearError();
 
-    const confirmStart = useCallback(async () => {
-        const target = startTarget;
-        if (target === null) return;
-
-        setStartTarget(null);
-        cache.clearError();
-
-        const result = await cache.startWeek(target);
-        if (!result.ok) {
-            ToastAndroid.show(startErrorMessage(result), ToastAndroid.SHORT);
-            return;
-        }
-        cache.reload();
-    }, [cache, startTarget]);
+            const result = await cache.startWeek(target);
+            if (!result.ok) {
+                ToastAndroid.show(startErrorMessage(result), ToastAndroid.SHORT);
+                return;
+            }
+            cache.reload();
+        },
+        [cache],
+    );
 
     const confirmDelete = useCallback(async () => {
         const target = deleteTarget;
@@ -160,6 +192,20 @@ export function EmptyClassroomCacheScreen() {
         ToastAndroid.show(`已删除第 ${target} 周缓存`, ToastAndroid.SHORT);
     }, [cache, deleteTarget, deleting]);
 
+    const confirmClearStorage = useCallback(async () => {
+        const target = clearTarget;
+        if (target === null || storage.clearing !== null) return;
+
+        setClearTarget(null);
+        const result = target === "rooms" ? await storage.clearRooms() : await storage.clearWeeks();
+        if (!result.ok) {
+            ToastAndroid.show(result.message ?? "清除失败，请稍后重试", ToastAndroid.SHORT);
+            return;
+        }
+
+        ToastAndroid.show(target === "rooms" ? "已清除教室和全部周数据" : "已清除全部周数据", ToastAndroid.SHORT);
+    }, [clearTarget, storage]);
+
     if (!selection.hydrated) {
         return (
             <View style={styles.center}>
@@ -169,10 +215,38 @@ export function EmptyClassroomCacheScreen() {
     }
 
     const legacyTerm = toLegacyTerm(selection.term);
+    const storageValueOf = (bytes: number | undefined) =>
+        storage.usage ? `约 ${formatBytes(bytes ?? 0)}` : storage.loading ? "读取中..." : "—";
+    const storageDisabled = task !== null || storage.clearing !== null;
 
     return (
         <View style={styles.screen}>
             <View style={styles.header}>
+                <UnCard title="数据库占用" style={styles.storageCard}>
+                    <StorageRow
+                        label="教室数据"
+                        value={storageValueOf(storage.usage?.roomsBytes)}
+                        clearing={storage.clearing === "rooms"}
+                        clearDisabled={storageDisabled}
+                        refreshDisabled={storage.loading || storage.clearing !== null}
+                        onRefresh={storage.refresh}
+                        refreshing={storage.loading}
+                        onClear={() => setClearTarget("rooms")}
+                    />
+                    <StorageRow
+                        label="周数据"
+                        value={storageValueOf(storage.usage?.weeksBytes)}
+                        clearing={storage.clearing === "weeks"}
+                        clearDisabled={storageDisabled}
+                        onClear={() => setClearTarget("weeks")}
+                    />
+                    {storage.error && (
+                        <UnText size={12} color={theme.colors.error} style={styles.storageError}>
+                            {`读取占用失败：${storage.error}`}
+                        </UnText>
+                    )}
+                </UnCard>
+
                 <View style={styles.filterRow}>
                     <UnText size={14} style={styles.filterLabel}>
                         学期
@@ -189,14 +263,9 @@ export function EmptyClassroomCacheScreen() {
                 </View>
 
                 <UnCard style={styles.summaryCard}>
-                    <Flex justify="space-between" align="center" gap={8}>
-                        <UnText size={13} color={theme.colors.grey2}>
-                            {`已缓存 ${summary.completeCount}/${MAX_WEEKS} 周`}
-                        </UnText>
-                        <UnText size={15} bold>
-                            {`约 ${formatBytes(summary.totalBytes)}`}
-                        </UnText>
-                    </Flex>
+                    <UnText size={13} color={theme.colors.grey2}>
+                        {`已缓存 ${summary.completeCount}/${MAX_WEEKS} 周`}
+                    </UnText>
                     {summary.partialCount > 0 && (
                         <UnText size={12} color={theme.colors.warning} style={styles.partialHint}>
                             {`未完成 ${summary.partialCount} 周`}
@@ -290,7 +359,7 @@ export function EmptyClassroomCacheScreen() {
                                 targetHighlighted={week === selection.week}
                                 disabled={task !== null}
                                 startDay={ready ? startDay : undefined}
-                                onStart={() => setStartTarget(week)}
+                                onStart={() => startCache(week)}
                                 onCancel={cache.cancel}
                                 onDelete={() => setDeleteTarget(week)}
                             />
@@ -298,22 +367,6 @@ export function EmptyClassroomCacheScreen() {
                     );
                 })}
             </ScrollView>
-
-            <Dialog
-                isVisible={startTarget !== null}
-                onBackdropPress={() => setStartTarget(null)}
-                overlayStyle={styles.dialog}>
-                <Dialog.Title title={startTarget !== null ? `缓存第 ${startTarget} 周` : "缓存"} />
-                <View style={styles.dialogBody}>
-                    <UnText size={13} style={styles.dialogText}>
-                        {startMessage}
-                    </UnText>
-                </View>
-                <Dialog.Actions>
-                    <Dialog.Button title="取消" type="clear" onPress={() => setStartTarget(null)} />
-                    <Dialog.Button title={startIsPartial ? "继续缓存" : "开始缓存"} onPress={confirmStart} />
-                </Dialog.Actions>
-            </Dialog>
 
             <Dialog
                 isVisible={deleteTarget !== null}
@@ -342,6 +395,36 @@ export function EmptyClassroomCacheScreen() {
                     />
                 </Dialog.Actions>
             </Dialog>
+
+            <Dialog
+                isVisible={clearTarget !== null}
+                onBackdropPress={() => {
+                    if (storage.clearing === null) setClearTarget(null);
+                }}
+                overlayStyle={styles.dialog}>
+                <Dialog.Title title={clearTarget === "rooms" ? "清除教室数据" : "清除周数据"} />
+                <View style={styles.dialogBody}>
+                    <UnText size={13} style={styles.dialogText}>
+                        {clearTarget === "rooms"
+                            ? "会清除全部教室和所有周数据，之后需要重新缓存。"
+                            : "会清除所有周数据，教室信息会保留；之后需要重新缓存。"}
+                    </UnText>
+                </View>
+                <Dialog.Actions>
+                    <Dialog.Button
+                        title="取消"
+                        type="clear"
+                        disabled={storage.clearing !== null}
+                        onPress={() => setClearTarget(null)}
+                    />
+                    <Dialog.Button
+                        title="清除"
+                        loading={storage.clearing !== null}
+                        disabled={storage.clearing !== null}
+                        onPress={confirmClearStorage}
+                    />
+                </Dialog.Actions>
+            </Dialog>
         </View>
     );
 }
@@ -359,6 +442,17 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         paddingTop: 12,
         gap: 10,
+    },
+    storageCard: {
+        paddingHorizontal: 10,
+        paddingBottom: 4,
+    },
+    storageRow: {
+        minHeight: 42,
+    },
+    storageError: {
+        marginTop: 2,
+        marginBottom: 6,
     },
     filterRow: {
         flexDirection: "row",

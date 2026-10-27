@@ -1,8 +1,9 @@
 import {and, asc, countDistinct, eq, inArray} from "drizzle-orm";
-import {db} from "@/core/db";
+import {db, expoDb} from "@/core/db";
 import {emptyClassroomDays, emptyClassroomRooms, emptyClassroomSlots, emptyClassroomSnapshots} from "@/core/schema";
 import type {DayPayload, FreePeriodRow, LogicalTerm, RoomRecord, WeekSnapshot} from "../type";
 import {DAYS, ROOM_BATCH_SIZE, SLOT_BATCH_SIZE} from "../utils/constants";
+import {estimateSizeBytes} from "../utils/format";
 import {roomKey} from "../utils/roomKey";
 
 /** listRooms 按 id 分块查询，避开 SQLite 变量上限。 */
@@ -10,6 +11,11 @@ const ROOM_ID_CHUNK_SIZE = 500;
 
 /** drizzle 事务回调参数类型。 */
 type WriteTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+export type EmptyClassroomStorageUsage = {
+    roomsBytes: number;
+    weeksBytes: number;
+};
 
 /**
  * 模块级写队列：op-sqlite 只有单连接，drizzle 的 transaction 是异步的。
@@ -269,6 +275,28 @@ export const emptyClassroomRepo = {
     },
 
     /**
+     * 作用：读取空闲教室数据在当前数据库中的占用估算。
+     * 入参：无；统计范围覆盖本机所有学期。
+     * 出参：教室维表和周事实数据分别对应的字节数。
+     * 修改注意：周数据从 snapshot.slotCount 汇总，避免扫描最多数十万条 slots。
+     */
+    async getStorageUsage(): Promise<EmptyClassroomStorageUsage> {
+        const result = await expoDb.execute(`
+            SELECT
+                (SELECT COUNT(*) FROM emptyClassroomRooms) AS roomCount,
+                (SELECT COALESCE(SUM(slotCount), 0) FROM emptyClassroomSnapshots) AS slotCount
+        `);
+        const row = result.rows[0];
+        const roomCount = Math.max(0, Number(row?.roomCount ?? 0));
+        const slotCount = Math.max(0, Number(row?.slotCount ?? 0));
+
+        return {
+            roomsBytes: estimateSizeBytes(0, roomCount),
+            weeksBytes: estimateSizeBytes(slotCount, 0),
+        };
+    },
+
+    /**
      * 作用：对账并完成某周快照（幂等）。
      * 入参 year/term/week；出参无。
      * 修改注意：用于「7 天都在但 complete=false」的崩溃恢复；不会伪造 0/7 快照以外的数据。
@@ -312,6 +340,32 @@ export const emptyClassroomRepo = {
                             eq(emptyClassroomSnapshots.week, week),
                         ),
                     );
+            }),
+        );
+    },
+
+    /** 作用：事务清除全部周数据，保留教室维表。 */
+    async clearWeeks(): Promise<void> {
+        await enqueueWrite(() =>
+            db.transaction(async tx => {
+                await tx.delete(emptyClassroomSlots);
+                await tx.delete(emptyClassroomDays);
+                await tx.delete(emptyClassroomSnapshots);
+            }),
+        );
+    },
+
+    /**
+     * 作用：事务清除全部空闲教室数据。
+     * 修改注意：周数据通过 roomId 依赖教室维表，因此清除教室时必须一并清除周数据，避免留下悬空引用。
+     */
+    async clearAll(): Promise<void> {
+        await enqueueWrite(() =>
+            db.transaction(async tx => {
+                await tx.delete(emptyClassroomSlots);
+                await tx.delete(emptyClassroomDays);
+                await tx.delete(emptyClassroomSnapshots);
+                await tx.delete(emptyClassroomRooms);
             }),
         );
     },

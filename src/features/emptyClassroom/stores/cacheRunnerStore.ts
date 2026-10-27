@@ -47,6 +47,8 @@ export type CacheRunnerState = {
     start: (year: number, term: LogicalTerm, week: number) => Promise<CacheStartResult>;
     cancel: () => void;
     clearError: () => void;
+    /** 通知依赖本地缓存的 hooks 重新读库。 */
+    invalidate: () => void;
 };
 
 /** 取消标记；只对当前任务有效。 */
@@ -203,4 +205,6 @@ export const useCacheRunnerStore = create<CacheRunnerState>((set, get) => ({
     },
 
     clearError: () => set({error: null}),
+
+    invalidate: () => set(state => ({revision: state.revision + 1})),
 }));
