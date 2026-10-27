@@ -120,11 +120,11 @@ export function EmptyClassroomCacheScreen() {
     const startCompletedDays = startSnapshot?.completedDays ?? 0;
     const startIsPartial = !!startSnapshot && startCompletedDays > 0 && !startSnapshot.complete;
     const startRemainingDays = Math.max(1, DAYS - startCompletedDays);
+    const startEstimatedSeconds = Math.max(3, Math.ceil((20 * startRemainingDays) / DAYS));
+    const startEstimatedMegabytes = Math.max(1, Math.round((5.5 * startRemainingDays) / DAYS));
     const startMessage = startIsPartial
-        ? `第 ${startTarget} 周已完成 ${startCompletedDays}/7 天，继续缓存剩余 ${startRemainingDays} 天（约 ${Math.ceil(
-              (91 * startRemainingDays) / DAYS,
-          )} 次请求）。\n建议 Wi-Fi 并保持应用在前台。`
-        : "约 91 次请求 / gzip 约 1.3 MB（未压缩约 32 MB）/ 预计 1–2 分钟；若正方按 500 分页回退约 364 次。\n建议 Wi-Fi 并保持应用在前台。";
+        ? `第 ${startTarget} 周已完成 ${startCompletedDays}/7 天，预计还需约 ${startEstimatedSeconds} 秒、缓存约 ${startEstimatedMegabytes} MB。\n完成下载后可查看实际缓存大小。`
+        : "预计约 20 秒、缓存约 5.5 MB。\n完成下载后可查看实际缓存大小。";
 
     const confirmStart = useCallback(async () => {
         const target = startTarget;
