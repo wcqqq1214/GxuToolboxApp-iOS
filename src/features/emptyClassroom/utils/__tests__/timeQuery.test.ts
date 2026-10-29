@@ -59,7 +59,7 @@ describe("timeQuery", () => {
         });
     });
 
-    test("默认按楼栋和教室名排序，空闲排序支持正反方向", () => {
+    test("默认排序与数据库分页使用相同顺序，空闲排序支持正反方向", () => {
         const roomA = room(1, "教2", "101");
         const roomB = room(2, "教10", "101");
         const roomC = room(3, "教10", "102");
@@ -72,7 +72,8 @@ describe("timeQuery", () => {
             row(roomC, 1),
         ]);
 
-        expect(sortRoomAvailabilityResults(results, "default", "desc").map(item => item.room.id)).toEqual([1, 2, 3]);
+        // SQLite BINARY 会先排“教10”再排“教2”；前端必须沿用该顺序，避免分页边界错位。
+        expect(sortRoomAvailabilityResults(results, "default", "desc").map(item => item.room.id)).toEqual([2, 3, 1]);
         expect(sortRoomAvailabilityResults(results, "free", "desc").map(item => item.room.id)).toEqual([2, 1, 3]);
         expect(sortRoomAvailabilityResults(results, "free", "asc").map(item => item.room.id)).toEqual([3, 1, 2]);
     });

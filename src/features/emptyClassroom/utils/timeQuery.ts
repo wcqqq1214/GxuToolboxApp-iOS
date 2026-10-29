@@ -18,8 +18,20 @@ export type RoomAvailabilitySection = {
     data: RoomAvailabilityResult[];
 };
 
-function compareName(left: string, right: string): number {
-    return left.localeCompare(right, "zh-Hans-CN", {numeric: true});
+/**
+ * 作用：使用与 SQLite BINARY 排序一致的逐字符顺序。
+ * 修改注意：数据库分页边界也用该顺序，不能用 localeCompare，否则后页结果会插入旧列表前方。
+ */
+function compareDatabaseText(left: string, right: string): number {
+    const leftCharacters = Array.from(left);
+    const rightCharacters = Array.from(right);
+    const commonLength = Math.min(leftCharacters.length, rightCharacters.length);
+
+    for (let index = 0; index < commonLength; index += 1) {
+        const difference = (leftCharacters[index].codePointAt(0) ?? 0) - (rightCharacters[index].codePointAt(0) ?? 0);
+        if (difference !== 0) return difference;
+    }
+    return leftCharacters.length - rightCharacters.length;
 }
 
 function buildingLabel(building: string): string {
@@ -28,7 +40,9 @@ function buildingLabel(building: string): string {
 
 function compareRoom(left: RoomRecord, right: RoomRecord): number {
     return (
-        compareName(buildingLabel(left.building), buildingLabel(right.building)) || compareName(left.name, right.name)
+        compareDatabaseText(left.building, right.building) ||
+        compareDatabaseText(left.name, right.name) ||
+        left.id - right.id
     );
 }
 
@@ -124,9 +138,7 @@ export function sortRoomAvailabilityResults(
  * 作用：按楼栋把已排序结果切成 SectionList 分组，空楼栋统一显示为“其他楼栋”。
  * 修改注意：分组顺序沿用结果中首次出现的顺序；同一 section 内保留原排序。
  */
-export function groupRoomAvailabilityResults(
-    results: readonly RoomAvailabilityResult[],
-): RoomAvailabilitySection[] {
+export function groupRoomAvailabilityResults(results: readonly RoomAvailabilityResult[]): RoomAvailabilitySection[] {
     const groups = new Map<string, RoomAvailabilitySection>();
 
     for (const result of results) {
