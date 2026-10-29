@@ -9,6 +9,7 @@ import type {TimeScheduleItemData} from "@/features/courseSchedule/type/schedule
 import {useStartDay} from "@/features/courseSchedule/hooks/detail/useStartDay.ts";
 import {EmptyRunBlock} from "../components/EmptyRunBlock";
 import {RoomPickerSheet} from "../components/RoomPickerSheet";
+import {TimeClassroomQueryView} from "../components/TimeClassroomQueryView";
 import {WeekStatusOverlay, type WeekStatusKind} from "../components/WeekStatusOverlay";
 import {useEmptyClassroomOverview} from "../hooks/useEmptyClassroomOverview";
 import {useSelection, useSelectionActions, useSelectionInit, useSelectionTermSwitcher} from "../stores/selectionStore";
@@ -39,13 +40,11 @@ function renderEmptyRun(item: FreeRunItem) {
  * - 周次状态、图例与缓存提示固定在课表前的页头中，避免内容变化推动课表；
  * - 本地读库失败只在页面内联提示 + 重试，不弹 Toast。
  */
-export function EmptyClassroomScreen() {
-    useSelectionInit();
+function RoomClassroomQueryView() {
     const navigation = useNavigation<NavigationProp<ParamListBase>>();
     const {theme} = useTheme();
     const selection = useSelection();
     const {setWeek, setRoom} = useSelectionActions();
-    const switchTerm = useSelectionTermSwitcher();
     const {startDay, ready} = useStartDay(selection.year, selection.term);
 
     const pageView = usePagerView({pagesAmount: MAX_WEEKS});
@@ -224,7 +223,6 @@ export function EmptyClassroomScreen() {
         );
     }
 
-    const legacyTerm = toLegacyTerm(selection.term);
     const room = overview.room;
     const roomLabel = room ? `${room.building} · ${room.name}` : selection.roomId ? "正在加载教室信息..." : "选择教室";
     const roomMeta = room
@@ -236,21 +234,6 @@ export function EmptyClassroomScreen() {
     return (
         <>
             <ScrollView contentContainerStyle={styles.container}>
-                <View style={styles.filterRow}>
-                    <UnText size={14} style={styles.filterLabel}>
-                        学期
-                    </UnText>
-                    <View style={styles.filterContent}>
-                        <UnTermSelector
-                            key={`${selection.year}-${legacyTerm}`}
-                            year={selection.year}
-                            term={legacyTerm}
-                            disableSelectAll
-                            onChange={switchTerm}
-                        />
-                    </View>
-                </View>
-
                 <View style={styles.filterRow}>
                     <UnText size={14} style={styles.filterLabel}>
                         教室
@@ -353,6 +336,93 @@ export function EmptyClassroomScreen() {
     );
 }
 
+type ClassroomQueryMode = "room" | "time";
+
+/**
+ * 作用：空闲教室入口，在“按教室”和“按时间”两种查询视图间切换。
+ * 修改注意：学年/学期选择固定在两个视图上方；切换 Tab 不会修改按教室页面保存的周次和教室。
+ */
+export function EmptyClassroomScreen() {
+    useSelectionInit();
+    const navigation = useNavigation<NavigationProp<ParamListBase>>();
+    const {theme} = useTheme();
+    const selection = useSelection();
+    const switchTerm = useSelectionTermSwitcher();
+    const [mode, setMode] = useState<ClassroomQueryMode>("room");
+    const legacyTerm = toLegacyTerm(selection.term);
+    const openCacheManager = useCallback(() => {
+        navigation.navigate("emptyClassroomCache");
+    }, [navigation]);
+
+    if (!selection.hydrated) {
+        return (
+            <View style={styles.center}>
+                <ActivityIndicator color={theme.colors.primary} />
+            </View>
+        );
+    }
+
+    return (
+        <View style={styles.screen}>
+            <View style={styles.screenHeader}>
+                <View style={styles.filterRow}>
+                    <UnText size={14} style={styles.filterLabel}>
+                        学期
+                    </UnText>
+                    <View style={styles.filterContent}>
+                        <UnTermSelector
+                            key={`${selection.year}-${legacyTerm}`}
+                            year={selection.year}
+                            term={legacyTerm}
+                            disableSelectAll
+                            onChange={switchTerm}
+                        />
+                    </View>
+                </View>
+                <View style={[styles.modeTabs, {backgroundColor: theme.colors.grey5}]}>
+                    <UnPressable
+                        onPress={() => setMode("room")}
+                        style={[styles.modeTab, mode === "room" && {backgroundColor: theme.colors.primary}]}>
+                        <Icon name="door" size={17} color={mode === "room" ? theme.colors.white : theme.colors.grey2} />
+                        <UnText
+                            size={14}
+                            bold={mode === "room"}
+                            color={mode === "room" ? theme.colors.white : theme.colors.grey2}>
+                            按教室查询
+                        </UnText>
+                    </UnPressable>
+                    <UnPressable
+                        onPress={() => setMode("time")}
+                        style={[styles.modeTab, mode === "time" && {backgroundColor: theme.colors.primary}]}>
+                        <Icon
+                            name="clock-outline"
+                            size={17}
+                            color={mode === "time" ? theme.colors.white : theme.colors.grey2}
+                        />
+                        <UnText
+                            size={14}
+                            bold={mode === "time"}
+                            color={mode === "time" ? theme.colors.white : theme.colors.grey2}>
+                            按时间查询
+                        </UnText>
+                    </UnPressable>
+                </View>
+            </View>
+
+            {mode === "room" ? (
+                <RoomClassroomQueryView />
+            ) : (
+                <TimeClassroomQueryView
+                    year={selection.year}
+                    term={selection.term}
+                    preferredWeek={selection.week}
+                    onOpenCacheManager={openCacheManager}
+                />
+            )}
+        </View>
+    );
+}
+
 const styles = StyleSheet.create({
     center: {
         flex: 1,
@@ -362,6 +432,29 @@ const styles = StyleSheet.create({
     container: {
         padding: 16,
         gap: 10,
+    },
+    screen: {
+        flex: 1,
+    },
+    screenHeader: {
+        paddingHorizontal: 16,
+        paddingTop: 12,
+        gap: 10,
+    },
+    modeTabs: {
+        flexDirection: "row",
+        borderRadius: 9,
+        padding: 3,
+        gap: 3,
+    },
+    modeTab: {
+        flex: 1,
+        height: 38,
+        borderRadius: 7,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 6,
     },
     filterRow: {
         flexDirection: "row",

@@ -16,7 +16,11 @@ export type RoomPickerSheetProps = {
     visible: boolean;
     onClose: () => void;
     selectedRoomId: number | null;
-    onSelect: (room: RoomRecord) => void;
+    onSelect?: (room: RoomRecord) => void;
+    /** 多选模式下列表点击只切换勾选，不立即关闭。 */
+    multiple?: boolean;
+    selectedRoomIds?: readonly number[];
+    onConfirmMultiple?: (roomIds: number[]) => void;
     /** 教室里没有任何持久化数据时，跳转缓存管理的入口。 */
     onOpenCacheManager?: () => void;
 };
@@ -25,6 +29,7 @@ export type RoomPickerSheetProps = {
 type PickerLevel = "building" | "floor" | "room";
 
 const OTHER_FLOOR_KEY = "other";
+const EMPTY_ROOM_IDS: readonly number[] = [];
 
 function floorKeyOf(floor: number | null): string {
     return floor === null ? OTHER_FLOOR_KEY : String(floor);
@@ -47,13 +52,23 @@ function buildingSubtitle(group: BuildingSummaryGroup): string {
  * - BottomSheet 内部已经是 ScrollView，不再嵌套 VirtualizedList。
  */
 export function RoomPickerSheet(props: RoomPickerSheetProps) {
-    const {visible, selectedRoomId, onSelect, onClose, onOpenCacheManager} = props;
+    const {
+        visible,
+        selectedRoomId,
+        onSelect,
+        multiple = false,
+        selectedRoomIds = EMPTY_ROOM_IDS,
+        onConfirmMultiple,
+        onClose,
+        onOpenCacheManager,
+    } = props;
     const {theme} = useTheme();
     const buildingState = useRoomBuildings({enabled: visible});
     const [keyword, setKeyword] = useState("");
     const [level, setLevel] = useState<PickerLevel>("building");
     const [buildingName, setBuildingName] = useState<string | null>(null);
     const [floorKey, setFloorKey] = useState<string | null>(null);
+    const [draftRoomIds, setDraftRoomIds] = useState<Set<number>>(() => new Set(selectedRoomIds));
     const roomsState = useBuildingRooms({
         building: level === "building" ? null : buildingName,
         enabled: visible,
@@ -71,7 +86,8 @@ export function RoomPickerSheet(props: RoomPickerSheetProps) {
         setLevel("building");
         setBuildingName(null);
         setFloorKey(null);
-    }, [visible]);
+        setDraftRoomIds(new Set(selectedRoomIds));
+    }, [selectedRoomIds, visible]);
 
     // 切换层级或搜索条件后回到列表顶部。
     useEffect(() => {
@@ -125,7 +141,16 @@ export function RoomPickerSheet(props: RoomPickerSheetProps) {
         setKeyword("");
     };
     const selectRoom = (room: RoomRecord) => {
-        onSelect(room);
+        if (multiple) {
+            setDraftRoomIds(current => {
+                const next = new Set(current);
+                if (next.has(room.id)) next.delete(room.id);
+                else next.add(room.id);
+                return next;
+            });
+            return;
+        }
+        onSelect?.(room);
         onClose();
     };
 
@@ -200,10 +225,20 @@ export function RoomPickerSheet(props: RoomPickerSheetProps) {
             gap: 8,
             paddingVertical: 20,
         },
+        footer: {
+            paddingHorizontal: 16,
+            paddingVertical: 10,
+            borderTopWidth: StyleSheet.hairlineWidth,
+            borderTopColor: theme.colors.grey4,
+            gap: 8,
+        },
+        selectedSummary: {
+            textAlign: "center",
+        },
     });
 
     const renderRoomRow = (room: RoomRecord, subtitle: string) => {
-        const selected = room.id === selectedRoomId;
+        const selected = multiple ? draftRoomIds.has(room.id) : room.id === selectedRoomId;
         return (
             <UnPressable
                 key={room.id}
@@ -220,7 +255,15 @@ export function RoomPickerSheet(props: RoomPickerSheetProps) {
                             </UnText>
                         )}
                     </Flex>
-                    {selected && <Icon name="check" size={18} color={theme.colors.primary} />}
+                    {multiple ? (
+                        <Icon
+                            name={selected ? "checkbox-outline" : "checkbox-blank-outline"}
+                            size={22}
+                            color={selected ? theme.colors.primary : theme.colors.grey2}
+                        />
+                    ) : (
+                        selected && <Icon name="check" size={18} color={theme.colors.primary} />
+                    )}
                 </Flex>
             </UnPressable>
         );
@@ -393,7 +436,7 @@ export function RoomPickerSheet(props: RoomPickerSheetProps) {
             scrollViewProps={{scrollEnabled: false, keyboardShouldPersistTaps: "handled"}}>
             <View style={styles.header}>
                 <UnText size={18} bold>
-                    选择教室
+                    {multiple ? "选择教室（可多选）" : "选择教室"}
                 </UnText>
                 <TextInput
                     value={keyword}
@@ -440,6 +483,20 @@ export function RoomPickerSheet(props: RoomPickerSheetProps) {
                 <ScrollView ref={listRef} style={styles.list} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
                     {listContent}
                 </ScrollView>
+            )}
+            {multiple && (
+                <View style={styles.footer}>
+                    <UnText size={12} color={theme.colors.grey2} style={styles.selectedSummary}>
+                        {draftRoomIds.size === 0 ? "未选择教室时查询全部教室" : `已选择 ${draftRoomIds.size} 间教室`}
+                    </UnText>
+                    <Button
+                        title="确认教室筛选"
+                        onPress={() => {
+                            onConfirmMultiple?.([...draftRoomIds]);
+                            onClose();
+                        }}
+                    />
+                </View>
             )}
         </UnBottomSheet>
     );
