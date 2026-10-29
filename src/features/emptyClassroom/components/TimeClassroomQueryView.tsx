@@ -12,12 +12,14 @@ import moment from "moment";
 import {Icon, UnMultiSelect, UnPressable, UnText} from "@/components/un-ui";
 import {UnDateTimePicker} from "@/components/un-ui/UnDateTimePicker";
 import {useStartDay} from "@/features/courseSchedule/hooks/detail/useStartDay";
+import {Color} from "@/shared/color";
 import {useRoomBuildings} from "../hooks/useRoomList";
 import {useTimeClassroomQuery} from "../hooks/useTimeClassroomQuery";
-import type {LogicalTerm, RoomAvailabilityResult, TimeQuerySortMode} from "../type";
+import type {LogicalTerm, RoomAvailabilityResult} from "../type";
 import {groupRoomBuildings} from "../utils/floor";
 import {
     buildCachedDateOptions,
+    groupRoomAvailabilityResultsByFreePeriodCount,
     groupRoomAvailabilityResults,
     type RoomAvailabilitySection,
 } from "../utils/timeQuery";
@@ -32,13 +34,9 @@ export type TimeClassroomQueryViewProps = {
     onOpenCacheManager: () => void;
 };
 
-function sortModeLabel(mode: TimeQuerySortMode): string {
-    return mode === "default" ? "默认排序" : "空闲时间";
-}
-
 /**
  * 作用：按已缓存日期和节次范围查询全校空闲教室，并以时间条列表展示。
- * 修改注意：筛选区作为 SectionList 的 ListHeaderComponent，结果按楼栋分组并黏滞标题，避免嵌套纵向滚动。
+ * 修改注意：筛选区作为列表头；默认排序按楼栋分组，空闲时间排序按空闲节数分组。
  */
 export function TimeClassroomQueryView(props: TimeClassroomQueryViewProps) {
     const {year, term, preferredWeek, onOpenCacheManager} = props;
@@ -68,15 +66,33 @@ export function TimeClassroomQueryView(props: TimeClassroomQueryViewProps) {
     const selectedDate = dates.find(date => date.day === query.selectedDay && date.cached);
     const cachedDates = dates.filter(date => date.cached);
     const noCachedWeeks = ready && !query.loading && query.snapshots.length === 0;
-    const sections = useMemo(() => groupRoomAvailabilityResults(query.results), [query.results]);
+    const sections = useMemo(
+        () =>
+            query.sortMode === "default"
+                ? groupRoomAvailabilityResults(query.results)
+                : groupRoomAvailabilityResultsByFreePeriodCount(query.results),
+        [query.results, query.sortMode],
+    );
+    const buildingHeaderBackground = Color.mix(theme.colors.white, theme.colors.primary, 0.14).rgbaString;
+    const controlBackground = Color(theme.colors.grey5)
+        .setAlpha(theme.mode === "light" ? 0.7 : 0.55)
+        .rgbaString;
+    const unknownLegendBackground = Color(theme.colors.grey3)
+        .setAlpha(theme.mode === "light" ? 0.12 : 0.18)
+        .rgbaString;
 
     const renderResult = useCallback(
-        ({item}: SectionListRenderItemInfo<RoomAvailabilityResult, RoomAvailabilitySection>) => (
-            <RoomAvailabilityRow result={item} startPeriod={query.startPeriod} endPeriod={query.endPeriod} />
+        ({item, index, section}: SectionListRenderItemInfo<RoomAvailabilityResult, RoomAvailabilitySection>) => (
+            <RoomAvailabilityRow
+                result={item}
+                startPeriod={query.startPeriod}
+                endPeriod={query.endPeriod}
+                firstInSection={index === 0}
+                lastInSection={index === section.data.length - 1}
+            />
         ),
         [query.endPeriod, query.startPeriod],
     );
-
     const listHeader = (
         <View style={styles.headerContent}>
             {!ready || (query.loading && query.snapshots.length === 0) ? (
@@ -118,7 +134,7 @@ export function TimeClassroomQueryView(props: TimeClassroomQueryViewProps) {
                                 onChange={value => query.setDay(moment(value).isoWeekday())}
                             />
                         ) : (
-                            <View style={[styles.loadingField, {backgroundColor: theme.colors.grey5}]}>
+                            <View style={[styles.loadingField, {backgroundColor: controlBackground}]}>
                                 {query.loading ? (
                                     <ActivityIndicator size="small" color={theme.colors.primary} />
                                 ) : null}
@@ -141,7 +157,7 @@ export function TimeClassroomQueryView(props: TimeClassroomQueryViewProps) {
                             selectedValues={query.buildingFilters}
                             onChange={query.setBuildings}
                             emptyLabel="全部楼栋"
-                            title="选择楼栋（可多选）"
+                            title="选择楼栋"
                             disabled={!ready || buildingsState.loading}
                         />
                         {!!buildingsState.error && (
@@ -164,7 +180,7 @@ export function TimeClassroomQueryView(props: TimeClassroomQueryViewProps) {
                             onPress={() => setRoomSheetVisible(true)}
                             style={[
                                 styles.selectorField,
-                                {borderColor: theme.colors.grey4, backgroundColor: theme.colors.grey5},
+                                {borderColor: theme.colors.grey4, backgroundColor: controlBackground},
                             ]}>
                             <Icon name="door" size={18} color={theme.colors.grey2} />
                             <UnText size={14} numberOfLines={1} style={styles.selectorText}>
@@ -185,7 +201,7 @@ export function TimeClassroomQueryView(props: TimeClassroomQueryViewProps) {
                             styles.search,
                             {
                                 color: theme.colors.black,
-                                backgroundColor: theme.colors.grey5,
+                                backgroundColor: controlBackground,
                                 borderColor: theme.colors.grey4,
                             },
                         ]}
@@ -243,10 +259,24 @@ export function TimeClassroomQueryView(props: TimeClassroomQueryViewProps) {
                     </View>
 
                     <View style={styles.legendRow}>
-                        <View style={[styles.legendDot, {backgroundColor: theme.colors.success}]} />
-                        <UnText size={11} color={theme.colors.grey2}>
-                            绿色=空闲，空白=有课/占用
-                        </UnText>
+                        <View style={styles.legendItem}>
+                            <View style={[styles.legendDot, {backgroundColor: theme.colors.success}]} />
+                            <UnText size={11} color={theme.colors.grey2}>
+                                空闲
+                            </UnText>
+                        </View>
+                        <View style={styles.legendItem}>
+                            <View style={[styles.legendDot, {backgroundColor: theme.colors.error}]} />
+                            <UnText size={11} color={theme.colors.grey2}>
+                                占用
+                            </UnText>
+                        </View>
+                        <View style={styles.legendItem}>
+                            <View style={[styles.legendDot, {backgroundColor: unknownLegendBackground}]} />
+                            <UnText size={11} color={theme.colors.grey2}>
+                                未知
+                            </UnText>
+                        </View>
                     </View>
 
                     {!!query.error && (
@@ -273,13 +303,7 @@ export function TimeClassroomQueryView(props: TimeClassroomQueryViewProps) {
                                 查询结果
                             </UnText>
                             <UnText size={11} color={theme.colors.grey2}>
-                                {`${sortModeLabel(query.sortMode)}${
-                                    query.sortMode === "free"
-                                        ? query.sortDirection === "desc"
-                                            ? " · 空闲多优先"
-                                            : " · 空闲少优先"
-                                        : ""
-                                } · ${query.hasMore ? "已加载 " : ""}${query.results.length} 间`}
+                                {`共 ${query.totalCount} 间教室`}
                             </UnText>
                         </View>
                     )}
@@ -288,14 +312,42 @@ export function TimeClassroomQueryView(props: TimeClassroomQueryViewProps) {
         </View>
     );
 
+    const listEmptyComponent =
+        query.selectedDay !== null && !query.loading && !query.error ? (
+            <View style={[styles.emptyCard, {backgroundColor: theme.colors.grey5}]}>
+                <Icon name="magnify-close" size={28} color={theme.colors.grey3} />
+                <UnText size={14} bold align="center">
+                    没有符合条件的空闲教室
+                </UnText>
+                <UnText size={12} color={theme.colors.grey2} align="center">
+                    可以扩大节次范围或清除搜索关键词
+                </UnText>
+            </View>
+        ) : query.loading ? (
+            <View style={styles.loadingFooter}>
+                <ActivityIndicator color={theme.colors.primary} />
+                <UnText size={12} color={theme.colors.grey2}>
+                    正在查询...
+                </UnText>
+            </View>
+        ) : null;
+    const listFooterComponent = query.loadingMore ? (
+        <View style={styles.loadMoreFooter}>
+            <ActivityIndicator size="small" color={theme.colors.primary} />
+            <UnText size={11} color={theme.colors.grey2}>
+                正在查询...
+            </UnText>
+        </View>
+    ) : null;
+
     return (
         <>
             <SectionList
                 sections={sections}
                 renderItem={renderResult}
                 renderSectionHeader={({section}) => (
-                    <View style={[styles.buildingHeader, {backgroundColor: theme.colors.background}]}>
-                        <UnText size={13} bold color={theme.colors.primary}>
+                    <View style={[styles.buildingHeader, {backgroundColor: buildingHeaderBackground}]}>
+                        <UnText size={13} bold color={theme.colors.black}>
                             {section.title}
                         </UnText>
                     </View>
@@ -303,40 +355,8 @@ export function TimeClassroomQueryView(props: TimeClassroomQueryViewProps) {
                 renderSectionFooter={() => <View style={styles.sectionFooter} />}
                 keyExtractor={item => String(item.room.id)}
                 ListHeaderComponent={listHeader}
-                ListEmptyComponent={
-                    query.selectedDay !== null && !query.loading && !query.error ? (
-                        <View style={[styles.emptyCard, {backgroundColor: theme.colors.grey5}]}>
-                            <Icon name="magnify-close" size={28} color={theme.colors.grey3} />
-                            <UnText size={14} bold align="center">
-                                没有符合条件的空闲教室
-                            </UnText>
-                            <UnText size={12} color={theme.colors.grey2} align="center">
-                                可以扩大节次范围或清除搜索关键词
-                            </UnText>
-                        </View>
-                    ) : query.loading ? (
-                        <View style={styles.loadingFooter}>
-                            <ActivityIndicator color={theme.colors.primary} />
-                            <UnText size={12} color={theme.colors.grey2}>
-                                正在查询...
-                            </UnText>
-                        </View>
-                    ) : null
-                }
-                ListFooterComponent={
-                    query.selectedDay !== null && !query.loading && query.results.length > 0 ? (
-                        <View style={styles.loadMoreFooter}>
-                            {query.loadingMore && <ActivityIndicator size="small" color={theme.colors.primary} />}
-                            <UnText size={11} color={theme.colors.grey2}>
-                                {query.loadingMore
-                                    ? "正在加载下一页..."
-                                    : query.hasMore
-                                      ? `已加载 ${query.results.length} 间，继续上滑加载`
-                                      : `已加载全部 ${query.results.length} 间`}
-                            </UnText>
-                        </View>
-                    ) : null
-                }
+                ListEmptyComponent={listEmptyComponent}
+                ListFooterComponent={listFooterComponent}
                 stickySectionHeadersEnabled
                 onEndReached={query.loadMore}
                 onEndReachedThreshold={0.4}
@@ -435,13 +455,18 @@ const styles = StyleSheet.create({
     legendRow: {
         flexDirection: "row",
         alignItems: "center",
-        gap: 6,
+        flexWrap: "wrap",
+        gap: 12,
+    },
+    legendItem: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 5,
     },
     legendDot: {
         width: 11,
         height: 11,
         borderRadius: 3,
-        opacity: 0.7,
     },
     errorCard: {
         borderWidth: 1,

@@ -97,7 +97,7 @@ export function buildRoomAvailabilityResults(rows: readonly AvailableRoomPeriodR
  * 作用：按默认名称或选中范围内的空闲节数排序。
  * 入参：results；mode；direction（default 模式忽略方向）。
  * 出参：新数组，不修改输入。
- * 修改注意：空闲排序同节数时先比较最长连续段，再优先最早空闲，最后以楼栋/教室名稳定排序。
+ * 修改注意：空闲排序同节数时先比较首次空闲节次，再以楼栋/教室名稳定排序。
  */
 export function sortRoomAvailabilityResults(
     results: readonly RoomAvailabilityResult[],
@@ -111,9 +111,6 @@ export function sortRoomAvailabilityResults(
 
         const countDifference = left.freePeriodCount - right.freePeriodCount;
         if (countDifference !== 0) return countDifference * factor;
-
-        const runDifference = left.longestFreeRun - right.longestFreeRun;
-        if (runDifference !== 0) return runDifference * factor;
 
         const firstDifference =
             (left.firstFreePeriod ?? Number.MAX_SAFE_INTEGER) - (right.firstFreePeriod ?? Number.MAX_SAFE_INTEGER);
@@ -139,6 +136,32 @@ export function groupRoomAvailabilityResults(
             current.data.push(result);
         } else {
             groups.set(title, {key: title, title, data: [result]});
+        }
+    }
+
+    return [...groups.values()];
+}
+
+/**
+ * 作用：按选中范围内的空闲节数切分已排序结果，供空闲时间排序展示。
+ * 修改注意：分组顺序沿用排序结果中的首次出现顺序；组内顺序由调用方按首次空闲节次和默认顺序排好。
+ */
+export function groupRoomAvailabilityResultsByFreePeriodCount(
+    results: readonly RoomAvailabilityResult[],
+): RoomAvailabilitySection[] {
+    const groups = new Map<number, RoomAvailabilitySection>();
+
+    for (const result of results) {
+        const count = result.freePeriodCount;
+        const current = groups.get(count);
+        if (current) {
+            current.data.push(result);
+        } else {
+            groups.set(count, {
+                key: `free-${count}`,
+                title: `空闲 ${count} 节`,
+                data: [result],
+            });
         }
     }
 

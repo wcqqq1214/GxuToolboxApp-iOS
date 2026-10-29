@@ -11,13 +11,16 @@ export type RoomAvailabilityRowProps = {
     result: RoomAvailabilityResult;
     startPeriod: number;
     endPeriod: number;
+    /** 同楼栋首条只保留上圆角，末条只保留下圆角。 */
+    firstInSection?: boolean;
+    lastInSection?: boolean;
 };
 
 const PERIODS_LIST = Array.from({length: PERIODS}, (_, index) => index + 1);
 
 /** 作用：展示一间教室在选中日期、节次范围内的空闲区间；只负责渲染，不查询数据。 */
 export const RoomAvailabilityRow = memo(function RoomAvailabilityRow(props: RoomAvailabilityRowProps) {
-    const {result, startPeriod, endPeriod} = props;
+    const {result, startPeriod, endPeriod, firstInSection = false, lastInSection = false} = props;
     const {theme} = useTheme();
     const freePeriods = useMemo(
         () =>
@@ -41,22 +44,45 @@ export const RoomAvailabilityRow = memo(function RoomAvailabilityRow(props: Room
     const freeText = result.freeRuns
         .map(run => (run.begin === run.end ? `${run.begin}` : `${run.begin}–${run.end}`))
         .join("、");
-    const rangeBackground = Color(theme.colors.primary)
-        .setAlpha(theme.mode === "light" ? 0.08 : 0.12)
+    const occupiedBackground = Color(theme.colors.error)
+        .setAlpha(theme.mode === "light" ? 0.22 : 0.28)
         .rgbaString;
     const freeBackground = Color(theme.colors.success).setAlpha(theme.mode === "light" ? 0.24 : 0.18).rgbaString;
+    const unknownBackground = Color(theme.colors.grey3)
+        .setAlpha(theme.mode === "light" ? 0.12 : 0.18)
+        .rgbaString;
+    const cardBackground = Color(theme.colors.grey5)
+        .setAlpha(theme.mode === "light" ? 0.72 : 0.58)
+        .rgbaString;
+    const timelineBackground = Color(theme.colors.grey5)
+        .setAlpha(theme.mode === "light" ? 0.54 : 0.42)
+        .rgbaString;
 
     return (
         <View
-            style={[styles.card, {backgroundColor: theme.colors.grey5, borderColor: theme.colors.grey4}]}
+            style={[
+                styles.card,
+                {
+                    backgroundColor: cardBackground,
+                    borderColor: theme.colors.grey4,
+                },
+                firstInSection && styles.firstCard,
+                lastInSection && styles.lastCard,
+            ]}
             accessible
             accessibilityLabel={`${result.room.name}，${rangeText}内空闲${freeText}节`}>
             <View style={styles.titleRow}>
                 <View style={styles.titleContent}>
-                    <UnText size={15} bold numberOfLines={1}>
+                    <UnText
+                        size={14}
+                        bold
+                        numberOfLines={1}
+                        adjustsFontSizeToFit
+                        minimumFontScale={0.55}
+                        style={styles.roomName}>
                         {result.room.name}
                     </UnText>
-                    <UnText size={11} color={theme.colors.grey2} numberOfLines={1}>
+                    <UnText size={11} color={theme.colors.grey2} numberOfLines={1} style={styles.roomMeta}>
                         {meta}
                     </UnText>
                 </View>
@@ -69,7 +95,7 @@ export const RoomAvailabilityRow = memo(function RoomAvailabilityRow(props: Room
                 style={[
                     styles.timeline,
                     {
-                        backgroundColor: theme.colors.background,
+                        backgroundColor: timelineBackground,
                         borderColor: theme.colors.grey4,
                     },
                 ]}>
@@ -85,8 +111,8 @@ export const RoomAvailabilityRow = memo(function RoomAvailabilityRow(props: Room
                                     backgroundColor: free
                                         ? freeBackground
                                         : inRange
-                                          ? rangeBackground
-                                          : theme.colors.background,
+                                          ? occupiedBackground
+                                          : unknownBackground,
                                 },
                                 period < PERIODS && {
                                     borderRightColor: theme.colors.grey4,
@@ -95,7 +121,7 @@ export const RoomAvailabilityRow = memo(function RoomAvailabilityRow(props: Room
                             ]}>
                             <UnText
                                 size={10}
-                                color={free ? theme.colors.success : inRange ? theme.colors.grey2 : theme.colors.grey3}
+                                color={free ? theme.colors.success : inRange ? theme.colors.error : theme.colors.grey3}
                                 bold={free}>
                                 {period}
                             </UnText>
@@ -110,19 +136,35 @@ export const RoomAvailabilityRow = memo(function RoomAvailabilityRow(props: Room
 const styles = StyleSheet.create({
     card: {
         borderWidth: StyleSheet.hairlineWidth,
-        borderRadius: 10,
-        padding: 10,
-        gap: 8,
+        padding: 8,
+        gap: 6,
+    },
+    firstCard: {
+        borderTopLeftRadius: 10,
+        borderTopRightRadius: 10,
+    },
+    lastCard: {
+        borderBottomLeftRadius: 10,
+        borderBottomRightRadius: 10,
     },
     titleRow: {
         flexDirection: "row",
-        alignItems: "flex-start",
-        gap: 10,
+        alignItems: "center",
+        gap: 8,
     },
     titleContent: {
         flex: 1,
         minWidth: 0,
-        gap: 2,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
+    },
+    roomName: {
+        flex: 1,
+        minWidth: 0,
+    },
+    roomMeta: {
+        flexShrink: 0,
     },
     timeline: {
         borderWidth: 1,

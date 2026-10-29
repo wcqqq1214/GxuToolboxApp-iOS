@@ -40,11 +40,14 @@ export type ListAvailableRoomsParams = {
     pageSize?: number;
     sortMode?: TimeQuerySortMode;
     sortDirection?: TimeQuerySortDirection;
+    /** 首页读取总教室数；继续加载后续页时可跳过统计查询。 */
+    includeTotal?: boolean;
 };
 
 export type AvailableRoomsPage = {
     rows: AvailableRoomPeriodRow[];
     hasMore: boolean;
+    totalCount: number;
 };
 
 /**
@@ -483,7 +486,7 @@ export const emptyClassroomRepo = {
     /**
      * 作用：查询某教学日、指定节次范围内仍有空闲的教室及命中节次。
      * 入参：year/term/week/day/startPeriod/endPeriod；buildings/roomIds 可组合筛选，keyword 可筛选教室名或场地类别。
-     * 出参：当前页的教室元数据与空闲节次，以及是否还有下一页。
+     * 出参：当前页的教室元数据与空闲节次、是否还有下一页，以及可选的总教室数。
      * 修改注意：先用轻量查询只选出当前页教室 ID，再读取这些教室的节次，避免首屏搬运全部结果。
      */
     async listAvailableRooms(params: ListAvailableRoomsParams): Promise<AvailableRoomsPage> {
@@ -512,6 +515,15 @@ export const emptyClassroomRepo = {
             roomIds.length === 0 ? undefined : inArray(emptyClassroomRooms.id, roomIds),
             keywordCondition,
         );
+        let totalCount = 0;
+        if (params.includeTotal !== false) {
+            const [totalRow] = await db
+                .select({value: countDistinct(emptyClassroomRooms.id)})
+                .from(emptyClassroomSlots)
+                .innerJoin(emptyClassroomRooms, eq(emptyClassroomSlots.roomId, emptyClassroomRooms.id))
+                .where(filterCondition);
+            totalCount = Number(totalRow?.value ?? 0);
+        }
 
         let candidates: {roomId: number}[];
         if (sortMode === "free") {
@@ -554,7 +566,7 @@ export const emptyClassroomRepo = {
         const hasMore = candidates.length > pageSize;
         const pageRoomIds = candidates.slice(0, pageSize).map(candidate => candidate.roomId);
         if (pageRoomIds.length === 0) {
-            return {rows: [], hasMore: false};
+            return {rows: [], hasMore: false, totalCount};
         }
 
         const rows = await db
@@ -580,6 +592,7 @@ export const emptyClassroomRepo = {
                 period: row.period,
             })),
             hasMore,
+            totalCount,
         };
     },
 };

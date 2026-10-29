@@ -2,6 +2,7 @@ import {useEffect, useMemo, useRef, useState, type ReactNode} from "react";
 import {ActivityIndicator, ScrollView, StyleSheet, TextInput, View} from "react-native";
 import {Button, useTheme} from "@rneui/themed";
 import {Flex, Icon, UnBottomSheet, UnPressable, UnText, vh} from "@/components/un-ui";
+import {Color} from "@/shared/color";
 import {useBuildingRooms, useRoomBuildings, useRoomSearch} from "../hooks/useRoomList";
 import type {RoomRecord} from "../type";
 import {
@@ -172,7 +173,9 @@ export function RoomPickerSheet(props: RoomPickerSheetProps) {
             paddingHorizontal: 12,
             fontSize: 14,
             color: theme.colors.black,
-            backgroundColor: theme.colors.grey5,
+            backgroundColor: Color(theme.colors.grey5)
+                .setAlpha(theme.mode === "light" ? 0.7 : 0.55)
+                .rgbaString,
         },
         list: {
             flex: 1,
@@ -234,6 +237,13 @@ export function RoomPickerSheet(props: RoomPickerSheetProps) {
         },
         selectedSummary: {
             textAlign: "center",
+        },
+        footerActions: {
+            flexDirection: "row",
+            gap: 8,
+        },
+        footerAction: {
+            flex: 1,
         },
     });
 
@@ -436,7 +446,7 @@ export function RoomPickerSheet(props: RoomPickerSheetProps) {
             scrollViewProps={{scrollEnabled: false, keyboardShouldPersistTaps: "handled"}}>
             <View style={styles.header}>
                 <UnText size={18} bold>
-                    {multiple ? "选择教室（可多选）" : "选择教室"}
+                    选择教室
                 </UnText>
                 <TextInput
                     value={keyword}
@@ -489,13 +499,23 @@ export function RoomPickerSheet(props: RoomPickerSheetProps) {
                     <UnText size={12} color={theme.colors.grey2} style={styles.selectedSummary}>
                         {draftRoomIds.size === 0 ? "未选择教室时查询全部教室" : `已选择 ${draftRoomIds.size} 间教室`}
                     </UnText>
-                    <Button
-                        title="确认教室筛选"
-                        onPress={() => {
-                            onConfirmMultiple?.([...draftRoomIds]);
-                            onClose();
-                        }}
-                    />
+                    <View style={styles.footerActions}>
+                        <Button
+                            type="clear"
+                            title="清除选择"
+                            disabled={draftRoomIds.size === 0}
+                            onPress={() => setDraftRoomIds(new Set())}
+                            containerStyle={styles.footerAction}
+                        />
+                        <Button
+                            title="确认教室筛选"
+                            onPress={() => {
+                                onConfirmMultiple?.([...draftRoomIds]);
+                                onClose();
+                            }}
+                            containerStyle={styles.footerAction}
+                        />
+                    </View>
                 </View>
             )}
         </UnBottomSheet>

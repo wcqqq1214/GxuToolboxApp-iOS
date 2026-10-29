@@ -46,6 +46,7 @@ export type TimeClassroomQueryState = {
     sortMode: TimeQuerySortMode;
     sortDirection: TimeQuerySortDirection;
     results: RoomAvailabilityResult[];
+    totalCount: number;
     hasMore: boolean;
     loading: boolean;
     loadingMore: boolean;
@@ -108,6 +109,7 @@ export function useTimeClassroomQuery(params: UseTimeClassroomQueryParams): Time
     const [daysLoading, setDaysLoading] = useState(false);
     const [queryLoading, setQueryLoading] = useState(false);
     const [loadingMore, setLoadingMore] = useState(false);
+    const [totalCount, setTotalCount] = useState(0);
     const [hasMore, setHasMore] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [reloadToken, setReloadToken] = useState(0);
@@ -283,6 +285,7 @@ export function useTimeClassroomQuery(params: UseTimeClassroomQueryParams): Time
         setRawResults([]);
         setQueryLoading(false);
         setLoadingMore(false);
+        setTotalCount(0);
         setHasMore(false);
         setError(null);
     }, [currentFilterKey, revision, sortDirection, sortMode]);
@@ -309,6 +312,7 @@ export function useTimeClassroomQuery(params: UseTimeClassroomQueryParams): Time
         let active = true;
         setRawResults([]);
         setLoadingMore(false);
+        setTotalCount(0);
         setHasMore(false);
         setQueryLoading(true);
         setError(null);
@@ -338,11 +342,13 @@ export function useTimeClassroomQuery(params: UseTimeClassroomQueryParams): Time
                         sortDirection,
                     ),
                 );
+                setTotalCount(result.totalCount);
                 setHasMore(result.hasMore);
             })
             .catch(cause => {
                 if (!active || queryRequestSeq.current !== seq) return;
                 setRawResults([]);
+                setTotalCount(0);
                 setHasMore(false);
                 setError(toMessage(cause));
             })
@@ -434,6 +440,7 @@ export function useTimeClassroomQuery(params: UseTimeClassroomQueryParams): Time
                 pageSize: AVAILABLE_ROOM_PAGE_SIZE,
                 sortMode,
                 sortDirection,
+                includeTotal: false,
             })
             .then(result => {
                 if (queryRequestSeq.current !== seq) return;
@@ -479,6 +486,7 @@ export function useTimeClassroomQuery(params: UseTimeClassroomQueryParams): Time
         sortMode,
         sortDirection,
         results,
+        totalCount,
         hasMore,
         loading: catalogLoading || daysLoading || queryLoading || waitingForDebounce,
         loadingMore,

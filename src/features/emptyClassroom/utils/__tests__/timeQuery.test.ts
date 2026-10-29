@@ -4,6 +4,7 @@ import {
     buildCachedDateOptions,
     buildRoomAvailabilityResults,
     groupRoomAvailabilityResults,
+    groupRoomAvailabilityResultsByFreePeriodCount,
     sortRoomAvailabilityResults,
 } from "@/features/emptyClassroom/utils/timeQuery.ts";
 
@@ -74,6 +75,32 @@ describe("timeQuery", () => {
         expect(sortRoomAvailabilityResults(results, "default", "desc").map(item => item.room.id)).toEqual([1, 2, 3]);
         expect(sortRoomAvailabilityResults(results, "free", "desc").map(item => item.room.id)).toEqual([2, 1, 3]);
         expect(sortRoomAvailabilityResults(results, "free", "asc").map(item => item.room.id)).toEqual([3, 1, 2]);
+    });
+
+    test("空闲时间按节数分组，组内按首次空闲节次和默认顺序排列", () => {
+        const results = buildRoomAvailabilityResults([
+            row(room(1, "教10", "101"), 1),
+            row(room(1, "教10", "101"), 3),
+            row(room(2, "教2", "101"), 2),
+            row(room(2, "教2", "101"), 3),
+            row(room(3, "教1", "101"), 1),
+            row(room(3, "教1", "101"), 4),
+            row(room(4, "教10", "102"), 1),
+            row(room(4, "教10", "102"), 2),
+            row(room(4, "教10", "102"), 3),
+            row(room(5, "教10", "103"), 5),
+        ]);
+
+        const descending = sortRoomAvailabilityResults(results, "free", "desc");
+        const ascending = sortRoomAvailabilityResults(results, "free", "asc");
+        const descendingSections = groupRoomAvailabilityResultsByFreePeriodCount(descending);
+        const ascendingSections = groupRoomAvailabilityResultsByFreePeriodCount(ascending);
+
+        expect(descending.map(item => item.room.id)).toEqual([4, 3, 1, 2, 5]);
+        expect(ascending.map(item => item.room.id)).toEqual([5, 3, 1, 2, 4]);
+        expect(descendingSections.map(section => section.title)).toEqual(["空闲 3 节", "空闲 2 节", "空闲 1 节"]);
+        expect(ascendingSections.map(section => section.title)).toEqual(["空闲 1 节", "空闲 2 节", "空闲 3 节"]);
+        expect(descendingSections[1].data.map(item => item.room.id)).toEqual([3, 1, 2]);
     });
 
     test("按楼栋分组并合并空楼栋，组内保持结果顺序", () => {
