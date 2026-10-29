@@ -124,7 +124,7 @@ export function ScheduleCard() {
                 },
                 {
                     data: courseItems,
-                    needShift: true,
+                    showPreShiftItems: true,
                     itemRender: (item, day) => (
                         <NewCourseItem item={patchItem(item, day)} onPress={() => onItemPress(item, day)} />
                     ),
