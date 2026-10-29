@@ -31,7 +31,7 @@ export const EmptyRunBlock = memo(function EmptyRunBlock({item}: EmptyRunBlockPr
     const displaySpan = span + (needsTrailingSlot ? 1 : 0);
     const top = (item.begin - 1) * timeSpanHeight + courseItemMargin;
     const height = displaySpan * timeSpanHeight - courseItemMargin * 2;
-    const backgroundColor = Color(theme.colors.success).setAlpha(theme.mode === "light" ? 0.18 : 0.12).rgbaString;
+    const backgroundColor = Color(theme.colors.success).setAlpha(theme.mode === "light" ? 0.2 : 0.1).rgbaString;
     const borderColor = Color(theme.colors.success).setAlpha(theme.mode === "light" ? 0.65 : 0.5).rgbaString;
     const textColor = Color.mix(theme.colors.success, theme.colors.black, 0.45).rgbaString;
 

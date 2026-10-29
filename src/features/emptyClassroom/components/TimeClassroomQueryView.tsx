@@ -24,7 +24,7 @@ import {
     type RoomAvailabilitySection,
 } from "../utils/timeQuery";
 import {PeriodRangeSelector} from "./PeriodRangeSelector";
-import {RoomAvailabilityRow} from "./RoomAvailabilityRow";
+import {getRoomAvailabilityStateColors, RoomAvailabilityRow} from "./RoomAvailabilityRow";
 import {RoomPickerSheet} from "./RoomPickerSheet";
 
 export type TimeClassroomQueryViewProps = {
@@ -73,13 +73,20 @@ export function TimeClassroomQueryView(props: TimeClassroomQueryViewProps) {
                 : groupRoomAvailabilityResultsByFreePeriodCount(query.results),
         [query.results, query.sortMode],
     );
-    const buildingHeaderBackground = Color.mix(theme.colors.white, theme.colors.primary, 0.14).rgbaString;
-    const controlBackground = Color(theme.colors.grey5)
-        .setAlpha(theme.mode === "light" ? 0.7 : 0.55)
-        .rgbaString;
-    const unknownLegendBackground = Color(theme.colors.grey3)
-        .setAlpha(theme.mode === "light" ? 0.12 : 0.18)
-        .rgbaString;
+    const buildingHeaderBackground = Color.mix(theme.colors.white, theme.colors.primary, 0.15).rgbaString;
+    const controlBackground = Color.mix(
+        theme.colors.grey5,
+        theme.colors.primary,
+        theme.mode === "light" ? 0.15 : 0.2,
+    ).setAlpha(theme.mode === "light" ? 0.7 : 0.55).rgbaString;
+    const selectedControlBackground = Color.mix(theme.colors.primary, theme.colors.grey5, 0.05).setAlpha(
+        theme.mode === "light" ? 0.85 : 0.8,
+    ).rgbaString;
+    const errorBackground = Color(theme.colors.error).setAlpha(theme.mode === "light" ? 0.1 : 0.15).rgbaString;
+    const {freeBackground, occupiedBackground, unknownBackground} = getRoomAvailabilityStateColors(
+        theme.mode,
+        theme.colors,
+    );
 
     const renderResult = useCallback(
         ({item, index, section}: SectionListRenderItemInfo<RoomAvailabilityResult, RoomAvailabilitySection>) => (
@@ -135,9 +142,7 @@ export function TimeClassroomQueryView(props: TimeClassroomQueryViewProps) {
                             />
                         ) : (
                             <View style={[styles.loadingField, {backgroundColor: controlBackground}]}>
-                                {query.loading ? (
-                                    <ActivityIndicator size="small" color={theme.colors.primary} />
-                                ) : null}
+                                {query.loading ? <ActivityIndicator size="small" color={theme.colors.primary} /> : null}
                                 <UnText size={13} color={theme.colors.grey2}>
                                     {query.loading ? "正在读取缓存日期..." : "该周没有已缓存日期"}
                                 </UnText>
@@ -172,20 +177,21 @@ export function TimeClassroomQueryView(props: TimeClassroomQueryViewProps) {
                             <UnText size={13} bold>
                                 教室
                             </UnText>
-                            <UnText size={11} color={theme.colors.grey2}>
-                                不选择时查询全部教室
-                            </UnText>
                         </View>
                         <UnPressable
                             onPress={() => setRoomSheetVisible(true)}
-                            style={[
-                                styles.selectorField,
-                                {borderColor: theme.colors.grey4, backgroundColor: controlBackground},
-                            ]}>
+                            style={[styles.selectorField, {backgroundColor: controlBackground}]}>
                             <Icon name="door" size={18} color={theme.colors.grey2} />
-                            <UnText size={14} numberOfLines={1} style={styles.selectorText}>
-                                {query.roomIds.length === 0 ? "全部教室" : `已选 ${query.roomIds.length} 间教室`}
-                            </UnText>
+                            <View style={styles.selectorText}>
+                                <UnText size={14} numberOfLines={1}>
+                                    {query.roomIds.length === 0 ? "全部教室" : `已选 ${query.roomIds.length} 间教室`}
+                                </UnText>
+                                <UnText size={11} color={theme.colors.grey2} numberOfLines={1}>
+                                    {query.roomIds.length === 0
+                                        ? "教室名称、场地类别与座位数"
+                                        : "已按所选教室筛选，可继续调整"}
+                                </UnText>
+                            </View>
                             <Icon name="chevron-right" size={18} color={theme.colors.grey2} />
                         </UnPressable>
                     </View>
@@ -202,7 +208,6 @@ export function TimeClassroomQueryView(props: TimeClassroomQueryViewProps) {
                             {
                                 color: theme.colors.black,
                                 backgroundColor: controlBackground,
-                                borderColor: theme.colors.grey4,
                             },
                         ]}
                     />
@@ -217,12 +222,14 @@ export function TimeClassroomQueryView(props: TimeClassroomQueryViewProps) {
                         <UnText size={13} bold>
                             排序
                         </UnText>
-                        <View style={[styles.sortControl, {borderColor: theme.colors.grey4}]}>
+                        <View style={[styles.sortControl, {backgroundColor: controlBackground}]}>
                             <UnPressable
                                 onPress={() => query.setSortMode("default")}
                                 style={[
                                     styles.sortMode,
-                                    query.sortMode === "default" && {backgroundColor: theme.colors.primary},
+                                    query.sortMode === "default" && {
+                                        backgroundColor: selectedControlBackground,
+                                    },
                                 ]}>
                                 <UnText
                                     size={12}
@@ -235,7 +242,9 @@ export function TimeClassroomQueryView(props: TimeClassroomQueryViewProps) {
                                 onPress={() => query.setSortMode("free")}
                                 style={[
                                     styles.sortMode,
-                                    query.sortMode === "free" && {backgroundColor: theme.colors.primary},
+                                    query.sortMode === "free" && {
+                                        backgroundColor: selectedControlBackground,
+                                    },
                                 ]}>
                                 <UnText
                                     size={12}
@@ -260,19 +269,19 @@ export function TimeClassroomQueryView(props: TimeClassroomQueryViewProps) {
 
                     <View style={styles.legendRow}>
                         <View style={styles.legendItem}>
-                            <View style={[styles.legendDot, {backgroundColor: theme.colors.success}]} />
+                            <View style={[styles.legendDot, {backgroundColor: freeBackground}]} />
                             <UnText size={11} color={theme.colors.grey2}>
                                 空闲
                             </UnText>
                         </View>
                         <View style={styles.legendItem}>
-                            <View style={[styles.legendDot, {backgroundColor: theme.colors.error}]} />
+                            <View style={[styles.legendDot, {backgroundColor: occupiedBackground}]} />
                             <UnText size={11} color={theme.colors.grey2}>
                                 占用
                             </UnText>
                         </View>
                         <View style={styles.legendItem}>
-                            <View style={[styles.legendDot, {backgroundColor: unknownLegendBackground}]} />
+                            <View style={[styles.legendDot, {backgroundColor: unknownBackground}]} />
                             <UnText size={11} color={theme.colors.grey2}>
                                 未知
                             </UnText>
@@ -280,7 +289,7 @@ export function TimeClassroomQueryView(props: TimeClassroomQueryViewProps) {
                     </View>
 
                     {!!query.error && (
-                        <View style={[styles.errorCard, {borderColor: theme.colors.error}]}>
+                        <View style={[styles.errorCard, {backgroundColor: errorBackground}]}>
                             <UnText size={12} color={theme.colors.error} style={styles.errorText}>
                                 {`查询失败：${query.error}`}
                             </UnText>
@@ -296,7 +305,6 @@ export function TimeClassroomQueryView(props: TimeClassroomQueryViewProps) {
                             <Button type="clear" title="去缓存管理" onPress={onOpenCacheManager} />
                         </View>
                     )}
-
                     {query.selectedDay !== null && (
                         <View style={styles.resultHeading}>
                             <UnText size={13} bold>
@@ -350,6 +358,9 @@ export function TimeClassroomQueryView(props: TimeClassroomQueryViewProps) {
                         <UnText size={13} bold color={theme.colors.black}>
                             {section.title}
                         </UnText>
+                        <UnText size={11} color={theme.colors.grey2}>
+                            {`${section.data.length} 间教室`}
+                        </UnText>
                     </View>
                 )}
                 renderSectionFooter={() => <View style={styles.sectionFooter} />}
@@ -400,7 +411,6 @@ const styles = StyleSheet.create({
     },
     loadingField: {
         height: 40,
-        borderWidth: 1,
         borderRadius: 8,
         paddingHorizontal: 12,
         flexDirection: "row",
@@ -409,8 +419,7 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     selectorField: {
-        height: 40,
-        borderWidth: 1,
+        minHeight: 46,
         borderRadius: 8,
         paddingHorizontal: 12,
         flexDirection: "row",
@@ -419,10 +428,10 @@ const styles = StyleSheet.create({
     },
     selectorText: {
         flex: 1,
+        gap: 1,
     },
     search: {
         height: 42,
-        borderWidth: 1,
         borderRadius: 8,
         paddingHorizontal: 12,
         fontSize: 14,
@@ -435,7 +444,6 @@ const styles = StyleSheet.create({
     },
     sortControl: {
         height: 40,
-        borderWidth: 1,
         borderRadius: 8,
         flexDirection: "row",
         alignItems: "stretch",
@@ -469,7 +477,6 @@ const styles = StyleSheet.create({
         borderRadius: 3,
     },
     errorCard: {
-        borderWidth: 1,
         borderRadius: 8,
         paddingLeft: 10,
         flexDirection: "row",
@@ -497,7 +504,12 @@ const styles = StyleSheet.create({
     buildingHeader: {
         paddingTop: 8,
         paddingBottom: 5,
-        paddingHorizontal: 2,
+        paddingHorizontal: 10,
+        borderRadius: 8,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 8,
     },
     sectionFooter: {
         height: 8,

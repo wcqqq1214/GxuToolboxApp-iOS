@@ -31,7 +31,11 @@ export function UnDateTimePicker(props: Props) {
     const [value, setValue] = useState(props.value);
     const style = StyleSheet.create({
         labelContainer: {
-            backgroundColor: Color(theme.colors.black).setAlpha(0.1).rgbaString,
+            backgroundColor: Color.mix(
+                theme.colors.grey5,
+                theme.colors.primary,
+                theme.mode === "light" ? 0.15 : 0.2,
+            ).setAlpha(theme.mode === "light" ? 0.7 : 0.55).rgbaString,
             borderRadius: 5,
             paddingHorizontal: 15,
             paddingVertical: 10,
@@ -44,14 +48,10 @@ export function UnDateTimePicker(props: Props) {
 
     return (
         <>
-            <UnPressable
-                onPress={() => setDialogVisible(true)}
-                style={style.labelContainer}>
+            <UnPressable onPress={() => setDialogVisible(true)} style={style.labelContainer}>
                 <Text>{moment(value).format(props.onlyDate ? "YYYY-MM-DD" : "YYYY-MM-DD hh:mm:ss")}</Text>
             </UnPressable>
-            <Dialog
-                isVisible={dialogVisible}
-                onBackdropPress={() => setDialogVisible(false)}>
+            <Dialog isVisible={dialogVisible} onBackdropPress={() => setDialogVisible(false)}>
                 <DateTimePicker
                     styles={defaultStyles}
                     mode={props.mode}

@@ -18,6 +18,22 @@ export type RoomAvailabilityRowProps = {
 
 const PERIODS_LIST = Array.from({length: PERIODS}, (_, index) => index + 1);
 
+type AvailabilityStateColors = {
+    success: string;
+    error: string;
+    grey3: string;
+};
+
+/** 作用：生成时间条与图例共用的状态背景，确保两者透明度一致。 */
+export function getRoomAvailabilityStateColors(mode: string, colors: AvailabilityStateColors) {
+    const isLight = mode === "light";
+    return {
+        freeBackground: Color(colors.success).setAlpha(isLight ? 0.25 : 0.2).rgbaString,
+        occupiedBackground: Color(colors.error).setAlpha(isLight ? 0.2 : 0.3).rgbaString,
+        unknownBackground: Color(colors.grey3).setAlpha(isLight ? 0.1 : 0.2).rgbaString,
+    };
+}
+
 /** 作用：展示一间教室在选中日期、节次范围内的空闲区间；只负责渲染，不查询数据。 */
 export const RoomAvailabilityRow = memo(function RoomAvailabilityRow(props: RoomAvailabilityRowProps) {
     const {result, startPeriod, endPeriod, firstInSection = false, lastInSection = false} = props;
@@ -44,19 +60,16 @@ export const RoomAvailabilityRow = memo(function RoomAvailabilityRow(props: Room
     const freeText = result.freeRuns
         .map(run => (run.begin === run.end ? `${run.begin}` : `${run.begin}–${run.end}`))
         .join("、");
-    const occupiedBackground = Color(theme.colors.error)
-        .setAlpha(theme.mode === "light" ? 0.22 : 0.28)
-        .rgbaString;
-    const freeBackground = Color(theme.colors.success).setAlpha(theme.mode === "light" ? 0.24 : 0.18).rgbaString;
-    const unknownBackground = Color(theme.colors.grey3)
-        .setAlpha(theme.mode === "light" ? 0.12 : 0.18)
-        .rgbaString;
-    const cardBackground = Color(theme.colors.grey5)
-        .setAlpha(theme.mode === "light" ? 0.72 : 0.58)
-        .rgbaString;
-    const timelineBackground = Color(theme.colors.grey5)
-        .setAlpha(theme.mode === "light" ? 0.54 : 0.42)
-        .rgbaString;
+    const {freeBackground, occupiedBackground, unknownBackground} = getRoomAvailabilityStateColors(
+        theme.mode,
+        theme.colors,
+    );
+    const cardBackground = Color.mix(theme.colors.grey5, theme.colors.primary, 0.1).setAlpha(
+        theme.mode === "light" ? 0.7 : 0.6,
+    ).rgbaString;
+    const timelineBackground = Color.mix(theme.colors.grey5, theme.colors.primary, 0.1).setAlpha(
+        theme.mode === "light" ? 0.55 : 0.4,
+    ).rgbaString;
 
     return (
         <View
@@ -64,7 +77,6 @@ export const RoomAvailabilityRow = memo(function RoomAvailabilityRow(props: Room
                 styles.card,
                 {
                     backgroundColor: cardBackground,
-                    borderColor: theme.colors.grey4,
                 },
                 firstInSection && styles.firstCard,
                 lastInSection && styles.lastCard,
@@ -96,7 +108,6 @@ export const RoomAvailabilityRow = memo(function RoomAvailabilityRow(props: Room
                     styles.timeline,
                     {
                         backgroundColor: timelineBackground,
-                        borderColor: theme.colors.grey4,
                     },
                 ]}>
                 {PERIODS_LIST.map(period => {
@@ -135,7 +146,6 @@ export const RoomAvailabilityRow = memo(function RoomAvailabilityRow(props: Room
 
 const styles = StyleSheet.create({
     card: {
-        borderWidth: StyleSheet.hairlineWidth,
         padding: 8,
         gap: 6,
     },
@@ -167,7 +177,6 @@ const styles = StyleSheet.create({
         flexShrink: 0,
     },
     timeline: {
-        borderWidth: 1,
         borderRadius: 9,
         flexDirection: "row",
         alignItems: "stretch",

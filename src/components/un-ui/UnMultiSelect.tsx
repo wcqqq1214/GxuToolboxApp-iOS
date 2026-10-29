@@ -43,18 +43,17 @@ export function UnMultiSelect(props: UnMultiSelectProps) {
     const triggerRef = useRef<View>(null);
     const selected = new Set(selectedValues);
     const selectedLabels = options.filter(option => selected.has(option.value)).map(option => option.label);
-    const controlBackground = Color(theme.colors.grey5)
-        .setAlpha(theme.mode === "light" ? 0.7 : 0.55)
-        .rgbaString;
+    const controlBackground = Color.mix(
+        theme.colors.grey5,
+        theme.colors.primary,
+        theme.mode === "light" ? 0.15 : 0.2,
+    ).setAlpha(theme.mode === "light" ? 0.7 : 0.55).rgbaString;
     const floatingBackground = Color.mix(
         theme.colors.background,
         theme.colors.primary,
-        theme.mode === "light" ? 0.1 : 0.22,
+        theme.mode === "light" ? 0.1 : 0.2,
     ).rgbaString;
-    const floatingBorder = Color.mix(theme.colors.grey4, theme.colors.primary, 0.12).rgbaString;
-    const floatingShadow = Color.mix(theme.colors.grey2, theme.colors.primary, 0.24)
-        .setAlpha(0.42)
-        .rgbaString;
+    const floatingShadow = Color.mix(theme.colors.grey2, theme.colors.primary, 0.25).setAlpha(0.4).rgbaString;
     const summary =
         selectedLabels.length === 0
             ? emptyLabel
@@ -63,11 +62,7 @@ export function UnMultiSelect(props: UnMultiSelectProps) {
               : `已选 ${selectedLabels.length} 项`;
 
     const toggle = (value: string) => {
-        onChange(
-            selected.has(value)
-                ? selectedValues.filter(item => item !== value)
-                : [...selectedValues, value],
-        );
+        onChange(selected.has(value) ? selectedValues.filter(item => item !== value) : [...selectedValues, value]);
     };
     const closeDropdown = () => setOpen(false);
     const toggleDropdown = () => {
@@ -104,7 +99,6 @@ export function UnMultiSelect(props: UnMultiSelectProps) {
                     style={[
                         styles.field,
                         {
-                            borderColor: theme.colors.grey4,
                             backgroundColor: controlBackground,
                             opacity: disabled ? 0.5 : 1,
                         },
@@ -137,7 +131,7 @@ export function UnMultiSelect(props: UnMultiSelectProps) {
                                     shadowColor: floatingShadow,
                                 },
                             ]}>
-                            <View style={[styles.dropdownSurface, {borderColor: floatingBorder}]}>
+                            <View style={styles.dropdownSurface}>
                                 <ScrollView
                                     style={[styles.dropdownScroll, {maxHeight: anchor.maxHeight - 2}]}
                                     nestedScrollEnabled
@@ -153,9 +147,7 @@ export function UnMultiSelect(props: UnMultiSelectProps) {
                                             }
                                             size={20}
                                             color={
-                                                selectedValues.length === 0
-                                                    ? theme.colors.primary
-                                                    : theme.colors.grey2
+                                                selectedValues.length === 0 ? theme.colors.primary : theme.colors.grey2
                                             }
                                         />
                                         <UnText
@@ -217,7 +209,6 @@ const styles = StyleSheet.create({
     },
     field: {
         minHeight: 40,
-        borderWidth: 1,
         borderRadius: 8,
         paddingHorizontal: 12,
         flexDirection: "row",
@@ -244,7 +235,6 @@ const styles = StyleSheet.create({
     },
     dropdownSurface: {
         flexShrink: 1,
-        borderWidth: 1,
         borderRadius: 10,
         overflow: "hidden",
     },

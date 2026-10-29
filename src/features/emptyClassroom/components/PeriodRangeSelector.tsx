@@ -97,21 +97,21 @@ export function PeriodRangeSelector(props: PeriodRangeSelectorProps) {
         setExpanded(false);
     };
 
-    const selectorBackground = Color(theme.colors.grey5)
-        .setAlpha(theme.mode === "light" ? 0.7 : 0.55)
-        .rgbaString;
-    const selectedBackground = Color(theme.colors.primary)
-        .setAlpha(theme.mode === "light" ? 0.72 : 0.65)
-        .rgbaString;
+    const selectorBackground = Color.mix(
+        theme.colors.grey5,
+        theme.colors.primary,
+        theme.mode === "light" ? 0.15 : 0.2,
+    ).setAlpha(theme.mode === "light" ? 0.7 : 0.55).rgbaString;
+    const selectedBackground = Color.mix(theme.colors.primary, theme.colors.grey5, 0.05).setAlpha(
+        theme.mode === "light" ? 0.7 : 0.65,
+    ).rgbaString;
     const floatingBackground = Color.mix(
         theme.colors.background,
         theme.colors.primary,
-        theme.mode === "light" ? 0.1 : 0.22,
+        theme.mode === "light" ? 0.1 : 0.2,
     ).rgbaString;
-    const floatingBorder = Color.mix(theme.colors.grey4, theme.colors.primary, 0.12).rgbaString;
-    const floatingShadow = Color.mix(theme.colors.grey2, theme.colors.primary, 0.24)
-        .setAlpha(0.42)
-        .rgbaString;
+    const dividerColor = Color.mix(theme.colors.grey4, theme.colors.primary, 0.1).rgbaString;
+    const floatingShadow = Color.mix(theme.colors.grey2, theme.colors.primary, 0.25).setAlpha(0.4).rgbaString;
 
     return (
         <View style={styles.section}>
@@ -122,7 +122,6 @@ export function PeriodRangeSelector(props: PeriodRangeSelectorProps) {
                         styles.field,
                         {
                             backgroundColor: selectorBackground,
-                            borderColor: theme.colors.grey4,
                         },
                     ]}
                     accessibilityLabel={`节次范围，${formatRange(startPeriod, endPeriod)}${timeRange ? `，${timeRange}` : ""}`}>
@@ -136,11 +135,7 @@ export function PeriodRangeSelector(props: PeriodRangeSelectorProps) {
                             </UnText>
                         )}
                     </View>
-                    <Icon
-                        name={expanded ? "chevron-up" : "chevron-down"}
-                        size={18}
-                        color={theme.colors.grey2}
-                    />
+                    <Icon name={expanded ? "chevron-up" : "chevron-down"} size={18} color={theme.colors.grey2} />
                 </UnPressable>
             </View>
 
@@ -164,17 +159,11 @@ export function PeriodRangeSelector(props: PeriodRangeSelectorProps) {
                                     shadowColor: floatingShadow,
                                 },
                             ]}>
-                            <View style={[styles.dropdownSurface, {borderColor: floatingBorder}]}>
+                            <View style={styles.dropdownSurface}>
                                 <UnText size={11} color={theme.colors.grey2}>
-                                    {pendingStart === null
-                                        ? "先选择起始节"
-                                        : `已选第 ${pendingStart} 节，再选择结束节`}
+                                    {pendingStart === null ? "先选择起始节" : `已选第 ${pendingStart} 节，再选择结束节`}
                                 </UnText>
-                                <View
-                                    style={[
-                                        styles.selector,
-                                        {borderColor: floatingBorder, backgroundColor: selectorBackground},
-                                    ]}>
+                                <View style={[styles.selector, {backgroundColor: selectorBackground}]}>
                                     {PERIODS_LIST.map(period => {
                                         const selected = period >= draftStart && period <= draftEnd;
                                         const pending = pendingStart === period;
@@ -185,13 +174,11 @@ export function PeriodRangeSelector(props: PeriodRangeSelectorProps) {
                                                 style={[
                                                     styles.cell,
                                                     {
-                                                        backgroundColor: selected
-                                                            ? selectedBackground
-                                                            : "transparent",
+                                                        backgroundColor: selected ? selectedBackground : "transparent",
                                                         opacity: pending ? 0.72 : 1,
                                                     },
                                                     period < PERIODS && {
-                                                        borderRightColor: floatingBorder,
+                                                        borderRightColor: dividerColor,
                                                         borderRightWidth: StyleSheet.hairlineWidth,
                                                     },
                                                 ]}
@@ -199,9 +186,7 @@ export function PeriodRangeSelector(props: PeriodRangeSelectorProps) {
                                                 <UnText
                                                     size={10}
                                                     bold={selected}
-                                                    color={
-                                                        selected ? theme.colors.white : theme.colors.grey2
-                                                    }>
+                                                    color={selected ? theme.colors.white : theme.colors.grey2}>
                                                     {period}
                                                 </UnText>
                                             </UnPressable>
@@ -223,7 +208,6 @@ const styles = StyleSheet.create({
     },
     field: {
         minHeight: 40,
-        borderWidth: 1,
         borderRadius: 8,
         paddingHorizontal: 12,
         flexDirection: "row",
@@ -257,13 +241,11 @@ const styles = StyleSheet.create({
         shadowRadius: 8,
     },
     dropdownSurface: {
-        borderWidth: 1,
         borderRadius: 12,
         padding: 10,
         gap: 6,
     },
     selector: {
-        borderWidth: 1,
         borderRadius: 9,
         flexDirection: "row",
         overflow: "hidden",

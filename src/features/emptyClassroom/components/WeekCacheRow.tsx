@@ -117,7 +117,7 @@ export function WeekCacheRow(props: WeekCacheRowProps) {
                     borderWidth: 1,
                     borderColor: targetHighlighted ? theme.colors.primary : theme.colors.grey4,
                     backgroundColor: targetHighlighted
-                        ? Color(theme.colors.primary).setAlpha(theme.mode === "light" ? 0.08 : 0.16).rgbaString
+                        ? Color(theme.colors.primary).setAlpha(theme.mode === "light" ? 0.1 : 0.15).rgbaString
                         : theme.mode === "light"
                           ? theme.colors.white
                           : theme.colors.grey5,

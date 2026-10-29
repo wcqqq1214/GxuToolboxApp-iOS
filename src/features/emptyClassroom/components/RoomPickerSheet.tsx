@@ -173,9 +173,11 @@ export function RoomPickerSheet(props: RoomPickerSheetProps) {
             paddingHorizontal: 12,
             fontSize: 14,
             color: theme.colors.black,
-            backgroundColor: Color(theme.colors.grey5)
-                .setAlpha(theme.mode === "light" ? 0.7 : 0.55)
-                .rgbaString,
+            backgroundColor: Color.mix(
+                theme.colors.grey5,
+                theme.colors.primary,
+                theme.mode === "light" ? 0.15 : 0.2,
+            ).setAlpha(theme.mode === "light" ? 0.7 : 0.55).rgbaString,
         },
         list: {
             flex: 1,
