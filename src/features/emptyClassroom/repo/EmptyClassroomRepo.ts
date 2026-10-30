@@ -1,8 +1,18 @@
-import {and, asc, count, countDistinct, eq, inArray, like, or} from "drizzle-orm";
+import {and, asc, count, countDistinct, desc, eq, gte, inArray, like, lte, or, sql} from "drizzle-orm";
 import {db, expoDb} from "@/core/db";
 import {emptyClassroomDays, emptyClassroomRooms, emptyClassroomSlots, emptyClassroomSnapshots} from "@/core/schema";
-import type {DayPayload, FreePeriodRow, LogicalTerm, RoomBuildingSummary, RoomRecord, WeekSnapshot} from "../type";
-import {DAYS, ROOM_BATCH_SIZE, SLOT_BATCH_SIZE} from "../utils/constants";
+import type {
+    AvailableRoomPeriodRow,
+    DayPayload,
+    FreePeriodRow,
+    LogicalTerm,
+    RoomBuildingSummary,
+    RoomRecord,
+    TimeQuerySortDirection,
+    TimeQuerySortMode,
+    WeekSnapshot,
+} from "../type";
+import {AVAILABLE_ROOM_PAGE_SIZE, DAYS, ROOM_BATCH_SIZE, SLOT_BATCH_SIZE} from "../utils/constants";
 import {estimateSizeBytes} from "../utils/format";
 import {roomKey} from "../utils/roomKey";
 
@@ -12,6 +22,32 @@ type WriteTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 export type EmptyClassroomStorageUsage = {
     roomsBytes: number;
     availabilityBytes: number;
+};
+
+export type ListAvailableRoomsParams = {
+    year: number;
+    term: LogicalTerm;
+    week: number;
+    day: number;
+    startPeriod: number;
+    endPeriod: number;
+    /** 空数组表示全部楼栋；空串是合法的“其他楼栋”键。 */
+    buildings?: string[];
+    /** 空数组表示全部教室。 */
+    roomIds?: number[];
+    keyword?: string;
+    page?: number;
+    pageSize?: number;
+    sortMode?: TimeQuerySortMode;
+    sortDirection?: TimeQuerySortDirection;
+    /** 首页读取总教室数；继续加载后续页时可跳过统计查询。 */
+    includeTotal?: boolean;
+};
+
+export type AvailableRoomsPage = {
+    rows: AvailableRoomPeriodRow[];
+    hasMore: boolean;
+    totalCount: number;
 };
 
 /**
@@ -445,5 +481,137 @@ export const emptyClassroomRepo = {
                 ),
             )
             .orderBy(asc(emptyClassroomSlots.week), asc(emptyClassroomSlots.day), asc(emptyClassroomSlots.period));
+    },
+
+    /**
+     * 作用：查询某教学日、指定节次范围内仍有空闲的教室及命中节次。
+     * 入参：year/term/week/day/startPeriod/endPeriod；buildings/roomIds 可组合筛选，keyword 可筛选教室名或场地类别。
+     * 出参：当前页的教室元数据与空闲节次、是否还有下一页，以及可选的总教室数。
+     * 修改注意：先用轻量查询只选出当前页教室 ID，再读取这些教室的节次，避免首屏搬运全部结果。
+     */
+    async listAvailableRooms(params: ListAvailableRoomsParams): Promise<AvailableRoomsPage> {
+        const {year, term, week, day, startPeriod, endPeriod} = params;
+        const buildings = params.buildings ?? [];
+        const roomIds = params.roomIds ?? [];
+        const keyword = params.keyword?.trim() ?? "";
+        const page = Math.max(1, Math.trunc(params.page ?? 1));
+        const pageSize = Math.max(
+            1,
+            Math.trunc(params.pageSize ?? AVAILABLE_ROOM_PAGE_SIZE),
+        );
+        const sortMode = params.sortMode ?? "default";
+        const sortDirection = params.sortDirection ?? "desc";
+        const keywordCondition = keyword
+            ? or(like(emptyClassroomRooms.name, `%${keyword}%`), like(emptyClassroomRooms.placeType, `%${keyword}%`))
+            : undefined;
+        const filterCondition = and(
+            eq(emptyClassroomSlots.year, year),
+            eq(emptyClassroomSlots.term, term),
+            eq(emptyClassroomSlots.week, week),
+            eq(emptyClassroomSlots.day, day),
+            gte(emptyClassroomSlots.period, startPeriod),
+            lte(emptyClassroomSlots.period, endPeriod),
+            buildings.length === 0 ? undefined : inArray(emptyClassroomRooms.building, buildings),
+            roomIds.length === 0 ? undefined : inArray(emptyClassroomRooms.id, roomIds),
+            keywordCondition,
+        );
+        let totalCount = 0;
+        if (params.includeTotal !== false) {
+            const [totalRow] = await db
+                .select({value: countDistinct(emptyClassroomRooms.id)})
+                .from(emptyClassroomSlots)
+                .innerJoin(emptyClassroomRooms, eq(emptyClassroomSlots.roomId, emptyClassroomRooms.id))
+                .where(filterCondition);
+            totalCount = Number(totalRow?.value ?? 0);
+        }
+
+        let candidates: {roomId: number}[];
+        if (sortMode === "free") {
+            const freePeriodCount = count(emptyClassroomSlots.period);
+            const firstFreePeriod = sql<number>`min(${emptyClassroomSlots.period})`;
+            candidates = await db
+                .select({
+                    roomId: emptyClassroomRooms.id,
+                    freePeriodCount,
+                    firstFreePeriod,
+                })
+                .from(emptyClassroomSlots)
+                .innerJoin(emptyClassroomRooms, eq(emptyClassroomSlots.roomId, emptyClassroomRooms.id))
+                .where(filterCondition)
+                .groupBy(emptyClassroomRooms.id)
+                .orderBy(
+                    sortDirection === "asc" ? asc(freePeriodCount) : desc(freePeriodCount),
+                    asc(firstFreePeriod),
+                    asc(emptyClassroomRooms.building),
+                    asc(emptyClassroomRooms.name),
+                    asc(emptyClassroomRooms.id),
+                )
+                .limit(pageSize + 1)
+                .offset((page - 1) * pageSize);
+        } else {
+            candidates = await db
+                .select({roomId: emptyClassroomRooms.id})
+                .from(emptyClassroomSlots)
+                .innerJoin(emptyClassroomRooms, eq(emptyClassroomSlots.roomId, emptyClassroomRooms.id))
+                .where(filterCondition)
+                .groupBy(emptyClassroomRooms.id)
+                .orderBy(
+                    asc(emptyClassroomRooms.building),
+                    asc(emptyClassroomRooms.name),
+                    asc(emptyClassroomRooms.id),
+                )
+                .limit(pageSize + 1)
+                .offset((page - 1) * pageSize);
+        }
+
+        const hasMore = candidates.length > pageSize;
+        const pageRoomIds = candidates.slice(0, pageSize).map(candidate => candidate.roomId);
+        if (pageRoomIds.length === 0) {
+            return {rows: [], hasMore: false, totalCount};
+        }
+
+        const rows = await db
+            .select({
+                roomId: emptyClassroomRooms.id,
+                roomName: emptyClassroomRooms.name,
+                building: emptyClassroomRooms.building,
+                placeType: emptyClassroomRooms.placeType,
+                seatCount: emptyClassroomRooms.seatCount,
+                seatCountForExam: emptyClassroomRooms.seatCountForExam,
+                owner: emptyClassroomRooms.owner,
+                allowToUse: emptyClassroomRooms.allowToUse,
+                updatedAt: emptyClassroomRooms.updatedAt,
+                period: emptyClassroomSlots.period,
+            })
+            .from(emptyClassroomSlots)
+            .innerJoin(emptyClassroomRooms, eq(emptyClassroomSlots.roomId, emptyClassroomRooms.id))
+            .where(
+                and(
+                    filterCondition,
+                    inArray(emptyClassroomRooms.id, pageRoomIds),
+                ),
+            )
+            .orderBy(asc(emptyClassroomRooms.building), asc(emptyClassroomRooms.name), asc(emptyClassroomSlots.period));
+
+        return {
+            rows: rows.map(row => ({
+                room: {
+                    id: row.roomId,
+                    name: row.roomName,
+                    building: row.building,
+                    placeType: row.placeType,
+                    seatCount: row.seatCount,
+                    seatCountForExam: row.seatCountForExam,
+                    owner: row.owner,
+                    allowToUse: row.allowToUse,
+                    updatedAt: row.updatedAt,
+                },
+                week,
+                day,
+                period: row.period,
+            })),
+            hasMore,
+            totalCount,
+        };
     },
 };

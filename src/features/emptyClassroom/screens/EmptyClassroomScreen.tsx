@@ -5,10 +5,12 @@ import {Button, useTheme} from "@rneui/themed";
 import {usePagerView} from "react-native-pager-view";
 import {Flex, Icon, UnPressable, UnTermSelector, UnText} from "@/components/un-ui";
 import {TimeScheduleView} from "@/components/tool/infoQuery/courseSchedule/TimeScheduleView.tsx";
+import {Color} from "@/shared/color";
 import type {TimeScheduleItemData} from "@/features/courseSchedule/type/schedule.ts";
 import {useStartDay} from "@/features/courseSchedule/hooks/detail/useStartDay.ts";
 import {EmptyRunBlock} from "../components/EmptyRunBlock";
 import {RoomPickerSheet} from "../components/RoomPickerSheet";
+import {TimeClassroomQueryView} from "../components/TimeClassroomQueryView";
 import {WeekStatusOverlay, type WeekStatusKind} from "../components/WeekStatusOverlay";
 import {useEmptyClassroomOverview} from "../hooks/useEmptyClassroomOverview";
 import {useSelection, useSelectionActions, useSelectionInit, useSelectionTermSwitcher} from "../stores/selectionStore";
@@ -39,13 +41,16 @@ function renderEmptyRun(item: FreeRunItem) {
  * - 周次状态、图例与缓存提示固定在课表前的页头中，避免内容变化推动课表；
  * - 本地读库失败只在页面内联提示 + 重试，不弹 Toast。
  */
-export function EmptyClassroomScreen() {
-    useSelectionInit();
+function RoomClassroomQueryView() {
     const navigation = useNavigation<NavigationProp<ParamListBase>>();
     const {theme} = useTheme();
+    const roomControlBackground = Color.mix(
+        theme.colors.grey5,
+        theme.colors.primary,
+        theme.mode === "light" ? 0.15 : 0.2,
+    ).setAlpha(theme.mode === "light" ? 0.7 : 0.55).rgbaString;
     const selection = useSelection();
     const {setWeek, setRoom} = useSelectionActions();
-    const switchTerm = useSelectionTermSwitcher();
     const {startDay, ready} = useStartDay(selection.year, selection.term);
 
     const pageView = usePagerView({pagesAmount: MAX_WEEKS});
@@ -224,7 +229,6 @@ export function EmptyClassroomScreen() {
         );
     }
 
-    const legacyTerm = toLegacyTerm(selection.term);
     const room = overview.room;
     const roomLabel = room ? `${room.building} · ${room.name}` : selection.roomId ? "正在加载教室信息..." : "选择教室";
     const roomMeta = room
@@ -236,50 +240,38 @@ export function EmptyClassroomScreen() {
     return (
         <>
             <ScrollView contentContainerStyle={styles.container}>
-                <View style={styles.filterRow}>
-                    <UnText size={14} style={styles.filterLabel}>
-                        学期
-                    </UnText>
-                    <View style={styles.filterContent}>
-                        <UnTermSelector
-                            key={`${selection.year}-${legacyTerm}`}
-                            year={selection.year}
-                            term={legacyTerm}
-                            disableSelectAll
-                            onChange={switchTerm}
-                        />
+                <View style={styles.roomFilterPanel}>
+                    <View style={styles.roomFilterTitleRow}>
+                        <UnText size={13} bold>
+                            教室
+                        </UnText>
+                        <UnText size={11} color={theme.colors.grey2}>
+                            不选择时显示空白课表
+                        </UnText>
                     </View>
+                    <UnPressable
+                        style={[styles.roomButton, {backgroundColor: roomControlBackground}]}
+                        onPress={openRoomPicker}>
+                        <Flex justify="space-between" align="center" gap={8}>
+                            <View style={styles.roomTextArea}>
+                                <Icon name="door" size={18} color={theme.colors.grey2} />
+                                <UnText
+                                    size={15}
+                                    numberOfLines={1}
+                                    adjustsFontSizeToFit
+                                    minimumFontScale={0.5}
+                                    style={styles.roomText}>
+                                    {roomLabel}
+                                </UnText>
+                                <UnText size={11} color={theme.colors.grey2} numberOfLines={1} style={styles.roomMeta}>
+                                    {roomMeta ||
+                                        (selection.roomId ? "正在读取教室属性..." : "教室属性：场地类别 · 座位数")}
+                                </UnText>
+                            </View>
+                            <Icon name="chevron-down" size={20} color={theme.colors.grey2} />
+                        </Flex>
+                    </UnPressable>
                 </View>
-
-                <View style={styles.filterRow}>
-                    <UnText size={14} style={styles.filterLabel}>
-                        教室
-                    </UnText>
-                    <View style={styles.filterContent}>
-                        <UnPressable
-                            style={[
-                                styles.roomButton,
-                                {borderColor: theme.colors.grey4, backgroundColor: theme.colors.grey5},
-                            ]}
-                            onPress={openRoomPicker}>
-                            <Flex justify="space-between" align="flex-start" gap={8}>
-                                <Flex inline align="flex-start" gap={6} style={styles.roomLabel}>
-                                    <Icon name="door" size={18} color={theme.colors.grey2} />
-                                    <UnText size={15} style={styles.roomText}>
-                                        {roomLabel}
-                                    </UnText>
-                                </Flex>
-                                <Icon name="chevron-down" size={20} color={theme.colors.grey2} />
-                            </Flex>
-                        </UnPressable>
-                    </View>
-                </View>
-
-                {!!roomMeta && (
-                    <UnText size={12} color={theme.colors.grey2} style={styles.roomMeta}>
-                        {roomMeta}
-                    </UnText>
-                )}
 
                 <View
                     style={[
@@ -294,7 +286,16 @@ export function EmptyClassroomScreen() {
                         {`第 ${selection.week} 周 · ${statusText}`}
                     </UnText>
                     <View style={styles.legend}>
-                        <View style={[styles.legendDot, {backgroundColor: theme.colors.success, opacity: 0.6}]} />
+                        <View
+                            style={[
+                                styles.legendDot,
+                                {
+                                    backgroundColor: Color(theme.colors.success).setAlpha(
+                                        theme.mode === "light" ? 0.2 : 0.1,
+                                    ).rgbaString,
+                                },
+                            ]}
+                        />
                         <UnText size={12} color={theme.colors.grey2} numberOfLines={2}>
                             绿色=空闲，空白=有课/占用
                         </UnText>
@@ -353,6 +354,101 @@ export function EmptyClassroomScreen() {
     );
 }
 
+type ClassroomQueryMode = "room" | "time";
+
+/**
+ * 作用：空闲教室入口，在“按教室”和“按时间”两种查询视图间切换。
+ * 修改注意：学年/学期选择固定在两个视图上方；切换 Tab 不会修改按教室页面保存的周次和教室。
+ */
+export function EmptyClassroomScreen() {
+    useSelectionInit();
+    const navigation = useNavigation<NavigationProp<ParamListBase>>();
+    const {theme} = useTheme();
+    const selection = useSelection();
+    const switchTerm = useSelectionTermSwitcher();
+    const [mode, setMode] = useState<ClassroomQueryMode>("room");
+    const legacyTerm = toLegacyTerm(selection.term);
+    const modeTabsBackground = Color.mix(
+        theme.colors.grey5,
+        theme.colors.primary,
+        theme.mode === "light" ? 0.15 : 0.2,
+    ).setAlpha(theme.mode === "light" ? 0.65 : 0.55).rgbaString;
+    const selectedModeBackground = Color.mix(theme.colors.primary, theme.colors.grey5, 0.05).setAlpha(
+        theme.mode === "light" ? 0.9 : 0.85,
+    ).rgbaString;
+    const openCacheManager = useCallback(() => {
+        navigation.navigate("emptyClassroomCache");
+    }, [navigation]);
+
+    if (!selection.hydrated) {
+        return (
+            <View style={styles.center}>
+                <ActivityIndicator color={theme.colors.primary} />
+            </View>
+        );
+    }
+
+    return (
+        <View style={styles.screen}>
+            <View style={styles.screenHeader}>
+                <View style={styles.filterRow}>
+                    <UnText size={14} style={styles.filterLabel}>
+                        学期
+                    </UnText>
+                    <View style={styles.filterContent}>
+                        <UnTermSelector
+                            key={`${selection.year}-${legacyTerm}`}
+                            year={selection.year}
+                            term={legacyTerm}
+                            disableSelectAll
+                            onChange={switchTerm}
+                        />
+                    </View>
+                </View>
+                <View style={[styles.modeTabs, {backgroundColor: modeTabsBackground}]}>
+                    <UnPressable
+                        onPress={() => setMode("room")}
+                        style={[styles.modeTab, mode === "room" && {backgroundColor: selectedModeBackground}]}>
+                        <Icon name="door" size={17} color={mode === "room" ? theme.colors.white : theme.colors.grey2} />
+                        <UnText
+                            size={14}
+                            bold={mode === "room"}
+                            color={mode === "room" ? theme.colors.white : theme.colors.grey2}>
+                            按教室查询
+                        </UnText>
+                    </UnPressable>
+                    <UnPressable
+                        onPress={() => setMode("time")}
+                        style={[styles.modeTab, mode === "time" && {backgroundColor: selectedModeBackground}]}>
+                        <Icon
+                            name="clock-outline"
+                            size={17}
+                            color={mode === "time" ? theme.colors.white : theme.colors.grey2}
+                        />
+                        <UnText
+                            size={14}
+                            bold={mode === "time"}
+                            color={mode === "time" ? theme.colors.white : theme.colors.grey2}>
+                            按时间查询
+                        </UnText>
+                    </UnPressable>
+                </View>
+            </View>
+
+            {mode === "room" ? (
+                <RoomClassroomQueryView />
+            ) : (
+                <TimeClassroomQueryView
+                    year={selection.year}
+                    term={selection.term}
+                    preferredWeek={selection.week}
+                    onOpenCacheManager={openCacheManager}
+                />
+            )}
+        </View>
+    );
+}
+
 const styles = StyleSheet.create({
     center: {
         flex: 1,
@@ -362,6 +458,29 @@ const styles = StyleSheet.create({
     container: {
         padding: 16,
         gap: 10,
+    },
+    screen: {
+        flex: 1,
+    },
+    screenHeader: {
+        paddingHorizontal: 16,
+        paddingTop: 12,
+        gap: 10,
+    },
+    modeTabs: {
+        flexDirection: "row",
+        borderRadius: 9,
+        padding: 3,
+        gap: 3,
+    },
+    modeTab: {
+        flex: 1,
+        height: 38,
+        borderRadius: 7,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 6,
     },
     filterRow: {
         flexDirection: "row",
@@ -375,21 +494,35 @@ const styles = StyleSheet.create({
     filterContent: {
         flex: 1,
     },
+    roomFilterPanel: {
+        padding: 10,
+        borderRadius: 12,
+        gap: 8,
+    },
+    roomFilterTitleRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 8,
+    },
     roomButton: {
-        borderWidth: 1,
         borderRadius: 8,
         paddingHorizontal: 12,
         paddingVertical: 10,
     },
-    roomLabel: {
-        flexShrink: 1,
+    roomTextArea: {
+        flex: 1,
+        minWidth: 0,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
     },
     roomText: {
-        flexShrink: 1,
+        flex: 1,
+        minWidth: 0,
     },
     roomMeta: {
-        paddingLeft: 58,
-        marginTop: -4,
+        flexShrink: 0,
     },
     scheduleHeader: {
         gap: 4,

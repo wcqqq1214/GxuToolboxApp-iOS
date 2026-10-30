@@ -10,6 +10,9 @@ export const DAYS = 7;
 /** 一天 13 个节次。 */
 export const PERIODS = 13;
 
+/** 按时间查询结果每页的教室数。 */
+export const AVAILABLE_ROOM_PAGE_SIZE = 40;
+
 /** 周 pager / 缓存页固定展示 1–20 周。 */
 export const MAX_WEEKS = 20;
 
