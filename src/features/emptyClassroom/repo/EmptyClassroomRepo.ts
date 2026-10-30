@@ -550,10 +550,11 @@ export const emptyClassroomRepo = {
                 .offset((page - 1) * pageSize);
         } else {
             candidates = await db
-                .selectDistinct({roomId: emptyClassroomRooms.id})
+                .select({roomId: emptyClassroomRooms.id})
                 .from(emptyClassroomSlots)
                 .innerJoin(emptyClassroomRooms, eq(emptyClassroomSlots.roomId, emptyClassroomRooms.id))
                 .where(filterCondition)
+                .groupBy(emptyClassroomRooms.id)
                 .orderBy(
                     asc(emptyClassroomRooms.building),
                     asc(emptyClassroomRooms.name),
@@ -571,7 +572,15 @@ export const emptyClassroomRepo = {
 
         const rows = await db
             .select({
-                room: emptyClassroomRooms,
+                roomId: emptyClassroomRooms.id,
+                roomName: emptyClassroomRooms.name,
+                building: emptyClassroomRooms.building,
+                placeType: emptyClassroomRooms.placeType,
+                seatCount: emptyClassroomRooms.seatCount,
+                seatCountForExam: emptyClassroomRooms.seatCountForExam,
+                owner: emptyClassroomRooms.owner,
+                allowToUse: emptyClassroomRooms.allowToUse,
+                updatedAt: emptyClassroomRooms.updatedAt,
                 period: emptyClassroomSlots.period,
             })
             .from(emptyClassroomSlots)
@@ -586,7 +595,17 @@ export const emptyClassroomRepo = {
 
         return {
             rows: rows.map(row => ({
-                room: row.room as RoomRecord,
+                room: {
+                    id: row.roomId,
+                    name: row.roomName,
+                    building: row.building,
+                    placeType: row.placeType,
+                    seatCount: row.seatCount,
+                    seatCountForExam: row.seatCountForExam,
+                    owner: row.owner,
+                    allowToUse: row.allowToUse,
+                    updatedAt: row.updatedAt,
+                },
                 week,
                 day,
                 period: row.period,

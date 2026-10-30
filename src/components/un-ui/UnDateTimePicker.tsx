@@ -63,9 +63,8 @@ export function UnDateTimePicker(props: Props) {
                     enabledDates={props.enabledDates}
                     date={value}
                     onChange={(change: unknown) => {
-                        const result = change as {date?: DateType};
-                        if (!("date" in result)) return;
-                        const next = dayjs(result.date).valueOf();
+                        if (change === null || typeof change !== "object" || !("date" in change)) return;
+                        const next = dayjs((change as {date?: DateType}).date).valueOf();
                         if (!Number.isFinite(next)) return;
                         setValue(next);
                         props.onChange?.(next);
