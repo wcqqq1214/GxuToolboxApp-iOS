@@ -1,10 +1,9 @@
-import {ActivityIndicator, ScrollView, StyleSheet, View} from "react-native";
+import {ActivityIndicator, ScrollView, StyleSheet, TextInput, View} from "react-native";
 import {SafeAreaView} from "react-native-safe-area-context";
 import {Button, Input, Text} from "@rneui/themed";
-import {useMemo, useState} from "react";
+import {useMemo, useRef, useState} from "react";
 import {Icon} from "@/components/un-ui/Icon.tsx";
-import {UnPressable} from "@/components/un-ui";
-import {useWebView} from "@/hooks/app.ts";
+import {Flex, UnPressable, UnText} from "@/components/un-ui";
 import {useJwAccount} from "@/core/auth/Jw/hooks/useJwAccount.ts";
 import {useJwAuth} from "@/core/auth/Jw/hooks/useJwAuth.ts";
 import {AuthState, AuthStateMap} from "@/core/auth/auth.type.ts";
@@ -25,7 +24,6 @@ function statusMeta(state: AuthState) {
 }
 
 export function JWAccountScreen() {
-    const {openInJw} = useWebView();
     const {username, setUsername, password, setPassword, hydrating, saveAccount} = useJwAccount();
     const {authState, loading, result, clearResult, login} = useJwAuth();
 
@@ -34,6 +32,10 @@ export function JWAccountScreen() {
     const meta = useMemo(() => statusMeta(authState), [authState]);
 
     const busy = hydrating || loading;
+
+    const pwdInputRef = useRef<TextInput>(null);
+    const usernameError = username.length > 0 && !/^\d{10}$/.test(username) ? "请输入正确的学号" : "";
+    const canSubmit = !busy && /^\d{10}$/.test(username) && password.length > 0;
 
     async function handleLogin() {
         clearResult();
@@ -53,20 +55,20 @@ export function JWAccountScreen() {
     }
 
     return (
-        <SafeAreaView style={style.container} edges={["bottom"]}>
+        <SafeAreaView style={{padding: "5%"}} edges={["bottom"]}>
             <ScrollView>
-                <View style={styles.card}>
+                <View style={{padding: 14}}>
                     <View style={styles.cardTopRow}>
                         <View style={styles.statusDotWrap}>
                             <View style={[styles.statusDot, {backgroundColor: meta.color}]} />
                         </View>
-                        <View style={styles.statusTextWrap}>
-                            <Text style={styles.statusLabel}>当前状态</Text>
+                        <Flex direction={"column"} flex={1} align={"flex-start"}>
+                            <Text style={{color: "#9CA3AF", fontSize: 12}}>当前状态</Text>
                             <Text style={[styles.statusValue, {color: meta.color}]}>{meta.label}</Text>
-                        </View>
+                        </Flex>
 
                         {busy && (
-                            <View style={styles.spinnerWrap}>
+                            <View style={{width: 22, alignItems: "flex-end"}}>
                                 <ActivityIndicator size="small" />
                             </View>
                         )}
@@ -85,10 +87,17 @@ export function JWAccountScreen() {
 
                     <Input
                         value={username}
-                        onChangeText={v => setUsername(v)}
+                        onChangeText={v => setUsername(v.replace(/\s+/g, ""))}
                         label="学号"
+                        keyboardType="number-pad"
+                        returnKeyType="next"
+                        maxLength={10}
                         autoCapitalize="none"
                         autoCorrect={false}
+                        autoComplete="username"
+                        textContentType="username"
+                        errorMessage={usernameError}
+                        onSubmitEditing={() => pwdInputRef.current?.focus()}
                         disabled={busy}
                         inputStyle={styles.inputText}
                         labelStyle={styles.inputLabel}
@@ -97,25 +106,24 @@ export function JWAccountScreen() {
                     />
 
                     <Input
+                        ref={pwdInputRef as any}
                         value={password}
                         onChangeText={v => setPassword(v)}
                         label="密码"
                         autoCapitalize="none"
+                        returnKeyType="done"
                         autoCorrect={false}
+                        autoComplete="password"
+                        textContentType="password"
                         secureTextEntry={!showPwd}
                         disabled={busy}
+                        onSubmitEditing={() => canSubmit && handleLogin()}
                         inputStyle={styles.inputText}
                         labelStyle={styles.inputLabel}
                         containerStyle={styles.inputContainer}
                         leftIcon={<Icon name="lock" size={16} style={styles.leftIcon} />}
                         rightIcon={
-                            <UnPressable
-                                onPress={function () {
-                                    return setShowPwd(function (s) {
-                                        return !s;
-                                    });
-                                }}
-                                disabled={busy}>
+                            <UnPressable onPress={() => setShowPwd(s => !s)} disabled={busy}>
                                 <Icon
                                     type="fontawesome"
                                     name={showPwd ? "eye-slash" : "eye"}
@@ -126,16 +134,56 @@ export function JWAccountScreen() {
                         }
                     />
 
-                    <View style={styles.actions}>
-                        <Button onPress={handleLogin} disabled={busy} loading={busy}>
-                            登录
-                        </Button>
-
-                        <Button type="outline" disabled={busy} onPress={() => openInJw("/xtgl/login_slogin.html")}>
-                            打开教务登录页
-                        </Button>
-                    </View>
-                    <Text style={style.note}>仅供工具从教务系统获取信息{"\n"}23:00 至次日 7:30 请连接校园网</Text>
+                    <Button
+                        onPress={handleLogin}
+                        disabled={busy}
+                        loading={busy}
+                        radius={"lg"}
+                        buttonStyle={{height: 40, gap: 10, marginTop: 8}}>
+                        登录
+                    </Button>
+                    <Flex direction="column" gap={14} style={{marginTop: 28, paddingHorizontal: 4}}>
+                        {[
+                            {
+                                icon: "form-textbox-password",
+                                title: "本地加密存储",
+                                desc: "密码仅保存在手机本地，不记录日志、不上传云服务器",
+                            },
+                            {
+                                icon: "refresh-auto",
+                                title: "24 小时永续登录",
+                                desc: "打开应用即自动重登，告别频繁掉线与教务宵禁限制",
+                            },
+                            {
+                                icon: "calendar-sync-outline",
+                                title: "日程实时同步",
+                                desc: "课表调整、考试安排实时更新，无需每次手动导入",
+                            },
+                        ].map(item => (
+                            <Flex key={item.title} direction="row" align="flex-start" gap={12}>
+                                <Flex
+                                    inline
+                                    align="center"
+                                    justify="center"
+                                    style={{
+                                        width: 36,
+                                        height: 36,
+                                        borderRadius: 10,
+                                        backgroundColor: "rgba(156,163,175,0.12)",
+                                    }}>
+                                    <Icon name={item.icon} size={20} color="#9CA3AF" />
+                                </Flex>
+                                <Flex direction="column" align="flex-start" gap={2} style={{flex: 1}}>
+                                    <UnText size={15} bold>
+                                        {item.title}
+                                    </UnText>
+                                    <UnText size={13} color="#9CA3AF" lineHeight={18}>
+                                        {item.desc}
+                                    </UnText>
+                                </Flex>
+                            </Flex>
+                        ))}
+                    </Flex>
                 </View>
             </ScrollView>
         </SafeAreaView>
@@ -166,11 +214,6 @@ const styles = StyleSheet.create({
         lineHeight: 18,
     },
 
-    card: {
-        borderRadius: 16,
-        padding: 14,
-    },
-
     cardTopRow: {
         flexDirection: "row",
         alignItems: "center",
@@ -193,21 +236,10 @@ const styles = StyleSheet.create({
         height: 10,
         borderRadius: 5,
     },
-    statusTextWrap: {
-        flex: 1,
-    },
-    statusLabel: {
-        color: "#9CA3AF",
-        fontSize: 12,
-    },
     statusValue: {
         marginTop: 2,
         fontSize: 14,
         fontWeight: "700",
-    },
-    spinnerWrap: {
-        width: 22,
-        alignItems: "flex-end",
     },
 
     banner: {
@@ -231,7 +263,6 @@ const styles = StyleSheet.create({
     },
     bannerMsg: {
         marginTop: 4,
-        color: "#D1D5DB",
         fontSize: 12,
         lineHeight: 16,
     },
@@ -255,57 +286,5 @@ const styles = StyleSheet.create({
     rightIcon: {
         paddingHorizontal: 6,
         color: "#9CA3AF",
-    },
-
-    actions: {
-        marginTop: 8,
-        gap: 10,
-    },
-    primaryBtn: {
-        borderRadius: 12,
-        height: 46,
-        backgroundColor: "#2563EB",
-    },
-    primaryBtnTitle: {
-        fontWeight: "800",
-        fontSize: 14,
-    },
-    secondaryBtn: {
-        borderRadius: 12,
-        height: 44,
-        borderColor: "rgba(255,255,255,0.16)",
-    },
-    secondaryBtnTitle: {
-        color: "#E5E7EB",
-        fontWeight: "700",
-        fontSize: 13,
-    },
-
-    helperText: {
-        marginTop: 12,
-        color: "#9CA3AF",
-        fontSize: 12,
-        lineHeight: 16,
-    },
-});
-const style = StyleSheet.create({
-    container: {
-        padding: "5%",
-    },
-    title: {
-        textAlign: "center",
-    },
-    note: {
-        marginVertical: 20,
-        textAlign: "center",
-        color: "gray",
-        fontSize: 14,
-    },
-    showPwdIcon: {
-        paddingHorizontal: 5,
-        cursor: "pointer",
-    },
-    input: {
-        height: 60,
     },
 });
