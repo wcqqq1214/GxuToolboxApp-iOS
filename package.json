@@ -1,6 +1,6 @@
 {
     "name": "gxu_tool_app",
-    "version": "2.2.0",
+    "version": "2.2.0 beta",
     "versionCode": 20200,
     "versionJsonUrl": "https://file.unde.site/GxuToolApp/version.json",
     "private": true,
