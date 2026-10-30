@@ -50,15 +50,18 @@ main ──切出──> vX.X ──<── feature/fix
 
 ## 变量
 
-| 变量               | 敏感 | 说明                                                                                |
-| ------------------ | ---- | ----------------------------------------------------------------------------------- |
-| `COS_BUCKET`       | 否   | 桶名，格式 `xxx-1250000000`                                                         |
-| `COS_REGION`       | 否   | 如 `ap-guangzhou`                                                                   |
-| `COS_SECRET_ID`    | 是   | COS 写入凭证                                                                        |
-| `COS_SECRET_KEY`   | 是   | COS 写入凭证                                                                        |
-| `GITLAB_API_TOKEN` | 是   | 可选；创建 Release、反查 MR 描述。默认用 `CI_JOB_TOKEN`，改用 PAT 时需要 `api` 权限 |
+| 变量               | 敏感 | 说明                                                                                       |
+| ------------------ | ---- | ------------------------------------------------------------------------------------------ |
+| `COS_BUCKET`       | 否   | 桶名，格式 `xxx-1250000000`                                                                |
+| `COS_REGION`       | 否   | 如 `ap-guangzhou`                                                                          |
+| `COS_SECRET_ID`    | 是   | COS 写入凭证                                                                               |
+| `COS_SECRET_KEY`   | 是   | COS 写入凭证                                                                               |
+| `GITLAB_NPM_TOKEN` | 是   | 拉取私有 `@gxutool` npm 包；PAT 需要 `read_api`，Deploy Token 需要 `read_package_registry` |
+| `GITLAB_API_TOKEN` | 是   | 可选；创建 Release、反查 MR 描述。默认用 `CI_JOB_TOKEN`，改用 PAT 时需要 `api` 权限        |
 
 设置位置：项目 → Settings → CI/CD → Variables。敏感项勾选 Masked 和 Protected；`beta-ota` / `ota` 必须是 Protected 分支，否则变量不会注入。
+
+`GITLAB_NPM_TOKEN` 是必需项。pnpm 10 会忽略项目 `.npmrc` 里的 `${GITLAB_NPM_TOKEN}` 展开，流水线会在 `before_script` 中把它写到临时 userconfig（`.ci-npmrc`），请不要把这个文件提交。
 
 权限建议：单独 CAM 子账号，只给 `cos:PutObject` 到 `GxuToolApp/*`，不要给 Delete，也不要给整个桶的权限。有条件用 STS 临时密钥。
 
@@ -95,3 +98,4 @@ node scripts/ci/publish-ota.mjs --channel beta --create-release
 - **重复发布**：相同 bundle 会按 `sha256` 复用；如果只是想重试上传，直接重跑流水线即可。
 - **Release 401/403**：确认 job token 未被禁用；否则配置 `GITLAB_API_TOKEN`，并给 `api` 权限。发布者至少需要 Developer 角色。
 - **Release 已存在**：脚本会先查再更新；如果两个人同时发布，重跑一次即可。已有 tag 不会移动到新 commit。
+- **pnpm install 401/404**：检查 `GITLAB_NPM_TOKEN` 是否已配置、是否对项目 86 的 Package Registry 有读取权限；不要依赖项目 `.npmrc` 里的环境变量展开。

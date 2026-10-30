@@ -5,6 +5,7 @@ stages:
 variables:
     GIT_DEPTH: "0"
     PNPM_STORE_DIR: "$CI_PROJECT_DIR/.pnpm-store"
+    NPM_CONFIG_USERCONFIG: "$CI_PROJECT_DIR/.ci-npmrc"
 
 workflow:
     rules:
@@ -15,6 +16,8 @@ workflow:
 default:
     image: node:20-bookworm
     before_script:
+        - test -n "$GITLAB_NPM_TOKEN" || (echo "缺少 GITLAB_NPM_TOKEN" && exit 1)
+        - (umask 077 && printf '//gitlab.unde.site/api/v4/projects/86/packages/npm/:_authToken=%s\n' "$GITLAB_NPM_TOKEN" > "$NPM_CONFIG_USERCONFIG")
         - corepack enable
         - corepack prepare pnpm@10.33.0 --activate
         - pnpm config set store-dir "$PNPM_STORE_DIR"
