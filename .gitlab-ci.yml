@@ -53,7 +53,8 @@ publish_beta_ota:
     script:
         - test -n "$COS_SECRET_ID" || (echo "缺少 COS_SECRET_ID" && exit 1)
         - test -n "$COS_SECRET_KEY" || (echo "缺少 COS_SECRET_KEY" && exit 1)
-        - node scripts/ci/publish-ota.mjs --channel beta
+        - test -n "$CI_JOB_TOKEN$GITLAB_API_TOKEN" || (echo "缺少 GitLab API 凭证，无法创建 Release" && exit 1)
+        - node scripts/ci/publish-ota.mjs --channel beta --create-release
 
 publish_ota:
     stage: publish
@@ -64,4 +65,5 @@ publish_ota:
     script:
         - test -n "$COS_SECRET_ID" || (echo "缺少 COS_SECRET_ID" && exit 1)
         - test -n "$COS_SECRET_KEY" || (echo "缺少 COS_SECRET_KEY" && exit 1)
-        - node scripts/ci/publish-ota.mjs --channel release
+        - test -n "$CI_JOB_TOKEN$GITLAB_API_TOKEN" || (echo "缺少 GitLab API 凭证，无法创建 Release" && exit 1)
+        - node scripts/ci/publish-ota.mjs --channel release --create-release

@@ -5,6 +5,8 @@ import path from "node:path";
 import {execFileSync} from "node:child_process";
 import {fileURLToPath} from "node:url";
 import {putObject} from "./cos.mjs";
+import {hasGitLabApi, gitLabRequest} from "./gitlab.mjs";
+import {createOrUpdateOtaRelease, otaReleaseTag} from "./gitlab-release.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const MAX_DESC_LENGTH = 4000;
@@ -31,6 +33,7 @@ function parseArgs(argv) {
         dryRun: false,
         skipBuild: false,
         skipDiffCheck: false,
+        createRelease: false,
     };
 
     for (let index = 0; index < argv.length; index += 1) {
@@ -47,6 +50,8 @@ function parseArgs(argv) {
             result.skipBuild = true;
         } else if (arg === "--skip-diff-check") {
             result.skipDiffCheck = true;
+        } else if (arg === "--create-release") {
+            result.createRelease = true;
         } else if (arg === "--help" || arg === "-h") {
             printHelp();
             process.exit(0);
@@ -67,6 +72,7 @@ function printHelp() {
   --dry-run                只构建和校验，不上传
   --skip-build             跳过 bundle 构建（用于本地验证元数据）
   --skip-diff-check        跳过原生/依赖/图片变更检查（仅 bootstrap 或本地测试）
+  --create-release         上传成功后创建或更新 GitLab Release
   -h, --help               查看帮助`);
 }
 
@@ -158,7 +164,12 @@ async function main() {
     console.log(`  version.json: ${path.relative(ROOT, manifestPath)}`);
     console.log(`  模式: ${args.dryRun ? "dry-run（不上传）" : "发布"}`);
 
-    if (args.dryRun) return;
+    if (args.dryRun) {
+        if (args.createRelease) {
+            console.log(`[Release] dry-run，将创建/更新 ${otaReleaseTag(channel, item.versionCode)}`);
+        }
+        return;
+    }
 
     const finalBundlePath = path.join(ROOT, "dist", String(appVersionCode), `${item.versionCode}.index.android.bundle`);
     if (finalBundlePath !== bundlePath) {
@@ -179,6 +190,22 @@ async function main() {
     });
 
     console.log("[OTA] 上传完成。记得刷新 CDN 的 version.json。");
+
+    if (args.createRelease) {
+        const result = await createOrUpdateOtaRelease({
+            channel,
+            appVersion: pkg.version,
+            appVersionCode,
+            ota: item,
+            commit,
+            releaseNotes: item.desc,
+            versionJsonUrl: pkg.versionJsonUrl,
+            apkUrl: entry.ori.official,
+        });
+        console.log(`[Release] ${result.webUrl ?? result.tagName}`);
+    } else {
+        console.log("[Release] 未启用自动创建 Release（加 --create-release）");
+    }
 }
 
 function readPackageJson() {
@@ -295,32 +322,56 @@ function todaySeq() {
 }
 
 async function fetchMergeRequestDescription() {
-    const {CI_API_V4_URL, CI_PROJECT_ID, CI_COMMIT_SHA, CI_COMMIT_BRANCH, GITLAB_API_TOKEN} = process.env;
-    if (!CI_API_V4_URL || !CI_PROJECT_ID || !CI_COMMIT_SHA || !GITLAB_API_TOKEN) {
+    const {CI_COMMIT_SHA, CI_COMMIT_BRANCH} = process.env;
+    if (!CI_COMMIT_SHA || !hasGitLabApi()) {
         return null;
     }
 
-    const url = `${CI_API_V4_URL}/projects/${encodeURIComponent(
-        CI_PROJECT_ID,
-    )}/repository/commits/${CI_COMMIT_SHA}/merge_requests`;
-    const response = await fetch(url, {
-        headers: {"PRIVATE-TOKEN": GITLAB_API_TOKEN},
-    });
-    if (!response.ok) {
-        console.warn(`[OTA] 获取 MR 描述失败: ${response.status} ${response.statusText}`);
+    let mergeRequests;
+    try {
+        mergeRequests = await gitLabRequest(
+            "GET",
+            `/repository/commits/${encodeURIComponent(CI_COMMIT_SHA)}/merge_requests`,
+        );
+
+        if (Array.isArray(mergeRequests) && CI_COMMIT_BRANCH) {
+            const candidates = mergedMergeRequests(mergeRequests, CI_COMMIT_BRANCH);
+            if (candidates.length === 0) {
+                const query = new URLSearchParams({
+                    state: "merged",
+                    target_branch: CI_COMMIT_BRANCH,
+                    order_by: "updated_at",
+                    sort: "desc",
+                    per_page: "20",
+                });
+                const branchMergeRequests = await gitLabRequest("GET", `/merge_requests?${query}`);
+                mergeRequests = Array.isArray(branchMergeRequests)
+                    ? branchMergeRequests.filter(mergeRequest => matchesCommit(mergeRequest, CI_COMMIT_SHA))
+                    : [];
+            }
+        }
+    } catch (error) {
+        console.warn(`[OTA] 获取 MR 描述失败: ${error.message}`);
         return null;
     }
 
-    const mergeRequests = await response.json();
-    const candidates = mergeRequests.filter(
-        mergeRequest =>
-            mergeRequest.state === "merged" && (!CI_COMMIT_BRANCH || mergeRequest.target_branch === CI_COMMIT_BRANCH),
-    );
+    if (!Array.isArray(mergeRequests)) return null;
+    const candidates = mergedMergeRequests(mergeRequests, CI_COMMIT_BRANCH);
     candidates.sort(
         (left, right) => new Date(right.merged_at ?? 0).getTime() - new Date(left.merged_at ?? 0).getTime(),
     );
     const mergeRequest = candidates[0] ?? (CI_COMMIT_BRANCH ? null : mergeRequests[0]);
     return mergeRequest?.description || mergeRequest?.title || null;
+}
+
+function mergedMergeRequests(mergeRequests, branch) {
+    return mergeRequests.filter(
+        mergeRequest => mergeRequest.state === "merged" && (!branch || mergeRequest.target_branch === branch),
+    );
+}
+
+function matchesCommit(mergeRequest, commit) {
+    return [mergeRequest.sha, mergeRequest.merge_commit_sha, mergeRequest.squash_commit_sha].includes(commit);
 }
 
 function sanitizeDescription(value) {
