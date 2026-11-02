@@ -11,6 +11,7 @@ import {useUserConfig} from "@/hooks/useUserConfig.ts";
 import {useCourseData} from "@/hooks/useCourseData.ts";
 import {useShift} from "@/features/courseSchedule/hooks/detail/useShift.ts";
 import {useBaseCourse} from "@/features/courseSchedule/hooks/detail/useBaseCourse.ts";
+import {useStartDay} from "@/features/courseSchedule/hooks/detail/useStartDay.ts";
 
 type Props = {
     week: number;
@@ -43,7 +44,7 @@ export function CanvasSchedule(props: Props) {
     const [courseSchedule, setCourseSchedule] = useState<CourseScheduleClass>();
 
     const {width: screenWidth} = Dimensions.get("window");
-    const startDay = moment(ucStore(s => s.jw.startDay));
+    const {startDay} = useStartDay();
     const currentWeek = props.week;
     const styles = StyleSheet.create({
         container: {
