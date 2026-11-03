@@ -3,6 +3,9 @@ import {ScrollView, StyleSheet, View} from "react-native";
 import {Button, Text, useTheme} from "@rneui/themed";
 import {expoDb as getDB} from "@/core/db";
 import {useFocusEffect} from "@react-navigation/native";
+import {ScheduleDataDebugPanel} from "@/features/courseSchedule/components/ScheduleDataDebugPanel";
+import {MenuSheet} from "@/features/courseSchedule/components/sheets/MenuSheet.tsx";
+import {UnBottomSheet} from "@/components/un-ui";
 
 type Scalar = string | number | boolean | null;
 
@@ -95,6 +98,37 @@ function formatValue(value: Scalar) {
 }
 
 export function TestPage() {
+    const [tab, setTab] = useState<"schedule" | "database" | "diy">("diy");
+    return (
+        <View style={{flex: 1}}>
+            <View style={{flexDirection: "row", gap: 8, padding: 12}}>
+                <Button type={tab === "schedule" ? "solid" : "outline"} onPress={() => setTab("schedule")}>
+                    课表钩子
+                </Button>
+                <Button type={tab === "database" ? "solid" : "outline"} onPress={() => setTab("database")}>
+                    SQLite
+                </Button>
+                <Button type={tab === "diy" ? "solid" : "outline"} onPress={() => setTab("diy")}>
+                    空白页
+                </Button>
+            </View>
+            {tab === "schedule" && <DatabaseDebugPage />}
+            {tab === "database" && <ScheduleDataDebugPanel />}
+            {tab === "diy" && <DIY />}
+        </View>
+    );
+}
+
+const DIY = () => {
+    const [sheet, setSheet] = useState(true);
+    return (
+        <><UnBottomSheet isVisible={sheet} containerStyle={{padding: "5%"}}>
+            <MenuSheet setSheet={setSheet} />
+        </UnBottomSheet></>
+    );
+};
+
+function DatabaseDebugPage() {
     const {theme} = useTheme();
     const [snapshot, setSnapshot] = useState<DatabaseSnapshot | null>(null);
     const [error, setError] = useState<string | null>(null);
