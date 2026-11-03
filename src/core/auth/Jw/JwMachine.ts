@@ -3,11 +3,6 @@ import {JwAuthClient} from "@/core/auth/Jw/JwAuthClient.ts";
 import {Account, AuthStateMap} from "@/core/auth/auth.type.ts";
 import {userMgr} from "@/js/mgr/user.ts";
 
-async function loginJw(account: Account): Promise<boolean> {
-    const {username, password} = account;
-    return JwAuthClient.login(username, password);
-}
-
 export const JwMachine = createAuthCore<Account>({
     async loadAccount() {
         const account = await userMgr.jw.getAccount();
@@ -24,7 +19,7 @@ export const JwMachine = createAuthCore<Account>({
         return JwAuthClient.testTokenRaw();
     },
     async loginWithAccount(account) {
-        return loginJw(account);
+        return JwAuthClient.login(account.username, account.password);
     },
 });
 
