@@ -26,8 +26,6 @@ export async function initDB() {
         await expoDb.execute(`DROP TABLE IF EXISTS ${table};`);
     }
 
-    console.log("已删出表");
-
     // 交由 Drizzle 执行所有迁移
     await migrate(db, migrations);
 }

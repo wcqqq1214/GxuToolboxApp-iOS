@@ -1,17 +1,9 @@
-import {useEffect, useState} from "react";
 import dayjs from "dayjs";
 import moment, {type Moment} from "moment";
 import type {SchoolTermValue} from "@/type/global.ts";
-import {
-    fetchStartDay,
-    getCurrentStartDay,
-    getStartDay,
-    getSyncStartDay,
-    saveToDB,
-    type TermStartDay,
-} from "@/features/courseSchedule/repo/startDay.ts";
-
-let pendingSync: Promise<void> | null = null;
+import {type TermStartDay} from "@/features/courseSchedule/repo/startDay.ts";
+import {useStartDayStore} from "@/features/courseSchedule/stores/startDayStore.ts";
+import {useMemo} from "react";
 
 export interface TermInfo {
     startDay: Moment;
@@ -20,6 +12,9 @@ export interface TermInfo {
     isEnded: boolean;
     year: number;
     term: number;
+    /**
+     * @Deprecated 由于早已准备好，所以永远返回true
+     */
     ready: boolean;
 }
 
@@ -58,73 +53,28 @@ function emptyTermInfo(year?: number, term?: SchoolTermValue | string): TermInfo
     };
 }
 
-async function syncTerms(): Promise<void> {
-    if (pendingSync) return pendingSync;
-
-    pendingSync = (async () => {
-        const remoteTerms = await fetchStartDay();
-        if (!remoteTerms?.length) return;
-
-        const now = dayjs();
-        const sortedTerms = [...remoteTerms].sort((a, b) => dayjs(a.day).valueOf() - dayjs(b.day).valueOf());
-        sortedTerms.forEach(term => (term.is_current = false));
-
-        const current = sortedTerms.find(term => now.isBefore(dayjs(term.day).add(term.week, "week"), "day"));
-        (current ?? sortedTerms[sortedTerms.length - 1]).is_current = true;
-        await saveToDB(sortedTerms);
-    })();
-
-    try {
-        await pendingSync;
-    } catch (cause) {
-        console.error("同步学期开学信息失败", cause);
-    } finally {
-        pendingSync = null;
-    }
-}
-
 /**
  * 读取学期开学信息。传入 year/term 时查询明确学期；不传时返回当前或下一个学期。
  * term 同时兼容旧教务码 3/12 与逻辑码 1/2，向外始终返回逻辑码。
+ * 【read only】不应在这里写入信息。
  */
 export function useStartDay(year?: number, term?: SchoolTermValue | string): TermInfo {
     const logicalTerm = toLogicalTerm(term);
-    const cachedCurrent = getSyncStartDay();
-    const [termInfo, setTermInfo] = useState<TermInfo>(() => {
-        const cacheMatches =
-            cachedCurrent &&
-            (!year || !logicalTerm || (cachedCurrent.year === year && cachedCurrent.term === logicalTerm));
-        return cacheMatches ? toTermInfo(cachedCurrent) : emptyTermInfo(year, term);
-    });
 
-    useEffect(() => {
-        let active = true;
+    const terms = useStartDayStore(s => s.terms);
 
-        const readTarget = () => (year && logicalTerm ? getStartDay(year, logicalTerm) : getCurrentStartDay());
+    // 计划要返回的就是这个学期
+    let target;
+    if (year && logicalTerm) {
+        target = terms.find(t => t.year === year && t.term === logicalTerm);
+    } else {
+        target = terms.find(t => t.is_current);
+    }
 
-        const initialize = async () => {
-            let target = await readTarget();
-            if (active && target) setTermInfo(toTermInfo(target));
-
-            const current = await getCurrentStartDay();
-            const currentEnded =
-                current && dayjs().isAfter(dayjs(current.day).add(current.week, "week").subtract(1, "day"), "day");
-
-            if (!target || !current || currentEnded) {
-                await syncTerms();
-                target = await readTarget();
-                if (active && target) setTermInfo(toTermInfo(target));
-            }
-        };
-
-        initialize().catch(cause => {
-            console.error("读取学期开学信息失败", cause);
-        });
-
-        return () => {
-            active = false;
-        };
-    }, [logicalTerm, term, year]);
-
-    return termInfo;
+    return useMemo(
+        () =>
+            (target ?
+                toTermInfo(target) :
+                emptyTermInfo(year, term)),
+        [target, year, logicalTerm, term]);
 }

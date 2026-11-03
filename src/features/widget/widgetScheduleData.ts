@@ -1,7 +1,7 @@
 import type {Schedule} from "gxu-tool-adapters/jw";
 
-import {getCurrentStartDay} from "@/features/courseSchedule/repo/startDay";
 import {readPersonalSchedule} from "./widgetStore";
+import {getStartDay} from "@/features/courseSchedule/stores/startDayStore.ts";
 
 const CLASS_TIMES = [
     ["08:00", "08:45"],
@@ -115,7 +115,7 @@ export async function getWidgetSchedule(now = new Date()): Promise<WidgetSchedul
     if (!schedule) return emptyData("missingSchedule", now);
 
     try {
-        const startDay = await getCurrentStartDay();
+        const startDay = getStartDay();
         const termStart = startDay ? localDate(startDay.day) : null;
         if (!termStart) return emptyData("missingStartDay", now);
 
