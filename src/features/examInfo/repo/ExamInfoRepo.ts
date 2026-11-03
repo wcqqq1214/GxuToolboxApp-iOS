@@ -2,6 +2,10 @@ import {db} from "@/core/db";
 import {examInfo} from "@/core/schema";
 import {and, eq} from "drizzle-orm";
 import {ExamInfoRepo} from "@/features/examInfo/type";
+import {ScheduleScope} from "@/features/courseSchedule/repo/personalSchedule.ts";
+import {mmkv} from "@/store/mmkv.ts";
+import {ExamWithMeta, StoredExam} from "@/features/examInfo/type/exam.types.ts";
+import {parseExamTime} from "@/features/examInfo/utils/timeParser.ts";
 
 export const examInfoRepo = {
     /**
@@ -63,5 +67,26 @@ export const examInfoRepo = {
                 });
             }
         });
+    },
+
+    examCacheKey(s: ScheduleScope): string {
+        return `examData:${encodeURIComponent(s.username)}:${s.year}:${s.term}`;
+    },
+
+    readCache(s: ScheduleScope): ExamWithMeta[] | null {
+        const cached = mmkv.getObject<{exams: StoredExam[]; updateAt: number}>(this.examCacheKey(s));
+        if (!cached?.exams) return null;
+        return cached.exams.map(item => ({...item, ...parseExamTime(item.time)}));
+    },
+    writeCache(s: ScheduleScope, data: ExamWithMeta[], updateAt: number) {
+        const exams: StoredExam[] = data.map(({id, course, classroom, time, type, seat}) => ({
+            id,
+            course,
+            classroom,
+            time,
+            type,
+            seat,
+        }));
+        mmkv.set(this.examCacheKey(s), {exams, updateAt});
     },
 };
