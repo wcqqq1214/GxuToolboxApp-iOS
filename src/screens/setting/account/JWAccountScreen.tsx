@@ -1,6 +1,6 @@
 import {ActivityIndicator, ScrollView, StyleSheet, TextInput, View} from "react-native";
 import {SafeAreaView} from "react-native-safe-area-context";
-import {Button, Input, Text} from "@rneui/themed";
+import {Button, Input, Text, useTheme} from "@rneui/themed";
 import {useMemo, useRef, useState} from "react";
 import {Icon} from "@/components/un-ui/Icon.tsx";
 import {Flex, UnPressable, UnText} from "@/components/un-ui";
@@ -26,15 +26,15 @@ function statusMeta(state: AuthState) {
 export function JWAccountScreen() {
     const {username, setUsername, password, setPassword, hydrating, saveAccount} = useJwAccount();
     const {authState, loading, result, clearResult, login} = useJwAuth();
+    const {theme} = useTheme();
 
-    const [showPwd, setShowPwd] = useState(false);
+    const [showPwd, setShowPwd] = useState<boolean>(false);
 
     const meta = useMemo(() => statusMeta(authState), [authState]);
 
     const busy = hydrating || loading;
 
     const pwdInputRef = useRef<TextInput>(null);
-    const usernameError = username.length > 0 && !/^\d{10}$/.test(username) ? "请输入正确的学号" : "";
     const canSubmit = !busy && /^\d{10}$/.test(username) && password.length > 0;
 
     async function handleLogin() {
@@ -96,7 +96,6 @@ export function JWAccountScreen() {
                         autoCorrect={false}
                         autoComplete="username"
                         textContentType="username"
-                        errorMessage={usernameError}
                         onSubmitEditing={() => pwdInputRef.current?.focus()}
                         disabled={busy}
                         inputStyle={styles.inputText}
@@ -157,7 +156,7 @@ export function JWAccountScreen() {
                             {
                                 icon: "calendar-sync-outline",
                                 title: "日程实时同步",
-                                desc: "课表调整、考试安排实时更新，无需每次手动导入",
+                                desc: "课表调整、考试安排实时更新，无需反复手动导入",
                             },
                         ].map(item => (
                             <Flex key={item.title} direction="row" align="flex-start" gap={12}>
@@ -171,10 +170,25 @@ export function JWAccountScreen() {
                                         borderRadius: 10,
                                         backgroundColor: "rgba(156,163,175,0.12)",
                                     }}>
-                                    <Icon name={item.icon} size={20} color="#9CA3AF" />
+                                    <Icon
+                                        name={item.icon}
+                                        size={20}
+                                        color={
+                                            authState.status === "authenticated"
+                                                ? theme.colors.primary
+                                                : theme.colors.grey2
+                                        }
+                                    />
                                 </Flex>
                                 <Flex direction="column" align="flex-start" gap={2} style={{flex: 1}}>
-                                    <UnText size={15} bold>
+                                    <UnText
+                                        size={15}
+                                        bold
+                                        color={
+                                            authState.status === "authenticated"
+                                                ? theme.colors.primary
+                                                : theme.colors.grey2
+                                        }>
                                         {item.title}
                                     </UnText>
                                     <UnText size={13} color="#9CA3AF" lineHeight={18}>
