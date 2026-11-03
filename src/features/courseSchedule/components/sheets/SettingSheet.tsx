@@ -4,10 +4,8 @@ import {Text, useTheme} from "@rneui/themed";
 import {UnPressable} from "@/components/un-ui";
 import Flex from "@/components/un-ui/Flex.tsx";
 import {UnSlider} from "@/components/un-ui/UnSlider.tsx";
-import {SchoolTermValue, SchoolYearValue} from "@/type/global.ts";
+import {SchoolYearValue} from "@/type/global.ts";
 import {usePagerView} from "react-native-pager-view";
-import {UnDateTimePicker} from "@/components/un-ui/UnDateTimePicker.tsx";
-import moment from "moment/moment";
 import {UnTermSelector} from "@/components/un-ui/UnTermSelector.tsx";
 import {useUserConfig} from "@/hooks/useUserConfig.ts";
 import {useCourseData} from "@/hooks/useCourseData.ts";
@@ -17,18 +15,15 @@ import {Color} from "@/shared/color.ts";
 
 interface Props {
     containerStyle?: StyleProp<ViewStyle>;
-    year?: SchoolYearValue | number;
-    term?: SchoolTermValue;
-    onYearChange?: (year: number) => void;
-    onTermChange?: (term: SchoolTermValue) => void;
-    onPageChange?: (page: number) => void;
     pageViewRest: Omit<ReturnType<typeof usePagerView>, "AnimatedPagerView" | "ref">;
 }
 
-export function CourseCardSetting(props: Props) {
+export function SettingSheet(props: Props) {
     const {theme} = useTheme();
 
     const {store: ucStore} = useUserConfig();
+    const year = +ucStore(s => s.jw.year);
+    const term = ucStore(s => s.jw.term);
     const {store} = useCourseData();
     const timeSpanHeight = store(s => s.theme.timeSpanHeight);
     const courseInfoVisible = store(s => s.courseInfoVisible);
@@ -44,22 +39,26 @@ export function CourseCardSetting(props: Props) {
         store.getState().update("courseInfoVisible", newCourseInfoVisible);
     };
 
-    const onYearChange = (v: number) => {
-        const s = ucStore.getState();
-        ucStore.getState().update("jw", { ...s.jw, year: (v + "") as SchoolYearValue });
-        props.onYearChange?.(v);
-    };
-
-    const onTermChange = (v: SchoolTermValue) => {
-        const s = ucStore.getState();
-        ucStore.getState().update("jw", { ...s.jw, term: v });
-        props.onTermChange?.(v);
-    };
-
     const {getColor, setCustomColor, paletteName} = useBlocksColor();
 
     return (
         <View style={props.containerStyle}>
+            {/* ── 课表周数 ── */}
+            <Flex justify="space-between" style={{marginBottom: 4}}>
+                <Text style={{fontSize: 13, color: theme.colors.grey3}}>当前周数</Text>
+                <Text style={{fontSize: 13, color: theme.colors.grey1}}>第 {props.pageViewRest.activePage + 1} 周</Text>
+            </Flex>
+            <View style={{marginBottom: 16}}>
+                <UnSlider
+                    step={1}
+                    minimumValue={1}
+                    maximumValue={20}
+                    allowTouchTrack
+                    value={props.pageViewRest.activePage + 1}
+                    onValueChange={v => props.pageViewRest.setPage(v - 1)}
+                />
+            </View>
+
             {/* ── 显示内容 ── */}
             <Text style={{fontSize: 13, color: theme.colors.grey3, marginBottom: 4}}>显示内容</Text>
             <View style={{flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 16}}>
@@ -68,7 +67,9 @@ export function CourseCardSetting(props: Props) {
                     return (
                         <UnPressable
                             key={key}
-                            onPress={function() { return changeCourseInfoVisible(key, !active); }}
+                            onPress={function () {
+                                return changeCourseInfoVisible(key, !active);
+                            }}
                             style={{
                                 paddingVertical: 6,
                                 paddingHorizontal: 14,
@@ -104,7 +105,7 @@ export function CourseCardSetting(props: Props) {
                     allowTouchTrack
                     value={timeSpanHeight}
                     onValueChange={v => {
-                        store.getState().update("theme", { ...store.getState().theme, timeSpanHeight: v });
+                        store.getState().update("theme", {...store.getState().theme, timeSpanHeight: v});
                     }}
                 />
             </View>
@@ -116,50 +117,21 @@ export function CourseCardSetting(props: Props) {
                     <Text>学期</Text>
                     <View style={{flex: 1}}>
                         <UnTermSelector
-                            thirdTerm
                             disableSelectAll
                             skipAndroidStatusBar
-                            year={props.year}
-                            term={props.term}
-                            onChange={(year, term) => {
-                                onYearChange(+year);
-                                onTermChange(term);
+                            year={year}
+                            term={term}
+                            onChange={(nextYear, nextTerm) => {
+                                const s = ucStore.getState();
+                                ucStore.getState().update("jw", {
+                                    ...s.jw,
+                                    year: String(nextYear) as SchoolYearValue,
+                                    term: nextTerm,
+                                });
                             }}
                         />
                     </View>
                 </Flex>
-                <Flex gap={10}>
-                    <Text>起始日</Text>
-                    <Flex justify="flex-end">
-                        <UnDateTimePicker
-                            value={moment(ucStore(s => s.jw.startDay)).valueOf()}
-                            onChange={v => {
-                                const startDay = moment(v).format("YYYY-MM-DD");
-                                store.getState().update("startDay", startDay);
-                                const s = ucStore.getState();
-                                ucStore.getState().update("jw", { ...s.jw, startDay });
-                            }}
-                            mode="single"
-                            onlyDate
-                        />
-                    </Flex>
-                </Flex>
-            </View>
-
-            {/* ── 课表周数 ── */}
-            <Flex justify="space-between" style={{marginBottom: 4}}>
-                <Text style={{fontSize: 13, color: theme.colors.grey3}}>当前周数</Text>
-                <Text style={{fontSize: 13, color: theme.colors.grey1}}>第 {props.pageViewRest.activePage + 1} 周</Text>
-            </Flex>
-            <View style={{marginBottom: 16}}>
-                <UnSlider
-                    step={1}
-                    minimumValue={1}
-                    maximumValue={20}
-                    allowTouchTrack
-                    value={props.pageViewRest.activePage + 1}
-                    onValueChange={v => props.pageViewRest.setPage(v - 1)}
-                />
             </View>
 
             {/* ── 配色风格 ── */}
@@ -176,8 +148,8 @@ export function CourseCardSetting(props: Props) {
                     return (
                         <UnPressable
                             key={name}
-                            onPress={function() {
-                                store.getState().update("theme", { ...store.getState().theme, palette: name });
+                            onPress={function () {
+                                store.getState().update("theme", {...store.getState().theme, palette: name});
                             }}
                             style={{
                                 flex: 1,
