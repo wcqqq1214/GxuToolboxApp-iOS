@@ -9,10 +9,13 @@ import RNFS from "react-native-fs";
 import {CameraRoll} from "@react-native-camera-roll/camera-roll";
 import Share, {ShareOptions} from "react-native-share";
 import Canvas from "react-native-canvas";
+import type {Schedule} from "gxu-tool-adapters/jw";
 
 type Props = {
     week: number;
     onClose: () => void;
+    schedule: Schedule | null;
+    startDay: moment.Moment;
 };
 
 export function ScheduleShareSheet(props: Props) {
@@ -94,7 +97,7 @@ export function ScheduleShareSheet(props: Props) {
     return (
         <View>
             <ScrollView style={styles.scrollView}>
-                <CanvasSchedule week={props.week} canvasRef={canvasRef} />
+                <CanvasSchedule week={props.week} canvasRef={canvasRef} schedule={props.schedule} startDay={props.startDay} />
             </ScrollView>
             <View style={{marginTop: 10}}>
                 <Flex justify={"center"}>
