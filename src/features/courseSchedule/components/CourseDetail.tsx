@@ -18,7 +18,7 @@ import moment from "moment";
 const CourseContext = createContext<AdapterTheoryItem | null>(null);
 
 interface Props extends ViewProps {
-    course: CourseClass;
+    course: CourseClass | AdapterTheoryItem;
     examInfo?: ExamWithMeta[];
     onExamPress?: (exam: ExamWithMeta) => void;
 }
@@ -52,7 +52,7 @@ export function CourseDetail(props: Props) {
     const {theme} = useTheme();
     const {store} = useUserConfig();
     const devMode = store(s => s.devMode);
-    const course = props.course._ori;
+    const course: AdapterTheoryItem = props.course instanceof CourseClass ? props.course._ori : props.course;
 
     const fullLocation = course.building + course.venueName;
     const isSportsCollege = fullLocation.includes("体育学院");
@@ -61,6 +61,8 @@ export function CourseDetail(props: Props) {
 
     const name = course.teacher;
     const {list: teacherInfoList} = useLookup(name);
+
+    console.log(course);
 
     const iconUrl = "https://prof.gxu.edu.cn/images/icon-teacher.jpg";
     return (
