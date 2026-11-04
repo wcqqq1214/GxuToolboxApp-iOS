@@ -158,6 +158,11 @@ export function JWAccountScreen() {
                                 title: "日程实时同步",
                                 desc: "课表调整、考试安排实时更新，无需反复手动导入",
                             },
+                            {
+                                icon: "school",
+                                title: "全校本科生均可用",
+                                desc: "研究生还请移步至GXU研课表(gxu.app)",
+                            },
                         ].map(item => (
                             <Flex key={item.title} direction="row" align="flex-start" gap={12}>
                                 <Flex
