@@ -10,11 +10,11 @@ import {usePagerView} from "react-native-pager-view";
 import {useUserConfig} from "@/hooks/useUserConfig.ts";
 import {UnBottomSheet, UnJsonEditor, UnPressable, UnText} from "@/components/un-ui";
 import {TimeScheduleView} from "@/components/tool/infoQuery/courseSchedule/TimeScheduleView.tsx";
-import {ScheduleTableItem, ScheduleTableItemV2, TimeScheduleItemData} from "@/features/courseSchedule/type/schedule.ts";
+import {ScheduleTableItem, TimeScheduleItemData} from "@/features/courseSchedule/type/schedule.ts";
 import {useJwAccount} from "@/core/auth/Jw/hooks/useJwAccount";
 import type {ScheduleScope} from "@/features/courseSchedule/repo/personalSchedule";
 import {PracticalCourseList} from "@/features/courseSchedule/components/PracticalCourseList.tsx";
-import {CourseDetail} from "@/features/courseSchedule/components/CourseDetail.tsx";
+import {CourseDetailSheet} from "@/features/courseSchedule/components/sheets/CourseDetailSheet.tsx";
 import {useJwAuth} from "@/core/auth/Jw/hooks/useJwAuth.ts";
 import {useUnifiedAuth} from "@/core/auth/unified/hook/useUnifiedAuth.ts";
 import {useAttendanceAuth} from "@/core/auth/attendance/hooks/useAttendanceAuth.ts";
@@ -69,7 +69,10 @@ export function ScheduleCard() {
     // const {schedule, status, refresh, error} = usePersonalCourseData(scope);
     // const courseItems = useMemo(() => (schedule ? normalizeCourse(schedule) : []), [schedule]);
 
-    const {courseItem, practiceList, startDay, ready, termReady} = useScheduleCardData(year, logicalTerm ?? 1);
+    const {courseItem, examInfo, practiceList, startDay, ready, termReady} = useScheduleCardData(
+        year,
+        logicalTerm ?? 1,
+    );
     const practiceItems = practiceList ?? [];
 
     const [sheet, setSheet] = useState<SheetState>({type: "closed"});
@@ -88,6 +91,12 @@ export function ScheduleCard() {
             setSheet({type: "courseDetail", course: item.raw});
         }
     }, []);
+
+    const currentCourseExams = useMemo(() => {
+        if (sheet.type !== "courseDetail" || !sheet.course || !examInfo) return [];
+        const c = sheet.course;
+        return examInfo.filter(exam => exam.course === c.courseName);
+    }, [sheet, examInfo]);
 
     const scheduleItems: TimeScheduleItemData[] = useMemo(
         () =>
@@ -235,7 +244,16 @@ export function ScheduleCard() {
                 {/*        onClose={() => setSheet({type: "closed"})}*/}
                 {/*    />*/}
                 {/*)}*/}
-                {sheet.type === "courseDetail" && sheet.course && <CourseDetail course={sheet.course} />}
+                {sheet.type === "courseDetail" && sheet.course && (
+                    <CourseDetailSheet
+                        course={sheet.course}
+                        examInfo={currentCourseExams}
+                        onExamPress={exam => {
+                            // 关闭当前课程详情，或直接切到考试详情弹窗
+                            setSheet({type: "examDetail", exam});
+                        }}
+                    />
+                )}
                 {sheet.type === "courseConflict" && (
                     <ConflictCourseSheet
                         courses={sheet.courses}

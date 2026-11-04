@@ -32,5 +32,5 @@ export const useScheduleCardData = (year: number, term: number) => {
         return buildCourseItems([...rawCourses, ...exams], [], [], termReady ? startDay : null);
     }, [scheduleQuery.schedule, examQuery.examInfo, termReady, startDay]);
 
-    return {courseItem, practiceList, startYear, startTerm, ready, termReady, startDay};
+    return {courseItem, examInfo: examQuery.examInfo, practiceList, startYear, startTerm, ready, termReady, startDay};
 };

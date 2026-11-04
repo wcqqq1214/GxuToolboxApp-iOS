@@ -18,7 +18,7 @@ import {useStartDay} from "@/features/courseSchedule/hooks/detail/useStartDay.ts
 import moment from "moment/moment";
 import {NewCourseItem} from "@/features/courseSchedule/components/NewCourseItem.tsx";
 import {ScheduleTableItem, TimeScheduleItemData} from "@/features/courseSchedule/type/schedule.ts";
-import {CourseDetail} from "@/features/courseSchedule/components/CourseDetail.tsx";
+import {CourseDetailSheet} from "@/features/courseSchedule/components/sheets/CourseDetailSheet.tsx";
 import {CourseClass} from "@/class/jw/course.ts";
 import {StackCourseItem} from "@/features/courseSchedule/components/StackCourseItem.tsx";
 import {useConflictCourseStore} from "@/features/courseSchedule/stores/useConflictCourseStore.ts";
@@ -243,7 +243,7 @@ export function ClassCourseSchedule() {
                 onBackdropPress={() => setSheet({type: "closed"})}
                 containerStyle={{borderTopLeftRadius: 12, borderTopRightRadius: 12, padding: 16}}>
                 {sheet.type === "itemDetail" && sheet.item.raw && (
-                    <CourseDetail course={new CourseClass(sheet.item.raw)} />
+                    <CourseDetailSheet course={new CourseClass(sheet.item.raw)} />
                 )}
                 {sheet.type === "courseConflict" && (
                     <ConflictCourseSheet
