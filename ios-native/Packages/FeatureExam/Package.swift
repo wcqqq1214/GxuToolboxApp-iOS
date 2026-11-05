@@ -14,5 +14,9 @@ let package = Package(
             .product(name: "GxuStorage", package: "GxuCore"),
             .product(name: "GxuDesign", package: "GxuDesign"),
         ]),
+        .testTarget(name: "FeatureExamTests", dependencies: [
+            "FeatureExam",
+            .product(name: "GxuTestSupport", package: "GxuCore"),
+        ]),
     ]
 )
