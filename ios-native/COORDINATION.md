@@ -131,6 +131,12 @@ let eng = try await unified.loginEngTraining()                        // EngTrai
 - GxuDesign：`gxuTabAccessory(isEnabled:)`、环境值 `gxuAccessoryCompact`。
 - 演示：`-GxuDemo` 现在含考试数据；`-GxuTab home|schedule|toolbox|settings`。
 
+### [B] 班级课表 / 全校课表已上线（Agent B，FeatureCampus）
+
+- 工具箱「班级课表」「全校课表」已接入（`CampusFeature.makeClassScheduleView()` / `makeFullScheduleView()`）。接口：`/jw/schedule/{schools,majors,class-schedules,class-schedule}`，学期只用 1 / 2；学院 / 年级 / 专业默认取本人资料。班级课表用只读周网格 `StaticScheduleView`（ScheduleUI，别的 feature 也可以直接用：给一份 `Schedule` + `TermCalendar`）。
+- 全校课表 = “这一刻这个学院哪些班在上课”：逐个读取班级课表（并发 6，读过的缓存在内存里），按专业分组；可改周次 / 星期 / 节次。
+- DEBUG 自查参数：`-GxuOpen <工具箱项 id>`（直接打开工具箱页面，如 `classSchedule`）、`-GxuCampusYear 2025`、`-GxuCampusOpenFirst`、`-GxuCampusMoment 3,2,3`、`-GxuCampusAutoRun`。
+
 ### [B] DEBUG 开关 `-GxuForceLegacy`：在 iOS 26+ 模拟器上强制走 iOS 18 降级路径（给 A）
 
 - 启动参数 `-GxuForceLegacy`（仅 DEBUG）：GxuDesign 的 `GlassGroup` / `GlassButton` / `.gxuGlass()` / 标签栏附件 / 标签栏收起都改走 iOS 18 的 Material 降级分支（`GxuDesign.useModernGlass` 为 false）。**系统控件（TabView、sheet、工具栏）在 iOS 26 上仍是系统玻璃，无法强制降级**，所以它只能验证 GxuDesign 自己的封装；真正的 iOS 18 外观仍需 iOS 18 runtime。

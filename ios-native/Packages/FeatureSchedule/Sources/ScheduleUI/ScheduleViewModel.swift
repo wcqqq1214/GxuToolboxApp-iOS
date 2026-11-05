@@ -26,6 +26,8 @@ final class ScheduleViewModel {
     /// 刷新失败的原因；有缓存时页面照常显示，只在顶部给一条非阻塞提示
     private(set) var refreshError: GxuError?
     private(set) var isRefreshing = false
+    /// 只读展示（班级课表）：副标题始终显示日期范围，不写“已结束 / 距开学”
+    private(set) var isStatic = false
     /// 节假日 / 补班数据；已经叠加到 `index` 里
     private(set) var campusCalendar: CampusCalendar = .empty
     /// 冲突组里用户选中显示哪一门：`ConflictGroup.key` → 课程 key
@@ -44,11 +46,16 @@ final class ScheduleViewModel {
 
     var weekCount: Int { max(termCalendar?.weekCount ?? 1, index.maxWeek, 1) }
     var currentWeek: Int { termCalendar?.clampedWeek(at: .now) ?? 1 }
-    var isViewingCurrentWeek: Bool { selectedWeek == currentWeek }
+    var isViewingCurrentWeek: Bool {
+        // 只读的往届 / 未开学学期没有“本周”，不显示回到本周按钮
+        if isStatic, let termCalendar, termCalendar.week(containing: .now) < 1 || termCalendar.isEnded(at: .now) { return true }
+        return selectedWeek == currentWeek
+    }
 
     /// 副标题：日期范围，或开学 / 结束提示
     func subtitle(now: Date = .now) -> String {
         guard let termCalendar else { return "" }
+        if isStatic { return weekRangeText(selectedWeek) }
         if !termCalendar.isStarted(at: now) {
             let days = termCalendar.calendar.dateComponents([.day], from: termCalendar.calendar.startOfDay(for: now), to: termCalendar.startDate).day ?? 0
             return "距开学还有 \(days) 天"
@@ -98,7 +105,9 @@ final class ScheduleViewModel {
         choices = [:]
         rebuildIndex()
         recolor()
-        selectedWeek = termCalendar.clampedWeek(at: .now)
+        // 看别人的课表 / 往届学期：学期已结束或没开始时从第 1 周看起；学期进行中跳到本周
+        selectedWeek = termCalendar.week(containing: .now) >= 1 && !termCalendar.isEnded(at: .now) ? termCalendar.clampedWeek(at: .now) : 1
+        isStatic = true
         phase = .content
     }
 

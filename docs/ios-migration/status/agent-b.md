@@ -7,6 +7,7 @@
   - 首页「今天」标签 + 底部“下一件事”附件（课程 + ExamKit 的考试）；冲突课程选择持久化（`schedule.v1.createConflictChoice`）；设置页挂上统一认证 / 考勤账号入口
   - 自定义日程（添加 / 编辑 / 删除 / 管理列表，GRDB）、课表外观与课程 / 考试详情显示偏好（`SchedulePreferences`）、设置页「课表与考试」
   - 首页按协调者意见调整（今天标签不显示底部附件、考试去重、座位文案、课程结束折叠 + 明天预览）；`-GxuForceLegacy` 开关；ScheduleUI 抽出 `ScheduleBoard`，新增只读 `StaticScheduleView`（班级课表用）
+  - FeatureCampus：班级课表（筛选 + 班级列表 + 只读周网格）、全校课表（此刻有课的班级）；真实账号验证通过（49 个班 / 31 个在上课）
   - 截图：`ios-native/.screens/holiday-week-{light,dark}.png`、`home-{light,dark}.png`
 - Phase 1 状态（保留）：已完成（待用户验收）
 - 已完成：

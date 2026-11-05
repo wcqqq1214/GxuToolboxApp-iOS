@@ -1,0 +1,34 @@
+{
+ "code": 200,
+ "message": "success",
+ "data": [
+  {
+   "schoolId": "30300",
+   "majorId": "0311",
+   "grade": "2022",
+   "classId": "16BAB5776CA75880E063030410AC31E1",
+   "className": "道路与桥梁工程221"
+  },
+  {
+   "schoolId": "30300",
+   "majorId": "0311",
+   "grade": "2022",
+   "classId": "16BAB30F647C5882E063030410AC60F1",
+   "className": "道路与桥梁工程222"
+  },
+  {
+   "schoolId": "30300",
+   "majorId": "0311",
+   "grade": "2022",
+   "classId": "16BAC7DEC30E787AE063020410AC7282",
+   "className": "道路与桥梁工程223"
+  },
+  {
+   "schoolId": "30300",
+   "majorId": "0311",
+   "grade": "2022",
+   "classId": "16BAB5776C9C5880E063030410AC31E1",
+   "className": "建筑工程221"
+  }
+ ]
+}

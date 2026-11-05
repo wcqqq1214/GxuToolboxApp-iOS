@@ -1,4 +1,6 @@
 import FeatureCourse
+
+import FeatureCampus
 import FeatureExam
 import SwiftUI
 
@@ -39,8 +41,8 @@ enum ToolboxCatalog {
         item("reschedulingNews", "调休补班", "calendar.badge.clock", .academic, { AnyView(TimeShiftView()) }),
         item("evaluation", "教学评价", "text.bubble", .academic),
         // 校园
-        item("classSchedule", "班级课表", "person.3", .campus),
-        item("fullSchedule", "全校课表", "building.columns", .campus),
+        item("classSchedule", "班级课表", "person.3", .campus, { AnyView(CampusFeature.makeClassScheduleView()) }),
+        item("fullSchedule", "全校课表", "building.columns", .campus, { AnyView(CampusFeature.makeFullScheduleView()) }),
         item("campusMap", "校园地图", "map", .campus),
         item("practice", "实践课", "flask", .campus),
         item("holiday", "节假日", "sun.max", .campus, { AnyView(HolidayView()) }),

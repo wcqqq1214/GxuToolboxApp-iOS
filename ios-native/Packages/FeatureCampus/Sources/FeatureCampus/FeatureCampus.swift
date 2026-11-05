@@ -1,12 +1,17 @@
 import GxuStorage
 import SwiftUI
 
-/// Phase 0 占位，之后由对应 Agent 接管。
 public enum CampusFeature {
     public static let migrations = FeatureMigrations(feature: "campus") { _ in }
 
+    /// 工具箱 → 班级课表
     @MainActor
-    public static func makeRootView() -> some View {
-        Text("FeatureCampus")
-    }
+    public static func makeClassScheduleView() -> some View { ClassScheduleView() }
+
+    /// 工具箱 → 全校课表
+    @MainActor
+    public static func makeFullScheduleView() -> some View { FullScheduleView() }
+
+    @MainActor
+    public static func makeRootView() -> some View { makeClassScheduleView() }
 }

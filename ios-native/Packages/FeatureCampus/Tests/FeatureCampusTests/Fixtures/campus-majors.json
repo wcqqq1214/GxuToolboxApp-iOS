@@ -1,0 +1,22 @@
+{
+ "code": 200,
+ "message": "success",
+ "data": [
+  {
+   "majorId": "0335",
+   "majorName": "城市规划(0335)"
+  },
+  {
+   "majorId": "0336",
+   "majorName": "城乡规划(0336)"
+  },
+  {
+   "majorId": "5222B21C0CD06066E063030410AC414F",
+   "majorName": "低空技术与工程（微专业）(0340)"
+  },
+  {
+   "majorId": "DF1993D0829B13C3E053020410ACFD7A",
+   "majorName": "工程科学创培班（土木）(03cp2)"
+  }
+ ]
+}

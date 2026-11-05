@@ -4,6 +4,15 @@ import SwiftUI
 /// 工具箱：功能网格。已上线的功能可以进入，其余标“即将上线”。
 struct ToolboxView: View {
     @State private var query = ""
+    #if DEBUG
+    /// 截图自查：`-GxuOpen <工具箱项 id>` 直接打开对应页面
+    @State private var debugOpen = ToolboxView.debugItem != nil
+    private static var debugItem: ToolboxItem? {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "-GxuOpen"), i + 1 < args.count else { return nil }
+        return ToolboxCatalog.items.first { $0.id == args[i + 1] && $0.destination != nil }
+    }
+    #endif
 
     private var filtered: [ToolboxItem] {
         query.isEmpty ? ToolboxCatalog.items : ToolboxCatalog.items.filter { $0.title.localizedStandardContains(query) }
@@ -36,6 +45,11 @@ struct ToolboxView: View {
             .background(Color(.systemGroupedBackground))
             .navigationTitle("工具箱")
             .searchable(text: $query, prompt: "搜索功能")
+            #if DEBUG
+            .navigationDestination(isPresented: $debugOpen) {
+                if let item = Self.debugItem { item.destination?().navigationTitle(item.title) }
+            }
+            #endif
         }
     }
 }

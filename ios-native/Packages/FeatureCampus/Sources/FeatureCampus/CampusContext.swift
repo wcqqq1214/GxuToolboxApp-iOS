@@ -1,0 +1,58 @@
+import Foundation
+import GxuAuth
+import GxuFoundation
+import Observation
+import ScheduleKit
+
+/// 班级课表 / 全校课表共用：可查询的学期和各学期的周历（周网格需要开学日）
+@MainActor @Observable
+final class CampusContext {
+    private(set) var terms: [AcademicTerm] = []
+    private(set) var defaultTerm: AcademicTerm?
+    private(set) var failure: String?
+    private var calendars: [AcademicTerm: TermCalendar] = [:]
+
+    func termCalendar(for term: AcademicTerm) -> TermCalendar? { calendars[term] }
+
+    func load(services: AppServices) async {
+        let repository = ScheduleRepository(backend: services.backend, database: services.database)
+        var startDays = (try? await repository.cachedStartDays()) ?? []
+        if startDays.isEmpty || TermResolver.current(in: startDays, now: .now).flatMap({ TermCalendar($0) })?.isEnded(at: .now) == true {
+            do { startDays = try await repository.refreshStartDays() } catch {
+                if error.isCancellation { return }
+                if startDays.isEmpty { failure = ((error as? GxuError) ?? .network(error.localizedDescription)).userMessage }
+            }
+        }
+        var calendars: [AcademicTerm: TermCalendar] = [:]
+        for day in startDays {
+            // 后端只接受逻辑学期 1 / 2
+            if day.academicTerm.isBackendQueryable, let calendar = TermCalendar(day) { calendars[day.academicTerm] = calendar }
+        }
+        self.calendars = calendars
+        terms = calendars.keys.sorted(by: >)
+        let current = TermResolver.current(in: startDays, now: .now)?.academicTerm
+        defaultTerm = current.flatMap { calendars[$0] != nil ? $0 : nil } ?? terms.first
+        #if DEBUG
+        // 截图自查：`-GxuCampusYear 2025` 默认选这一学年的第 1 学期
+        let args = CommandLine.arguments
+        if let i = args.firstIndex(of: "-GxuCampusYear"), i + 1 < args.count, let year = Int(args[i + 1]) {
+            defaultTerm = terms.first { $0.year == year && $0.term == 1 } ?? defaultTerm
+        }
+        #endif
+        if terms.isEmpty && failure == nil { failure = "暂时无法获取学期信息" }
+    }
+}
+
+/// 班级课表的内存缓存（一次 App 运行内有效）。全校课表要查几百个班，翻回来看同一个班时不重复请求。
+actor ClassScheduleCache {
+    static let shared = ClassScheduleCache()
+    private var store: [String: Schedule] = [:]
+
+    func schedule(term: AcademicTerm, of info: ClassInfo, api: CampusAPI) async throws -> Schedule {
+        let key = "\(term.year)-\(term.term)-\(info.classId)"
+        if let hit = store[key] { return hit }
+        let fresh = try await api.schedule(term: term, of: info)
+        store[key] = fresh
+        return fresh
+    }
+}
