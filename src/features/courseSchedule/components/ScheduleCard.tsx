@@ -14,7 +14,6 @@ import {ScheduleTableItem, TimeScheduleItemData} from "@/features/courseSchedule
 import {useJwAccount} from "@/core/auth/Jw/hooks/useJwAccount";
 import type {ScheduleScope} from "@/features/courseSchedule/repo/personalSchedule";
 import {PracticalCourseList} from "@/features/courseSchedule/components/PracticalCourseList.tsx";
-import {CourseDetailSheet} from "@/features/courseSchedule/components/sheets/CourseDetailSheet.tsx";
 import {useJwAuth} from "@/core/auth/Jw/hooks/useJwAuth.ts";
 import {useUnifiedAuth} from "@/core/auth/unified/hook/useUnifiedAuth.ts";
 import {useAttendanceAuth} from "@/core/auth/attendance/hooks/useAttendanceAuth.ts";
@@ -91,12 +90,6 @@ export function ScheduleCard() {
             setSheet({type: "courseDetail", course: item.raw});
         }
     }, []);
-
-    const currentCourseExams = useMemo(() => {
-        if (sheet.type !== "courseDetail" || !sheet.course || !examInfo) return [];
-        const c = sheet.course;
-        return examInfo.filter(exam => exam.course === c.courseName);
-    }, [sheet, examInfo]);
 
     const scheduleItems: TimeScheduleItemData[] = useMemo(
         () =>
@@ -226,9 +219,14 @@ export function ScheduleCard() {
                     <ScheduleDataDebugCard label="查看实践课数据" data={practiceItems} />
                 </Flex>
             )}
-            <MainBottomSheet sheet={sheet} setSheet={setSheet} pageViewRest={rest} />
+            <MainBottomSheet sheet={sheet} setSheet={setSheet} pageViewRest={rest} examInfo={examInfo} />
             <UnBottomSheet
-                isVisible={sheet.type !== "closed" && sheet.type !== "menu" && sheet.type !== "setting"}
+                isVisible={
+                    sheet.type !== "closed" &&
+                    sheet.type !== "menu" &&
+                    sheet.type !== "setting" &&
+                    sheet.type !== "courseDetail"
+                }
                 onBackdropPress={() => setSheet({type: "closed"})}
                 containerStyle={{padding: "5%"}}>
                 {/*{sheet.type === "itemDetail" &&*/}
@@ -244,16 +242,6 @@ export function ScheduleCard() {
                 {/*        onClose={() => setSheet({type: "closed"})}*/}
                 {/*    />*/}
                 {/*)}*/}
-                {sheet.type === "courseDetail" && sheet.course && (
-                    <CourseDetailSheet
-                        course={sheet.course}
-                        examInfo={currentCourseExams}
-                        onExamPress={exam => {
-                            // 关闭当前课程详情，或直接切到考试详情弹窗
-                            setSheet({type: "examDetail", exam});
-                        }}
-                    />
-                )}
                 {sheet.type === "courseConflict" && (
                     <ConflictCourseSheet
                         courses={sheet.courses}

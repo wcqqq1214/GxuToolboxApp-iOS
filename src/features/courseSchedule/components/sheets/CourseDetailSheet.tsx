@@ -5,14 +5,13 @@ import Flex from "@/components/un-ui/Flex.tsx";
 import React, {useState} from "react";
 import {Color} from "@/shared/color.ts";
 import {TeacherSheet} from "@/features/courseSchedule/components/sheets/TeacherSheet.tsx";
-import {UnPressable, UnText} from "@/components/un-ui";
+import {UnText} from "@/components/un-ui";
 import {useLookup} from "@/features/teachersInfo/hooks/useLookup.ts";
 import {ExamWithMeta} from "@/features/examInfo/type/exam.types.ts";
-import {parseExamTime} from "@/features/examInfo/utils/timeParser.ts";
-import moment from "moment";
 import Clipboard from "@react-native-clipboard/clipboard";
 import {Pos} from "@/js/pos.ts";
 import {DetailActionButton, DetailRow} from "@/features/courseSchedule/components/sheets/DetailRow.tsx";
+import {CourseExamCard} from "@/features/courseSchedule/components/sheets/CourseExamCard.tsx";
 
 interface Props extends ViewProps {
     course: CourseClass | AdapterTheoryItem;
@@ -45,7 +44,7 @@ export function CourseDetailSheet(props: Props) {
     const fullLocation = building + venueName;
     const isSportsCollege = fullLocation.includes("体育学院");
 
-    const displayLocation = building.includes("体育学院") ? venueName : building + venueName;
+    const displayLocation = building.includes("体育学院") ? venueName : `${building} | ${venueName}`;
 
     const sportsCollegeMapKeyword = isSportsCollege ? resolveSportsCollegeMapKeyword(displayLocation) : null;
 
@@ -185,33 +184,33 @@ export function CourseDetailSheet(props: Props) {
     );
 }
 
-function CourseExamCard({examInfo, onPress}: {examInfo: ExamWithMeta; onPress?: () => void}) {
-    const exam = examInfo;
-    const {theme} = useTheme();
-    const {status} = parseExamTime(exam.time);
-    const date = exam.time.slice(0, 10);
-    const time = exam.time.match(/(?<=\().*?(?=\))/)?.[0] ?? "";
-    const diff = moment(date).diff(moment(), "days");
-    const suffix = status === "past" ? "已结束" : diff === 0 ? "今天" : `${diff}天后`;
-
-    return (
-        <UnPressable
-            onPress={onPress}
-            style={{
-                padding: 6,
-                borderRadius: 4,
-                width: "100%",
-                backgroundColor: Color(theme.colors.primary).setAlpha(theme.mode === "light" ? 0.08 : 0.15).rgbaString,
-            }}>
-            <UnText weight="bold" size={16}>
-                {exam.type}
-            </UnText>
-            <UnText size={12} color={theme.colors.grey1}>
-                {date}（{suffix}）{time}，{exam.classroom}&lt;{exam.seat || "-"}&gt;
-            </UnText>
-        </UnPressable>
-    );
-}
+// function CourseExamCard({examInfo, onPress}: {examInfo: ExamWithMeta; onPress?: () => void}) {
+//     const exam = examInfo;
+//     const {theme} = useTheme();
+//     const {status} = parseExamTime(exam.time);
+//     const date = exam.time.slice(0, 10);
+//     const time = exam.time.match(/(?<=\().*?(?=\))/)?.[0] ?? "";
+//     const diff = moment(date).diff(moment(), "days");
+//     const suffix = status === "past" ? "已结束" : diff === 0 ? "今天" : `${diff}天后`;
+//
+//     return (
+//         <UnPressable
+//             onPress={onPress}
+//             style={{
+//                 padding: 6,
+//                 borderRadius: 4,
+//                 width: "100%",
+//                 backgroundColor: Color(theme.colors.primary).setAlpha(theme.mode === "light" ? 0.08 : 0.15).rgbaString,
+//             }}>
+//             <UnText weight="bold" size={16}>
+//                 {exam.type}
+//             </UnText>
+//             <UnText size={12} color={theme.colors.grey1}>
+//                 {date}（{suffix}）{time}，{exam.classroom}&lt;{exam.seat || "-"}&gt;
+//             </UnText>
+//         </UnPressable>
+//     );
+// }
 
 // function CourseDebugCard() {
 //     const course = useContext(CourseContext);
