@@ -28,6 +28,7 @@ public struct GpaView: View {
             List {
                 Section {
                     TermPicker(
+                        years: model.years,
                         year: Binding(get: { model.query.year }, set: { model.query.year = $0 }),
                         term: Binding(get: { model.query.term }, set: { model.query.term = $0 }),
                         allowsWholeYear: true

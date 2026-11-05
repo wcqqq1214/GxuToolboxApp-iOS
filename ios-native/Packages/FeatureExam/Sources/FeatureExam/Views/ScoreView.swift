@@ -23,7 +23,7 @@ public struct ScoreView: View {
         var body: some View {
             List {
                 Section {
-                    TermPicker(year: yearBinding, term: termBinding, allowsWholeYear: true)
+                    TermPicker(years: model.years, year: yearBinding, term: termBinding, allowsWholeYear: true)
                     status
                 }
                 if model.error != nil {

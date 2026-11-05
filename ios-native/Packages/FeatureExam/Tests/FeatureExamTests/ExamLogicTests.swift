@@ -164,4 +164,13 @@ private func at(_ s: String) -> Date {
         #expect(TermOptions.years(enrollmentYear: 2024, studyYears: 4, now: now, calendar: calendar) == [2024, 2025, 2026])
         #expect(TermOptions.years(enrollmentYear: nil, studyYears: 4, now: now, calendar: calendar) == [2023, 2024, 2025, 2026])
     }
+
+    @Test func yearsFollowStudyYearsAndNeverExceedCurrent() {
+        let now = at("2026-11-05 12:00")
+        #expect(TermOptions.years(enrollmentYear: 2022, studyYears: 4, now: now, calendar: calendar) == [2022, 2023, 2024, 2025])
+        #expect(TermOptions.years(enrollmentYear: 2022, studyYears: 5, now: now, calendar: calendar) == [2022, 2023, 2024, 2025, 2026])
+        #expect(TermOptions.years(enrollmentYear: 2030, studyYears: 4, now: now, calendar: calendar).isEmpty)
+        // 3 月仍属上一学年
+        #expect(TermOptions.years(enrollmentYear: 2023, studyYears: 4, now: at("2026-03-05 12:00"), calendar: calendar) == [2023, 2024, 2025])
+    }
 }

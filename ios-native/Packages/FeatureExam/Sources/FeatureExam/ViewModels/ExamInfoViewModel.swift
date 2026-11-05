@@ -15,6 +15,8 @@ final class ExamInfoViewModel {
     private(set) var isLoading = false
     /// 默认学期解析完成前不发请求，避免先按猜测的学期加载一次
     private(set) var isReady = false
+    /// 学期选择器可选的学年（入学年份起、学制年数个，且不晚于当前学年）
+    private(set) var years = TermOptions.years(enrollmentYear: nil)
     private(set) var error: GxuError?
 
     private let api: ExamAPI
@@ -35,7 +37,9 @@ final class ExamInfoViewModel {
 
     func resolveInitialTerm() async {
         guard !isReady else { return }
-        term = await FeatureExam.resolveInitialTerm(services: services)
+        let context = await resolveTermContext(services: services)
+        term = context.term
+        years = context.years
         isReady = true
     }
 

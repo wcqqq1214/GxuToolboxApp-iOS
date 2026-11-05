@@ -48,8 +48,26 @@ public enum TermOptions {
     }
 }
 
-/// 向 ScheduleKit 取当前学期（优先缓存），再套用 `TermOptions.initialTerm`
-func resolveInitialTerm(services: AppServices) async -> AcademicTerm {
-    let info = await ScheduleRepository(backend: services.backend, database: services.database).currentTermInfo()
-    return TermOptions.initialTerm(current: info?.term, isStarted: info?.isStarted ?? true)
+/// 学期选择器的上下文：默认学期 + 可选学年范围
+struct TermContext: Equatable {
+    var term: AcademicTerm
+    var years: [Int]
+}
+
+/// 取当前学期（B 的 ScheduleKit，优先缓存）和用户资料（A 的 `services.profiles`，优先缓存），
+/// 套用 `TermOptions.initialTerm` / `years`。两者任一拿不到都有退路（月份推断、最近 4 个学年）
+@MainActor
+func resolveTermContext(services: AppServices) async -> TermContext {
+    async let info = ScheduleRepository(backend: services.backend, database: services.database).currentTermInfo()
+    let profile: UserProfile?
+    if let studentId = services.accounts.studentId {
+        profile = try? await services.profiles.profile(studentId: studentId)
+    } else {
+        profile = nil
+    }
+    let current = await info
+    return TermContext(
+        term: TermOptions.initialTerm(current: current?.term, isStarted: current?.isStarted ?? true, enrollmentYear: profile?.enrollmentYear),
+        years: TermOptions.years(enrollmentYear: profile?.enrollmentYear, studyYears: profile?.studyYears ?? 4)
+    )
 }

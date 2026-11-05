@@ -4,12 +4,11 @@ import SwiftUI
 
 /// 学年 + 学期选择。`term == nil` 表示全学年（仅 `allowsWholeYear` 时可选）
 struct TermPicker: View {
+    let years: [Int]
     @Binding var year: Int
     @Binding var term: Int?
     var allowsWholeYear = false
 
-    // TEMP(coord-1): 入学年份 / 学制由 A 提供前，取最近 4 个学年
-    private let years = TermOptions.years(enrollmentYear: nil)
 
     var body: some View {
         HStack {

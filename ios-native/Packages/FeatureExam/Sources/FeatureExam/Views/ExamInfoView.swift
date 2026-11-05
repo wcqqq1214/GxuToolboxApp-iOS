@@ -22,7 +22,7 @@ public struct ExamInfoView: View {
         var body: some View {
             List {
                 Section {
-                    TermPicker(year: yearBinding, term: termBinding)
+                    TermPicker(years: model.years, year: yearBinding, term: termBinding)
                 }
                 if model.error != nil {
                     errorSection(model.error, hasData: model.hasData) { Task { await model.load() } }

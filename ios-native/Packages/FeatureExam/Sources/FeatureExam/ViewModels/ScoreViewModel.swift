@@ -22,6 +22,9 @@ final class ScoreViewModel {
     private(set) var lastSyncedAt: Date?
     private(set) var isLoading = false
     private(set) var isReady = false
+    private var hasContext = false
+    /// 学期选择器可选的学年（入学年份起、学制年数个，且不晚于当前学年）
+    private(set) var years = TermOptions.years(enrollmentYear: nil)
     private(set) var error: GxuError?
     private(set) var usual: [String: UsualScoreState] = [:]
 
@@ -40,11 +43,16 @@ final class ScoreViewModel {
         self.query = query ?? Query(year: initial.year, term: initial.term)
     }
 
+    /// 带着学期进入（如从成绩页打开绩点计算器）时只补学年范围，不改学期
     func resolveInitialTerm() async {
-        guard !isReady else { return }
-        let term = await FeatureExam.resolveInitialTerm(services: services)
-        query = Query(year: term.year, term: term.term)
-        isReady = true
+        guard !hasContext else { return }
+        hasContext = true
+        let context = await resolveTermContext(services: services)
+        years = context.years
+        if !isReady {
+            query = Query(year: context.term.year, term: context.term.term)
+            isReady = true
+        }
     }
 
     func load() async {
