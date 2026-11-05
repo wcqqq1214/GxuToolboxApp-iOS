@@ -1,4 +1,5 @@
 import GxuAuth
+import GxuDesign
 import GxuFoundation
 import SwiftUI
 
@@ -25,10 +26,18 @@ public struct ScoreView: View {
                     TermPicker(year: yearBinding, term: termBinding, allowsWholeYear: true)
                     status
                 }
+                if model.error != nil {
+                    errorSection(model.error, hasData: !model.scores.isEmpty, updatedAt: model.lastSyncedAt) {
+                        Task { await model.load() }
+                    }
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+                }
                 if model.scores.isEmpty {
-                    if !model.isLoading && model.error == nil {
-                        ContentUnavailableView("暂无成绩", systemImage: "list.bullet.clipboard")
-                            .listRowSeparator(.hidden)
+                    if model.isLoading {
+                        GxuLoadingView("正在查询成绩…").frame(minHeight: 240).listRowBackground(Color.clear)
+                    } else if model.error == nil {
+                        GxuEmptyView("暂无成绩", systemImage: "list.bullet.clipboard").listRowBackground(Color.clear)
                     }
                 } else {
                     Section {
@@ -54,15 +63,13 @@ public struct ScoreView: View {
                     Label("绩点计算器", systemImage: "function")
                 }
             }
-            .task(id: model.query) { await model.load() }
+            .task { await model.resolveInitialTerm() }
+            .task(id: LoadKey(value: model.query, ready: model.isReady)) { await model.load() }
             .refreshable { await model.load() }
         }
 
         @ViewBuilder
         private var status: some View {
-            if let error = model.error {
-                ErrorBanner(message: error.userMessage) { Task { await model.load() } }
-            }
             HStack {
                 if let date = model.lastSyncedAt {
                     Text("上次同步: \(syncText(date))").font(.footnote).foregroundStyle(.secondary)

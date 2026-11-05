@@ -1,4 +1,5 @@
 import GxuAuth
+import GxuDesign
 import GxuFoundation
 import SwiftUI
 
@@ -22,24 +23,27 @@ public struct ExamInfoView: View {
             List {
                 Section {
                     TermPicker(year: yearBinding, term: termBinding)
-                    if let error = model.error {
-                        ErrorBanner(message: error.userMessage) { Task { await model.load() } }
-                    }
+                }
+                if model.error != nil {
+                    errorSection(model.error, hasData: model.hasData) { Task { await model.load() } }
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
                 }
                 if model.hasData {
                     section("即将开考", model.sections.upcoming)
                     section("已结束", model.sections.past)
                 } else if model.isLoading {
-                    HStack { Spacer(); ProgressView("正在查询考试安排…"); Spacer() }
-                        .listRowSeparator(.hidden)
+                    GxuLoadingView("正在查询考试安排…")
+                        .frame(minHeight: 240).listRowBackground(Color.clear)
                 } else if model.error == nil {
-                    ContentUnavailableView("本学期暂无考试安排", systemImage: "calendar")
-                        .listRowSeparator(.hidden)
+                    GxuEmptyView("本学期暂无考试安排", systemImage: "calendar")
+                        .listRowBackground(Color.clear)
                 }
             }
             .navigationTitle("考试信息")
             .navigationBarTitleDisplayMode(.inline)
-            .task(id: model.term) { await model.load() }
+            .task { await model.resolveInitialTerm() }
+            .task(id: LoadKey(value: model.term, ready: model.isReady)) { await model.load() }
             .refreshable { await model.load() }
         }
 

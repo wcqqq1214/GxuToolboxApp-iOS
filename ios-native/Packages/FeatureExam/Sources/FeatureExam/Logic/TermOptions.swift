@@ -1,5 +1,7 @@
 import Foundation
+import GxuAuth
 import GxuFoundation
+import ScheduleKit
 
 /// 学期选择器的候选项与默认值（移植自 RN `ChooseTerm`）。
 public enum TermOptions {
@@ -21,11 +23,33 @@ public enum TermOptions {
         term.term == 2 ? AcademicTerm(year: term.year, term: 1) : AcademicTerm(year: term.year - 1, term: 2)
     }
 
-    // TEMP(coord-2): B 的 ScheduleKit 提供 currentTerm / isStarted 后改用开学日。
-    // 目前按月份推断：9–1 月为秋季，2–8 月为春季；暑假默认落在刚结束的春季学期
+    /// 开学日数据不可用（离线且无缓存、或解析失败）时按月份推断：9–1 月为秋季，2–8 月为春季；
+    /// 暑假默认落在刚结束的春季学期
     public static func defaultTerm(now: Date = .now, calendar: Calendar = .current) -> AcademicTerm {
         let month = calendar.component(.month, from: now)
         let year = academicYear(now: now, calendar: calendar)
         return AcademicTerm(year: year, term: (month >= 9 || month == 1) ? 1 : 2)
     }
+
+    /// 默认学期（RN `ChooseTerm`）：已开学看当前学期；假期看刚结束的学期，
+    /// 但回退后早于入学年份（如大一开学前的暑假）则看当前学期。
+    /// `current` 为 nil（拿不到开学日）或是小学期时，退回按月份推断。
+    public static func initialTerm(
+        current: AcademicTerm?, isStarted: Bool, enrollmentYear: Int? = nil,
+        now: Date = .now, calendar: Calendar = .current
+    ) -> AcademicTerm {
+        guard let current, current.term == 1 || current.term == 2 else {
+            return defaultTerm(now: now, calendar: calendar)
+        }
+        if isStarted { return current }
+        let prev = previous(current)
+        if let enrollmentYear, prev.year < enrollmentYear { return current }
+        return prev
+    }
+}
+
+/// 向 ScheduleKit 取当前学期（优先缓存），再套用 `TermOptions.initialTerm`
+func resolveInitialTerm(services: AppServices) async -> AcademicTerm {
+    let info = await ScheduleRepository(backend: services.backend, database: services.database).currentTermInfo()
+    return TermOptions.initialTerm(current: info?.term, isStarted: info?.isStarted ?? true)
 }

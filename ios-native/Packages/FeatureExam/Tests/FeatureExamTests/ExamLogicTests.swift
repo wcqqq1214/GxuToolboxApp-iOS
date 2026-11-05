@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import GxuFoundation
 @testable import FeatureExam
 
 private let calendar: Calendar = {
@@ -127,5 +128,40 @@ private func at(_ s: String) -> Date {
         #expect(GpaCalculator.pointText(for: 85) == "3.50")
         #expect(GpaCalculator.pointText(for: 87.65) == "3.77")
         #expect(GpaCalculator.pointText(for: 100) == "5.00")
+    }
+}
+
+@Suite struct TermOptionsTests {
+    private let autumn = AcademicTerm(year: 2026, term: 1)
+
+    @Test func startedUsesCurrent() {
+        #expect(TermOptions.initialTerm(current: autumn, isStarted: true, now: at("2026-10-01 12:00"), calendar: calendar) == autumn)
+    }
+
+    /// 假期：B 的 current 指向即将开始的学期，默认看刚结束的那个
+    @Test func vacationUsesPrevious() {
+        #expect(TermOptions.initialTerm(current: autumn, isStarted: false, now: at("2026-08-20 12:00"), calendar: calendar)
+            == AcademicTerm(year: 2025, term: 2))
+        #expect(TermOptions.initialTerm(current: AcademicTerm(year: 2026, term: 2), isStarted: false, now: at("2027-01-20 12:00"), calendar: calendar)
+            == AcademicTerm(year: 2026, term: 1))
+    }
+
+    @Test func vacationBeforeEnrollmentFallsBackToCurrent() {
+        #expect(TermOptions.initialTerm(current: autumn, isStarted: false, enrollmentYear: 2026, now: at("2026-08-20 12:00"), calendar: calendar) == autumn)
+        #expect(TermOptions.initialTerm(current: autumn, isStarted: false, enrollmentYear: 2025, now: at("2026-08-20 12:00"), calendar: calendar)
+            == AcademicTerm(year: 2025, term: 2))
+    }
+
+    @Test func missingOrSummerTermFallsBackToMonth() {
+        #expect(TermOptions.initialTerm(current: nil, isStarted: true, now: at("2026-11-05 12:00"), calendar: calendar) == autumn)
+        #expect(TermOptions.initialTerm(current: nil, isStarted: true, now: at("2026-03-05 12:00"), calendar: calendar) == AcademicTerm(year: 2025, term: 2))
+        #expect(TermOptions.initialTerm(current: nil, isStarted: true, now: at("2026-07-05 12:00"), calendar: calendar) == AcademicTerm(year: 2025, term: 2))
+        #expect(TermOptions.initialTerm(current: AcademicTerm(year: 2025, term: 3), isStarted: true, now: at("2026-01-05 12:00"), calendar: calendar) == AcademicTerm(year: 2025, term: 1))
+    }
+
+    @Test func yearsRespectEnrollmentAndCurrentYear() {
+        let now = at("2026-11-05 12:00")
+        #expect(TermOptions.years(enrollmentYear: 2024, studyYears: 4, now: now, calendar: calendar) == [2024, 2025, 2026])
+        #expect(TermOptions.years(enrollmentYear: nil, studyYears: 4, now: now, calendar: calendar) == [2023, 2024, 2025, 2026])
     }
 }

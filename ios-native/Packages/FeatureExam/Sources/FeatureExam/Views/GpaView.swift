@@ -1,4 +1,5 @@
 import GxuAuth
+import GxuDesign
 import GxuFoundation
 import SwiftUI
 
@@ -31,9 +32,13 @@ public struct GpaView: View {
                         term: Binding(get: { model.query.term }, set: { model.query.term = $0 }),
                         allowsWholeYear: true
                     )
-                    if let error = model.error {
-                        ErrorBanner(message: error.userMessage) { Task { await model.load() } }
+                }
+                if model.error != nil {
+                    errorSection(model.error, hasData: !model.scores.isEmpty, updatedAt: model.lastSyncedAt) {
+                        Task { await model.load() }
                     }
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
                 }
                 Section {
                     VStack(spacing: 4) {
@@ -73,7 +78,8 @@ public struct GpaView: View {
                 Button("计算方法", systemImage: "questionmark.circle") { showsMethod = true }
             }
             .sheet(isPresented: $showsMethod) { GpaMethodSheet() }
-            .task(id: model.query) { await model.load() }
+            .task { await model.resolveInitialTerm() }
+            .task(id: LoadKey(value: model.query, ready: model.isReady)) { await model.load() }
             .refreshable { await model.load() }
         }
     }

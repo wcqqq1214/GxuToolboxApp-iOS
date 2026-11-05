@@ -1,3 +1,4 @@
+import FeatureExam
 import SwiftUI
 
 struct ToolboxItem: Identifiable {
@@ -29,9 +30,9 @@ enum ToolboxCatalog {
 
     static let items: [ToolboxItem] = [
         // 学业
-        item("examInfo", "考试信息", "calendar.badge.clock", .academic),
-        item("examScore", "成绩查询", "checkmark.seal", .academic),
-        item("gpa", "GPA 计算", "function", .academic),
+        item("examInfo", "考试信息", "calendar.badge.clock", .academic, { AnyView(ExamInfoView()) }),
+        item("examScore", "成绩查询", "checkmark.seal", .academic, { AnyView(ScoreView()) }),
+        item("gpa", "GPA 计算", "function", .academic, { AnyView(GpaView()) }),
         item("selectedCourse", "已选课程", "books.vertical", .academic),
         item("electiveStrategy", "选课策略", "list.bullet.clipboard", .academic),
         item("reschedulingNews", "调课通知", "arrow.left.arrow.right.circle", .academic),

@@ -13,13 +13,17 @@ final class ExamInfoViewModel {
     var term: AcademicTerm
     private(set) var sections = ExamSections(upcoming: [], past: [])
     private(set) var isLoading = false
+    /// 默认学期解析完成前不发请求，避免先按猜测的学期加载一次
+    private(set) var isReady = false
     private(set) var error: GxuError?
 
     private let api: ExamAPI
     private let repo: ExamRepository
     private let accounts: AccountCenter
+    private let services: AppServices
 
     init(services: AppServices, term: AcademicTerm = TermOptions.defaultTerm()) {
+        self.services = services
         self.api = ExamAPI(backend: services.backend)
         self.repo = ExamRepository(database: services.database)
         self.accounts = services.accounts
@@ -29,8 +33,15 @@ final class ExamInfoViewModel {
     var totalCount: Int { sections.upcoming.count + sections.past.count }
     var hasData: Bool { totalCount > 0 }
 
+    func resolveInitialTerm() async {
+        guard !isReady else { return }
+        term = await FeatureExam.resolveInitialTerm(services: services)
+        isReady = true
+    }
+
     /// 由 `.task(id: term)` 调用；切换学期时旧任务会被取消
     func load() async {
+        guard isReady else { return }
         guard let studentId = accounts.studentId else {
             error = .notLoggedIn(.jw)
             return

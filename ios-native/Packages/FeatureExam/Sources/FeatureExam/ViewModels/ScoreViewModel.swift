@@ -21,14 +21,18 @@ final class ScoreViewModel {
     private(set) var scores: [Score] = []
     private(set) var lastSyncedAt: Date?
     private(set) var isLoading = false
+    private(set) var isReady = false
     private(set) var error: GxuError?
     private(set) var usual: [String: UsualScoreState] = [:]
 
     private let api: ScoreAPI
     private let repo: ExamRepository
     private let accounts: AccountCenter
+    private let services: AppServices
 
     init(services: AppServices, query: Query? = nil) {
+        self.services = services
+        self.isReady = query != nil
         self.api = ScoreAPI(backend: services.backend)
         self.repo = ExamRepository(database: services.database)
         self.accounts = services.accounts
@@ -36,7 +40,15 @@ final class ScoreViewModel {
         self.query = query ?? Query(year: initial.year, term: initial.term)
     }
 
+    func resolveInitialTerm() async {
+        guard !isReady else { return }
+        let term = await FeatureExam.resolveInitialTerm(services: services)
+        query = Query(year: term.year, term: term.term)
+        isReady = true
+    }
+
     func load() async {
+        guard isReady else { return }
         guard let studentId = accounts.studentId else {
             error = .notLoggedIn(.jw)
             return
