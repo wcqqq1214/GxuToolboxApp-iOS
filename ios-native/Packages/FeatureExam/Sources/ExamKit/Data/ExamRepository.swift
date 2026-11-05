@@ -140,6 +140,23 @@ public struct ExamRepository: Sendable {
         }
     }
 
+    /// 本账号全部已缓存成绩（所有学年学期）
+    public func allScores(studentId: String) async throws -> [Score] {
+        try await database.writer.read { db in
+            try ScoreRecord.filter(Column("studentId") == studentId).order(Column("uploadAt").desc).fetchAll(db).map(Self.score)
+        }
+    }
+
+    /// 全部历史刷新：按 (year, term) 切片分别替换（每个切片内同样删除不在响应里的行）。
+    /// 响应里完全没出现的学期不动。
+    public func replaceAllScores(_ scores: [Score], studentId: String, now: Date = .now) async throws {
+        let groups = Dictionary(grouping: scores) { "\($0.year)#\($0.term)" }
+        for (_, items) in groups {
+            guard let first = items.first else { continue }
+            try await replaceScores(items, studentId: studentId, year: first.year, term: first.term, now: now)
+        }
+    }
+
     public func usualScores(studentId: String, scoreId: String) async throws -> [UsualScoreItem]? {
         let json = try await database.writer.read { db in
             try ScoreRecord.filter(Column("studentId") == studentId && Column("id") == scoreId).fetchOne(db)?.usualScoreJSON

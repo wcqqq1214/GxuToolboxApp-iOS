@@ -28,14 +28,18 @@ final class ScoreViewModel {
     private(set) var years = TermOptions.years(enrollmentYear: nil)
     private(set) var error: GxuError?
     private(set) var usual: [String: UsualScoreState] = [:]
+    /// 已选但未出分的课程（只在选了具体学期时有）
+    private(set) var pending: [PendingCourse] = []
+    private let pendingSource: (any PendingCourseSource)?
 
     private let api: ScoreAPI
     private let repo: ExamRepository
     private let accounts: AccountCenter
     private let services: AppServices
 
-    init(services: AppServices, query: Query? = nil) {
+    init(services: AppServices, query: Query? = nil, pendingSource: (any PendingCourseSource)? = nil) {
         self.services = services
+        self.pendingSource = pendingSource
         self.isReady = query != nil
         self.api = ScoreAPI(backend: services.backend)
         self.repo = ExamRepository(database: services.database)
@@ -88,6 +92,18 @@ final class ScoreViewModel {
         // 部分学期失败时仍用成功的部分；全部失败才报错
         if succeeded == 0, let first = failures.first { error = first }
         await showCached(studentId: studentId, query: query)
+        await loadPending(studentId: studentId, query: query)
+    }
+
+    private func loadPending(studentId: String, query: Query) async {
+        guard let pendingSource, let term = query.term else {
+            pending = []
+            return
+        }
+        let ids = Set(scores.map(\.id))
+        let list = await pendingSource.pendingCourses(studentId: studentId, term: AcademicTerm(year: query.year, term: term), scoredClassIds: ids)
+        guard self.query == query else { return }
+        pending = list
     }
 
     private func showCached(studentId: String, query: Query) async {

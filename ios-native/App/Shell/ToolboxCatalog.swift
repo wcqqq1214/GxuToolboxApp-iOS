@@ -2,6 +2,7 @@ import FeatureCourse
 
 import FeatureCampus
 import FeatureExam
+import FeatureMisc
 import SwiftUI
 
 struct ToolboxItem: Identifiable {
@@ -34,10 +35,10 @@ enum ToolboxCatalog {
     static let items: [ToolboxItem] = [
         // 学业
         item("examInfo", "考试信息", "calendar.badge.clock", .academic, { AnyView(ExamInfoView()) }),
-        item("examScore", "成绩查询", "checkmark.seal", .academic, { AnyView(ScoreView()) }),
+        item("examScore", "成绩查询", "checkmark.seal", .academic, { AnyView(ScoreWithPendingView()) }),
         item("gpa", "GPA 计算", "function", .academic, { AnyView(GpaView()) }),
-        item("selectedCourse", "已选课程", "books.vertical", .academic),
-        item("electiveStrategy", "选课策略", "list.bullet.clipboard", .academic),
+        item("selectedCourse", "已选课程", "books.vertical", .academic, { AnyView(SelectedCoursesView()) }),
+        item("electiveStrategy", "选课策略", "list.bullet.clipboard", .academic, { AnyView(ElectiveStrategyView()) }),
         item("reschedulingNews", "调休补班", "calendar.badge.clock", .academic, { AnyView(TimeShiftView()) }),
         item("evaluation", "教学评价", "text.bubble", .academic),
         // 校园
@@ -48,7 +49,7 @@ enum ToolboxCatalog {
         item("holiday", "节假日", "sun.max", .campus, { AnyView(HolidayView()) }),
         item("teacherInfo", "教师查询", "person.text.rectangle", .campus),
         // 服务
-        item("attendance", "考勤查询", "person.badge.clock", .service),
+        item("attendance", "考勤查询", "person.badge.clock", .service, { AnyView(AttendanceView()) }),
         item("eduRecharge", "校园网充值", "wifi", .service),
         item("oaFiles", "OA 文件", "doc.text", .service),
     ]

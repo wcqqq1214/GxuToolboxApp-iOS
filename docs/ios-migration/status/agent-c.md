@@ -1,17 +1,23 @@
 # Agent C 状态
 
-- 当前 Phase：Phase 2。ExamKit/ExamUI 拆分已完成
-- 已完成：
-  - FeatureExam：模型与解码、`ExamTimeParser`/排序分组/倒计时、`GpaCalculator`、`TermOptions`、GRDB 仓储（按 studentId 隔离，迁移 `exam.v1.*`）、`ExamAPI`/`ScoreAPI`、三个 ViewModel、三个页面（考试信息、成绩查询含平时分展开、绩点计算器）
-  - 工具箱三行已接入 `ToolboxCatalog`（examInfo / examScore / gpa）
-  - 默认学期用 B 的 `ScheduleRepository.currentTermInfo()`（假期看刚结束的学期，早于入学年份则看当前；拿不到时按月份推断）；学年范围用 A 的 `services.profiles`（入学年份起 `studyYears` 个，不晚于当前学年）。TEMP(coord-1)、TEMP(coord-2) 已删除
-  - 状态视图换用 GxuDesign（`GxuLoadingView`/`GxuEmptyView`/`GxuErrorView`/`GxuStaleBanner`）：有缓存时刷新失败只贴提示条，没有缓存才整页显示错误
-  - 39 个单元测试（含用 A 的真实脱敏 fixture 的 `RealFixtureTests`，期望值由 RN 同一公式独立算出）；App、Widget 构建通过；全部 package 的 `test.sh` 通过
-  - 真实账号 e2e 自查（浅色/深色）：`ios-native/.screens/real-{examInfo,examScore,gpa}-{light,dark}.png`。成绩页展开可见平时成绩（含占比）、总评、发布时间、学分、绩点、教师；GPA 页数值与成绩页一致。该账号是 2022 级，默认学期（2026 秋）已超出学制，所以截图用本地临时覆盖指到 2025 学年（覆盖代码未提交）
-- 进行中：无
+- 当前 Phase：Phase 2 已完成（见下），等待用户审查设计；Phase 3（教学评价、教师查询）未开始
+- Phase 2 已完成：
+  - **ExamKit / ExamUI 拆分**（PLAN §5.1 (a)）：`ExamKit` 无界面，含 `ExamRepository.nextExam / upcomingExams`、`NextExam`、`PendingCourse`；`ExamUI` 是页面。旧 product `FeatureExam` 保留为兼容层（= 两者 re-export），App 已改用 ExamKit + ExamUI
+  - **小组件**（`Widget/` + `ClassWidgetKit`）：主屏小 / 中 / 大，锁屏 `accessoryRectangular`、`accessoryInline`；时间线每节课开始、结束各一个条目，另加每天零点；数据来自 `WidgetBridge` 写入 App Group 的 `NextCourses` 快照（已含节假日 / 调课）；视图在 `ClassWidgetKit/Views`，Widget 只是外壳
+  - **Live Activity + 灵动岛**（紧凑 / 最小 / 展开）：显示正在上的课或 60 分钟内要上的课；用 `staleDate` 在开始 / 结束时切换界面，计时用系统计时文字，不需要后台更新
+  - **App Intents**：今天的课 / 明天的课 / 下一场考试（`ToolboxIntents`，`GxuIntentsPackage` + `GxuAppShortcuts` 在 App target），只读本地缓存
+  - **节假日页**（`HolidayView`，只读 `CampusCalendarRepository.current()`，不再请求，内置备份就是最新数据）、**调休补班页**（`TimeShiftView`）
+  - **已选课程**（`GET /jw/selected-courses`，GRDB 缓存按学号隔离，按学期分组、搜索、范围菜单）、**未出分科目**（成绩页，已选课程与成绩的差集，通过 `PendingCourseSource` 注入）
+  - **选课策略**（校选课查漏）：2021–2026 各年级规则完整移植，每个年级都有"达标 / 空列表 / 必修课 / 学分口径"测试（`ElectiveStrategyTests`，约 45 个用例）
+  - **考勤页**（FeatureMisc）：考勤记录（分页、汇总、按日分组）+ 考勤课表（按周，课程上标出勤状态）；内层 `code == 600` 才算成功；未登录 / `sessionExpired(.attendance)` 引导去考勤账号页
+  - 界面修改：学期选择改为工具栏菜单；GPA 分隔线与表头；去掉重复信息；不及格只标红分数；`1月23日` / `（30%）` / 同步时间不带秒
+- 待真实账号（考勤）：考勤页只用单测和 Mock 数据（`MiscDebugScreens`）验证，字段按 RN 类型定义写，**标 TODO(verify)**：`/attendance/index-data`、`personal-data`、`schedule` 的真实响应；`/jw/selected-courses` 也没有真实脱敏样本（请 A 抓一份放进 Fixtures/sanitized）
+- PLAN §5.1 (e) 小组件读 SharedStore 的实测：**待真机验证（需要真实 Team ID）**。已确认的：App 与 Widget 的 `.xcent` 都带 `group.com.gxutool.ios`（`strings` 可见），App 能拿到 App Group 容器；扩展运行时是否读到同一容器没有在模拟器上做（这台机器没有 Simulator.app，驱动 SpringBoard 加小组件超出 30 分钟时限，按用户指示停止）。WidgetBridge 同时把"当前学号"写进共享键 `widget.activeStudentId`，所以小组件不依赖 Keychain 就能找到快照
+- 设计自查图（不是真实小组件截图）：`ios-native/.screens/widgets/`（ImageRenderer 渲染，含浅色 / 深色 / accented 近似）。**限制**：accented 是去色近似，系统真实的染色合成要在设备上看；`ProgressView(timerInterval:)` 在 ImageRenderer 里渲不出来，截图里换成了静态进度条，真实 Activity 上的效果没有看过
+- 页面截图：`ios-native/.screens/c-*-{light,dark}.png`（`-GxuScreen c-exam|c-score|c-gpa|c-holiday|c-timeshift|c-selected|c-strategy|c-attendance[-expired|-nologin]`，内置假数据）
+- 没做 / 后端不支持：教务"调课消息"（RN `reschedulingNews`，直连教务 `/xtgl/index_cxDbsy.html`，后端没有代理，按 PLAN 不在 iOS 直连）；"选课课程列表查询"（`courseSelectionList`，同样直连教务）；GPA 累计范围
+- TODO(verify) 新增：实验课判断（`type`/课程名含"实验"）；2025/2026 级创业学分不参与"毕业资格"（RN 如此，界面逐项却显示未达标）；考勤课表 `courses[day]` 下标 0 是表头列的假设
 - 阻塞 / 等待：无
-- 给其他 agent 的通知：见 COORDINATION 的 `[phase1-done] C`
-- 未做 / Phase 2：未出分科目（依赖已选课程）；GPA "累计"范围；`ExamKit`/`ExamUI` 拆分（PLAN §5.1 (a)）；小学期（`term = 0`/3）后端不支持查询（§5.1 (d)），UI 只提供 1/2
 
 ---
 

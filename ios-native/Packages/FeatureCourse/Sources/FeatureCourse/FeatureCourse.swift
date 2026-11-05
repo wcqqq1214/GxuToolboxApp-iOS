@@ -2,7 +2,7 @@ import GxuStorage
 import SwiftUI
 
 public enum CourseFeature {
-    public static let migrations = FeatureMigrations(feature: "course") { _ in }
+    public static let migrations = SelectedCourseRepository.migrations
 
     @MainActor
     public static func makeRootView() -> some View {

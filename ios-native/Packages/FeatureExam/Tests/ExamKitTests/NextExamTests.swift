@@ -44,3 +44,30 @@ struct NextExamTests {
         #expect(try await repo.nextExam(studentId: "none", now: now, calendar: cal) == nil)
     }
 }
+
+struct PendingCourseTests {
+    @Test func diffKeepsSelectionOrder() {
+        let selected = [PendingCourse(id: "a", name: "高数"), PendingCourse(id: "b", name: "物理实验", isLab: true), PendingCourse(id: "c", name: "英语")]
+        let result = PendingCourse.diff(selected: selected, scoredIds: ["a"])
+        #expect(result.map(\.id) == ["b", "c"])
+        #expect(result.first?.displayName == "物理实验(实验)")
+        #expect(PendingCourse.diff(selected: selected, scoredIds: ["a", "b", "c"]).isEmpty)
+        #expect(PendingCourse.diff(selected: [], scoredIds: ["a"]).isEmpty)
+    }
+
+    @Test func allScoresAndSliceReplace() async throws {
+        let db = try AppDatabase.inMemory(features: [ExamRepository.migrations])
+        let repo = ExamRepository(database: db)
+        let s1 = Score(id: "1", year: 2024, term: 1, courseName: "A", credit: 2, score: 80)
+        let s2 = Score(id: "2", year: 2024, term: 2, courseName: "B", credit: 2, score: 90)
+        let s3 = Score(id: "3", year: 2025, term: 1, courseName: "C", credit: 2, score: 70)
+        try await repo.replaceAllScores([s1, s2, s3], studentId: "x")
+        try await repo.replaceAllScores([s2, s3], studentId: "y")
+        #expect(try await repo.allScores(studentId: "x").count == 3)
+        #expect(try await repo.allScores(studentId: "y").count == 2)
+        // 同一切片里不在新响应中的行被删；响应里没出现的学期不动
+        try await repo.replaceAllScores([Score(id: "4", year: 2024, term: 1, courseName: "D", credit: 1, score: 60)], studentId: "x")
+        let ids = Set(try await repo.allScores(studentId: "x").map(\.id))
+        #expect(ids == ["4", "2", "3"])
+    }
+}

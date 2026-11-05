@@ -6,19 +6,21 @@ import SwiftUI
 
 public struct ScoreView: View {
     @Environment(\.services) private var services
+    private let pendingSource: (any PendingCourseSource)?
 
-    public init() {}
+    /// `pendingSource` 提供"未出分科目"（已选课程在 FeatureCourse，由 App 注入）；不传则不显示
+    public init(pendingSource: (any PendingCourseSource)? = nil) { self.pendingSource = pendingSource }
 
     public var body: some View {
-        Content(services: services)
+        Content(services: services, pendingSource: pendingSource)
     }
 
     private struct Content: View {
         @State private var model: ScoreViewModel
         @State private var expanded: String?
 
-        init(services: AppServices) {
-            _model = State(initialValue: ScoreViewModel(services: services))
+        init(services: AppServices, pendingSource: (any PendingCourseSource)?) {
+            _model = State(initialValue: ScoreViewModel(services: services, pendingSource: pendingSource))
         }
 
         var body: some View {
@@ -30,13 +32,14 @@ public struct ScoreView: View {
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
                 }
-                if model.scores.isEmpty {
+                if model.scores.isEmpty && model.pending.isEmpty {
                     if model.isLoading {
                         GxuLoadingView("正在查询成绩…").frame(minHeight: 240).listRowBackground(Color.clear)
                     } else if model.error == nil {
                         GxuEmptyView("暂无成绩", systemImage: "list.bullet.clipboard").listRowBackground(Color.clear)
                     }
                 } else {
+                    if !model.scores.isEmpty {
                     Section {
                         ForEach(model.scores) { score in
                             ScoreRow(score: score, showsTerm: model.query.term == nil, isExpanded: expanded == score.id, usual: model.usual[score.id])
@@ -48,6 +51,20 @@ public struct ScoreView: View {
                         }
                     } header: {
                         status
+                    }
+                    }
+                    if !model.pending.isEmpty {
+                        Section {
+                            ForEach(model.pending) { course in
+                                HStack {
+                                    Text(course.displayName)
+                                    Spacer()
+                                    Text("未出分").foregroundStyle(.secondary)
+                                }
+                            }
+                        } header: {
+                            Text("未出分科目 · \(model.pending.count)门")
+                        }
                     }
                 }
             }

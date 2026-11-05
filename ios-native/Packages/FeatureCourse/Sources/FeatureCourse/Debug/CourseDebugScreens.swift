@@ -11,14 +11,16 @@ import SwiftUI
 
 /// DEBUG：`-GxuScreen c-exam|c-score|c-gpa|c-holiday|c-timeshift|…`，用内置假数据（不连后端、不用账号）打开 C 负责的页面，截图自查用。
 public enum CourseDebugScreens {
-    public static func handles(_ name: String) -> Bool { name.hasPrefix("c-") }
+    public static func handles(_ name: String) -> Bool { name.hasPrefix("c-") && !name.hasPrefix("c-attendance") }
 
     @MainActor @ViewBuilder
     public static func view(for name: String) -> some View {
         NavigationStack {
             switch name {
             case "c-exam": ExamInfoView()
-            case "c-score": ScoreView()
+            case "c-score": ScoreWithPendingView()
+            case "c-selected": SelectedCoursesView()
+            case "c-strategy": ElectiveStrategyView()
             case "c-gpa": GpaView()
             case "c-holiday": HolidayView()
             case "c-timeshift": TimeShiftView()
@@ -48,7 +50,8 @@ struct StubBackend: BackendAPI {
         switch path {
         case "/jw/profile/startDay": body = Self.startDays
         case "/jw/exam": body = Self.exams
-        case "/jw/score": body = Self.scores
+        case "/jw/score": body = query["year"] == nil ? Self.allScores : Self.scores
+        case "/jw/selected-courses": body = Self.selected(year: query["year"].flatMap(Int.init), term: query["term"].flatMap(Int.init))
         case "/jw/score/usual": body = #"[{"name":"平时成绩","ratio":"30","score":"91"},{"name":"期末成绩","ratio":"70","score":"84"},{"name":"总评","ratio":"N/A","score":"86"}]"#
         default: throw GxuError.network("调试数据不支持 \(path)")
         }
@@ -83,6 +86,40 @@ struct StubBackend: BackendAPI {
          {"id": "e4", "course": "体育", "classroom": "", "time": "待定", "type": "2026-2027学年第一学期期末考试"},
          {"id": "e5", "course": "大学物理实验", "classroom": "实验楼 B201", "time": "\(day(-10))(09:00-11:00)", "type": "2026-2027学年第一学期期中考试"}]
         """
+    }
+
+    private static func yearNow() -> Int { Calendar.current.component(.month, from: .now) >= 9 ? Calendar.current.component(.year, from: .now) : Calendar.current.component(.year, from: .now) - 1 }
+
+    private static func selected(year only: Int?, term onlyTerm: Int?) -> String {
+        let y = yearNow()
+        func c(_ id: String, _ name: String, _ credit: String, _ system: String, _ kind: String, year: Int, term: Int, teacher: String = "教师甲", belong: String = "") -> (year: Int, term: Int, json: String) {
+            (year, term, #"{"classId":"\#(id)","courseId":"k\#(id)","courseName":"\#(name)","type":"理论","selectionType":"\#(kind)","classification":"","belongTo":"\#(belong)","system":"\#(system)","teacher":"\#(teacher)","teacherId":"","credit":\#(credit),"year":\#(year),"term":\#(term)}"#)
+        }
+        let all = [
+            c("s1", "高等数学", "5", "", "专业必修课", year: y, term: 1),
+            c("s2", "大学英语", "3", "", "专业必修课", year: y, term: 1, teacher: "教师丙"),
+            c("s3", "程序设计基础", "3.5", "", "专业必修课", year: y, term: 1, teacher: "教师乙"),
+            c("s6", "大学物理实验", "1.5", "", "专业必修课", year: y, term: 1, teacher: "教师己"),
+            c("s7", "摄影艺术", "2", "艺术与审美", "通识选修课", year: y, term: 1, teacher: "教师癸"),
+            c("s8", "创新创业基础", "2", "创业", "通识选修课", year: y - 1, term: 2, teacher: "网络教师", belong: "网络通识"),
+            c("s9", "海洋生态概论", "1", "亚热带与海洋生态", "通识选修课", year: y - 1, term: 2),
+            c("s10", "科技伦理", "1", "科技与伦理", "通识选修课", year: y - 1, term: 1),
+        ]
+        let hit = all.filter { (only == nil || $0.year == only) && (onlyTerm == nil || $0.term == onlyTerm) }
+        return "{\"items\":[" + hit.map(\.json).joined(separator: ",") + "]}"
+    }
+
+    private static var allScores: String {
+        let y = yearNow()
+        func item(_ id: String, _ term: Int, _ year: Int, _ name: String, _ credit: String, _ score: String) -> String {
+            #"{"id":"\#(id)","year":\#(year),"term":\#(term),"course_name":"\#(name)","credit":\#(credit),"score":\#(score),"teacher_name":"教师","upload_at":"\#(day(-3)) 10:21:00"}"#
+        }
+        return "{\"items\":[" + [
+            item("s7", 1, y, "摄影艺术", "2", "88"),
+            item("s8", 2, y - 1, "创新创业基础", "2", "92"),
+            item("s9", 2, y - 1, "海洋生态概论", "1", "59"),
+            item("s10", 1, y - 1, "科技伦理", "1", "81"),
+        ].joined(separator: ",") + "]}"
     }
 
     private static var scores: String {

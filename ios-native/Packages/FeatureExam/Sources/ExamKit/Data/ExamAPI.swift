@@ -36,6 +36,16 @@ public struct ScoreAPI: Sendable {
         return page?.items ?? []
     }
 
+    /// 不带学年和学期的全部历史成绩（校选课查漏用；RN 同样不传 year / term）
+    public func allScores() async throws -> [Score] {
+        let page = try await backend.getData(
+            "/jw/score",
+            query: ["pageSize": "1000", "pageNo": "1", "orderBy": "desc", "order": "cjbdsj"],
+            as: ScorePage?.self
+        )
+        return page?.items ?? []
+    }
+
     /// `GET /jw/score/usual`
     public func usualScores(year: Int, term: Int, id: String) async throws -> [UsualScoreItem] {
         let list = try await backend.getData(
