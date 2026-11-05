@@ -43,7 +43,7 @@ struct CourseBlock: View {
         .overlay(alignment: .topLeading) {
             if selected.isMakeup {
                 Text("补")
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.caption2.weight(.bold))
                     .foregroundStyle(tint.fill)
                     .frame(width: 14, height: 14)
                     .background(tint.text, in: Circle())
@@ -53,7 +53,7 @@ struct CourseBlock: View {
         .overlay(alignment: .topTrailing) {
             if group.isConflict {
                 Text("\(group.items.count)")
-                    .font(.system(size: 10, weight: .bold).monospacedDigit())
+                    .font(.caption2.weight(.bold).monospacedDigit())
                     .foregroundStyle(tint.fill)
                     .frame(minWidth: 16, minHeight: 16)
                     .background(tint.text, in: Capsule())

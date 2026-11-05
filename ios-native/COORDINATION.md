@@ -448,6 +448,30 @@ Phase 3 的 C 部分：期末评教（总览 + 评教模板）、教师查询已
 - 教师查询：搜索（12 条 / 194 条 / 17 页）和详情的真实脱敏响应与模型一致，只多了 `position`（职务，已显示在详情页副标题）、`employed`、`achievements.summary`（RN 也没用）。分组逻辑（成果只有论文时不显示空的著作 / 专利）、空字段 `""` 的处理都用真实样本测试过，TODO(verify) 已删。
 - `/jw/evaluation`：A 的样本说明写明真实后端返回 404（路由没部署），所以评教总览现在会显示"评教列表服务暂未开放"。保留该接口的 TODO(verify)；**需要后端部署这个路由，或者用户决定直连教务**（评教的详情、评语、一键评教、提交同样依赖教务直连，仍然没做）。
 
+
+### [phase3-done] B（Agent B）
+
+Phase 3 的 B 部分全部完成并逐项发布（构建通过；FeatureSchedule / FeatureCampus / GxuDesign / FeatureExam 测试通过）：
+1. 物理实验课（PEC）；2. 金工实训（xlzxms）；3. 地图导航；4. 教学楼平面图和楼层图；5. 全局打磨；另：工具箱接入教师信息查询（`TeacherSearchView`），**期末学生评价不接**（`/jw/evaluation` 真实后端 404，保持“即将上线”，等用户决定）；补拍了班级详情深色图。校园网充值已按用户决定从范围里删除。
+
+**全局打磨做了什么：**
+- 动画：周标题 `contentTransition(.numericText())` + 周次切换动画、地图类型筛选 `.snappy`、回到本周按钮淡入缩放；
+- Dynamic Type：删除全部写死字号（课表“补”标记、冲突角标改用 `.caption2`），周网格仍限制在 xLarge 以内防止文字溢出课程块；其余页面使用系统字体样式。**限制：** 这台模拟器上 `simctl ui content_size` 和 `-UIPreferredContentSizeCategoryName` 都没能改变字号，所以大字号只做了代码审查，没有截图验证；
+- VoiceOver：工具箱图标对 VoiceOver 隐藏（避免重复朗读）；课程块、假期色带、星期表头、实践课行、实验课行都有合并后的无障碍文案；楼层图有“双击放大”提示；
+- 深色模式：所有新页面都看过深色截图；
+- `-GxuForceLegacy` 走查：首页、工具箱、设置、课表、物理实验课都走了一遍，没有发现新问题（iOS 18 附件盖标签栏的问题此前已修）。
+
+**后续测试（需要真实账号 / 校园网 / 真机）：** PEC 与工程训练中心的真实响应字段（统一认证账号 + 校园网）、Apple 地图搜索效果（真机）、楼层图依赖 `file.unde.site`、Dynamic Type 大字号目测、真实 iOS 18 runtime。
+**未做 / 遗留：** 实验课没有叠加到课表（RN 会把“大学物理实验”按日期替换成具体实验）；“点课程地点打开地图”（`CampusPlaces.place(forRoom:)` 已备好）。
+
+**Phase 3 截图（浅色 + 深色，把 `light` 换成 `dark`）：**
+- 物理实验课：`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/phyexp-light.png`（含需要账号提示 `/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/phyexp-needs-account-light.png`）
+- 金工实训：`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/engtraining-light.png`
+- 地图导航：`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/map-navigation-light.png`；教学楼平面图：`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/floor-plan-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/floor-map-light.png`
+- 工具箱：`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/toolbox-light.png`
+- 班级详情深色（补拍）：`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/class-detail-dark.png`
+- iOS 18 降级走查：`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/legacy-home-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/legacy-toolbox-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/legacy-settings-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/legacy-phyexp-light.png`（均有 dark）
+
 ## Agent A 收到的请求
 
 - [x] (C) `scripts/test.sh` 硬编码 scheme 为 `<Pkg>-Package`，但只有一个 library product 的 package（如 FeatureExam）scheme 就叫 `<Pkg>`，会报 "does not contain a scheme"。请让脚本先 `xcodebuild -list` 判断，或两个名字都试。我暂时直接用 `xcodebuild -scheme FeatureExam ... test`

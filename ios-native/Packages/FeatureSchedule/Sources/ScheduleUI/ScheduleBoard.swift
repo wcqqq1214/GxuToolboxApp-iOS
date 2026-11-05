@@ -80,6 +80,8 @@ struct ScheduleWeekTitle: View {
             VStack(spacing: 0) {
                 Text("第 \(model.selectedWeek) 周")
                     .font(.headline)
+                    .contentTransition(.numericText())
+                    .animation(.snappy, value: model.selectedWeek)
                     .overlay(alignment: .trailing) {
                         Image(systemName: "chevron.down")
                             .font(.caption2.weight(.bold))

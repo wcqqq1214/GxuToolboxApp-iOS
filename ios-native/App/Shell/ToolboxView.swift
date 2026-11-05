@@ -77,6 +77,7 @@ private struct ToolboxCell: View {
     private var cell: some View {
         HStack(spacing: GxuDesign.Spacing.m) {
             Image(systemName: item.systemImage)
+                .accessibilityHidden(true)
                 .font(.title3)
                 .foregroundStyle(item.isAvailable ? Color.accentColor : Color.secondary)
                 .frame(width: 40, height: 40)

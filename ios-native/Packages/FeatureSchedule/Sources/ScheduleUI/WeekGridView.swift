@@ -103,9 +103,9 @@ private struct DayHeader: View {
                 .overlay(alignment: .topTrailing) {
                     if isMakeup {
                         Text("补")
-                            .font(.system(size: 9, weight: .bold))
+                            .font(.caption2.weight(.bold))
                             .foregroundStyle(.white)
-                            .frame(width: 13, height: 13)
+                            .frame(minWidth: 16, minHeight: 16)
                             .background(Color.orange, in: Circle())
                             .offset(x: 9, y: -5)
                     }
