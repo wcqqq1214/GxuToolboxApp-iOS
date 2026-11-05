@@ -9,16 +9,38 @@ import SwiftUI
 /// DEBUG：`-GxuScreen c-attendance | c-attendance-expired | c-attendance-nologin`，用内置假数据打开考勤页，截图自查用。
 /// 有 `-GxuAttendanceSchedule` 时默认打开"考勤课表"页签（需要和 -GxuScreen 一起用）。
 public enum MiscDebugScreens {
-    public static func handles(_ name: String) -> Bool { name.hasPrefix("c-attendance") }
+    public static func handles(_ name: String) -> Bool { name.hasPrefix("c-attendance") || name.hasPrefix("c-teacher") }
 
     @MainActor @ViewBuilder
     public static func view(for name: String) -> some View {
-        NavigationStack { AttendanceView() }
-            .environment(\.services, services(for: name))
+        PushedScreen(name: name)
+    }
+
+    /// 带返回按钮地"推"进去，和真实导航一致
+    private struct PushedScreen: View {
+        let name: String
+        @State private var path = [String]()
+        var body: some View {
+            NavigationStack(path: $path) {
+                Text("工具箱").navigationTitle("工具箱")
+                    .navigationDestination(for: String.self) { page in
+                        Group {
+                            switch page {
+                            case "c-teachers": TeacherSearchView()
+                            case "c-teachers-results": TeacherSearchView()
+                            case "c-teacher-detail": TeacherDetailView(teacher: TeacherSummary(id: "1", name: "张老师", unit: "计算机与电子信息学院"))
+                            default: AttendanceView()
+                            }
+                        }
+                        .environment(\.services, MiscDebugScreens.services(for: name))
+                    }
+            }
+            .task { path = [name] }
+        }
     }
 
     @MainActor
-    private static func services(for name: String) -> AppServices {
+    static func services(for name: String) -> AppServices {
         let client = BackendClient(session: BackendClient.makeSession(configuration: .ephemeral))
         let credentials = InMemoryCredentialStore([.jw: Credential(username: "2025000000", password: "demo")])
         let jw = JwSessionManager(credentials: credentials, transport: client)
@@ -51,6 +73,10 @@ private struct StubBackend: BackendAPI {
         case "/attendance/index-data": inner = Self.menu
         case "/attendance/personal-data": inner = Self.records
         case "/attendance/schedule": inner = Self.schedule
+        case "/teachers/search":
+            return try JSONDecoder().decode(type, from: Data(Self.teacherSearch.utf8))
+        case "/teachers/profile":
+            return try JSONDecoder().decode(type, from: Data(Self.teacherProfile.utf8))
         default: throw GxuError.network("调试数据不支持 \(path)")
         }
         return try JSONDecoder().decode(type, from: Data(#"{"data":{"code":600,"msg":"","data":\#(inner)}}"#.utf8))
@@ -59,6 +85,19 @@ private struct StubBackend: BackendAPI {
     func post<T: Decodable & Sendable, Body: Encodable & Sendable>(_ path: String, body: Body, auth: AuthSystem?, as type: T.Type) async throws -> T {
         throw GxuError.network("调试数据不支持 \(path)")
     }
+
+    private static let teacherSearch = """
+    {"data":{"list":[
+      {"id":"1","name":"张明","unit":"计算机与电子信息学院"},{"id":"2","name":"张伟","unit":"土木建筑工程学院"},
+      {"id":"3","name":"张丽","unit":"数学与信息科学学院"},{"id":"4","name":"张强","unit":"机械工程学院"}],"pages":3,"total":41}}
+    """
+
+    private static let teacherProfile = """
+    {"data":{"baseInfo":{"name":"张明","title":"教授","highestDegree":"博士","highestEducation":"研究生","supervisor":"博士生导师","email":"zhang@example.edu.cn","telephone":"0771-0000000",
+      "supervisedDisciplines":[{"disciplineCategory":"工学","primaryDiscipline":"计算机科学与技术","secondary":"计算机应用技术"}]},
+     "academicProfile":{"biography":"长期从事分布式系统和教育信息化研究。","coursesTaught":"操作系统；计算机网络","researchDirections":"分布式系统；边缘计算",
+      "achievements":{"papers":"发表论文 60 余篇。","books":"","patents":"授权发明专利 5 项。"},"honorsAndAwards":"自治区教学成果奖二等奖"}}}
+    """
 
     private static func day(_ offset: Int) -> String {
         let f = DateFormatter()

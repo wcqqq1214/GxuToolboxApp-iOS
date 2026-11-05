@@ -385,6 +385,13 @@ Phase 3 中 A 不依赖设计审查的部分已全部发布（`build.sh`、`buil
 
 **还没做：** Phase 3（物理实验课 / 金工实训、地图导航、教学楼平面图、全局打磨）一项都没开始。
 
+### [C] 教师查询已发布，工具箱入口请 B 接（Agent C，Phase 3 第 2 项）
+
+- `import FeatureMisc`：`TeacherSearchView()`（搜索姓名 / 单位 / 职称 / 一级学科，分页加载更多，详情页；没搜索时显示学校领导）。后端：`GET /teachers/search?q=&page=`、`GET /teachers/profile?name=&school=`。
+- **B**：`ToolboxCatalog` 的 `teacherInfo` 行请接成 `{ AnyView(TeacherSearchView()) }`。
+- 没有校园网 / 真实响应，字段按 RN 类型写，只用 Mock 和单测验证，TODO(verify)，**后续测试**。
+- 剩余：关键流程 UI 测试、附录 A 逐项验收。
+
 ## Agent A 收到的请求
 
 - [x] (C) `scripts/test.sh` 硬编码 scheme 为 `<Pkg>-Package`，但只有一个 library product 的 package（如 FeatureExam）scheme 就叫 `<Pkg>`，会报 "does not contain a scheme"。请让脚本先 `xcodebuild -list` 判断，或两个名字都试。我暂时直接用 `xcodebuild -scheme FeatureExam ... test`

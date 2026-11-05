@@ -11,7 +11,7 @@ import SwiftUI
 
 /// DEBUG：`-GxuScreen c-exam|c-score|c-gpa|c-holiday|c-timeshift|…`，用内置假数据（不连后端、不用账号）打开 C 负责的页面，截图自查用。
 public enum CourseDebugScreens {
-    public static func handles(_ name: String) -> Bool { name.hasPrefix("c-") && !name.hasPrefix("c-attendance") }
+    public static func handles(_ name: String) -> Bool { name.hasPrefix("c-") && !name.hasPrefix("c-attendance") && !name.hasPrefix("c-teacher") }
 
     /// 和真实使用一样从上一级页面"推"进去（有返回按钮，标题可用宽度更窄），而不是作为根页面
     @MainActor
