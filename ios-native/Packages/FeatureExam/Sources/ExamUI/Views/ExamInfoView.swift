@@ -85,11 +85,6 @@ private struct ExamRow: View {
             Text(item.timeLine()).font(.subheadline)
             if !detail.isEmpty {
                 Text(detail).font(.subheadline).foregroundStyle(.secondary)
-
-            Label(timeText, systemImage: "clock")
-            Label(item.exam.classroom.isEmpty ? "未知" : item.exam.classroom, systemImage: "building.2")
-            if item.status != .past, !item.exam.seatText.isEmpty {
-                Label(item.exam.seatText, systemImage: "chair")   // 教务已不提供座位号，没有就不占一行
             }
         }
         .opacity(item.status == .past ? 0.6 : 1)

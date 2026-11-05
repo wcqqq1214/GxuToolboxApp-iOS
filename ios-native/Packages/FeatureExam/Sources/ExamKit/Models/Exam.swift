@@ -34,11 +34,6 @@ public struct Exam: Codable, Hashable, Sendable, Identifiable {
 }
 
 extension Exam {
-    /// 座位号的统一显示：纯数字写成“8 号”，其他写法（如 A12）写成“座位 A12”，没有座位号返回空串。
-    /// 首页、考试页等所有显示座位号的地方都用它。
-    public var seatText: String {
-        let seat = seat.trimmingCharacters(in: .whitespaces)
-        if seat.isEmpty { return "" }
-        return seat.allSatisfy(\.isNumber) ? "\(seat) 号" : "座位 \(seat)"
-    }
+    /// 座位号的统一显示，转发给 `ExamSeat.text`（纯数字“8 号”，其他“座位 A12”，没有则空串）
+    public var seatText: String { ExamSeat.text(seat) }
 }

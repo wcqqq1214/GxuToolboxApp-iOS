@@ -2,7 +2,17 @@ import GxuStorage
 import SwiftUI
 
 public enum CampusFeature {
-    public static let migrations = FeatureMigrations(feature: "campus") { _ in }
+    public static let migrations = FeatureMigrations(feature: "campus") { migrator in
+        // 物理实验课（PEC）：每个学号一份，整条存 JSON
+        migrator.registerMigration("campus.v1.createPhyExperiment") { db in
+            try db.create(table: "phy_experiment") { t in
+                t.column("studentId", .text).notNull()
+                t.column("id", .text).notNull()
+                t.column("json", .blob).notNull()
+                t.primaryKey(["studentId", "id"])
+            }
+        }
+    }
 
     /// 工具箱 → 班级课表
     @MainActor
@@ -11,6 +21,10 @@ public enum CampusFeature {
     /// 工具箱 → 全校课表
     @MainActor
     public static func makeFullScheduleView() -> some View { FullScheduleView() }
+
+    /// 工具箱 → 物理实验课（PEC）
+    @MainActor
+    public static func makePhyExpView() -> some View { PhyExpView() }
 
     @MainActor
     public static func makeRootView() -> some View { makeClassScheduleView() }

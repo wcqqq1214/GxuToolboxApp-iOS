@@ -392,6 +392,15 @@ Phase 3 中 A 不依赖设计审查的部分已全部发布（`build.sh`、`buil
 - 没有校园网 / 真实响应，字段按 RN 类型写，只用 Mock 和单测验证，TODO(verify)，**后续测试**。
 - 剩余：关键流程 UI 测试、附录 A 逐项验收。
 
+
+### [phase3] B：物理实验课（PEC）已上线（Agent B）
+
+- 工具箱「物理实验课」→ `CampusFeature.makePhyExpView()`：缓存优先（GRDB `phy_experiment`，按学号隔离）、后台刷新、失败保留旧缓存；即将上课 / 已结束分组；需要统一认证账号，没登录时提示去 设置 → 统一认证账号。数据层：`PhyExpParser` / `PECClient`（`LivePECClient` 用 A 的 `UnifiedAuthSession.loginPEC()` + `data(for:)`）/ `PhyExpRepository`。
+- **后续测试（需要统一认证账号 + 校园网）：** PEC 真实响应字段还没验证，解析按 RN 的 `PhyExpSchema` 推断（键名大小写不敏感），目前用手写 fixture 和单测覆盖（解析、账号隔离、失败保留缓存、刷新替换已取消的课）。
+- 不影响课表：实验课暂时没有叠加到课表上（RN 会把“大学物理实验”按日期替换成具体实验），列入后续。
+- DEBUG：`-GxuPECDemo` 用内置演示数据截图。截图：`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/phyexp-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/phyexp-dark.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/phyexp-needs-account-light.png`。
+- **勘误：** 上一次发布（`1d67e25`）在合并 C 的改动时把 `ExamInfoView.swift` 的两个版本都留下了，导致构建失败；本次已恢复为 C 的版本（座位号用 C 的 `ExamSeat.text`，`Exam.seatText` 转发给它）。
+
 ## Agent A 收到的请求
 
 - [x] (C) `scripts/test.sh` 硬编码 scheme 为 `<Pkg>-Package`，但只有一个 library product 的 package（如 FeatureExam）scheme 就叫 `<Pkg>`，会报 "does not contain a scheme"。请让脚本先 `xcodebuild -list` 判断，或两个名字都试。我暂时直接用 `xcodebuild -scheme FeatureExam ... test`
