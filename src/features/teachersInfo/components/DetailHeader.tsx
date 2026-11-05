@@ -3,7 +3,7 @@ import {StyleSheet, View} from "react-native";
 import {Divider, Image, useTheme} from "@rneui/themed";
 import {UnText} from "@/components/un-ui";
 import {Color} from "@/shared/color.ts";
-import {TeacherInfoDetail} from "@gxutool/adapters/teacherInfo";
+import type {TeacherInfoDetail} from "@/features/teachersInfo/type/info";
 import dayjs from "dayjs";
 
 const DEFAULT_PHOTO = "https://prof.gxu.edu.cn/images/icon-teacher.jpg";

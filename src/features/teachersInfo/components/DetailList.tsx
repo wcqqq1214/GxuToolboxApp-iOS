@@ -4,7 +4,7 @@ import {Divider, useTheme} from "@rneui/themed";
 import {UnText} from "@/components/un-ui";
 import {DetailHeader} from "@/features/teachersInfo/components/DetailHeader.tsx";
 import {buildSections} from "@/features/teachersInfo/utils/sections.ts";
-import {TeacherInfoDetail} from "@gxutool/adapters/teacherInfo";
+import type {TeacherInfoDetail} from "@/features/teachersInfo/type/info";
 
 /**
  * 展示教师详情分组，头部资料 + 若干「标题 / 正文」块。

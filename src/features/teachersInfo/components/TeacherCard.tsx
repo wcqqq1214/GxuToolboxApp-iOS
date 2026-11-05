@@ -5,7 +5,7 @@ import {useNavigation} from "@react-navigation/native";
 import type {NativeStackNavigationProp} from "@react-navigation/native-stack";
 import {Flex, UnCard, UnPressable, UnText} from "@/components/un-ui";
 import type {TeacherStackParamList} from "@/features/teachersInfo/type/info.ts";
-import {TeacherInfoList} from "@gxutool/adapters/teacherInfo";
+import type {TeacherInfoList} from "@/features/teachersInfo/type/info";
 
 const DEFAULT_TEACHER_PHOTO = "https://prof.gxu.edu.cn/images/icon-teacher.jpg";
 

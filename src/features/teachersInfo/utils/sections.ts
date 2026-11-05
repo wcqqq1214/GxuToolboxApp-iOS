@@ -1,4 +1,4 @@
-import {TeacherInfoDetail} from "@gxutool/adapters/teacherInfo";
+import type {TeacherInfoDetail} from "@/features/teachersInfo/type/info";
 
 export type DetailSection = {
     key: string;

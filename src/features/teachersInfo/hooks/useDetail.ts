@@ -1,7 +1,7 @@
 import {useCallback, useEffect, useRef, useState} from "react";
 import {teacherApi} from "@/features/teachersInfo/api";
 import type {SimpleTeacherInfo} from "@/features/teachersInfo/type/info.ts";
-import {TeacherInfoDetail} from "@gxutool/adapters/teacherInfo";
+import type {TeacherInfoDetail} from "@/features/teachersInfo/type/info";
 
 type TeacherDetailState = {
     data: TeacherInfoDetail | null;

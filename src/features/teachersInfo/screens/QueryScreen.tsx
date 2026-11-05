@@ -5,7 +5,7 @@ import {UnText, vw} from "@/components/un-ui";
 import {Leader} from "@/features/teachersInfo/components/Leader.tsx";
 import {TeacherCard} from "@/features/teachersInfo/components/TeacherCard.tsx";
 import {useSearch} from "@/features/teachersInfo/hooks/useSearch.ts";
-import type {TeacherInfoList} from "@gxutool/adapters/teacherInfo";
+import type {TeacherInfoList} from "@/features/teachersInfo/type/info";
 
 function QueryResultSeparator() {
     return <View style={styles.separator} />;
