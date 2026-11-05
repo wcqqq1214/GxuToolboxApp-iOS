@@ -27,14 +27,6 @@ public struct GpaView: View {
         var body: some View {
             let result = model.gpa
             List {
-                Section {
-                    TermPicker(
-                        years: model.years,
-                        year: Binding(get: { model.query.year }, set: { model.query.year = $0 }),
-                        term: Binding(get: { model.query.term }, set: { model.query.term = $0 }),
-                        allowsWholeYear: true
-                    )
-                }
                 if model.error != nil {
                     errorSection(model.error, hasData: !model.scores.isEmpty, updatedAt: model.lastSyncedAt) {
                         Task { await model.load() }
@@ -50,11 +42,13 @@ public struct GpaView: View {
                             .contentTransition(.numericText())
                     }
                     .frame(maxWidth: .infinity)
+                    .listRowSeparator(.hidden)
                     Picker("指标", selection: $showsWam) {
                         Text("平均学分绩点").tag(false)
                         Text("加权平均成绩").tag(true)
                     }
                     .pickerStyle(.segmented)
+                    .listRowSeparator(.hidden)
                 }
                 if !model.scores.isEmpty {
                     Section {
@@ -68,16 +62,27 @@ public struct GpaView: View {
                             }
                         }
                     } header: {
-                        Text("课程")
-                    } footer: {
-                        Text("右两列依次为绩点、学分")
+                        HStack {
+                            Text("课程")
+                            Spacer()
+                            Text("绩点").frame(width: 56)
+                            Text("学分").frame(width: 40, alignment: .trailing)
+                        }
                     }
                 }
             }
             .navigationTitle("绩点计算器")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                Button("计算方法", systemImage: "questionmark.circle") { showsMethod = true }
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    TermMenu(
+                        years: model.years,
+                        year: Binding(get: { model.query.year }, set: { model.query.year = $0 }),
+                        term: Binding(get: { model.query.term }, set: { model.query.term = $0 }),
+                        allowsWholeYear: true
+                    )
+                    Button("计算方法", systemImage: "questionmark.circle") { showsMethod = true }
+                }
             }
             .sheet(isPresented: $showsMethod) { GpaMethodSheet() }
             .task { await model.resolveInitialTerm() }

@@ -22,9 +22,6 @@ public struct ExamInfoView: View {
 
         var body: some View {
             List {
-                Section {
-                    TermPicker(years: model.years, year: yearBinding, term: termBinding)
-                }
                 if model.error != nil {
                     errorSection(model.error, hasData: model.hasData) { Task { await model.load() } }
                         .listRowInsets(EdgeInsets())
@@ -43,6 +40,7 @@ public struct ExamInfoView: View {
             }
             .navigationTitle("考试信息")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar { TermMenu(years: model.years, year: yearBinding, term: termBinding) }
             .task { await model.resolveInitialTerm() }
             .task(id: LoadKey(value: model.term, ready: model.isReady)) { await model.load() }
             .refreshable { await model.load() }
@@ -77,7 +75,7 @@ private struct ExamRow: View {
             HStack(alignment: .firstTextBaseline) {
                 Text(item.exam.course).font(.headline)
                 Spacer()
-                badge
+                if item.status != .past { badge }
             }
             Label(timeText, systemImage: "clock")
             Label(item.exam.classroom.isEmpty ? "未知" : item.exam.classroom, systemImage: "building.2")
@@ -94,14 +92,14 @@ private struct ExamRow: View {
     private var timeText: String {
         guard let date = item.date else { return item.exam.time.isEmpty ? "时间未定" : item.exam.time }
         let f = DateFormatter()
-        f.dateFormat = "MM月dd日 HH:mm"
+        f.dateFormat = "M月d日 HH:mm"
         return f.string(from: date)
     }
 
     private var badge: some View {
         let (text, color): (String, Color) = switch item.status {
         case .upcoming: (item.countdownText() ?? "即将开考", .red)
-        case .past: ("已结束", .gray)
+        case .past: ("", .gray)   // 已结束的行不显示徽章，分组标题已说明
         case .tbd: ("时间未知", .orange)
         }
         return Text(text)

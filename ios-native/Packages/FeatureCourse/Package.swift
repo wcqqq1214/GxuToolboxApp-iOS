@@ -31,6 +31,7 @@ let package = Package(
             .product(name: "GxuStorage", package: "GxuCore"),
             .product(name: "ScheduleKit", package: "FeatureSchedule"),
             .product(name: "ExamKit", package: "FeatureExam"),
+            .product(name: "GxuDesign", package: "GxuDesign"),
         ]),
         .target(name: "ToolboxIntents", dependencies: [
             "ClassWidgetKit",

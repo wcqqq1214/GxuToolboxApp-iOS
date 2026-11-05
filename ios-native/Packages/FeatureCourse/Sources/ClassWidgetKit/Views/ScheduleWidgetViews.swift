@@ -4,11 +4,19 @@ import ScheduleKit
 import SwiftUI
 import WidgetKit
 
-struct ScheduleWidgetView: View {
-    @Environment(\.widgetFamily) private var family
+public struct ScheduleWidgetView: View {
+    @Environment(\.widgetFamily) private var environmentFamily
     var entry: ScheduleWidgetEntry
+    /// 仅用于进程内渲染（设计自查）；在小组件里由系统环境决定
+    var familyOverride: WidgetFamily?
+    private var family: WidgetFamily { familyOverride ?? environmentFamily }
 
-    var body: some View {
+    public init(entry: ScheduleWidgetEntry, family: WidgetFamily? = nil) {
+        self.entry = entry
+        self.familyOverride = family
+    }
+
+    public var body: some View {
         Group {
             switch family {
             case .systemSmall: SmallView(entry: entry)
@@ -198,7 +206,7 @@ private struct LargeView: View {
                 HStack {
                     StatusLabel(entry: entry)
                     Spacer()
-                    Text(entry.date, format: .dateTime.month().day().weekday(.abbreviated))
+                    Text(entry.date.formatted(.dateTime.month().day().weekday(.abbreviated).locale(Locale(identifier: "zh_CN"))))
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 if today.isEmpty {
@@ -253,7 +261,7 @@ private struct InlineView: View {
 
 // MARK: 示例数据（占位 / 预览）
 
-extension ScheduleWidgetEntry {
+public extension ScheduleWidgetEntry {
     static var sample: ScheduleWidgetEntry {
         let cal = Calendar.current
         let day = cal.startOfDay(for: .now)

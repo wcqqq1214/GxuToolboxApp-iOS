@@ -23,10 +23,6 @@ public struct ScoreView: View {
 
         var body: some View {
             List {
-                Section {
-                    TermPicker(years: model.years, year: yearBinding, term: termBinding, allowsWholeYear: true)
-                    status
-                }
                 if model.error != nil {
                     errorSection(model.error, hasData: !model.scores.isEmpty, updatedAt: model.lastSyncedAt) {
                         Task { await model.load() }
@@ -43,7 +39,7 @@ public struct ScoreView: View {
                 } else {
                     Section {
                         ForEach(model.scores) { score in
-                            ScoreRow(score: score, isExpanded: expanded == score.id, usual: model.usual[score.id])
+                            ScoreRow(score: score, showsTerm: model.query.term == nil, isExpanded: expanded == score.id, usual: model.usual[score.id])
                                 .contentShape(Rectangle())
                                 .onTapGesture {
                                     expanded = expanded == score.id ? nil : score.id
@@ -51,17 +47,21 @@ public struct ScoreView: View {
                                 }
                         }
                     } header: {
-                        Text("共 \(model.scores.count) 门")
+                        status
                     }
                 }
             }
             .navigationTitle("成绩查询")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                NavigationLink {
-                    GpaView(initial: model.query)
-                } label: {
-                    Label("绩点计算器", systemImage: "function")
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    if model.isLoading { ProgressView().controlSize(.small) }
+                    TermMenu(years: model.years, year: yearBinding, term: termBinding, allowsWholeYear: true)
+                    NavigationLink {
+                        GpaView(initial: model.query)
+                    } label: {
+                        Label("绩点计算器", systemImage: "function")
+                    }
                 }
             }
             .task { await model.resolveInitialTerm() }
@@ -69,14 +69,10 @@ public struct ScoreView: View {
             .refreshable { await model.load() }
         }
 
-        @ViewBuilder
-        private var status: some View {
-            HStack {
-                if let date = model.lastSyncedAt {
-                    Text("上次同步: \(syncText(date))").font(.footnote).foregroundStyle(.secondary)
-                }
-                if model.isLoading { ProgressView().controlSize(.small) }
-            }
+        private var status: Text {
+            let count = "共 \(model.scores.count) 门"
+            guard let date = model.lastSyncedAt else { return Text(count) }
+            return Text("\(count) · 上次同步 \(syncText(date))")
         }
 
         private var yearBinding: Binding<Int> {
@@ -91,6 +87,7 @@ public struct ScoreView: View {
 
 private struct ScoreRow: View {
     let score: Score
+    let showsTerm: Bool
     let isExpanded: Bool
     let usual: UsualScoreState?
 
@@ -99,13 +96,15 @@ private struct ScoreRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text(termLabel).font(.footnote).foregroundStyle(.secondary).frame(width: 56, alignment: .leading)
+                if showsTerm {
+                    Text(termLabel).font(.footnote).foregroundStyle(.secondary).frame(width: 56, alignment: .leading)
+                }
                 Text(score.courseName).font(.headline)
                 Spacer()
                 Text(score.score.map { $0.formatted(.number.precision(.fractionLength(0...1))) } ?? "—")
                     .font(.title3.bold())
+                    .foregroundStyle(failed ? Color.red : Color.primary)
             }
-            .foregroundStyle(failed ? Color.red : Color.primary)
 
             if isExpanded {
                 VStack(spacing: 6) {
@@ -135,7 +134,7 @@ private struct ScoreRow: View {
         case .loaded(let items):
             ForEach(items, id: \.self) { item in
                 detail(
-                    (item.name.isEmpty ? "暂无" : item.name) + (item.hasRatio ? "（\(item.ratio) %）" : ""),
+                    (item.name.isEmpty ? "暂无" : item.name) + (item.hasRatio ? "（\(item.ratio)%）" : ""),
                     item.score.isEmpty ? "暂无" : item.score
                 )
             }

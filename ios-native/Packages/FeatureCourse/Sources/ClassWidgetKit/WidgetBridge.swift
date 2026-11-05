@@ -15,6 +15,7 @@ public enum WidgetBridge {
     /// 运行直到任务取消。
     public static func run(services: AppServices) async {
         #if DEBUG
+        if let directory = WidgetGallery.outputDirectory() { WidgetGallery.run(into: directory); return }
         if ProcessInfo.processInfo.arguments.contains("-GxuWidgetDemo") { await runDemo(services: services); return }
         #endif
         await refresh(services: services)
