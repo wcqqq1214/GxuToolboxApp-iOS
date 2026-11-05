@@ -1,5 +1,21 @@
 import {integer, primaryKey, real, sqliteTable, text, uniqueIndex} from "drizzle-orm/sqlite-core";
 
+/** 按账号保存实验课，时间由学期、教学周、星期和节次确定。 */
+export const customEvents = sqliteTable("customEvents", {
+    id: integer("id").primaryKey({autoIncrement: true}),
+    ownerKey: text("ownerKey").notNull(),
+    title: text("title").notNull(),
+    location: text("location").notNull(),
+    teacher: text("teacher").notNull(),
+    notes: text("notes").notNull(),
+    year: integer("year").notNull(),
+    term: integer("term").notNull(),
+    weeks: text("weeks", {mode: "json"}).$type<number[]>().notNull(),
+    weekday: integer("weekday").notNull(),
+    begin: integer("begin").notNull(),
+    end: integer("end").notNull(),
+});
+
 export const evaluationTemplates = sqliteTable("evaluationTemplates", {
     id: integer("id").primaryKey({autoIncrement: true}),
     name: text("name").notNull().unique(),

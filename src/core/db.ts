@@ -18,7 +18,19 @@ const originalExecuteRawAsync = (expoDb as any).executeRawAsync;
 
 export const db = drizzle(expoDb, {schema});
 
-export async function initDB() {
+let initialization: Promise<void> | null = null;
+
+/** 共享启动迁移任务，允许 repository 等待建表完成；失败后允许再次初始化。 */
+export function initDB(): Promise<void> {
+    if (initialization) return initialization;
+    initialization = migrateDatabase().catch(error => {
+        initialization = null;
+        throw error;
+    });
+    return initialization;
+}
+
+async function migrateDatabase() {
     // 删除所有可能遗留的旧表
     const oldTables = ["evaluation_templates", "user_profiles", "term_start_day", "exam_score"];
 
