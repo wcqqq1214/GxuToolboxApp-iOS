@@ -1,0 +1,11 @@
+# 生成物：由 xcodegen 生成
+*.xcodeproj
+.build/
+DerivedData/
+.swiftpm/
+xcuserdata/
+
+# 本地数据，不入库
+.secrets/
+Fixtures/raw/
+.screens/

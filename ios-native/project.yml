@@ -1,0 +1,91 @@
+name: GxuToolApp
+options:
+  bundleIdPrefix: com.gxutool
+  deploymentTarget:
+    iOS: "18.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: false
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    # TODO(user): 填写 Apple Developer Team ID（真机运行、App Group、Keychain 共享都需要）
+    DEVELOPMENT_TEAM: ""
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+packages:
+  GxuCore: {path: Packages/GxuCore}
+  GxuDesign: {path: Packages/GxuDesign}
+  FeatureAccount: {path: Packages/FeatureAccount}
+  FeatureSchedule: {path: Packages/FeatureSchedule}
+  FeatureCampus: {path: Packages/FeatureCampus}
+  FeatureExam: {path: Packages/FeatureExam}
+  FeatureCourse: {path: Packages/FeatureCourse}
+  FeatureMisc: {path: Packages/FeatureMisc}
+targets:
+  GxuToolApp:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+        excludes: ["Resources/Info.plist", "Resources/GxuToolApp.entitlements"]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.gxutool.ios
+        PRODUCT_NAME: GxuToolApp
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        TARGETED_DEVICE_FAMILY: "1"
+    info:
+      path: App/Resources/Info.plist
+      properties:
+        CFBundleDisplayName: 西大工具箱
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        NSAppTransportSecurity:
+          NSExceptionDomains:
+            api.tool.gxutech.xyz:
+              NSExceptionAllowsInsecureHTTPLoads: true
+              NSIncludesSubdomains: false
+    entitlements:
+      path: App/Resources/GxuToolApp.entitlements
+      properties:
+        com.apple.security.application-groups: [group.com.gxutool.ios]
+        keychain-access-groups: ["$(AppIdentifierPrefix)com.gxutool.ios"]
+    dependencies:
+      - target: GxuWidget
+      - {package: GxuCore, product: GxuFoundation}
+      - {package: GxuCore, product: GxuNetworking}
+      - {package: GxuCore, product: GxuAuth}
+      - {package: GxuCore, product: GxuStorage}
+      - {package: GxuDesign, product: GxuDesign}
+      - {package: FeatureAccount, product: FeatureAccount}
+      - {package: FeatureSchedule, product: ScheduleKit}
+      - {package: FeatureSchedule, product: ScheduleUI}
+      - {package: FeatureCampus, product: FeatureCampus}
+      - {package: FeatureExam, product: FeatureExam}
+      - {package: FeatureCourse, product: FeatureCourse}
+      - {package: FeatureMisc, product: FeatureMisc}
+  GxuWidget:
+    type: app-extension
+    platform: iOS
+    sources: [Widget]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.gxutool.ios.widget
+        PRODUCT_NAME: GxuWidget
+        SKIP_INSTALL: YES
+    info:
+      path: Widget/Info.plist
+      properties:
+        CFBundleDisplayName: 西大工具箱小组件
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: Widget/GxuWidget.entitlements
+      properties:
+        com.apple.security.application-groups: [group.com.gxutool.ios]
+        keychain-access-groups: ["$(AppIdentifierPrefix)com.gxutool.ios"]
+    dependencies:
+      - {package: GxuCore, product: GxuFoundation}
+      - {package: GxuCore, product: GxuStorage}
