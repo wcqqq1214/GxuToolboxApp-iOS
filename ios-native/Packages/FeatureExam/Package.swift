@@ -20,6 +20,6 @@ let package = Package(
         .testTarget(name: "FeatureExamTests", dependencies: [
             "FeatureExam",
             .product(name: "GxuTestSupport", package: "GxuCore"),
-        ]),
+        ], resources: [.copy("Fixtures")]),
     ]
 )

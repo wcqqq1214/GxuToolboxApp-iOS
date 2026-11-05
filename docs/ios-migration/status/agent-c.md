@@ -1,15 +1,13 @@
 # Agent C 状态
 
-- 当前 Phase：Phase 1（FeatureExam 已完成可用版本，等 B 的 Shell 接入入口）
+- 当前 Phase：Phase 1 收尾（工具箱入口、currentTermInfo、真实 fixture 测试已完成；等 A 的 profile 与 run-e2e.sh）
 - 已完成：
   - FeatureExam：模型与解码、`ExamTimeParser`/排序分组/倒计时、`GpaCalculator`、`TermOptions`、GRDB 仓储（按 studentId 隔离，迁移 `exam.v1.*`）、`ExamAPI`/`ScoreAPI`、三个 ViewModel 和三个页面（考试信息、成绩查询含平时分展开、绩点计算器）
   - 28 个单元测试通过（`xcodebuild -scheme FeatureExam ... test`）；App 与 Widget 构建通过
   - 模拟器截图自查（浅色/深色）：`ios-native/.screens/{exam,score,gpa}-{light,dark}.png`，用内置假数据的临时入口拍摄，入口未提交
 - 进行中：无
 - 阻塞 / 等待：
-  - B：`ToolboxCatalog` 还没有文件，工具箱入口等 B 创建后加我的三行（考试信息 / 成绩查询 / 绩点计算器，对外用 `ExamInfoView()`、`ScoreView()`、`GpaView()` 或 `ExamFeature.makeRootView()`）
-  - A：`scripts/test.sh` 的 scheme 名对单产品 package 不适用（已写入 COORDINATION）；入学年份/学制（coord-1）
-  - B：当前学期/开学日（coord-2）、GxuDesign 的错误/空状态视图（现用系统 `ContentUnavailableView`）
+  - A：profile（coord-1，入学年份/学制）、`run-e2e.sh`
 - 给其他 agent 的通知：见 `ios-native/COORDINATION.md` 对方小节
 - 未做 / 后续：未出分科目（依赖 Phase 2 已选课程）；GPA "累计"范围；用真实响应核对 TODO(verify)
 
@@ -165,10 +163,15 @@ WAM = wamNumerator / denominator    // 加权平均成绩
 
 ## TODO(verify)
 
-- 后端 `/jw/score` 返回的字段到底是 snake_case 还是同时含 camelCase 副本（adapter 的输出同时有两套）；`score` 为 `NaN` 时 JSON 里是 `null` 还是字段缺失
-- `/jw/exam` 响应外层是否也带 `code` / `message`（RN 只读 `data.data`）；`seat` 字段后端是否还会返回
-- `/jw/score/usual` 的 `term` 参数传逻辑学期（RN 传 `item.term`，即 1/2）是否正确；重修 / 补考是否会出现相同 `jxb_id` 的多行
-- 越界日期时间的处理（Swift 判 tbd，与 RN 滚动不同）
-- 小学期（`xqm = 16`，成绩 `term = 0`）的成绩在 UI 里的归属：目前按 term 1/2 查询会查不到
-- GPA 精度（RN 为 3 位，官方办法写 2 位）以用户确认为准
-- 学期选择器所需的入学年份 / 学制 / 当前学期由谁提供（A 的资料 vs B 的 ScheduleKit）
+已用 A 的真实脱敏响应（`Fixtures/sanitized/`，测试见 `RealFixtureTests`）核对：
+- [x] `/jw/score` 字段：snake_case 与 camelCase 两套同时存在（另有 `updateTime`），Swift 只读 snake_case（camelCase 作回退）；样本 100 条 `score` 全是数字，没有 `null` 也没有缺字段，解码仍按可选处理；`credit` 有整数和小数；有 1 条 `term = 0`；`upload_at` 可为空串；`id` 不重复
+- [x] 外层都是 `{code, message, data}`，`getData` 直接可用；`/jw/exam` 的 `data` 是数组
+- [x] `/jw/exam` 没有 `seat` 字段；结果里混有往届缓考/补考，按 `time` 自然落入"已结束"
+- [x] 成绩真实 GPA 对照：全部 100 条、2023 秋、2023 学年三组期望值与 RN 公式一致
+
+仍未确认：
+- `/jw/score/usual` 带课程 id 的真实响应（fixture 里只有不带 id 的空数组）；`term` 参数传 1/2 是否正确
+- 越界日期时间（Swift 判 tbd，与 RN 滚动进位不同，有意为之）
+- 小学期（成绩 `term = 0`）在 UI 里的归属：按 term 1/2 查询看不到，全学年也看不到
+- GPA 精度（RN 三位，官方办法两位）以用户确认为准
+- 入学年份/学制：等 A 交付 profile（coord-1），fixture 里 `profile.json` 的 `grade`、`study_years` 是**字符串**
