@@ -1,6 +1,6 @@
 # Agent C 状态
 
-- 当前 Phase：Phase 3 进行中：期末评教（总览 + 模板）、教师查询已发布；关键流程 UI 测试、附录 A 验收未开始。评教的详情 / 评语 / 提交后端未代理，待用户决定；`/jw/evaluation` 无真实样本（后续测试）
+- 当前 Phase：Phase 3 完成（见 COORDINATION `[phase3-done] C` 的附录 A 验收表）；关键流程 UI 测试需要真实账号 / 校园网，标后续测试。评教的详情 / 评语 / 提交后端未代理，待用户决定；`/jw/evaluation` 无真实样本（后续测试）
 - Phase 2 已完成：
   - **ExamKit / ExamUI 拆分**（PLAN §5.1 (a)）：`ExamKit` 无界面，含 `ExamRepository.nextExam / upcomingExams`、`NextExam`、`PendingCourse`；`ExamUI` 是页面。旧 product `FeatureExam` 保留为兼容层（= 两者 re-export），App 已改用 ExamKit + ExamUI
   - **小组件**（`Widget/` + `ClassWidgetKit`）：主屏小 / 中 / 大，锁屏 `accessoryRectangular`、`accessoryInline`；时间线每节课开始、结束各一个条目，另加每天零点；数据来自 `WidgetBridge` 写入 App Group 的 `NextCourses` 快照（已含节假日 / 调课）；视图在 `ClassWidgetKit/Views`，Widget 只是外壳

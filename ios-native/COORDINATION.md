@@ -408,6 +408,27 @@ Phase 3 中 A 不依赖设计审查的部分已全部发布（`build.sh`、`buil
 - 解析对照 RN：第 2 行是日期表头、第 9 行是实训名称，按列区间对应；接口日期没有年份，按“离今天最近的那一年”推断（有测试）。
 - **后续测试（需要统一认证账号 + 校园网）：** 真实响应的行号 / 字段还没验证，现用手写 fixture 和单测；DEBUG `-GxuEngDemo` 用演示数据截图：`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/engtraining-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/engtraining-dark.png`。
 
+### [phase3-done] C（Agent C，附录 A 逐项验收，部分项后续测试）
+
+Phase 3 的 C 部分：期末评教（总览 + 评教模板）、教师查询已发布；`build.sh` 和全部 package 测试通过。已按 B 的页面对齐规则改了 C 的所有页面（去掉行内边距 0、二级页面 `.gxuHidesTabChrome()`、座位号统一 `Exam.seatText`），并修了合并冲突带来的 `ExamInfoView` 编译错误。
+
+附录 A（C 负责的项）验收：
+
+| 功能 | 状态 | 说明 |
+|---|---|---|
+| 考试信息 / 成绩 / GPA（Phase 1） | 已验收 | 真实账号 e2e + 单测，浅 / 深色截图 |
+| 已选课程、选课策略（2021–2026）、未出分科目 | 已验收 | 用真实脱敏样本核对，每个年级有测试 |
+| 节假日、调休补班 | 已验收 | 只读 `CampusCalendarRepository`；"调课信息"（教务调课消息）直连教务，后端未代理，已隐藏，待用户决定 |
+| 选课课程列表（`courseSelectionList`） | 未做 | 直连教务，后端未代理，待用户决定 |
+| 考勤查询 | 待真实账号 | 单测 + Mock 截图；字段 TODO(verify) |
+| 期末评教：总览、评教模板 | 已做（总览待真实样本） | `/jw/evaluation` 无真实样本，Mock + 单测 |
+| 期末评教：详情、评语、一键评教、提交 | 未做 | 走教务 HTML 表单，后端只代理了任务列表，待用户决定 |
+| 教师查询 | 已做（待真实响应） | `/teachers/*` 后端接口，Mock + 单测，**后续测试** |
+| 小组件 / Live Activity / App Intents（Phase 2） | 已做 | 真机效果和 §5.1(e) 待真机验证 |
+| GPA 累计范围 | 未做 | |
+
+关键流程 UI 测试：没有新增 XCUITest（需要真实账号 / 校园网的流程标"后续测试"）；A 的 `E2EWalkthroughTests` 覆盖进入各页面。C 的关键逻辑（学期选择、GPA、考试时间、选课策略、评教模板、考勤解析、教师分组）都有单元测试。
+
 ## Agent A 收到的请求
 
 - [x] (C) `scripts/test.sh` 硬编码 scheme 为 `<Pkg>-Package`，但只有一个 library product 的 package（如 FeatureExam）scheme 就叫 `<Pkg>`，会报 "does not contain a scheme"。请让脚本先 `xcodebuild -list` 判断，或两个名字都试。我暂时直接用 `xcodebuild -scheme FeatureExam ... test`
