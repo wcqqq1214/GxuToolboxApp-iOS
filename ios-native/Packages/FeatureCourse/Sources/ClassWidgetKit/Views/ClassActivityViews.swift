@@ -61,7 +61,7 @@ public struct ClassProgressBar: View {
         let now = Date.now
         switch ClassActivityText.phase(state, isStale: isStale, now: now) {
         case .before:
-            Text("\(state.beginText) 开始").font(.caption).foregroundStyle(.secondary)
+            EmptyView()   // 开始时间已在时间段里，倒计时也在右上角：不再单独写"HH:mm 开始"
         case .during:
             if let previewProgress {
                 // ImageRenderer 连 ProgressView 本身都渲不出来（显示占位符），自查截图用手绘的静态条

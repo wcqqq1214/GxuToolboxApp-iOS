@@ -53,6 +53,15 @@ public struct ExamItem: Hashable, Sendable, Identifiable {
         self.status = parsed.status
     }
 
+    /// 卡片上的开考时间，**只表达一次**：今日 / 明日开考时卡片上已经有"今日开考""明日开考"徽章，
+    /// 这里只写钟点（`23:00`）；其他情况写日期加钟点（`11月10日 14:30`）；没有日期用原文，原文也没有写"时间未定"
+    public func timeLine(now: Date = .now, calendar: Calendar = .current) -> String {
+        guard let date else { return exam.time.isEmpty ? "时间未定" : exam.time }
+        let c = calendar.dateComponents([.month, .day, .hour, .minute], from: date)
+        let clock = String(format: "%02d:%02d", c.hour ?? 0, c.minute ?? 0)
+        return isUrgent(now: now, calendar: calendar) ? clock : "\(c.month ?? 0)月\(c.day ?? 0)日 \(clock)"
+    }
+
     /// 今日或明日开考（界面只对这两种用红色强调）
     public func isUrgent(now: Date = .now, calendar: Calendar = .current) -> Bool {
         guard let text = countdownText(now: now, calendar: calendar) else { return false }
@@ -118,4 +127,13 @@ public enum NextExam {
     }
 
     public static func pick(from items: [ExamItem]) -> ExamItem? { upcoming(in: items).first }
+}
+
+/// 座位号的统一写法（考试页、首页、小组件都用它）：纯数字 `8` → `8 号`，其他写法（如 `A12`）→ `座位 A12`，空 → 空串
+public enum ExamSeat {
+    public static func text(_ seat: String) -> String {
+        let seat = seat.trimmingCharacters(in: .whitespacesAndNewlines)
+        if seat.isEmpty { return "" }
+        return seat.allSatisfy(\.isNumber) ? "\(seat) 号" : "座位 \(seat)"
+    }
 }

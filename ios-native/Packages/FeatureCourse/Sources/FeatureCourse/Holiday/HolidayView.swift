@@ -73,7 +73,7 @@ private struct HolidayRow: View {
                 Text(entry.holiday.title).font(.headline)
                 Text(HolidayView.kindName(entry.holiday.kind)).font(.caption).foregroundStyle(.secondary)
                 Spacer()
-                if let badge { Text(badge).font(.subheadline).foregroundStyle(entry.status == .ongoing ? Color.accentColor : .secondary) }
+                if let badge { Text(badge).font(.subheadline).foregroundStyle(Color.accentColor) }
             }
             Text("\(entry.rangeText) · 共\(entry.days)天").font(.subheadline).foregroundStyle(.secondary)
             if !entry.makeupDays.isEmpty {
@@ -89,7 +89,7 @@ private struct HolidayRow: View {
     private var badge: String? {
         switch entry.status {
         case .ongoing: "放假中"
-        case .upcoming: entry.daysUntil.map { $0 == 0 ? "今天" : $0 == 1 ? "明天" : "\($0)天后" }
+        case .upcoming: nil   // 起止日期已写在下一行，不再重复"N天后"
         case .past: nil
         }
     }

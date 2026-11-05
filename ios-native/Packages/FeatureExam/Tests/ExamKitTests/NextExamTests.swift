@@ -87,3 +87,27 @@ struct UrgencyTests {
         #expect(!item("待定").isUrgent(now: now, calendar: cal))                       // 时间未知
     }
 }
+
+struct ExamTextTests {
+    var cal: Calendar = { var c = Calendar(identifier: .gregorian); c.timeZone = TimeZone(identifier: "Asia/Shanghai")!; return c }()
+
+    @Test func seatText() {
+        #expect(ExamSeat.text("8") == "8 号")
+        #expect(ExamSeat.text(" 23 ") == "23 号")
+        #expect(ExamSeat.text("A12") == "座位 A12")
+        #expect(ExamSeat.text("") == "")
+        #expect(ExamSeat.text("  ") == "")
+    }
+
+    @Test func timeLineExpressesTimeOnce() {
+        let f = DateFormatter(); f.calendar = cal; f.timeZone = cal.timeZone; f.dateFormat = "yyyy-MM-dd HH:mm"
+        let now = f.date(from: "2026-01-10 08:00")!
+        func line(_ t: String) -> String { ExamItem(Exam(id: t, course: "x", classroom: "", time: t, type: ""), now: now, calendar: cal).timeLine(now: now, calendar: cal) }
+        #expect(line("2026-01-10(23:00-23:59)") == "23:00")          // 今日：只写钟点，日期由"今日开考"徽章表达
+        #expect(line("2026-01-11(09:00-11:00)") == "09:00")          // 明日
+        #expect(line("2026-01-15(14:30-16:30)") == "1月15日 14:30")  // 更远：日期 + 钟点，不再写"N天后"
+        #expect(line("2026-01-05(09:00-11:00)") == "1月5日 09:00")   // 已结束
+        #expect(line("待定") == "待定")
+        #expect(line("") == "时间未定")
+    }
+}

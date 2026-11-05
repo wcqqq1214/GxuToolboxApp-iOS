@@ -70,45 +70,31 @@ public struct ExamInfoView: View {
 private struct ExamRow: View {
     let item: ExamItem
 
+    /// 考场、座位号：有才写，同一行用 · 分隔。时间和类型各只出现一次（类型"期末考试"等不显示）
+    private var detail: String {
+        [item.exam.classroom, item.status == .past ? "" : ExamSeat.text(item.exam.seat)].filter { !$0.isEmpty }.joined(separator: " · ")
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline) {
                 Text(item.exam.course).font(.headline)
                 Spacer()
-                if item.status != .past { badge }
+                if item.status != .past, let badge { badge.font(.subheadline.bold()) }
             }
-            Label(timeText, systemImage: "clock")
-            Label(item.exam.classroom.isEmpty ? "未知" : item.exam.classroom, systemImage: "building.2")
-            if item.status != .past, !item.exam.seat.isEmpty {
-                Label(item.exam.seat, systemImage: "chair")   // 教务已不提供座位号，没有就不占一行
+            Text(item.timeLine()).font(.subheadline)
+            if !detail.isEmpty {
+                Text(detail).font(.subheadline).foregroundStyle(.secondary)
             }
-            Text(item.exam.type).font(.caption).foregroundStyle(.secondary)
         }
-        .font(.subheadline)
         .opacity(item.status == .past ? 0.6 : 1)
         .padding(.vertical, 2)
     }
 
-    private var timeText: String {
-        guard let date = item.date else { return item.exam.time.isEmpty ? "时间未定" : item.exam.time }
-        let f = DateFormatter()
-        f.dateFormat = "M月d日 HH:mm"
-        return f.string(from: date)
-    }
-
-    /// 只有今日、明日开考用红色；更远的用主题色；时间未知用橙色。已结束的行不显示徽章
-    private var badge: some View {
-        let urgent = item.isUrgent()
-        let text: String = switch item.status {
-        case .upcoming: item.countdownText() ?? "即将开考"
-        case .past: ""
-        case .tbd: "时间未知"
-        }
-        let tint: Color = item.status == .tbd ? .orange : (urgent ? .red : .accentColor)
-        return Text(text)
-            .font(.caption.bold())
-            .foregroundStyle(urgent || item.status == .tbd ? Color.white : tint)
-            .padding(.horizontal, 8).padding(.vertical, 3)
-            .background(urgent || item.status == .tbd ? tint : tint.opacity(0.15), in: Capsule())
+    /// 徽章只给"今日 / 明日开考"（红）和"时间未知"（橙）；更远的考试日期已写在时间行里，不再重复"N天后"
+    private var badge: Text? {
+        if item.status == .tbd { return Text("时间未知").foregroundStyle(.orange) }
+        guard item.isUrgent(), let text = item.countdownText() else { return nil }
+        return Text(text).foregroundStyle(.red)
     }
 }
