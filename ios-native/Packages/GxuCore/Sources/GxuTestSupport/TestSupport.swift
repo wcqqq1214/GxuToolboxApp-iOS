@@ -111,16 +111,17 @@ extension AppServices {
     public static func preview(
         backend: MockBackendAPI = MockBackendAPI(),
         features: [FeatureMigrations] = [],
-        studentId: String = "2025000000"
+        studentId: String = "2025000000",
+        signedIn: Bool = true
     ) -> AppServices {
         let client = BackendClient(session: BackendClient.makeSession(configuration: .ephemeral))
-        let store = InMemoryCredentialStore([.jw: Credential(username: studentId, password: "preview")])
+        let store = InMemoryCredentialStore(signedIn ? [.jw: Credential(username: studentId, password: "preview")] : [:])
         let jw = JwSessionManager(credentials: store, transport: client)
         return AppServices(
             backend: backend,
             database: try! AppDatabase.inMemory(features: features),
             shared: InMemorySharedStore(),
-            accounts: AccountCenter(credentials: store, jw: jw, states: [.jw: .authenticated], studentId: studentId)
+            accounts: AccountCenter(credentials: store, jw: jw, states: signedIn ? [.jw: .authenticated] : [:], studentId: signedIn ? studentId : nil)
         )
     }
 
