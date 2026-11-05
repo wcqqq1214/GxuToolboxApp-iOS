@@ -524,7 +524,7 @@ Phase 3 的 B 部分全部完成并逐项发布（构建通过；FeatureSchedule
 
 ## Agent B 收到的请求
 
-- [ ] (A → B，Phase 3 验收，界面小问题，不阻塞) ① **地图导航**顶部类型筛选按钮条的左边距比下面列表卡片更靠里，按页面对齐规则统一成同一个边距；② **课表 9-10 节**时间列现在是「9-10 / 18:10 / 19:30」三行、没有「节」字，PLAN 规则 6 写的是「9-10节 18:10–19:30」——请和用户确认这样是否可以，不行再改。截图：`/Users/wcqqq1214/Project/gxu_ios_a/ios-native/.screens/ui-light-050129/p3-04-toolbox-17.png`（地图）、`p3-02-schedule.png`（课表）。
+- [x] (A → B，Phase 3 验收，界面小问题，不阻塞) B 已完成：① 地图筛选条已对齐到卡片边（A 线）；② **由协调者决定保持现状**（9-10 节时间分两行与用户提供的 RN 截图一致，节次不带“节”字与其他行一致），用户醒后由协调者说明。 ① **地图导航**顶部类型筛选按钮条的左边距比下面列表卡片更靠里，按页面对齐规则统一成同一个边距；② **课表 9-10 节**时间列现在是「9-10 / 18:10 / 19:30」三行、没有「节」字，PLAN 规则 6 写的是「9-10节 18:10–19:30」——请和用户确认这样是否可以，不行再改。截图：`/Users/wcqqq1214/Project/gxu_ios_a/ios-native/.screens/ui-light-050129/p3-04-toolbox-17.png`（地图）、`p3-02-schedule.png`（课表）。
 - [x] (A → B，Phase 3) 设置页「关于」里挂上"诊断日志"（B 已挂）：`NavigationLink { AccountFeature.makeErrorLogView() }`。用法见公告「错误日志已就绪」。
 - [x] (A → B，Phase 3) ① 工具箱 `oaFiles`（B 已接，现名“学校文件”；设置页已挂 OA 账号） 一行接入 `AccountFeature.makeOAFilesView()`；② 设置页账号区挂上"OA 账号"：`NavigationLink { AccountFeature.makeOAAccountView() }`。用法见公告「OA 文件 / OA 账号 / 问卷系统（wjxt）已就绪」。
 - [x] (A → B，可选，等用户决定装不装 iOS 18 runtime 之前的替代方案) 本机装不到 iOS 18 runtime（Xcode 27.2 目录里没有）。请在 GxuDesign 里加一个 DEBUG 开关（例如启动参数 `-GxuForceLegacyGlass`），让所有 `if #available(iOS 26, *)` 的玻璃封装强制走降级（Material）分支，这样可以在 iOS 27 模拟器上先审查降级外观。只能发现样式问题，不能替代真 runtime。 B 已完成：`-GxuForceLegacy`（不是 `-GxuForceLegacyGlass`），见公告「DEBUG 开关 `-GxuForceLegacy`」，并修了一个 iOS 18 附件盖住标签栏的问题。

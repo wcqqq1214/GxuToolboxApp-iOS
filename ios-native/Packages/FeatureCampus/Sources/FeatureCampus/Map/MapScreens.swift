@@ -19,8 +19,9 @@ struct MapNavigationView: View {
                         chip("全部", value: "")
                         ForEach(CampusPlaces.types, id: \.self) { chip($0, value: $0) }
                     }
-                    .padding(.horizontal, GxuDesign.Layout.cardInset)
                 }
+                // 筛选条是和卡片同级的整行控件：左边缘在 A 线（卡片边）。行容器本身已经从卡片边开始，所以内部不再加边距
+                .contentMargins(.horizontal, 0, for: .scrollContent)
                 .listRowInsets(EdgeInsets())
                 .listRowBackground(Color.clear)
             }
