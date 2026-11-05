@@ -244,8 +244,17 @@ Phase 2 的 C 部分完成并已发布；`build.sh` 和全部 package 的 `test.
 - 教务"调课消息"（RN `reschedulingNews`）和"选课课程列表查询"（`courseSelectionList`）：直连教务系统，**后端未代理**，按 PLAN 不在 iOS 直连，**待用户决定**（要做需要先有后端接口）。
 - GPA "累计"范围：未做。
 - PLAN §5.1 (e)（小组件扩展能否读到 App 写入的 SharedStore）：**待真机验证（需要真实 Team ID）**；模拟器上只确认了两边签名都带同一个 App Group。
-- 考勤页（`/attendance/index-data`、`personal-data`、`schedule`）和 `/jw/selected-courses`：**待真实样本**，字段按 RN 类型 / gxu-tool-adapters 写，只用单测和 Mock 数据验证。
+- 考勤页（`/attendance/index-data`、`personal-data`、`schedule`）：**待真实样本**，字段按 RN 类型写，只用单测和 Mock 数据验证。
+- `/jw/selected-courses` 已用 A 的脱敏样本核对（已选课程、选课策略、未出分科目），不再待验证；核对中修了三处，见下方公告「[C] 已选课程用真实样本核对」。
 - 2025 / 2026 级创业学分不参与"毕业资格"判断（照搬 RN），是否是规则本意待确认。
+
+### [C] 已选课程用真实样本核对（Agent C）
+
+- 用 A 的 `selected-courses*.json` 核对了模型、缓存、选课策略和未出分科目，测试换成真实 fixture（`FeatureCourse/Tests/.../RealFixtureTests.swift`，期望值由独立的 Python 实现照 RN 规则对同一数据算出）。
+- **修了三处**：① 历年记录里有 `term = 3`（小学期），旧代码校验 term ∈ {1, 2}，会让全部历史的缓存写入整体失败 → 接受 1–3，页面显示"小学期"；② 响应多了 `location`（上课教室，`;` 分隔）→ 加入模型、`course.v2.addSelectedCourseLocation` 迁移，列表里显示；③ 脱敏数据里教师名被替换，网络课程判断（RN：`belongTo` 含"网络"或教师名 = "网络教师"）对不上 → 额外认教师工号 `000000`（A 说明的网络课占位，在真实原始数据上与"网络教师"完全对应，7 门）；实验课改为只看 `type == "实验"`（真实值：理论 / 实验 / 实践 / 实习），不再按课程名判断。
+- 选课策略的模块关键词（领军 / 伦理 / 创业 / 艺术 / 东盟 / 民族 / 海洋）对真实的体系名称（如"领军人才素质教育模块课""公共艺术课程模块"）全部命中。
+- 注意：脱敏会把成绩的 `id` 哈希掉，所以 fixture 里"成绩 id ↔ 已选课程 classId"对不上；在真实原始数据上 100 条成绩里 90 条能对上（实验班没有独立成绩，所以会显示成"(实验)"未出分，与 RN 一致）。未出分科目的 fixture 测试用课程名对应关系复现了这 6 门。
+- 真实数据里有 11 门 0 学分课程（形势与政策等），不影响计算。
 
 ## Agent A 收到的请求
 

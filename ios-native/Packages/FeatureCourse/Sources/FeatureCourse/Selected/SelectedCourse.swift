@@ -5,13 +5,14 @@ import GxuNetworking
 import GxuStorage
 
 /// `GET /jw/selected-courses` 的一条（后端已用适配器转成统一模型）。
-/// TODO(verify): 暂无该接口的真实脱敏响应，字段名按 gxu-tool-adapters 的 `SelectedCourse` 写，解码对缺字段、数字写成字符串都宽容。
+/// 已用真实脱敏响应核对（`Fixtures/sanitized/selected-courses*.json`，测试见 `RealFixtureTests`）；
+/// 解码对缺字段、数字写成字符串都宽容。
 public struct SelectedCourse: Codable, Hashable, Sendable, Identifiable {
     /// 教学班 ID（jxb_id），与成绩的 `id` 对应
     public var classId: String
     public var courseId: String
     public var courseName: String
-    /// 学时类型（xsmc），如"理论""实验"
+    /// 学时类型（xsmc）：理论 / 实验 / 实践 / 实习
     public var type: String
     /// 开课类型（kklxmc），如"通识选修课"
     public var selectionType: String
@@ -23,20 +24,23 @@ public struct SelectedCourse: Codable, Hashable, Sendable, Identifiable {
     public var teacherId: String
     public var credit: Double
     public var year: Int
-    /// 1 秋 / 2 春
+    /// 1 秋 / 2 春 / 3 小学期（历年记录里有 3，所以缓存和展示都要接受）
     public var term: Int
+    /// 上课教室，多个用 `;` 分隔，可能为空
+    public var location: String
 
     public var id: String { "\(year)-\(term)-\(classId)" }
 
-    /// 网课：开课归属含"网络"或教师名是"网络教师"
-    public var isOnline: Bool { belongTo.contains("网络") || teacher == "网络教师" }
-    /// 实验类课程（用于"未出分科目"加"(实验)"）。TODO(verify)：RN 没有明确规则，这里按学时类型或课程名含"实验"判断
-    public var isLab: Bool { type.contains("实验") || courseName.contains("实验") }
+    /// 网课：开课归属含"网络"，或教师名是"网络教师"（RN 口径）。教师工号 `000000` 是网络课程的占位工号，
+    /// 真实数据里与"网络教师"完全对应（7 门）；脱敏数据里教师名被替换了，工号保留，所以一并判断
+    public var isOnline: Bool { belongTo.contains("网络") || teacher == "网络教师" || teacherId == "000000" }
+    /// 实验类课程（用于"未出分科目"加"(实验)"）：学时类型是"实验"
+    public var isLab: Bool { type == "实验" }
 
     public init(
         classId: String, courseId: String = "", courseName: String, type: String = "", selectionType: String = "",
         classification: String = "", belongTo: String = "", system: String = "", teacher: String = "", teacherId: String = "",
-        credit: Double, year: Int, term: Int
+        location: String = "", credit: Double, year: Int, term: Int
     ) {
         self.classId = classId
         self.courseId = courseId
@@ -48,13 +52,14 @@ public struct SelectedCourse: Codable, Hashable, Sendable, Identifiable {
         self.system = system
         self.teacher = teacher
         self.teacherId = teacherId
+        self.location = location
         self.credit = credit
         self.year = year
         self.term = term
     }
 
     private enum CodingKeys: String, CodingKey {
-        case classId, courseId, courseName, type, selectionType, classification, belongTo, system, teacher, teacherId, credit, year, term
+        case classId, courseId, courseName, type, selectionType, classification, belongTo, system, teacher, teacherId, location, credit, year, term
     }
 
     public init(from decoder: Decoder) throws {
@@ -69,6 +74,7 @@ public struct SelectedCourse: Codable, Hashable, Sendable, Identifiable {
         system = c.lenientText(.system)
         teacher = c.lenientText(.teacher)
         teacherId = c.lenientText(.teacherId)
+        location = c.lenientText(.location)
         credit = c.lenientNumber(.credit) ?? 0
         year = Int(c.lenientNumber(.year) ?? 0)
         term = Int(c.lenientNumber(.term) ?? 0)
@@ -130,6 +136,7 @@ struct SelectedCourseRecord: Codable, FetchableRecord, PersistableRecord {
     var system: String
     var teacher: String
     var teacherId: String
+    var location: String
     var credit: Double
     var updatedAt: Date
 }
@@ -159,6 +166,12 @@ public struct SelectedCourseRepository: Sendable {
                 t.column("credit", .double).notNull()
                 t.column("updatedAt", .datetime).notNull()
                 t.primaryKey(["studentId", "year", "term", "classId"])
+            }
+        }
+        // 真实响应有 location 字段（上课教室）
+        migrator.registerMigration("course.v2.addSelectedCourseLocation") { db in
+            try db.alter(table: "selected_course") { t in
+                t.add(column: "location", .text).notNull().defaults(to: "")
             }
         }
     }
@@ -200,12 +213,12 @@ public struct SelectedCourseRepository: Sendable {
         var rows: [SelectedCourseRecord] = []
         for c in items {
             guard !c.classId.isEmpty else { throw GxuError.invalidData("已选课程缺少教学班标识") }
-            guard c.term == 1 || c.term == 2, c.year > 0 else { throw GxuError.invalidData("已选课程学年学期无效：\(c.year)/\(c.term)") }
+            guard (1...3).contains(c.term), c.year > 0 else { throw GxuError.invalidData("已选课程学年学期无效：\(c.year)/\(c.term)") }
             guard seen.insert(c.id).inserted else { continue }   // 同一学期同一教学班只留一条
             rows.append(SelectedCourseRecord(
                 studentId: studentId, year: c.year, term: c.term, classId: c.classId, courseId: c.courseId,
                 courseName: c.courseName, type: c.type, selectionType: c.selectionType, classification: c.classification,
-                belongTo: c.belongTo, system: c.system, teacher: c.teacher, teacherId: c.teacherId, credit: c.credit, updatedAt: now
+                belongTo: c.belongTo, system: c.system, teacher: c.teacher, teacherId: c.teacherId, location: c.location, credit: c.credit, updatedAt: now
             ))
         }
         return rows
@@ -215,7 +228,7 @@ public struct SelectedCourseRepository: Sendable {
         SelectedCourse(
             classId: r.classId, courseId: r.courseId, courseName: r.courseName, type: r.type, selectionType: r.selectionType,
             classification: r.classification, belongTo: r.belongTo, system: r.system, teacher: r.teacher, teacherId: r.teacherId,
-            credit: r.credit, year: r.year, term: r.term
+            location: r.location, credit: r.credit, year: r.year, term: r.term
         )
     }
 }

@@ -66,7 +66,7 @@ struct SelectedCourseGroup: Equatable, Identifiable {
     var courses: [SelectedCourse]
     var id: String { "\(year)-\(term)" }
     var credits: Double { courses.reduce(0) { $0 + $1.credit } }
-    var title: String { "\(year)–\(year + 1) \(term == 1 ? "秋季" : "春季")" }
+    var title: String { "\(year)–\(year + 1) \(term == 1 ? "秋季" : term == 2 ? "春季" : "小学期")" }
 
     static func group(_ courses: [SelectedCourse], matching keyword: String = "") -> [SelectedCourseGroup] {
         let key = keyword.trimmingCharacters(in: .whitespaces)

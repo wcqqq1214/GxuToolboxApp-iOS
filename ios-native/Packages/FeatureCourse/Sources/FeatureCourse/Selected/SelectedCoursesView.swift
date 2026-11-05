@@ -94,6 +94,10 @@ private struct SelectedCourseRow: View {
             }
             Text([course.teacher, course.system, course.selectionType].filter { !$0.isEmpty }.joined(separator: " · "))
                 .font(.subheadline).foregroundStyle(.secondary)
+            if !course.location.isEmpty {
+                Text(course.location.replacingOccurrences(of: ";", with: "、"))
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             if course.isOnline {
                 Label("网课", systemImage: "wifi").font(.caption).foregroundStyle(.tint)
             }

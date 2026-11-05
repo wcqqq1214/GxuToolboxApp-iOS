@@ -182,6 +182,21 @@ private func completeSet(for grade: Int) -> [SelectedCourse] {
         #expect(stats.offlineScore == 2)
     }
 
+    @Test func onlineAndLabDetection() {
+        var c = course("x", 1)
+        #expect(!c.isOnline && !c.isLab)
+        c.teacherId = "000000"          // 网络课程的占位工号
+        #expect(c.isOnline)
+        c.teacherId = ""; c.belongTo = "网络课程"
+        #expect(c.isOnline)
+        c.belongTo = ""; c.teacher = "网络教师"
+        #expect(c.isOnline)
+        c.type = "实验"
+        #expect(c.isLab)
+        c.type = "理论"; c.courseName = "大学物理实验"
+        #expect(!c.isLab)               // 只看学时类型，不看课程名
+    }
+
     @Test func numberFormatting() {
         #expect(ElectiveStrategy.number(8) == "8")
         #expect(ElectiveStrategy.number(3.5) == "3.5")

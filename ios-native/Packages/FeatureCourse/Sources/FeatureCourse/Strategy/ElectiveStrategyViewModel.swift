@@ -64,7 +64,7 @@ final class ElectiveStrategyViewModel {
         passedScores = Self.passed(scores)
     }
 
-    static func passed(_ scores: [Score]) -> [String: Double] {
+    nonisolated static func passed(_ scores: [Score]) -> [String: Double] {
         var result: [String: Double] = [:]
         for s in scores {
             guard let value = s.score, value >= 60 else { continue }

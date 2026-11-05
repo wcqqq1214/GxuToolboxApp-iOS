@@ -45,8 +45,9 @@ let package = Package(
         ]),
         .testTarget(name: "FeatureCourseTests", dependencies: [
             "FeatureCourse",
+            .product(name: "ExamKit", package: "FeatureExam"),
             .product(name: "GxuTestSupport", package: "GxuCore"),
-        ]),
+        ], resources: [.copy("Fixtures")]),
         .testTarget(name: "ClassWidgetKitTests", dependencies: [
             "ClassWidgetKit",
             .product(name: "GxuTestSupport", package: "GxuCore"),
