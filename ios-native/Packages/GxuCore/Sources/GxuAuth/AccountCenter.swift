@@ -13,6 +13,8 @@ public final class AccountCenter {
     @ObservationIgnored public let attendance: AttendanceSession?
     /// 统一认证（CA）会话，以及 PEC / 工程训练中心的 SSO 入口
     @ObservationIgnored public let unified: UnifiedAuthSession?
+    /// 登录成功后的回调（埋点等）；由组装处设置
+    @ObservationIgnored public var onLogin: (@MainActor (AuthSystem) -> Void)?
 
     /// 教务（Cookie）和考勤（token）已接入；CA / OA 在后续步骤接入。
     public init(credentials: any CredentialStore, jw: JwSessionManager, attendance: AttendanceSession? = nil, unified: UnifiedAuthSession? = nil) {
@@ -70,6 +72,7 @@ public final class AccountCenter {
         try credentials.save(Credential(username: username, password: password), for: .jw)
         studentId = username
         states[.jw] = .authenticated
+        onLogin?(.jw)
     }
 
     /// 已保存账号的用户名（教务用 `studentId`；统一认证等从 Keychain 读）

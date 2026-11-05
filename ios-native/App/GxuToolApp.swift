@@ -1,3 +1,4 @@
+import FeatureAccount
 import GxuAuth
 import SwiftUI
 
@@ -7,8 +8,18 @@ struct GxuToolApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView()
+            Group {
+                #if DEBUG
+                if let name = DebugScreens.requested { DebugScreens.view(for: name) } else { RootView() }
+                #else
+                RootView()
+                #endif
+            }
                 .environment(\.services, services)
+                .promptForUpdates()
+                #if !DEBUG
+                .task { services.track("open_app", feature: "app") }   // 开发构建不上报埋点，避免污染线上数据
+                #endif
                 #if DEBUG
                 .task { await DebugAutoLogin.runIfRequested(services.accounts) }
                 #endif

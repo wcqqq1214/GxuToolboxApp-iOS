@@ -23,11 +23,15 @@ enum AppComposition {
         } catch {
             fatalError("数据库打开失败：\(error)")
         }
-        return AppServices(
-            backend: backend,
-            database: database,
-            shared: UserDefaultsSharedStore(),
-            accounts: AccountCenter(credentials: credentials, jw: jw, attendance: attendance, unified: UnifiedAuthSession(credentials: credentials))
-        )
+        let accounts = AccountCenter(credentials: credentials, jw: jw, attendance: attendance, unified: UnifiedAuthSession(credentials: credentials))
+        let tracker = AnalyticsTracker(backend: backend)
+        #if !DEBUG
+        accounts.onLogin = { [accounts] system in
+            guard system == .jw else { return }
+            let studentId = accounts.studentId
+            Task { await tracker.track("login_jw_success", feature: "login", userId: studentId) }
+        }
+        #endif
+        return AppServices(backend: backend, database: database, shared: UserDefaultsSharedStore(), accounts: accounts)
     }
 }

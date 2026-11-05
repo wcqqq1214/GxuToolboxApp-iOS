@@ -21,4 +21,18 @@ public enum AccountFeature {
     public static func makeUnifiedAccountView() -> some View {
         JwAccountView(system: .unified)
     }
+
+    /// 设置 → 个人信息
+    @MainActor
+    public static func makePersonalInfoView() -> some View { PersonalInfoView() }
+
+    /// 设置 → 意见反馈（页面右上角进入「我的反馈」）
+    @MainActor
+    public static func makeFeedbackView() -> some View { FeedbackView() }
+
+    /// WebView 容器。`cookies` 会在加载前写入；`window.open` / `target=_blank` 会推入新页面（外层需要 NavigationStack）。
+    @MainActor
+    public static func makeWebView(url: URL, title: String? = nil, cookies: [HTTPCookie] = []) -> some View {
+        WebViewScreen(url: url, title: title, cookies: cookies)
+    }
 }

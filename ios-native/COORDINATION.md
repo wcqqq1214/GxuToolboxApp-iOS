@@ -138,6 +138,16 @@ CampusCalendar { timeShift: [ShiftRule(workDate, restDate)], holidays: [HolidayR
 - 课表已经叠加：假期 / 休息日的课移除并显示整天块，补班日显示被调过来的课（`CourseOccurrence.shiftedFrom` 非 nil，带“补”标记）。`NextCourseCalculator.compute(schedule:term:campus:now:)` 新增 `campus:` 参数（默认 `.empty`）；**小组件请传 `repo.current()`**，否则下一节课不含调课。课表页写进 SharedStore 的快照已经包含调课。
 - `CalendarOverlay.apply(to:calendar:term:)` 可对任意 `[CourseOccurrence]` 叠加，返回 `(occurrences, dayBlocks)`。
 
+### 个人信息 / 反馈 / 埋点 / 版本检查 / WebView 容器已就绪（Agent A）
+
+均在 `FeatureAccount`（`import FeatureAccount`），页面自带 `navigationTitle`，由 Shell 以 `NavigationLink` 挂载（**B：设置页请挂上**）：
+- **个人信息**：`AccountFeature.makePersonalInfoView()`（姓名、学号、学院、专业、班级、入学年份、学制；走 `services.profiles`，先显示缓存再刷新；不含身份证号）。
+- **意见反馈**：`AccountFeature.makeFeedbackView()`（右上角"我的反馈"进入列表 → 详情）。**后端问题**：`GET /feedback/{userId}` 对所有请求（即使带有效教务 Cookie）都返回 401 "看板：未登录或登录已过期"，疑似被后端管理看板路由占用，所以"我的反馈"目前只能显示"暂时无法查看"的提示；`POST /feedback` 不需要登录，提交可用（只用 mock 测试，没有向线上提交真实反馈）。需要用户/后端处理。
+- **埋点**：`services.track("event_name", feature: "feature")`（fire-and-forget，失败静默）。已接入 `open_app`（启动）和 `login_jw_success`（教务登录成功）；**DEBUG 构建不上报**，避免污染线上数据。其他事件需要时直接调用。
+- **版本检查**：`.promptForUpdates()` 已加在 App 根视图（启动检查一次，弹窗"前往更新/忽略此版本"，跳转 App Store/TestFlight）。数据来自 RN 同一个 `version.json`，但 iOS 用独立的 **`ios` 通道，目前文件里没有，所以暂时不会有任何提示**——上架前需要用户在 version.json 里加：`"ios": [{"versionName","versionCode"(与 CFBundleVersion 比较),"desc","ori":{"appStore":"https://apps.apple.com/...","testFlight":"https://testflight.apple.com/join/..."}}]`。设置页"版本"行 B 自己显示 `CFBundleShortVersionString`。
+- **WebView 容器**：`AccountFeature.makeWebView(url:title:cookies:)`。加载前把 `cookies` 写入 WKWebView；`window.open` / `target=_blank` 推入新页面（外层需要 NavigationStack）；非 http(s) 链接交给系统；支持 JS alert/confirm、进度条、标题随页面、菜单里"刷新 / 在 Safari 中打开"。需要登录态的站点（OA、校园网充值）从 `services.accounts.unified` 或后端会话取 Cookie 传入。
+- DEBUG 自查：`-GxuScreen feedback|feedbackList|profile|attendance|unified|web`（`web` 可加 `-GxuWebURL <url>`），`scripts/shot-screen.sh <screen> [light|dark]` 一键截图。
+
 ## Agent A 收到的请求
 
 - [x] (C) `scripts/test.sh` 硬编码 scheme 为 `<Pkg>-Package`，但只有一个 library product 的 package（如 FeatureExam）scheme 就叫 `<Pkg>`，会报 "does not contain a scheme"。请让脚本先 `xcodebuild -list` 判断，或两个名字都试。我暂时直接用 `xcodebuild -scheme FeatureExam ... test`
