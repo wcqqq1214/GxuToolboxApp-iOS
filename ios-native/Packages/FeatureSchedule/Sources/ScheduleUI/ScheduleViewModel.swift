@@ -100,6 +100,8 @@ final class ScheduleViewModel {
             apply(fresh, resetWeek: previous != term)
             refreshError = nil
         } catch {
+            // 取消不是故障：保持现有状态，不显示错误条
+            if error.isCancellation || Task.isCancelled { return }
             let gxu = (error as? GxuError) ?? .network(error.localizedDescription)
             refreshError = gxu
             if schedule == nil { phase = .failed(gxu.userMessage) }
