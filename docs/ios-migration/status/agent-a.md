@@ -12,9 +12,13 @@
   - 需要用户在 project.yml 填 DEVELOPMENT_TEAM（真机、App Group、Keychain 共享）
 - 给其他 agent 的通知：见 COORDINATION.md「[bootstrap] 契约 v1 已发布」（AppServices 在 GxuAuth；Environment 默认值是 unconfigured，预览用 `.preview`）
 - 环境备注：xcode-select 指向 CommandLineTools，脚本自动使用 /Applications/Xcode.app（Xcode 27.2，iOS 27.2 SDK，没有 iPhone 17 Pro，优先选 iPhone 17 Pro，否则取第一台 iPhone）
+- 真实后端已验证（2026-11-05，测试账号）：
+  - `POST /jw/login` 成功返回 **201**，`{"code":200,"message":"success","data":null}`，两个独立的 Set-Cookie（JSESSIONID、route，Path=/，Max-Age=7 天）
+  - 账号错误 → **401** `{"code":401,"message":"账号或密码错误，登录失败"}`；会话失效/无 Cookie → **401** `{"code":401,"message":"登录态过期，请重新登录"}`（所以 401 判定足够）
+  - 临时联调测试：登录 → 取数 → 破坏 Cookie 后自动重登 → 错误密码，全部通过（测试已删除，未提交）
+  - `/jw/*` 响应形如 `{code, message, data}`，`DataEnvelope` 可直接解
+- Fixture 已抓到 `Fixtures/raw/`（gitignore）：schedule_personal、profile_startDay、exam、score、score_usual、profile
 - TODO(verify)：
-  - 后端 `/jw/login` 失败时的状态码和 body 格式（目前按 `{message|msg}` 取文案）
-  - 登录响应 Set-Cookie 是否同时含 JSESSIONID 和 route（按 RN 逻辑假设）
-  - 后端会话失效时的真实表现（目前判定：401 / 302 到 login / HTML 登录页）
-  - Keychain access group 尚未启用（GxuConfig.keychainAccessGroup = nil），填 Team ID 后再开
+  - Keychain access group 尚未启用（GxuConfig.keychainAccessGroup = nil），填真实 Team ID 后再开
+  - project.yml 的 DEVELOPMENT_TEAM 目前是占位 `YOUR_TEAM_ID`
   - test.sh 偶发 `xcrun: unable to find utility simctl`（连续启动多个 xcodebuild test 时），重跑即可

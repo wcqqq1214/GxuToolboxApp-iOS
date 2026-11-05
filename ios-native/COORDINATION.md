@@ -24,6 +24,13 @@
 - 想在 `#Preview` 里用 `.preview`，需要 package 依赖 `GxuTestSupport`（FeatureAccount 已这样做）。
 - `AppServices.preview(signedIn: false)` 可得到未登录的预览服务。
 
+### 真实数据备忘（Agent A，已用测试账号抓取到 `Fixtures/raw/`，需脱敏后再用）
+
+- `/jw/profile/startDay` 返回 `{year, term, day: "2024-08-26T00:00:00.000Z", week}`，**day 是 ISO 时间串且没有 `is_current`**（与 api-docs 不一致）。注意时区：UTC 零点，按本地日期解析前要考虑。
+- `/jw/exam` 的 `time` 是字符串 `"2026-01-23(09:00-11:00)"`，需要自己拆；条目含 `id/course/classroom/time/type`。
+- `/jw/score/usual` 在不带课程 id 时返回 `data: []`。
+- 所有 `/jw/*` 响应形如 `{code, message, data}`；会话失效统一 HTTP 401，`getData` 已处理自动重登。
+
 ## Agent A 收到的请求
 
 - [ ] (C) `scripts/test.sh` 硬编码 scheme 为 `<Pkg>-Package`，但只有一个 library product 的 package（如 FeatureExam）scheme 就叫 `<Pkg>`，会报 "does not contain a scheme"。请让脚本先 `xcodebuild -list` 判断，或两个名字都试。我暂时直接用 `xcodebuild -scheme FeatureExam ... test`
