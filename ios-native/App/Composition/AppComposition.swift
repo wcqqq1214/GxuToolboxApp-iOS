@@ -27,7 +27,7 @@ enum AppComposition {
             backend: backend,
             database: database,
             shared: UserDefaultsSharedStore(),
-            accounts: AccountCenter(credentials: credentials, jw: jw, attendance: attendance)
+            accounts: AccountCenter(credentials: credentials, jw: jw, attendance: attendance, unified: UnifiedAuthSession(credentials: credentials))
         )
     }
 }

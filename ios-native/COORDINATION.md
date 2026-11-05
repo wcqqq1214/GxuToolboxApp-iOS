@@ -109,6 +109,21 @@ Phase 1 的 B 部分已完成并发布：GxuDesign v1、Shell（课表 / 工具�
 - 非阻塞观察（已写进对方小节）：深色那一轮课表顶部出现"网络连接失败…上次更新于 20:29"的陈旧提示（走缓存显示，行为正确）；当时机器负载约 660（三个 agent 同时编译），多半是 10 秒超时，不是后端问题。
 - 注意：xcodebuild 构建期间不要往同一 worktree 加文件，否则编译列表是旧的会失败（我踩过）。
 
+### CA 统一认证 / PEC / 工程训练中心已就绪（Agent A）
+
+```swift
+// import GxuAuth；services.accounts.unified: UnifiedAuthSession?（actor，独立 Cookie 存储）
+try await services.accounts.unified?.loginPEC()                       // 物理实验平台 SSO，Cookie 留在会话里
+let (data, resp) = try await unified.data(for: URLRequest(url: pecURL))   // 之后用它发 PEC 请求（不跟随重定向）
+let eng = try await unified.loginEngTraining()                        // EngTrainingSession { studentCode, token }
+// 工程训练请求头：authorization: eng.token（直接用 URLSession 请求 xlzxms 即可，token 不依赖 Cookie）
+```
+- 账号：用户在 设置 → 统一认证账号 登录（`AccountFeature.makeUnifiedAccountView()`，**B 请挂到设置页账号区**）。Keychain 里有 `.unified` 账号时，`loginPEC()` / `loginEngTraining()` 每次都会重新走 CA 登录（RSA → 表单 → ticket），所以不需要关心会话过期；没有账号抛 `GxuError.notLoggedIn(.unified)`，账号密码错误抛 `invalidData("统一认证账号或密码错误")`。
+- 没有 token 概念，`states[.unified]` = 有已保存账号即 `.authenticated`（乐观）。
+- ATS：`project.yml` 已加 `ca.gxu.edu.cn` / `pec.gxu.edu.cn` / `xlzxms.gxu.edu.cn` 的 http 例外（这些系统只有 http）。
+- 实现：`ZfcaRSA`（与 RN `RSAUtils` 逐字节一致，用 Python 参照实现生成向量测试）、`UnifiedAuthSession`（手动跟随重定向）。
+- **真实验证进度**：公钥 / 登录页 / 校验接口已对真实服务验证；用一个不存在的账号试登，真实服务接受了 RSA 表单并返回登录页，被正确识别为"账号或密码错误"。**用真实账号登录 + PEC + xlzxms 的完整流程还没验证——`.secrets/account.env` 里没有 `CA_USER` / `CA_PASS`**，已在 status 里请用户补充。
+
 ## Agent A 收到的请求
 
 - [x] (C) `scripts/test.sh` 硬编码 scheme 为 `<Pkg>-Package`，但只有一个 library product 的 package（如 FeatureExam）scheme 就叫 `<Pkg>`，会报 "does not contain a scheme"。请让脚本先 `xcodebuild -list` 判断，或两个名字都试。我暂时直接用 `xcodebuild -scheme FeatureExam ... test`
@@ -119,6 +134,7 @@ Phase 1 的 B 部分已完成并发布：GxuDesign v1、Shell（课表 / 工具�
 
 ## Agent B 收到的请求
 
+- [ ] (A → B) 设置页账号区请再挂上"统一认证账号"：`NavigationLink { AccountFeature.makeUnifiedAccountView() }`；PEC / 工程训练中心用法见公告「CA 统一认证 / PEC / 工程训练中心已就绪」。
 - [ ] (A → B) 设置页账号区请挂上"考勤账号"：`NavigationLink { AccountFeature.makeAttendanceAccountView() }`（`import FeatureAccount`），状态读 `services.accounts.states[.attendance]`，用法见公告「考勤认证已就绪」。
 - [ ] (A → B，低优先级) 验收时深色模式下课表出现过"网络连接失败"提示（见 [phase1-accepted]），多半是机器过载；如果你觉得 10 秒超时对课表偏短，可以评估（`BackendClient.makeSession` 是 A 的，需要改超时请告诉我）。
 

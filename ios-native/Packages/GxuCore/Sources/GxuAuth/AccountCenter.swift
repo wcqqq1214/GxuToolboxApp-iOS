@@ -11,12 +11,15 @@ public final class AccountCenter {
     @ObservationIgnored private let credentials: any CredentialStore
     @ObservationIgnored private let jw: JwSessionManager
     @ObservationIgnored public let attendance: AttendanceSession?
+    /// 统一认证（CA）会话，以及 PEC / 工程训练中心的 SSO 入口
+    @ObservationIgnored public let unified: UnifiedAuthSession?
 
     /// 教务（Cookie）和考勤（token）已接入；CA / OA 在后续步骤接入。
-    public init(credentials: any CredentialStore, jw: JwSessionManager, attendance: AttendanceSession? = nil) {
+    public init(credentials: any CredentialStore, jw: JwSessionManager, attendance: AttendanceSession? = nil, unified: UnifiedAuthSession? = nil) {
         self.credentials = credentials
         self.jw = jw
         self.attendance = attendance
+        self.unified = unified
         var states = Dictionary(uniqueKeysWithValues: AuthSystem.allCases.map { ($0, AuthState.noAccount) })
         if let credential = credentials.load(.jw) {
             studentId = credential.username
@@ -25,6 +28,8 @@ public final class AccountCenter {
         }
         if attendance?.hasToken == true { states[.attendance] = .authenticated }
         else if attendance != nil, credentials.load(.attendance) != nil { states[.attendance] = .signedOut }
+        // CA 没有长期 token：有账号就乐观认为可用，服务登录时会用 Keychain 里的账号重新登录，失败再报错
+        if unified != nil, credentials.load(.unified) != nil { states[.unified] = .authenticated }
         self.states = states
         attendance?.setObserver { [weak self] state in
             Task { @MainActor in self?.states[.attendance] = state }
@@ -37,15 +42,25 @@ public final class AccountCenter {
     }
 
     /// 预览 / 测试用：直接指定状态
-    public init(credentials: any CredentialStore, jw: JwSessionManager, attendance: AttendanceSession? = nil, states: [AuthSystem: AuthState], studentId: String?) {
+    public init(credentials: any CredentialStore, jw: JwSessionManager, attendance: AttendanceSession? = nil, unified: UnifiedAuthSession? = nil, states: [AuthSystem: AuthState], studentId: String?) {
         self.credentials = credentials
         self.jw = jw
         self.attendance = attendance
+        self.unified = unified
         self.states = Dictionary(uniqueKeysWithValues: AuthSystem.allCases.map { ($0, states[$0] ?? .noAccount) })
         self.studentId = studentId
     }
 
     public func login(_ system: AuthSystem, username: String, password: String) async throws {
+        if system == .unified {
+            guard let unified else { throw GxuError.invalidData("统一认证未配置") }
+            let username = username.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !username.isEmpty, !password.isEmpty else { throw GxuError.invalidData("请输入统一认证账号和密码") }
+            try await unified.login(username: username, password: password)
+            try credentials.save(Credential(username: username, password: password), for: .unified)
+            states[.unified] = .authenticated
+            return
+        }
         guard system == .jw else {
             throw GxuError.invalidData(system == .attendance ? "考勤系统登录需要验证码，请使用 loginAttendance" : "\(system.displayName)暂未支持")
         }
@@ -55,6 +70,11 @@ public final class AccountCenter {
         try credentials.save(Credential(username: username, password: password), for: .jw)
         studentId = username
         states[.jw] = .authenticated
+    }
+
+    /// 已保存账号的用户名（教务用 `studentId`；统一认证等从 Keychain 读）
+    public func savedUsername(_ system: AuthSystem) -> String? {
+        credentials.load(system)?.username
     }
 
     /// 获取考勤登录验证码（图片 + ticket）
@@ -81,6 +101,7 @@ public final class AccountCenter {
             studentId = nil
         }
         if system == .attendance { attendance?.clear() }
+        if system == .unified { await unified?.logout() }
         credentials.delete(system)
         states[system] = .noAccount
     }
@@ -90,6 +111,10 @@ public final class AccountCenter {
         switch states[system] ?? .noAccount {
         case .authenticated: return
         case .noAccount: throw GxuError.notLoggedIn(system)
+        case .signedOut where system == .unified:
+            guard let unified else { throw GxuError.sessionExpired(.unified) }
+            try await unified.renew()
+            states[.unified] = .authenticated
         case .signedOut:
             guard system == .jw else { throw GxuError.sessionExpired(system) }   // 考勤等需要用户交互（验证码）
             try await jw.renew(.jw)

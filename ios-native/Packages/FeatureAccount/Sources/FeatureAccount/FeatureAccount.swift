@@ -15,4 +15,10 @@ public enum AccountFeature {
     public static func makeAttendanceAccountView() -> some View {
         AttendanceAccountView()
     }
+
+    /// 设置 → 统一认证账号（CA；PEC、工程训练中心的登录依赖它）
+    @MainActor
+    public static func makeUnifiedAccountView() -> some View {
+        JwAccountView(system: .unified)
+    }
 }

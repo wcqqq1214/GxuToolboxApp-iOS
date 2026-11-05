@@ -29,6 +29,7 @@
 
 ## Phase 2 进度（2026-11-05）
 - 完成：Phase 1 验收（run-e2e-ui.sh，浅色/深色各 9 步通过）；每个 worktree 专属模拟器；考勤认证（AttendanceSession、`Authorization: Token` 注入、401 → signedOut、考勤账号页、单测）
-- 进行中：CA 统一认证（RSA + zfca 登录）、PEC / xlzxms SSO
+- 完成：CA 统一认证（ZfcaRSA + UnifiedAuthSession）、PEC / xlzxms SSO、统一认证账号页、ATS 例外（已发布，待真实账号验证）
+- 进行中：WebView 容器、版本检查、反馈 + 埋点、个人信息页
 - 需要用户：**`.secrets/account.env` 里补 `CA_USER`、`CA_PASS`（统一认证账号）**才能真实验证 CA / PEC / xlzxms；另需一个考勤系统账号 + 人工看验证码才能验证考勤完整登录（目前只验证了验证码接口，登录流程由单测覆盖）
 - TODO(verify)：考勤 `/attendance/login` 的真实响应（code 600 / token / userInfo.userId）；验证码错误时的 msg 文案

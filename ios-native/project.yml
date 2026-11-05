@@ -47,6 +47,10 @@ targets:
             api.tool.gxutech.xyz:
               NSExceptionAllowsInsecureHTTPLoads: true
               NSIncludesSubdomains: false
+            # 统一认证（zfim 校验）、物理实验平台、工程训练中心只提供 http
+            ca.gxu.edu.cn: {NSExceptionAllowsInsecureHTTPLoads: true}
+            pec.gxu.edu.cn: {NSExceptionAllowsInsecureHTTPLoads: true}
+            xlzxms.gxu.edu.cn: {NSExceptionAllowsInsecureHTTPLoads: true}
     entitlements:
       path: App/Resources/GxuToolApp.entitlements
       properties:
