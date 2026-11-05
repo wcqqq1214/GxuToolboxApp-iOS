@@ -23,6 +23,8 @@ fetch profile_startDay  "/jw/profile/startDay"
 fetch exam              "/jw/exam?year=$YEAR&term=$TERM"
 fetch score             "/jw/score?pageSize=100&pageNo=1&orderBy=desc&order=cjbdsj"
 fetch score_usual       "/jw/score/usual?year=$YEAR&term=$TERM"
+fetch selected_courses       "/jw/selected-courses"
+fetch selected_courses_term  "/jw/selected-courses?year=$YEAR&term=$TERM"
 curl -sS -b "$JAR" -X POST -H 'Content-Type: application/json' -d '{"isFull":false}' \
   -o "$OUT/profile.json" -w "profile -> HTTP %{http_code}\n" "$BASE/jw/profile"
 echo "已保存到 ${OUT}（含真实数据，使用前请脱敏）"

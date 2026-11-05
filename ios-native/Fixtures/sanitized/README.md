@@ -14,6 +14,8 @@
 | `score.json` | `GET /jw/score` | `pageSize=100&pageNo=1&orderBy=desc&order=cjbdsj` | `data = {totalCount, totalPage, currentPage, items}`；这是第 1 页（totalCount=117，items 有 100 条），同时有 snake_case 和 camelCase 两套字段；`term=0` 表示未分学期 |
 | `score-usual.json` | `GET /jw/score/usual` | `year=2025&term=1`（未带课程 id） | `data` 为空数组；带 `id` 的真实响应尚未抓取 |
 | `profile.json` | `POST /jw/profile` | body `{"isFull":false}` | **返回 HTTP 201**；`grade`（入学年份）、`study_years` 都是**字符串** |
+| `selected-courses.json` | `GET /jw/selected-courses` | 无参数 | `data = {currentPage, totalPage, totalCount, items}`，一页返回全部（135 门，含历年）。条目字段：`classId, courseId, courseName, type(理论/实验/实践/实习), selectionType(主修课程/通识选修课/重修课程/体育分项…), classification(公共课/专业课), belongTo, system, teacher, teacherId, location, credit, year, term`（`credit/year/term` 是数字，其余是字符串）。`teacher` / `teacherId` 可能是逗号分隔的多人；`location` 多个教室用 `;` 分隔，可能为空串；`belongTo` 可能为空串。教师姓名、工号已替换（工号 `000000` 是网络课程占位，保留） |
+| `selected-courses-term.json` | `GET /jw/selected-courses` | `year=2025&term=1` | 同上，只含该学期（17 门） |
 | `jw-login-success.json` | `POST /jw/login` | 正确账号 | **HTTP 201**，响应头带 `Set-Cookie: JSESSIONID, route`（头未保存） |
 | `jw-login-failure.json` | `POST /jw/login` | 错误密码 | HTTP 401，手写 |
 | `session-expired.json` | 任意需登录接口 | Cookie 无效 | HTTP 401，手写 |

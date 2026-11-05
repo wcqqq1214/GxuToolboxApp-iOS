@@ -31,14 +31,20 @@ sensitive_scalars = {
 }
 
 teacher_keys = {"teacher", "teacher_name", "teacherName"}
+GENERIC_TEACHERS = {"无"}   # 不是具体的人，保留原样（"网络教师"仍会被编号，和已发布的 fixture 保持一致）
+GENERIC_TEACHER_IDS = {"000000"}       # 占位工号（网络课程等），保留原样
 teachers = set()
+teachers_legacy = set()               # 最早那 5 个文件里出现的教师：编号保持稳定，不因新增文件而改变已发布 fixture
+teacher_ids = set()
 
 
 def collect(x):
     if isinstance(x, dict):
         for k, v in x.items():
             if k in teacher_keys and isinstance(v, str):
-                teachers.update(t.strip() for t in re.split(r"[,;，；]", v) if t.strip() and t.strip() != "无")
+                teachers.update(t.strip() for t in re.split(r"[,;，；]", v) if t.strip() and t.strip() not in GENERIC_TEACHERS)
+            if k == "teacherId" and isinstance(v, str):
+                teacher_ids.update(t.strip() for t in v.split(",") if t.strip() and t.strip() not in GENERIC_TEACHER_IDS)
             collect(v)
     elif isinstance(x, list):
         for v in x:
@@ -46,14 +52,19 @@ def collect(x):
 
 
 qq_groups = set()
-for f in ["schedule_personal.json", "exam.json", "score.json", "profile_startDay.json", "score_usual.json"]:
-    data = load(f)
-    collect(data)
+for f in ["schedule_personal.json", "exam.json", "score.json", "profile_startDay.json", "score_usual.json",
+          "selected_courses.json", "selected_courses_term.json"]:
+    before = set(teachers)
+    collect(load(f))
+    if not f.startswith("selected_courses"):
+        teachers_legacy.update(teachers - before)
 for item in schedule["data"].get("theoryList", []):
     if item.get("qqGroup"):
         qq_groups.add(item["qqGroup"])
 
-teacher_map = {name: f"教师{i + 1:02d}" for i, name in enumerate(sorted(teachers))}
+ordered_teachers = sorted(teachers_legacy) + sorted(teachers - teachers_legacy)
+teacher_map = {name: f"教师{i + 1:02d}" for i, name in enumerate(ordered_teachers)}
+teacher_id_map = {t: str(90000001 + i) for i, t in enumerate(sorted(teacher_ids))}   # 教师工号 -> 假工号（8 位，格式不变）
 qq_map = {g: str(100000001 + i) for i, g in enumerate(sorted(qq_groups))}
 # 长名字优先，避免短名字是长名字子串时被误替换
 teacher_pattern = re.compile("|".join(re.escape(n) for n in sorted(teacher_map, key=len, reverse=True))) if teacher_map else None
@@ -78,6 +89,8 @@ def scrub(x, key=None):
         return FAKE_ID_CARD
     if key in ("class_name", "className"):
         return FAKE_CLASS
+    if key == "teacherId":
+        return ",".join(teacher_id_map.get(t.strip(), t) for t in x.split(","))
     if key == "qqGroup":
         return qq_map.get(x, x)
     if key == "id" and re.fullmatch(r"[0-9A-F]{32}", x):  # 成绩记录 ID
@@ -94,6 +107,8 @@ FILES = {  # raw -> sanitized
     "score.json": "score.json",
     "score_usual.json": "score-usual.json",
     "profile.json": "profile.json",
+    "selected_courses.json": "selected-courses.json",
+    "selected_courses_term.json": "selected-courses-term.json",
     "jw_login.body.json": "jw-login-success.json",
 }
 OUT.mkdir(parents=True, exist_ok=True)
@@ -112,7 +127,7 @@ for raw_name, out_name in FILES.items():
     json.dumps({"code": 401, "message": "登录态过期，请重新登录", "data": None}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 # 残留检查
-needles = set(sensitive_scalars) | set(teacher_map) | set(qq_map)
+needles = set(sensitive_scalars) | set(teacher_map) | set(teacher_ids) | set(qq_map)
 leaks = []
 for f in OUT.glob("*.json"):
     text = f.read_text(encoding="utf-8")

@@ -240,7 +240,8 @@ Phase 2 的 B 部分全部完成并发布（构建通过；FeatureSchedule / Fea
   - A：已完成（App 依赖换成 ExamKit + ExamUI；Widget 加了 ScheduleKit / ExamKit / GxuNetworking / GxuAuth），`build.sh` 通过，已发布。Live Activity / App Intents 的 Info.plist 键需要时继续在这里追加。
 - [x] (C) 小组件 / Live Activity / App Intents 的 project.yml、`NSSupportsLiveActivities`、`App/GxuToolApp.swift`（`WidgetBridge`）、`App/Composition/IntentsPackage.swift`：用户破例一次，由 C 直接完成并发布（见 C 的公告），A 无需处理。
 
-- [ ] (C) 低优先级：请抓一份 `/jw/selected-courses`（不带参数和带 year/term 各一份）的真实脱敏响应放进 `Fixtures/sanitized/`。已选课程页、选课策略、未出分科目都依赖它；目前模型字段是按 gxu-tool-adapters 的 `SelectedCourse` 写的，没有真实样本核对。
+- [x] (C) 低优先级：请抓一份 `/jw/selected-courses`（不带参数和带 year/term 各一份）的真实脱敏响应放进 `Fixtures/sanitized/`。已选课程页、选课策略、未出分科目都依赖它；目前模型字段是按 gxu-tool-adapters 的 `SelectedCourse` 写的，没有真实样本核对。
+  - A：已发布 `Fixtures/sanitized/selected-courses.json`（无参数，135 门）和 `selected-courses-term.json`（`year=2025&term=1`，17 门），字段说明在 `Fixtures/sanitized/README.md`。真实样本与 `SelectedCourse` 模型的差异请对照：`credit/year/term` 是数字；`teacher`/`teacherId` 可能逗号分隔多人；`location` 多个教室用 `;` 分隔且可能为空；`belongTo` 可能为空串；一页返回全部（`totalPage` = 1）。
 
 ## Agent B 收到的请求
 
