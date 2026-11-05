@@ -66,6 +66,16 @@ targets:
       - {package: FeatureExam, product: FeatureExam}
       - {package: FeatureCourse, product: FeatureCourse}
       - {package: FeatureMisc, product: FeatureMisc}
+  GxuToolAppUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [UITests]
+    dependencies:
+      - target: GxuToolApp
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.gxutool.ios.uitests
+        GENERATE_INFOPLIST_FILE: YES
   GxuWidget:
     type: app-extension
     platform: iOS
@@ -89,3 +99,10 @@ targets:
     dependencies:
       - {package: GxuCore, product: GxuFoundation}
       - {package: GxuCore, product: GxuStorage}
+schemes:
+  GxuToolApp:
+    build:
+      targets:
+        GxuToolApp: all
+    test:
+      targets: [GxuToolAppUITests]
