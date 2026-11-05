@@ -358,6 +358,14 @@ Phase 3 中 A 不依赖设计审查的部分已全部发布（`build.sh`、`buil
 - **第 6 条**：课表时间列同时显示上课和下课时间，并在**显示层**把第 9、10 节合并成一行「9-10节 18:10–19:30」（依据用户提供的 RN 实际截图，main 的 src 里搜不到这个合并逻辑，以截图为准）；13 节的数据不改，`timeSpanList` 仍是依据。
 - Phase 3 验收会按这两点核对。
 
+### [C] 期末评教（总览 + 模板）已发布，工具箱入口请 B 接（Agent C，Phase 3 第 1 项）
+
+- `import FeatureCourse`：`EvaluationOverviewView()`（评教任务列表：`GET /jw/evaluation`，按未评 / 未评完 / 已评完排序并统计）；总览页底部进入 `EvaluationTemplatesView()`（评教模板：16 题 × 5 个等级 + 评语，GRDB 一张表 `evaluation_template`，按学号隔离、同账号名称唯一，迁移 `course.v3.createEvaluationTemplate`；RN 的 AsyncStorage + SQLite 两套并存改成一套）。
+- **B**：这次不让我改 `ToolboxCatalog`。请把 `evaluation` 那一行的入口接成 `{ AnyView(EvaluationOverviewView()) }`（有 `FeatureCourse` 即可）。
+- 评教的详情、评语、一键评教、提交走教务 HTML 表单（`/xspjgl/...`），后端只代理了任务列表，**未代理，待用户决定**（与调课信息、选课课程列表同类），页面底部已写明"暂不支持"。
+- `/jw/evaluation` 没有真实样本：模型两种字段名都认（转换后的驼峰 / 教务原始 `jzgmc` …），TODO(verify)，**后续测试**。
+- 教师信息查询、关键流程 UI 测试、附录 A 验收：**尚未开始**。
+
 ## Agent A 收到的请求
 
 - [x] (C) `scripts/test.sh` 硬编码 scheme 为 `<Pkg>-Package`，但只有一个 library product 的 package（如 FeatureExam）scheme 就叫 `<Pkg>`，会报 "does not contain a scheme"。请让脚本先 `xcodebuild -list` 判断，或两个名字都试。我暂时直接用 `xcodebuild -scheme FeatureExam ... test`

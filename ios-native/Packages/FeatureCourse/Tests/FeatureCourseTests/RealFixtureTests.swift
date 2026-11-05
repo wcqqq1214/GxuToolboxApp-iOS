@@ -59,7 +59,7 @@ private func passedNames(adding extra: [String] = []) throws -> Set<String> {
     }
 
     @Test func repositoryAcceptsTermThreeAndIsolatesStudents() async throws {
-        let db = try AppDatabase.inMemory(features: [SelectedCourseRepository.migrations])
+        let db = try AppDatabase.inMemory(features: [CourseFeature.migrations])
         let repo = SelectedCourseRepository(database: db)
         let all = try selectedAll()
         try await repo.replaceAll(all, studentId: "a")   // 含 2022 学年小学期（term 3），之前会整体报错

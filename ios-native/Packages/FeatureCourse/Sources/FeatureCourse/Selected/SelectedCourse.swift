@@ -147,7 +147,7 @@ public struct SelectedCourseRepository: Sendable {
 
     public init(database: AppDatabase) { self.database = database }
 
-    public static let migrations = FeatureMigrations(feature: "course") { migrator in
+    static func registerMigrations(_ migrator: inout DatabaseMigrator) {
         migrator.registerMigration("course.v1.createSelectedCourse") { db in
             try db.create(table: "selected_course") { t in
                 t.column("studentId", .text).notNull()

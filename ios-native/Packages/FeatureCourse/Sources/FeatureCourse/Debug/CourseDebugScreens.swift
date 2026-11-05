@@ -28,7 +28,16 @@ public enum CourseDebugScreens {
                 Text("工具箱").navigationTitle("工具箱")
                     .navigationDestination(for: String.self) { page(for: $0).environment(\.services, CourseDebugScreens.services) }
             }
-            .task { path = [name] }
+            .task {
+                if name == "c-evaluation-templates" {
+                    let repo = EvaluationTemplateRepository(database: CourseDebugScreens.services.database)
+                    _ = try? await repo.save(EvaluationTemplate(name: "全部满意", comment: "老师讲课认真，收获很大。"), studentId: "2025000000")
+                    var mixed = EvaluationTemplate(name: "有选择地打分", answers: EvaluationQuestions.defaultAnswers)
+                    mixed.answers[0] = 0; mixed.answers[1] = 0; mixed.answers[6] = 2
+                    _ = try? await repo.save(mixed, studentId: "2025000000")
+                }
+                path = [name]
+            }
         }
 
         @ViewBuilder
@@ -41,6 +50,8 @@ public enum CourseDebugScreens {
             case "c-timeshift": TimeShiftView()
             case "c-selected": SelectedCoursesView()
             case "c-strategy": ElectiveStrategyView()
+            case "c-evaluation": EvaluationOverviewView()
+            case "c-evaluation-templates": EvaluationTemplatesView()
             default: Text("未知页面 \(name)")
             }
         }
@@ -66,6 +77,7 @@ struct StubBackend: BackendAPI {
         switch path {
         case "/jw/profile/startDay": body = Self.startDays
         case "/jw/exam": body = Self.exams
+        case "/jw/evaluation": body = Self.evaluation
         case "/jw/score": body = query["year"] == nil ? Self.allScores : Self.scores
         case "/jw/selected-courses": body = Self.selected(year: query["year"].flatMap(Int.init), term: query["term"].flatMap(Int.init))
         case "/jw/score/usual": body = #"[{"name":"平时成绩","ratio":"30","score":"91"},{"name":"期末成绩","ratio":"70","score":"84"},{"name":"总评","ratio":"N/A","score":"86"}]"#
@@ -102,6 +114,17 @@ struct StubBackend: BackendAPI {
          {"id": "e4", "course": "体育", "classroom": "", "time": "待定", "type": "2026-2027学年第一学期期末考试"},
          {"id": "e5", "course": "大学物理实验", "classroom": "实验楼 B201", "time": "\(day(-10))(09:00-11:00)", "type": "2026-2027学年第一学期期中考试"}]
         """
+    }
+
+    private static var evaluation: String {
+        func t(_ teacher: String, _ course: String, _ type: String, _ status: String, _ id: String) -> String {
+            #"{"teacherName":"\#(teacher)","courseName":"\#(course)","courseTypeName":"\#(type)","submitStatus":"\#(status)","teachingClassId":"\#(id)","courseId":"c\#(id)"}"#
+        }
+        return "[" + [
+            t("教师甲", "高等数学", "理论", "已评完", "1"), t("教师丙", "大学英语", "理论", "未评", "2"),
+            t("教师乙", "程序设计基础", "理论", "未评完", "3"), t("教师己", "大学物理实验", "实验", "未评", "4"),
+            t("教师戊", "线性代数", "理论", "已评完", "5"),
+        ].joined(separator: ",") + "]"
     }
 
     private static func yearNow() -> Int { Calendar.current.component(.month, from: .now) >= 9 ? Calendar.current.component(.year, from: .now) : Calendar.current.component(.year, from: .now) - 1 }
