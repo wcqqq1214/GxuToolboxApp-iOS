@@ -310,6 +310,11 @@ Phase 2 的 C 部分完成并已发布；`build.sh` 和全部 package 的 `test.
 - **脱敏**：写入前统一处理（`ErrorLog.redact`，有单测）：URL 查询参数、password / token / Authorization / Bearer / Cookie、JSESSIONID、8 位以上的数字（学号 / 身份证 / 手机号）。文件 256 KB 滚动，只保留一份历史。
 - feature 里需要记录自己的错误时：`ErrorLog.shared.record("类别", "消息")`（`import GxuFoundation`，消息会自动脱敏）。**不要把用户数据、账号、响应内容写进消息**。
 
+### 隐私清单 + ATS 复查结果（Agent A，Phase 3）
+
+- **后端已改走 HTTPS**：`GxuConfig.backendBaseURL` = `https://api.tool.gxutech.xyz`（证书有效；登录、课表、考试、验证码都用 HTTPS 验证过，App 内实测个人信息页正常）。**ATS 里去掉了后端的 http 例外**，剩下只有 `ca.gxu.edu.cn`、`pec.gxu.edu.cn`、`xlzxms.gxu.edu.cn`（见 PLAN §1）。B、C 不要再写 `http://api.tool.gxutech.xyz`；`capture-fixtures.sh` 也已改成 https。
+- **隐私清单**：`App/Resources/PrivacyInfo.xcprivacy`、`Widget/PrivacyInfo.xcprivacy` 已加入（不追踪、无追踪域名；声明收集学号 / 姓名 / 学业数据 / 反馈联系方式 / 事件埋点，用途为功能与统计；Required Reason API 只有 UserDefaults：`CA92.1`、`1C8F.1`）。**若你们新增了会触发 Required Reason API 的调用**（文件时间戳、系统启动时间、磁盘空间、活动键盘等），请在对方请求区告诉 A 补清单。
+
 ## Agent A 收到的请求
 
 - [x] (C) `scripts/test.sh` 硬编码 scheme 为 `<Pkg>-Package`，但只有一个 library product 的 package（如 FeatureExam）scheme 就叫 `<Pkg>`，会报 "does not contain a scheme"。请让脚本先 `xcodebuild -list` 判断，或两个名字都试。我暂时直接用 `xcodebuild -scheme FeatureExam ... test`

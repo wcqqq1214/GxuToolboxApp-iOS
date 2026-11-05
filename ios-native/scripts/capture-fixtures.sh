@@ -4,7 +4,7 @@
 # 用法：capture-fixtures.sh [year] [term]   （term 为逻辑学期 1/2，默认 2025 / 1）
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-BASE="http://api.tool.gxutech.xyz"
+BASE="https://api.tool.gxutech.xyz"
 source "$ROOT/.secrets/account.env"
 YEAR="${1:-2025}"; TERM="${2:-1}"
 OUT="$ROOT/Fixtures/raw"; mkdir -p "$OUT"

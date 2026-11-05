@@ -91,9 +91,9 @@ public enum GxuError: Error, Sendable, Equatable {
     }
 }
 
-/// 全局常量。后端目前只有 http，ATS 例外在 project.yml 中配置。
+/// 全局常量。后端已支持 HTTPS（2026-11-06 验证：证书有效，登录 / 取数正常），不再需要后端的 ATS 例外；其余 http 例外见 project.yml。
 public enum GxuConfig {
-    public static let backendBaseURL = URL(string: "http://api.tool.gxutech.xyz")!
+    public static let backendBaseURL = URL(string: "https://api.tool.gxutech.xyz")!
     public static let jwCookieURL = URL(string: "https://jwxt2018.gxu.edu.cn/jwglxt")!
     public static let appGroupID = "group.com.gxutool.ios"
     /// Keychain access group 需要 Team ID 前缀，用户填写 Team ID 后在组装处传入；nil 表示使用 App 默认分组。

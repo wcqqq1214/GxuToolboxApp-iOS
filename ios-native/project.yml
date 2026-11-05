@@ -46,10 +46,8 @@ targets:
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         NSAppTransportSecurity:
           NSExceptionDomains:
-            api.tool.gxutech.xyz:
-              NSExceptionAllowsInsecureHTTPLoads: true
-              NSIncludesSubdomains: false
-            # 统一认证（zfim 校验）、物理实验平台、工程训练中心只提供 http
+            # 只保留确实需要 http 的校内系统：统一认证的 zfim 校验接口（ca.gxu.edu.cn:81 只有 http）、
+            # PEC / 工程训练中心的 CAS service 地址（RN 用 http 注册；https 能连通，是否能换成 https 待真实账号验证）
             ca.gxu.edu.cn: {NSExceptionAllowsInsecureHTTPLoads: true}
             pec.gxu.edu.cn: {NSExceptionAllowsInsecureHTTPLoads: true}
             xlzxms.gxu.edu.cn: {NSExceptionAllowsInsecureHTTPLoads: true}

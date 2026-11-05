@@ -24,13 +24,6 @@
 	<dict>
 		<key>NSExceptionDomains</key>
 		<dict>
-			<key>api.tool.gxutech.xyz</key>
-			<dict>
-				<key>NSExceptionAllowsInsecureHTTPLoads</key>
-				<true/>
-				<key>NSIncludesSubdomains</key>
-				<false/>
-			</dict>
 			<key>ca.gxu.edu.cn</key>
 			<dict>
 				<key>NSExceptionAllowsInsecureHTTPLoads</key>

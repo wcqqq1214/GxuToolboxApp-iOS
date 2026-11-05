@@ -29,7 +29,7 @@
 | 测试 | Swift Testing（`import Testing`），用 JSON fixture 测解码和业务逻辑 |
 | 图标 | 只用 SF Symbols |
 | Bundle ID | 先用占位 `com.gxutool.ios`，App Group `group.com.gxutool.ios`，Team ID 由用户在 `project.yml` 填写 |
-| ATS | 后端是 `http://`，需要为 `api.tool.gxutech.xyz` 配置 `NSExceptionDomains`（长期应推动后端上 HTTPS） |
+| ATS | **后端已走 HTTPS**（2026-11-06 复查：`api.tool.gxutech.xyz` 证书有效，登录 / 取数 / 验证码正常），不再配置后端的例外。只为校内系统保留 http 例外：`ca.gxu.edu.cn`（zfim 校验接口 `:81` 只有 http）、`pec.gxu.edu.cn`、`xlzxms.gxu.edu.cn`（CAS service 地址 RN 用 http 注册；https 能连通，能否换成 https 待真实账号验证后收紧） |
 
 ## 2. 目录结构与所有权
 
@@ -269,7 +269,10 @@ B、C：在 bootstrap 发布之前，先读 RN 源码，把自己 Phase 1 功能
 - [ ] 后续测试（本轮不等）：统一认证 `CA_USER` / `CA_PASS`（CA、PEC、工程训练中心的真实验证）和一个考勤系统账号（完整登录需要人工看验证码）。教务测试账号已提供。
 - [ ] **上架前**：`version.json`（`https://file.unde.site/GxuToolApp/version.json`）增加 `ios` 通道，iOS 版本检查才会有提示；没有通道时现在是静默的。格式见 COORDINATION「个人信息 / 反馈 / 埋点 / 版本检查 / WebView 容器已就绪」。
 - [ ] 后端 `GET /feedback/{userId}` 对所有请求返回 401 "看板：未登录或登录已过期"（2026-11-05 真实验证，带有效教务 Cookie 也一样）。iOS 已隐藏"我的反馈"入口（默认关闭的开关，代码保留）；**等后端修复后**再打开 `FeedbackFeatures.showsMyFeedback`。
-- [ ] 后端上 HTTPS；确认 iOS 也走后端代理时，后端的限流和稳定性够用。
+- [x] 后端上 HTTPS：已确认可用，iOS 已改用 `https://api.tool.gxutech.xyz` 并移除 ATS 例外（Android 仍用 http，可跟进）。
+- [ ] 确认 iOS 也走后端代理时，后端的限流和稳定性够用。
+- [ ] 上架前由用户复核 `PrivacyInfo.xcprivacy` 里声明的收集数据类型（学号、姓名、学业数据、反馈联系方式、事件埋点），并在 App Store Connect 的「隐私营养标签」里填写一致的内容；需要隐私政策链接。
+- [ ] App 图标和名称由用户决定（使用「广西大学」名称和校徽可能被问到知识产权问题）。
 - iOS 没有 OTA，修 bug 要走审核；TestFlight 可以作为测试通道。
 - Android 和 iOS 两端要各写一遍功能，所以新的教务功能应该**先做后端接口**，两端都只接后端。
 
