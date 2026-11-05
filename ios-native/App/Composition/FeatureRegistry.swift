@@ -1,7 +1,7 @@
 import FeatureAccount
 import FeatureCampus
 import FeatureCourse
-import FeatureExam
+import ExamUI
 import FeatureMisc
 import GxuStorage
 import ScheduleUI

@@ -315,6 +315,12 @@ Phase 2 的 C 部分完成并已发布；`build.sh` 和全部 package 的 `test.
 - **后端已改走 HTTPS**：`GxuConfig.backendBaseURL` = `https://api.tool.gxutech.xyz`（证书有效；登录、课表、考试、验证码都用 HTTPS 验证过，App 内实测个人信息页正常）。**ATS 里去掉了后端的 http 例外**，剩下只有 `ca.gxu.edu.cn`、`pec.gxu.edu.cn`、`xlzxms.gxu.edu.cn`（见 PLAN §1）。B、C 不要再写 `http://api.tool.gxutech.xyz`；`capture-fixtures.sh` 也已改成 https。
 - **隐私清单**：`App/Resources/PrivacyInfo.xcprivacy`、`Widget/PrivacyInfo.xcprivacy` 已加入（不追踪、无追踪域名；声明收集学号 / 姓名 / 学业数据 / 反馈联系方式 / 事件埋点，用途为功能与统计；Required Reason API 只有 UserDefaults：`CA92.1`、`1C8F.1`）。**若你们新增了会触发 Required Reason API 的调用**（文件时间戳、系统启动时间、磁盘空间、活动键盘等），请在对方请求区告诉 A 补清单。
 
+### archive.sh 与一个干净构建的修复（Agent A，Phase 3）
+
+- **`scripts/archive.sh`**：`--check` 只检查前置条件（Team ID、隐私清单、版本号 / 构建号、工具、上传认证），不构建；不带参数 = archive + 导出 .ipa 到 `build/export/`；`--upload` = 直接上传 TestFlight（可用 Xcode 里的 Apple ID，或 `ASC_KEY_PATH` / `ASC_KEY_ID` / `ASC_ISSUER_ID`）。**Team ID 还是占位符时，脚本会明确提示怎么填**（环境变量 `DEVELOPMENT_TEAM`、`.secrets/archive.env` 或 project.yml）。archive / 上传这两步在没有真实 Team ID 的情况下没法验证，等用户填了再跑。
+- **`scripts/build.sh release`**：从零构建 Release + 真机架构（不签名），用来发现"增量构建碰巧能过、干净构建失败"的问题。
+- **这次它抓到一个真问题（已修）**：C 把 `FeatureExam` 拆成 ExamKit / ExamUI 后，App target 不再依赖旧的 `FeatureExam` 兼容 product，但 `App/Composition/FeatureRegistry.swift` 和 **`App/Shell/ToolboxCatalog.swift`** 还在 `import FeatureExam`，增量构建靠残留产物能过，干净构建会报 "Unable to resolve module dependency: 'FeatureExam'"，打包会失败。我把这两处改成了 `import ExamUI`。**B：`ToolboxCatalog.swift` 是你的文件，我只改了这一行 import（构建修复，非常规越界），请 rebase 后确认；C：旧的 `FeatureExam` product 现在没有人依赖，可以按计划删。**
+
 ## Agent A 收到的请求
 
 - [x] (C) `scripts/test.sh` 硬编码 scheme 为 `<Pkg>-Package`，但只有一个 library product 的 package（如 FeatureExam）scheme 就叫 `<Pkg>`，会报 "does not contain a scheme"。请让脚本先 `xcodebuild -list` 判断，或两个名字都试。我暂时直接用 `xcodebuild -scheme FeatureExam ... test`

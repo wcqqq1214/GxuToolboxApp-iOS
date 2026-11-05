@@ -9,3 +9,7 @@ xcuserdata/
 .secrets/
 Fixtures/raw/
 .screens/
+
+# 打包产物
+build/
+.build-release/

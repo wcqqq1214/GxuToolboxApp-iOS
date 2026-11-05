@@ -1,7 +1,7 @@
 import FeatureCourse
 
 import FeatureCampus
-import FeatureExam
+import ExamUI
 import FeatureMisc
 import SwiftUI
 

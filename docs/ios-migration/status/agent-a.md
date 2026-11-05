@@ -1,6 +1,6 @@
 # Agent A 状态
 
-- 当前 Phase：Phase 2 已验收（[phase2-accepted]，2026-11-06）；下一步 Phase 3：OA 文件、问卷 wjxt、隐私清单、ATS 复查、App 图标、archive.sh、错误日志
+- 当前 Phase：Phase 3 的 A 部分已完成（[phase3-done] A）；App 图标和名称等用户决定的项见 PLAN §7
 - 已完成：
   - ios-native 骨架、project.yml、全部 package 空壳、契约 v1（GxuFoundation/Networking/Auth/Storage/TestSupport）
   - BackendClient（含会话失效检测、自动重登一次并重试）、JwSessionManager（actor，并发重登合并）、AccountCenter、Keychain/内存 CredentialStore
@@ -43,3 +43,15 @@
 - **iOS 18 降级走查：当前无法安装 runtime（阻塞）**。磁盘空间足够（可用约 55 GiB，runtime 约 8.9 GB），但 Xcode 27.2 的下载目录里没有 iOS 18：`xcodebuild -downloadPlatform iOS -buildVersion 18.0…18.6`（含 `-architectureVariant arm64` 和构建号 22G86）全部返回 "not available for download"；Apple 旧版目录里的 iOS 18.6 条目是 `mobileAsset` 方式，没有可直接下载的地址。可选办法（需用户决定）：① 另装一个 Xcode 16.x（约 3–5 GB 安装包，需 Apple ID 下载，可用 `xcodes`）并用它下载 iOS 18 runtime；② 退而求其次，让 B 在 GxuDesign 里加一个 DEBUG 开关强制走 `#available(iOS 26)` 的降级分支，在 iOS 27 模拟器上审查降级外观（只能发现样式问题，不能替代真 runtime）
 
 - Phase 2 验收：light / dark / legacy 各一遍通过；1 项界面小问题已写进 C 的请求区（成绩、GPA 标题被挤）；CA、考勤完整登录标「后续测试」；iOS 18 runtime 仍装不到（见上）
+
+## Phase 3（A，2026-11-06）— 已完成，[phase3-done] A
+- 完成并发布：OA 文件（列表 / 类型筛选 / 标题搜索 / 分页 / 详情正文 / PDF·DOCX 预览）、OA 账号、问卷系统 wjxt（待阅文件）、本机脱敏错误日志 + 诊断日志页、隐私清单（App + Widget）、ATS 复查（后端改走 HTTPS，移除其 ATS 例外）、`scripts/archive.sh`、`scripts/build.sh release`；干净 Release 构建抓到并修复了 `import FeatureExam` 问题
+- 全部 package 测试通过（`scripts/test.sh`）；`build.sh` 和 `build.sh release` 通过
+- **后续测试（不算未完成）**：OA / wjxt 真实登录与取数（这台机器访问 OA 返回 403 页面、wjxt 无响应，疑似只允许校内网络；也没有 OA 账号）、CA / PEC / 工程训练中心、考勤完整登录；PEC / 工程训练中心能否改用 https 以收紧 ATS；`archive.sh` 的 archive / 上传步骤（需要真实 Team ID）
+- 留给用户（PLAN §7）：App 图标和名称；隐私清单声明的复核与隐私政策链接；Team ID；`version.json` 的 `ios` 通道
+- 待 B 挂载：工具箱 `oaFiles` → `AccountFeature.makeOAFilesView()`；设置里的 OA 账号、诊断日志（见 COORDINATION 的 B 请求区）
+- **截图（不入库，DEBUG 直达页面，OA 数据为示例，不含真实数据）**：
+  - OA 文件列表（示例数据）：`/Users/wcqqq1214/Project/gxu_ios_a/ios-native/.screens/screen-oaFilesDemo-light.png`、`/Users/wcqqq1214/Project/gxu_ios_a/ios-native/.screens/screen-oaFilesDemo-dark.png`
+  - OA 文件详情（示例数据，正文 HTML + 附件按钮）：`/Users/wcqqq1214/Project/gxu_ios_a/ios-native/.screens/screen-oaDetailDemo-light.png`、`/Users/wcqqq1214/Project/gxu_ios_a/ios-native/.screens/screen-oaDetailDemo-dark.png`
+  - OA 文件未登录引导：`/Users/wcqqq1214/Project/gxu_ios_a/ios-native/.screens/screen-oaFiles-light.png`；OA 账号页：`/Users/wcqqq1214/Project/gxu_ios_a/ios-native/.screens/screen-oaAccount-light.png`
+  - 诊断日志（示例记录，展示脱敏效果）：`/Users/wcqqq1214/Project/gxu_ios_a/ios-native/.screens/screen-errorLog-light.png`
