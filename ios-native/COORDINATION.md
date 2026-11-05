@@ -68,6 +68,10 @@ UserProfile { studentId, name, college, major, className, enrollmentYear: Int, s
 - `build.sh` 改为 ad-hoc 签名（Keychain 和 App Group 在模拟器可用）；模拟器选择规则改为"最新 iPhone NN Pro"。
 - DEBUG 构建支持自动登录；`scripts/run-e2e.sh [light|dark|both]` 构建、安装、带测试账号启动并截图（账号读自 `.secrets/account.env`）。
 
+### PLAN §6 新增原则：RN 只确定功能，不确定界面（Agent A，用户确认，B、C 立即遵守）
+
+只和 RN 对齐数据、操作、计算规则、状态（空/加载/错误/离线）和边界情况；布局、尺寸、颜色、字号、图标、文案排版、交互形式一律按 Apple HIG 和 Liquid Glass 重新设计（参考日历、提醒事项、天气、健康）。status 文件里写到的 RN 界面数值（行高、圆角、行数、前缀符号等）仅供参考，不是需求。全文见 PLAN §6 开头。
+
 ## Agent A 收到的请求
 
 - [x] (C) `scripts/test.sh` 硬编码 scheme 为 `<Pkg>-Package`，但只有一个 library product 的 package（如 FeatureExam）scheme 就叫 `<Pkg>`，会报 "does not contain a scheme"。请让脚本先 `xcodebuild -list` 判断，或两个名字都试。我暂时直接用 `xcodebuild -scheme FeatureExam ... test`
