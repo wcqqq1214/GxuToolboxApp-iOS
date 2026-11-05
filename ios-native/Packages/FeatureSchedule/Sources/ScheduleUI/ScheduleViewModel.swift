@@ -30,6 +30,8 @@ final class ScheduleViewModel {
     private(set) var campusCalendar: CampusCalendar = .empty
     /// 冲突组里用户选中显示哪一门：`ConflictGroup.key` → 课程 key
     private(set) var choices: [String: String] = [:]
+    /// 用户自己添加的日程（已并入 `index`）
+    private(set) var activities: [CustomActivity] = []
 
     var selectedWeek = 1
     var palette: CoursePalette = .macaron
@@ -127,6 +129,46 @@ final class ScheduleViewModel {
         }
     }
 
+    /// 新增或修改自定义日程，立即反映到课表和小组件快照
+    func save(_ activity: CustomActivity) async {
+        guard let services, let studentId, let term else { return }
+        try? await makeRepository(services).saveCustomActivity(activity, studentId: studentId, term: term)
+        if let i = activities.firstIndex(where: { $0.id == activity.id }) { activities[i] = activity } else { activities.append(activity) }
+        activitiesChanged()
+    }
+
+    func delete(_ activity: CustomActivity) async {
+        guard let services, let studentId, let term else { return }
+        try? await makeRepository(services).deleteCustomActivity(id: activity.id, studentId: studentId, term: term)
+        activities.removeAll { $0.id == activity.id }
+        activitiesChanged()
+    }
+
+    func activity(id: String?) -> CustomActivity? { id.flatMap { id in activities.first { $0.id == id } } }
+
+    /// 换色盘后重新配色
+    func recolor() {
+        guard schedule != nil else { return }
+        colors = CourseColorAssigner.assign(courses: mergedSchedule?.theoryList.filter(\.isValid) ?? [], palette: palette, custom: customColors)
+    }
+
+    private func activitiesChanged() {
+        activities.sort { ($0.weekFrom, $0.weekday, $0.begin, $0.id) < ($1.weekFrom, $1.weekday, $1.begin, $1.id) }
+        rebuildIndex()
+        recolor()
+    }
+
+    private var customColors: [String: UInt32] {
+        Dictionary(activities.map { ($0.name, $0.colorHex) }, uniquingKeysWith: { first, _ in first })
+    }
+
+    /// 教务课表 + 自定义日程
+    private var mergedSchedule: Schedule? {
+        guard var merged = schedule else { return nil }
+        merged.theoryList += activities.filter(\.isValid).map(\.course)
+        return merged
+    }
+
     /// 冲突组里改成显示 `occurrence` 这一门，并写入本地
     func choose(_ occurrence: CourseOccurrence, in group: ConflictGroup) async {
         guard let services, let studentId, let term else { return }
@@ -160,6 +202,7 @@ final class ScheduleViewModel {
         index = ScheduleIndex(occurrences: [])
         colors = [:]
         choices = [:]
+        activities = []
         refreshError = nil
         pinnedTerm = nil
         studentId = nil
@@ -180,7 +223,10 @@ final class ScheduleViewModel {
     private func applyTerm(repository: ScheduleRepository, studentId: String, useCache: Bool) async {
         let previous = term
         resolveTerm()
-        if let term { choices = await repository.conflictChoices(studentId: studentId, term: term) }
+        if let term {
+            choices = await repository.conflictChoices(studentId: studentId, term: term)
+            activities = await repository.customActivities(studentId: studentId, term: term)
+        }
         guard useCache, let term, let cached = try? await repository.cachedSchedule(studentId: studentId, term: term) else {
             if schedule == nil { phase = .loading }
             return
@@ -197,7 +243,7 @@ final class ScheduleViewModel {
             return
         }
         rebuildIndex()
-        colors = CourseColorAssigner.assign(courses: cached.schedule.theoryList.filter(\.isValid), palette: palette)
+        colors = CourseColorAssigner.assign(courses: mergedSchedule?.theoryList.filter(\.isValid) ?? [], palette: palette, custom: customColors)
         if resetWeek { selectedWeek = termCalendar.clampedWeek(at: .now) }
         selectedWeek = min(max(selectedWeek, 1), weekCount)
         phase = .content
@@ -205,7 +251,7 @@ final class ScheduleViewModel {
 
     /// 课表 + 节假日 / 补班 → 周视图用的索引
     private func rebuildIndex() {
-        guard let schedule, let termCalendar else { return }
+        guard let schedule = mergedSchedule, let termCalendar else { return }
         let base = ScheduleExpander.occurrences(of: schedule, in: termCalendar)
         let overlaid = CalendarOverlay.apply(to: base, calendar: campusCalendar, term: termCalendar)
         index = ScheduleIndex(occurrences: overlaid.occurrences, dayBlocks: overlaid.dayBlocks)
@@ -214,7 +260,7 @@ final class ScheduleViewModel {
 
     private func publishWidgetSnapshot() {
         guard let services, let studentId else { return }
-        let snapshot = NextCourseCalculator.compute(schedule: schedule, term: termCalendar, campus: campusCalendar, choices: choices, now: .now)
+        let snapshot = NextCourseCalculator.compute(schedule: mergedSchedule, term: termCalendar, campus: campusCalendar, choices: choices, now: .now)
         services.shared.set(snapshot, for: ScheduleKit.widgetSnapshotKey(studentId: studentId))
     }
 }

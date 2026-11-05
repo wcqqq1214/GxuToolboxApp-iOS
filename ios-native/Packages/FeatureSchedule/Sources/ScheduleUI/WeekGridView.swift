@@ -114,6 +114,7 @@ private struct WeekBody: View {
     let week: Int
     let model: ScheduleViewModel
     let onSelect: (ConflictGroup) -> Void
+    @Environment(SchedulePreferencesStore.self) private var preferences
 
     private let rowHeight = WeekGridView.rowHeight
 
@@ -133,7 +134,10 @@ private struct WeekBody: View {
                 ForEach(1...7, id: \.self) { weekday in
                     let groups = ScheduleExpander.conflictGroups(model.index.items(inWeek: week, weekday: weekday))
                     ForEach(groups) { group in
-                        CourseBlock(group: group, selected: group.selected(choices: model.choices), colors: model.colors, rowHeight: rowHeight)
+                        CourseBlock(
+                            group: group, selected: group.selected(choices: model.choices), colors: model.colors, rowHeight: rowHeight,
+                            showVenue: preferences.value.showVenueInBlock, showTeacher: preferences.value.showTeacherInBlock
+                        )
                             .frame(width: columnWidth - 3, height: CGFloat(group.end - group.begin + 1) * rowHeight - 3)
                             .offset(
                                 x: WeekGridView.timeColumnWidth + CGFloat(weekday - 1) * columnWidth + 1.5,

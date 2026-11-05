@@ -10,6 +10,8 @@ struct CourseBlock: View {
     let selected: CourseOccurrence
     let colors: [String: UInt32]
     let rowHeight: CGFloat
+    var showVenue = true
+    var showTeacher = true
 
     private var course: TheoryCourse { selected.course }
     private var rows: Int { group.end - group.begin + 1 }
@@ -20,11 +22,11 @@ struct CourseBlock: View {
             Text(course.courseName)
                 .font(.caption2.weight(.semibold))
                 .lineLimit(rows >= 2 ? 3 : 2)
-            if !course.venueName.isEmpty {
+            if showVenue, !course.venueName.isEmpty {
                 Text(LocationFormatter.blockText(venue: course.venueName, singleLine: rows < 2))
                     .lineLimit(rows >= 2 ? 2 : 1)
             }
-            if rows >= 2, !course.teacher.isEmpty {
+            if showTeacher, rows >= 2, !course.teacher.isEmpty {
                 Text(course.teacher).lineLimit(rows >= 3 ? 2 : 1)
             }
         }

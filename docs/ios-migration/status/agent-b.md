@@ -5,6 +5,7 @@
   - 修复课表刷新把 CancellationError 显示成错误条（`Error.isCancellation`，有测试）
   - 节假日 / 调课（`CampusCalendarRepository`、`CalendarOverlay`）：data.json 获取 + GRDB 缓存 + 内置备份，叠加到课表（休息日移除、补班日显示被调课程并带“补”标记、假期整天块），小组件快照同步；用法见 COORDINATION「[B] 节假日 / 调课数据」。节假日不做远程更新（用户决定），内置备份即最新数据（到 2027 年元旦），之外的日期无假期不报错；仍远程获取 timeShift。工具箱已删除“空教室”
   - 首页「今天」标签 + 底部“下一件事”附件（课程 + ExamKit 的考试）；冲突课程选择持久化（`schedule.v1.createConflictChoice`）；设置页挂上统一认证 / 考勤账号入口
+  - 自定义日程（添加 / 编辑 / 删除 / 管理列表，GRDB）、课表外观与课程 / 考试详情显示偏好（`SchedulePreferences`）、设置页「课表与考试」
   - 截图：`ios-native/.screens/holiday-week-{light,dark}.png`、`home-{light,dark}.png`
 - Phase 1 状态（保留）：已完成（待用户验收）
 - 已完成：

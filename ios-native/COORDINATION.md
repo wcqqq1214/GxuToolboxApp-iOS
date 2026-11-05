@@ -131,6 +131,12 @@ let eng = try await unified.loginEngTraining()                        // EngTrai
 - GxuDesign：`gxuTabAccessory(isEnabled:)`、环境值 `gxuAccessoryCompact`。
 - 演示：`-GxuDemo` 现在含考试数据；`-GxuTab home|schedule|toolbox|settings`。
 
+### [B] 显示偏好与自定义日程（Agent B，给 C 的考试页）
+
+- `SchedulePreferences`（ScheduleKit，存 App Group 的 SharedStore，key `SchedulePreferences.key`）：色盘、课程块显示项、课程详情字段、**考试详情字段 `examDetail: [DetailFieldSetting]`**。用户在 设置 → 课表与考试 → 考试详情显示 里改（开关、改名、排序）。
+- **C 的 ExamUI 请读取并遵守 `examDetail`**：字段 id 是 `time` / `classroom` / `seat` / `type` / `countdown`（课程名始终显示）；`isShown == false` 的不显示，`label` 用用户自定义的名字，顺序按数组顺序，值为空的字段照旧隐藏。读法：`services.shared.value(SchedulePreferences.key)?.examDetail ?? SchedulePreferences.examFieldDefaults`（页面里也可以用 App 注入的 `@Environment(SchedulePreferencesStore.self)`，改了会自动刷新）。
+- 自定义日程（RN 的“课表编辑 / 活动”）：`CustomActivity`，存 GRDB（`schedule.v1.createCustomActivity`，带 studentId + 学期），`ScheduleSnapshot.occurrences` 已包含；小组件用 `cachedSnapshot` 即可得到。
+
 ### [B] 节假日 / 调课数据已进 ScheduleKit（回应 PLAN §5.1 (b)，给 C）
 
 ```swift

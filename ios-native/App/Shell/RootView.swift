@@ -1,6 +1,8 @@
 import FeatureAccount
 import GxuAuth
 import GxuDesign
+import GxuStorage
+import ScheduleKit
 import ScheduleUI
 import SwiftUI
 
@@ -13,6 +15,7 @@ struct RootView: View {
     @State private var theme = GxuTheme()
     @State private var selection: AppTab = Self.initialTab
     @State private var home = HomeModel()
+    @State private var preferences = SchedulePreferencesStore(shared: RootView.makeSharedStore())
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.services) private var services
 
@@ -50,6 +53,7 @@ struct RootView: View {
         .gxuTabBarMinimizeOnScroll()
         .gxuTabAccessory(isEnabled: home.phase == .ready) { NextEventAccessory(model: home) }
         .gxuTheme(theme)
+        .environment(preferences)
         .task(id: AccountKey(studentId: services.accounts.studentId, state: services.accounts.states[.jw])) {
             await home.load(services: resolvedServices)
         }
@@ -65,6 +69,14 @@ struct RootView: View {
 }
 
 extension RootView {
+    /// 偏好存在 App Group 的 KV 里（小组件也能读）；演示模式用标准 UserDefaults，避免污染真实数据
+    static func makeSharedStore() -> any SharedStore {
+        #if DEBUG
+        if DemoMode.isEnabled { return UserDefaultsSharedStore(suiteName: nil) }
+        #endif
+        return UserDefaultsSharedStore()
+    }
+
     private struct AccountKey: Hashable {
         var studentId: String?
         var state: AuthState?

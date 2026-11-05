@@ -8,6 +8,8 @@ struct CourseDetailSheet: View {
     let colors: [String: UInt32]
     let selected: CourseOccurrence
     let onChoose: (CourseOccurrence) -> Void
+    let onEditActivity: (String?) -> Void
+    @Environment(SchedulePreferencesStore.self) private var preferences
     @Environment(\.dismiss) private var dismiss
     /// 点选后立刻反映在 sheet 里（外面的 `selected` 要等持久化后才变）
     @State private var chosenID: String?
@@ -31,7 +33,9 @@ struct CourseDetailSheet: View {
                         choice: group.isConflict ? (isSelected: item.id == currentID, choose: {
                             chosenID = item.id
                             onChoose(item)
-                        }) : nil
+                        }) : nil,
+                        fields: preferences.value.courseDetail.filter(\.isShown),
+                        onEditActivity: onEditActivity
                     )
                 }
             }
@@ -50,6 +54,8 @@ private struct CourseSection: View {
     let item: CourseOccurrence
     let tint: CourseTint
     var choice: (isSelected: Bool, choose: () -> Void)?
+    let fields: [DetailFieldSetting]
+    let onEditActivity: (String?) -> Void
     private var course: TheoryCourse { item.course }
 
     var body: some View {
@@ -59,15 +65,15 @@ private struct CourseSection: View {
                 Label("补班：按 \(from.formatted(.dateTime.month().day().weekday(.wide).locale(Locale(identifier: "zh_CN")))) 的课表上课", systemImage: "arrow.triangle.swap")
                     .foregroundStyle(.orange)
             }
-            row("时间", "\(WeekdayName.full(item.weekday)) 第\(course.begin)-\(course.end)节  \(timeText)")
-            row("周次", WeekFormatter.describe(course.weeks))
-            row("地点", LocationFormatter.display(building: course.building, venue: course.venueName))
-            row("教师", course.teacher)
-            row("学分", course.credits)
-            row("类别", course.courseCategory)
-            row("考核", course.examMethod)
-            row("选课人数", course.enrollmentCount > 0 ? "\(course.enrollmentCount)" : "")
-            row("QQ 群", course.qqGroup)
+            if course.isCustom {
+                // 自定义日程只有这几项有意义；备注放在“考核”字段里（见 `CustomActivity.course`）
+                row("时间", "\(WeekdayName.full(item.weekday)) 第\(course.begin)-\(course.end)节  \(timeText)")
+                row("周次", WeekFormatter.describe(course.weeks))
+                row("备注", course.examMethod)
+                Button("编辑日程", systemImage: "pencil") { onEditActivity(course.customID) }
+            } else {
+                ForEach(fields) { field in row(field.label, value(of: field.id)) }
+            }
             if let choice {
                 if choice.isSelected {
                     Label("正在课表中显示", systemImage: "checkmark.circle.fill").foregroundStyle(.tint)
@@ -75,6 +81,21 @@ private struct CourseSection: View {
                     Button("在课表中显示这门课", systemImage: "eye", action: choice.choose)
                 }
             }
+        }
+    }
+
+    private func value(of field: String) -> String {
+        switch field {
+        case "time": "\(WeekdayName.full(item.weekday)) 第\(course.begin)-\(course.end)节  \(timeText)"
+        case "weeks": WeekFormatter.describe(course.weeks)
+        case "venue": LocationFormatter.display(building: course.building, venue: course.venueName)
+        case "teacher": course.teacher
+        case "credits": course.credits
+        case "category": course.courseCategory
+        case "examMethod": course.examMethod
+        case "enrollment": course.enrollmentCount > 0 ? "\(course.enrollmentCount)" : ""
+        case "qqGroup": course.qqGroup
+        default: ""
         }
     }
 
@@ -98,7 +119,7 @@ private struct CourseSection: View {
 
     /// 空值不显示
     @ViewBuilder
-    private func row(_ title: LocalizedStringKey, _ value: String) -> some View {
+    private func row(_ title: String, _ value: String) -> some View {
         if !value.isEmpty {
             LabeledContent(title) {
                 Text(value).multilineTextAlignment(.trailing).textSelection(.enabled)

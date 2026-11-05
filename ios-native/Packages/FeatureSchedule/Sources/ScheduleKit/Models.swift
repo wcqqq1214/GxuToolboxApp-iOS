@@ -42,9 +42,12 @@ public struct TheoryCourse: Codable, Sendable, Hashable, Identifiable {
     public var qqGroup: String
     public var enrollmentCount: Int
     public var seatCount: Int
+    /// 用户自己添加的日程（`CustomActivity.id`）；教务课程为 nil
+    public var customID: String?
 
     /// 同名同节次的不同班级 / 教室也不会撞 id（RN 的 id 会撞）
-    public var id: String { "\(courseName)|\(weekday)|\(sectionRange)|\(venueName)|\(teacher)" }
+    public var id: String { "\(customID ?? "")|\(courseName)|\(weekday)|\(sectionRange)|\(venueName)|\(teacher)" }
+    public var isCustom: Bool { customID != nil }
 
     /// 数据可用：星期、节次都在合法范围内
     public var isValid: Bool {
@@ -54,8 +57,10 @@ public struct TheoryCourse: Codable, Sendable, Hashable, Identifiable {
     public init(
         building: String = "", venueName: String = "", sectionRange: String = "1-2", begin: Int = 1, end: Int = 2,
         courseName: String, weeks: [Int], teacher: String = "", credits: String = "", courseCategory: String = "",
-        examMethod: String = "", weekday: Int, qqGroup: String = "", enrollmentCount: Int = 0, seatCount: Int = 0
+        examMethod: String = "", weekday: Int, qqGroup: String = "", enrollmentCount: Int = 0, seatCount: Int = 0,
+        customID: String? = nil
     ) {
+        self.customID = customID
         self.building = building
         self.venueName = venueName
         self.sectionRange = sectionRange
@@ -75,7 +80,7 @@ public struct TheoryCourse: Codable, Sendable, Hashable, Identifiable {
 
     private enum CodingKeys: String, CodingKey {
         case building, venueName, sectionRange, begin, end, courseName, weeks, teacher, credits
-        case courseCategory, examMethod, weekday, qqGroup, enrollmentCount, seatCount
+        case courseCategory, examMethod, weekday, qqGroup, enrollmentCount, seatCount, customID
     }
 
     public init(from decoder: Decoder) throws {
@@ -98,6 +103,7 @@ public struct TheoryCourse: Codable, Sendable, Hashable, Identifiable {
         qqGroup = c.lenientString(.qqGroup)
         enrollmentCount = c.lenientInt(.enrollmentCount) ?? 0
         seatCount = c.lenientInt(.seatCount) ?? 0
+        customID = (try? c.decodeIfPresent(String.self, forKey: .customID)) ?? nil
     }
 }
 

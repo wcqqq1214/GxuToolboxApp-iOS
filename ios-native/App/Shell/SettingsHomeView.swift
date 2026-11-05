@@ -42,9 +42,10 @@ struct SettingsHomeView: View {
                     AccentPicker()
                 }
 
-                Section("课表") {
-                    comingSoon("课表显示设置", systemImage: "slider.horizontal.3")
-                    comingSoon("课程颜色", systemImage: "paintpalette")
+                Section("课表与考试") {
+                    NavigationLink("课表外观") { ScheduleAppearanceSettingsView() }
+                    NavigationLink("课程详情显示") { DetailFieldsSettingsView(kind: .course) }
+                    NavigationLink("考试详情显示") { DetailFieldsSettingsView(kind: .exam) }
                 }
 
                 Section("关于") {
