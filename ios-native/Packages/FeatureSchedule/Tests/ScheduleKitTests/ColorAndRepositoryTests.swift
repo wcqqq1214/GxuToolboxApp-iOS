@@ -92,4 +92,34 @@ struct RepositoryTests {
         backend.stub("GET /jw/profile/startDay", json: #"{"data": []}"#)
         #expect(try await repo.refreshStartDays().count == 2)   // 空响应不清缓存
     }
+
+    @Test func currentTermInfoUsesCacheThenRefreshes() async throws {
+        let backend = MockBackendAPI()
+        backend.stub("GET /jw/profile/startDay", json: """
+        {"data": [{"year": 2026, "term": 1, "day": "2026-09-07T00:00:00.000Z", "week": 18}]}
+        """)
+        let repo = try makeRepository(backend)
+
+        // 没有缓存：联网刷新
+        let before = try #require(await repo.currentTermInfo(now: at("2026-08-30"), calendar: shanghai))
+        #expect(before.term == AcademicTerm(year: 2026, term: 1) && before.isStarted == false && before.isEnded == false)
+        #expect(backend.calls == ["GET /jw/profile/startDay"])
+
+        // 有缓存且学期未结束：不再联网
+        let during = try #require(await repo.currentTermInfo(now: at("2026-10-01"), calendar: shanghai))
+        #expect(during.isStarted && !during.isEnded)
+        #expect(backend.calls.count == 1)
+
+        // 学期结束：尝试刷新；刷新失败仍用缓存，标记已结束
+        backend.stub("GET /jw/profile/startDay", error: .network("offline"))
+        let after = try #require(await repo.currentTermInfo(now: at("2027-03-01"), calendar: shanghai))
+        #expect(after.isEnded)
+        #expect(backend.calls.count == 2)
+    }
+
+    @Test func currentTermInfoIsNilWithoutAnyData() async throws {
+        let backend = MockBackendAPI()
+        backend.stub("GET /jw/profile/startDay", error: .network("offline"))
+        #expect(await (try makeRepository(backend)).currentTermInfo() == nil)
+    }
 }

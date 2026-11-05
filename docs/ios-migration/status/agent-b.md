@@ -4,7 +4,8 @@
 - 已完成：
   - GxuDesign v1：`GxuTheme`（强调色 + 外观模式，持久化）、`GlassGroup` / `GlassButton` / `.gxuGlass()` / `.gxuGlassID` / `.gxuTabBarMinimizeOnScroll` / `.gxuTabAccessory`（iOS 18 降级 Material）、`ContentCard`、`GxuLoadingView` / `GxuEmptyView` / `GxuErrorView` / `GxuStaleBanner`、`CourseTint`（浅 / 深色对比度 ≥ 4.5:1，有测试）、`README.md`
   - Shell：三个 Tab（课表 / 工具箱 / 设置）、`ToolboxCatalog`（17 项，全部“即将上线”，每项一行）、`SettingsHomeView`（账号入口、外观、占位项）
-  - ScheduleKit（无 UI 依赖）：模型（宽容解码）、周次解析与展开、`TermCalendar` / `TermResolver`（开学日、本地时区按天、兼容带时区的 ISO 串）、冲突分组（传递闭包）、`NextCourseCalculator`、`CourseColorAssigner`（4 → 3 个色盘）、周次 / 地点格式化、时间线位置、GRDB 缓存（课表快照带 studentId，迁移 `schedule.v1.*`）、`ScheduleRepository`、小组件快照（`ScheduleKit.widgetSnapshotKey`）。29 个测试
+  - ScheduleKit 另提供给 C：`ScheduleRepository.currentTermInfo()`（当前学期 + 是否已开学）
+  - ScheduleKit（无 UI 依赖）：模型（宽容解码）、周次解析与展开、`TermCalendar` / `TermResolver`（开学日、本地时区按天、兼容带时区的 ISO 串）、冲突分组（传递闭包）、`NextCourseCalculator`、`CourseColorAssigner`（4 → 3 个色盘）、周次 / 地点格式化、时间线位置、GRDB 缓存（课表快照带 studentId，迁移 `schedule.v1.*`）、`ScheduleRepository`、小组件快照（`ScheduleKit.widgetSnapshotKey`）。32 个测试
   - ScheduleUI：周网格（节次列、星期日期表头、今天高亮、红色当前时间线、课程块不用玻璃）、横向分页切周、浮动玻璃控件（上一周 / 本周 / 下一周，`glassEffectID` 变形）、周次跳转菜单、学期切换菜单、课程详情 sheet（detents、冲突组列出全部）、下拉刷新、离线保留缓存 + 顶部提示、未登录 / 加载 / 失败状态
   - 浅色 / 深色模式在 iPhone 18 Pro 模拟器上截图自查（`.screens/`，已 gitignore）
 - 进行中：无
@@ -13,7 +14,7 @@
 - 未做（留给 Phase 2）：冲突课程“选中哪一门”的持久化（现在默认组内第一门）、`tabViewBottomAccessory` 下一节课、课程颜色 / 显示项设置、调课 / 假期 / 考试 / 实验 / 考勤覆盖层、分享图片、点课程打开地图
 - TODO(verify)：
   - [ ] `GET /jw/schedule/personal` 真实响应字段是否与适配器 `Schedule` 一致（`weeks` 是否已是 `[Int]`；`practiceList` 字段名）。解码已做宽容处理
-  - [ ] `GET /jw/profile/startDay` 的 `day` 是 `YYYY-MM-DD` 还是带时区 ISO；已两种都兼容（带时区时换算成设备时区的日期，设备不在东八区时可能差一天）
+  - [x] `GET /jw/profile/startDay` 的 `day`：A 抓到真实数据是 UTC 零点 ISO 串（`2024-08-26T00:00:00.000Z`），无 `is_current`。已按“UTC 零点 = 那个日历日”解析，任何设备时区都不差一天（有测试）；其它带时间的 ISO 串仍换算成设备时区日期
   - [ ] 逻辑学期 3（小学期）后端是否支持；RN 的 `toLogicalTerm` 把旧教务码 3 映射到逻辑 1，与 PLAN §3 的逻辑 3 = 小学期冲突，以 A 的 `AcademicTerm` 为准
   - [ ] 第 9 / 10 节作息重叠（18:55 / 18:45）是否真实
   - [ ] 调课 `data.json` 是否继续作为数据源

@@ -42,6 +42,17 @@ struct WeekAndCalendarTests {
         #expect(parsed("garbage") == nil)
     }
 
+    /// 后端实际返回 UTC 零点（A 抓到的真实数据）：它表示的是那个日历日，任何时区都不能差一天
+    @Test func utcMidnightMeansCalendarDayInAnyTimeZone() {
+        for zone in ["Asia/Shanghai", "America/Los_Angeles", "Pacific/Auckland", "UTC"] {
+            var calendar = Calendar(identifier: .gregorian)
+            calendar.timeZone = TimeZone(identifier: zone)!
+            let expected = calendar.date(from: DateComponents(year: 2024, month: 8, day: 26))!
+            #expect(TermCalendar.parseDay("2024-08-26T00:00:00.000Z", calendar: calendar) == expected, "\(zone)")
+            #expect(TermCalendar.parseDay("2024-08-26T00:00:00Z", calendar: calendar) == expected, "\(zone)")
+        }
+    }
+
     @Test func resolvesCurrentTermIgnoringBackendFlag() {
         let autumn = TermStartDay(year: 2025, term: 1, day: "2025-09-08", week: 18, isCurrent: true)
         let spring = TermStartDay(year: 2026, term: 2, day: "2026-03-02", week: 18)

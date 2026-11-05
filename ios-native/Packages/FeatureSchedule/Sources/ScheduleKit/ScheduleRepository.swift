@@ -83,4 +83,33 @@ public struct ScheduleRepository: Sendable {
         }
         return terms
     }
+
+    // MARK: 当前学期
+
+    /// 当前学期及开学状态。优先用缓存；没有缓存或当前学期已结束时尝试联网刷新（失败则用缓存，仍没有就返回 nil）。
+    public func currentTermInfo(now: Date = .now, calendar: Calendar = .current) async -> CurrentTermInfo? {
+        var terms = (try? await cachedStartDays()) ?? []
+        let cachedCurrent = TermResolver.current(in: terms, now: now, calendar: calendar)
+        let needsRefresh = cachedCurrent.flatMap { TermCalendar($0, calendar: calendar) }.map { $0.isEnded(at: now) } ?? true
+        if needsRefresh, let refreshed = try? await refreshStartDays() { terms = refreshed }
+        guard
+            let current = TermResolver.current(in: terms, now: now, calendar: calendar),
+            let termCalendar = TermCalendar(current, calendar: calendar)
+        else { return nil }
+        return CurrentTermInfo(
+            term: current.academicTerm,
+            isStarted: termCalendar.isStarted(at: now),
+            isEnded: termCalendar.isEnded(at: now),
+            calendar: termCalendar
+        )
+    }
+}
+
+public struct CurrentTermInfo: Sendable, Equatable {
+    public var term: AcademicTerm
+    /// 今天是否已开学（开学日当天算已开学）
+    public var isStarted: Bool
+    /// 今天是否已超过本学期最后一周（没有后续学期数据时才会为 true）
+    public var isEnded: Bool
+    public var calendar: TermCalendar
 }

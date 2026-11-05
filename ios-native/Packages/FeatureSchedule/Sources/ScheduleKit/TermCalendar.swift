@@ -17,10 +17,13 @@ public struct TermCalendar: Sendable, Equatable {
         self.init(startDate: date, weekCount: termStartDay.week, calendar: calendar)
     }
 
-    /// `YYYY-MM-DD` 直接取日期；带时区的 ISO 8601（如 `2026-09-06T16:00:00.000Z`）先转成瞬间，再换算成日历时区的日期。
+    /// `YYYY-MM-DD` 直接取日期。ISO 8601 时间串分两种：
+    /// - 后端实际返回 UTC 零点（`2024-08-26T00:00:00.000Z`），它表示的就是 8 月 26 日这个“日历日”，直接取日期部分，
+    ///   否则在西半球时区会差一天；
+    /// - 其它带时间的串（如 `2026-09-06T16:00:00.000Z` 是东八区周一零点）先转成瞬间，再换算成日历时区的日期。
     static func parseDay(_ text: String, calendar: Calendar) -> Date? {
         let text = text.trimmingCharacters(in: .whitespaces)
-        if text.count > 10, text.contains("T") {
+        if text.count > 10, text.contains("T"), !isUTCMidnight(text) {
             let formatter = ISO8601DateFormatter()
             formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
             let plain = ISO8601DateFormatter()
@@ -31,6 +34,10 @@ public struct TermCalendar: Sendable, Equatable {
         let parts = text.prefix(10).split(separator: "-").compactMap { Int($0) }
         guard parts.count == 3 else { return nil }
         return calendar.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2]))
+    }
+
+    private static func isUTCMidnight(_ text: String) -> Bool {
+        text.range(of: #"^\d{4}-\d{2}-\d{2}T00:00(:00(\.0+)?)?(Z|\+00:?00)$"#, options: .regularExpression) != nil
     }
 
     /// 第 `week` 周的星期 `weekday`（1 = 周一）那天

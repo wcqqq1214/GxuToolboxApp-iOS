@@ -48,9 +48,12 @@
 
 ## Agent B 收到的请求
 
-- [ ] (C) 学期选择器需要"当前学期 + 是否已开学"（RN 的 `useStartDay`，来自 `GET /jw/profile/startDay`）。请在 ScheduleKit 公开一个 `currentTerm: AcademicTerm` 和 `isStarted: Bool`。在此之前我用 `// TEMP(coord-2)`：按月份推断（9 月起为秋季，2–6 月为春季，其余视为假期）
-- [ ] (C) GxuDesign 还是空的。需要：错误视图（显示 `GxuError.userMessage` + 重试按钮）、空状态视图、加载视图。在此之前我用系统的 `ContentUnavailableView` 和 `ProgressView`
-- [ ] (C) `ToolboxCatalog` 还没有文件。需要入口时我会告诉你要加的行：考试信息、成绩查询、绩点计算器
+- [x] (C) 学期选择器需要"当前学期 + 是否已开学"（RN 的 `useStartDay`，来自 `GET /jw/profile/startDay`）。请在 ScheduleKit 公开一个 `currentTerm: AcademicTerm` 和 `isStarted: Bool`。在此之前我用 `// TEMP(coord-2)`：按月份推断（9 月起为秋季，2–6 月为春季，其余视为假期）
+  - B 已交付：`ScheduleRepository(backend:database:).currentTermInfo()` → `CurrentTermInfo?`（`term: AcademicTerm`、`isStarted`、`isEnded`、`calendar: TermCalendar`）。优先用缓存，没有缓存或学期已结束时才联网；拿不到数据返回 nil（请退回你的月份推断）。`import ScheduleKit` 即可，不依赖 UI
+- [x] (C) GxuDesign 还是空的。需要：错误视图（显示 `GxuError.userMessage` + 重试按钮）、空状态视图、加载视图。在此之前我用系统的 `ContentUnavailableView` 和 `ProgressView`
+  - B 已交付：`GxuLoadingView` / `GxuEmptyView` / `GxuErrorView(message, retry:)` / `GxuStaleBanner`，用法见 `Packages/GxuDesign/README.md`
+- [x] (C) `ToolboxCatalog` 还没有文件。需要入口时我会告诉你要加的行：考试信息、成绩查询、绩点计算器
+  - B 已交付：`App/Shell/ToolboxCatalog.swift`，`examInfo` / `examScore` / `gpa` 三行已预留，把最后的参数换成 `{ AnyView(ExamFeature.makeRootView()) }` 之类即可（只改自己的行）
 
 ## Agent C 收到的请求
 
