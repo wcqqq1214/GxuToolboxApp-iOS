@@ -27,7 +27,7 @@ public struct SelectedCoursesView: View {
                         GxuErrorView(error.userMessage) { Task { await model.load() } }.listRowBackground(Color.clear)
                     } else {
                         GxuStaleBanner(updatedAt: nil, message: error.userMessage)
-                            .listRowInsets(EdgeInsets()).listRowBackground(Color.clear)
+                            .listRowBackground(Color.clear)
                     }
                 }
                 if model.courses.isEmpty {
@@ -49,6 +49,7 @@ public struct SelectedCoursesView: View {
             }
             .navigationTitle("已选课程")
             .navigationBarTitleDisplayMode(.inline)
+            .gxuHidesTabChrome()
             .searchable(text: $keyword, prompt: "课程、教师或模块")
             .toolbar { scopeMenu }
             .task { await model.resolveYears() }

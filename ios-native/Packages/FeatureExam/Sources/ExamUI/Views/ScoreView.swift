@@ -32,7 +32,7 @@ public struct ScoreView: View {
                     errorSection(model.error, hasData: !model.scores.isEmpty, updatedAt: model.lastSyncedAt) {
                         Task { await model.load() }
                     }
-                    .listRowInsets(EdgeInsets())
+                    
                     .listRowBackground(Color.clear)
                 }
                 if model.scores.isEmpty && model.pending.isEmpty {
@@ -73,6 +73,7 @@ public struct ScoreView: View {
             }
             .navigationTitle("成绩查询")
             .navigationBarTitleDisplayMode(.inline)
+            .gxuHidesTabChrome()
             .toolbar {
                 NavigationLink {
                     GpaView(initial: model.query)

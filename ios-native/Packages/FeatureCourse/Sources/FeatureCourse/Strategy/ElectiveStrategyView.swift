@@ -29,6 +29,7 @@ public struct ElectiveStrategyView: View {
             }
             .navigationTitle("选课策略")
             .navigationBarTitleDisplayMode(.inline)
+            .gxuHidesTabChrome()
             .task { await model.load() }
             .refreshable { await model.load() }
         }

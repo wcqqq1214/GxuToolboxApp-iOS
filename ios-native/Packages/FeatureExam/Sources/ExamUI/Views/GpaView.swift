@@ -39,7 +39,7 @@ public struct GpaView: View {
                     errorSection(model.error, hasData: !model.scores.isEmpty, updatedAt: model.lastSyncedAt) {
                         Task { await model.load() }
                     }
-                    .listRowInsets(EdgeInsets())
+                    
                     .listRowBackground(Color.clear)
                 }
                 Section {
@@ -81,6 +81,7 @@ public struct GpaView: View {
             }
             .navigationTitle("绩点计算器")
             .navigationBarTitleDisplayMode(.inline)
+            .gxuHidesTabChrome()
             .toolbar {
                 Button("计算方法", systemImage: "questionmark.circle") { showsMethod = true }
             }

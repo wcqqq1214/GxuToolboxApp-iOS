@@ -116,6 +116,7 @@ public struct TeacherSearchView: View {
             }
             .navigationTitle("教师查询")
             .navigationBarTitleDisplayMode(.inline)
+            .gxuHidesTabChrome()
             .searchable(text: $model.keyword, prompt: "姓名 / 单位 / 职称 / 一级学科")
             .onSubmit(of: .search) { Task { await model.search() } }
             #if DEBUG
@@ -222,6 +223,7 @@ public struct TeacherDetailView: View {
             }
             .navigationTitle("教师信息")
             .navigationBarTitleDisplayMode(.inline)
+            .gxuHidesTabChrome()
             .task { await model.load() }
         }
     }

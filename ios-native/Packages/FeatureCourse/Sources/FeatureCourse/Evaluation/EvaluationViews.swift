@@ -50,7 +50,7 @@ public struct EvaluationOverviewView: View {
                     if model.tasks.isEmpty {
                         GxuErrorView(error.userMessage) { Task { await model.load() } }.listRowBackground(Color.clear)
                     } else {
-                        GxuStaleBanner(updatedAt: nil, message: error.userMessage).listRowInsets(EdgeInsets()).listRowBackground(Color.clear)
+                        GxuStaleBanner(updatedAt: nil, message: error.userMessage).listRowBackground(Color.clear)
                     }
                 }
                 if model.tasks.isEmpty {
@@ -74,6 +74,7 @@ public struct EvaluationOverviewView: View {
             }
             .navigationTitle("期末评教")
             .navigationBarTitleDisplayMode(.inline)
+            .gxuHidesTabChrome()
             .task { await model.load() }
             .refreshable { await model.load() }
         }

@@ -25,7 +25,7 @@ public struct ExamInfoView: View {
                 Section { TermMenu(years: model.years, year: yearBinding, term: termBinding) }
                 if model.error != nil {
                     errorSection(model.error, hasData: model.hasData) { Task { await model.load() } }
-                        .listRowInsets(EdgeInsets())
+                        
                         .listRowBackground(Color.clear)
                 }
                 if model.hasData {
@@ -41,6 +41,7 @@ public struct ExamInfoView: View {
             }
             .navigationTitle("考试信息")
             .navigationBarTitleDisplayMode(.inline)
+            .gxuHidesTabChrome()
             .task { await model.resolveInitialTerm() }
             .task(id: LoadKey(value: model.term, ready: model.isReady)) { await model.load() }
             .refreshable { await model.load() }
@@ -72,7 +73,7 @@ private struct ExamRow: View {
 
     /// 考场、座位号：有才写，同一行用 · 分隔。时间和类型各只出现一次（类型"期末考试"等不显示）
     private var detail: String {
-        [item.exam.classroom, item.status == .past ? "" : ExamSeat.text(item.exam.seat)].filter { !$0.isEmpty }.joined(separator: " · ")
+        [item.exam.classroom, item.status == .past ? "" : item.exam.seatText].filter { !$0.isEmpty }.joined(separator: " · ")
     }
 
     var body: some View {

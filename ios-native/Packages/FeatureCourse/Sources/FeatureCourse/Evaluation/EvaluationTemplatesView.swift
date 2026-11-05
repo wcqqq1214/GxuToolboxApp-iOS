@@ -74,6 +74,7 @@ public struct EvaluationTemplatesView: View {
             }
             .navigationTitle("评教模板")
             .navigationBarTitleDisplayMode(.inline)
+            .gxuHidesTabChrome()
             .toolbar { Button("新建模板", systemImage: "plus") { editing = EvaluationTemplate(name: "") } }
             .sheet(item: $editing) { template in
                 TemplateEditor(template: template) { await model.save($0) }

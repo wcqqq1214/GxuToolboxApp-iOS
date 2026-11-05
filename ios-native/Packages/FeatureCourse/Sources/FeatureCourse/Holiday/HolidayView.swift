@@ -31,6 +31,7 @@ public struct HolidayView: View {
         }
         .navigationTitle("节假日")
         .navigationBarTitleDisplayMode(.inline)
+        .gxuHidesTabChrome()
         .toolbar {
             Menu {
                 Picker("类型", selection: $kind) {
@@ -116,6 +117,7 @@ public struct TimeShiftView: View {
         }
         .navigationTitle("调休补班")
         .navigationBarTitleDisplayMode(.inline)
+        .gxuHidesTabChrome()
         .task { campus = await CampusCalendarRepository(database: services.database).current() }
     }
 

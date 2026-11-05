@@ -29,7 +29,7 @@ public struct AttendanceView: View {
                         }
                         .pickerStyle(.segmented)
                         .listRowBackground(Color.clear)
-                        .listRowInsets(EdgeInsets())
+                        
                     }
                     if let error = model.error {
                         GxuErrorView(error.userMessage) { Task { await model.load() } }.listRowBackground(Color.clear)
@@ -42,6 +42,7 @@ public struct AttendanceView: View {
             }
             .navigationTitle("考勤查询")
             .navigationBarTitleDisplayMode(.inline)
+            .gxuHidesTabChrome()
             .toolbar { if model.access == .ok { calendarMenu } }
             .task(id: LoadKey(mode: model.mode, calendarId: model.calendarId, week: model.week)) { await model.load() }
             .refreshable { await model.load() }
