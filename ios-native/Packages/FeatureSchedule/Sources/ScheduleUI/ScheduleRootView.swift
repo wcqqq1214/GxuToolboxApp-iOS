@@ -102,7 +102,7 @@ public struct ScheduleRootView: View {
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
         ToolbarItem(placement: .principal) {
-            if model.phase == .content { ScheduleWeekTitle(model: model) }
+            if model.phase == .content { ScheduleWeekTitle(model: model, terms: model.availableTerms, term: termBinding) }
         }
         ToolbarItem(placement: .topBarLeading) {
             if model.phase == .content {
@@ -118,20 +118,7 @@ public struct ScheduleRootView: View {
             }
         }
         ToolbarItem(placement: .topBarTrailing) {
-            if model.phase == .content {
-                if model.isRefreshing {
-                    ProgressView()
-                } else if model.availableTerms.count > 1 {
-                    Menu {
-                        Picker("学期", selection: termBinding) {
-                            ForEach(model.availableTerms, id: \.self) { Text($0.displayName).tag($0) }
-                        }
-                    } label: {
-                        Image(systemName: "calendar")
-                    }
-                    .accessibilityLabel("切换学期")
-                }
-            }
+            if model.phase == .content, model.isRefreshing { ProgressView() }
         }
     }
 

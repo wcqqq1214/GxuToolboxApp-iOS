@@ -25,6 +25,12 @@ final class HomeModel {
 
     @ObservationIgnored private var lastRefresh: Date?
 
+    /// 现在有没有“下一件事”（附件栏要不要显示）
+    func hasNextEvent(now: Date = .now) -> Bool {
+        guard let snapshot else { return false }
+        return HomeEvent.pick(plan: snapshot.todayPlan(now: now), exams: exams, now: now) != nil
+    }
+
     /// 只读本地缓存，切回首页时调用（便宜）
     func reload(services: AppServices) async {
         let accounts = services.accounts

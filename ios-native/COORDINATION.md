@@ -256,6 +256,28 @@ Phase 2 的 C 部分完成并已发布；`build.sh` 和全部 package 的 `test.
 - 注意：脱敏会把成绩的 `id` 哈希掉，所以 fixture 里"成绩 id ↔ 已选课程 classId"对不上；在真实原始数据上 100 条成绩里 90 条能对上（实验班没有独立成绩，所以会显示成"(实验)"未出分，与 RN 一致）。未出分科目的 fixture 测试用课程名对应关系复现了这 6 门。
 - 真实数据里有 11 门 0 学分课程（形势与政策等），不影响计算。
 
+
+**[phase2-done] B 修改说明（回应协调者 round-b-1 第 3 节的课表界面意见，已全部落实；以下截图均为本次新拍，旧的 21:07 截图已被覆盖）：**
+1. 去掉上一周 / 下一周按钮，只用左右滑动切周；不在本周时底部只显示一个小的“回到本周”玻璃按钮。班级课表详情同理（往届 / 未开学的学期没有“本周”，该按钮不出现，默认从第 1 周看起，副标题显示日期范围）。
+2. 连续假期合并成一条横跨的色带，文字只出现一次（`DayRun`）。
+3. 右上角的周次 / 学期图标按钮删除；标题“第 N 周 ⌄”本身是 Menu，选周次，有多个学期时同一个 Menu 里还能选学期。左上角“+”保留（添加日程 / 我的日程 / 分享本周课表）。
+4. 深色模式课程块：不再把基色和深灰底混合（会发灰），改为保留色相、提高饱和度的暗色底 + 同色相的亮色文字，并在课程块左侧加色条（浅色模式同样有）；对比度测试（≥ 4.5:1）仍通过。
+5. 底部附件：没有下一项时直接隐藏（不再显示“今天没有更多安排”）；只在「课表」「工具箱」首页出现（「今天」本身就展示下一件事，「设置」的列表不该被盖住）；进入工具箱的二级页面（班级课表、全校课表等所有工具）时标签栏和附件一起隐藏（`gxuHidesTabChrome()`，iOS 18 降级路径也同样收起）。C 的页面也经工具箱进入，自动生效。网格底部留白加大，滚到底时内容不会被标签栏 / 附件盖住。
+6. 全校课表：查询开始后条件折叠成一行（学院 + 学期 / 周次 / 星期 / 节次，右侧“修改”，查询中显示“停止”），结果成为页面主体。
+7. 课表页在网格下方显示实践课（`practiceList`，按周次过滤，周次无法解析的每周都显示）。班级课表同样显示。
+
+新截图（浅色 + 深色，把 `light` 换成 `dark` 即深色）：
+- 课表（无周切换按钮、假期合并色带、标题菜单）：`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/holiday-week-light.png`
+- 课表下方的实践课：`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/schedule-practice-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/schedule-practice-dark.png`
+- 班级课表（二级页面无标签栏 / 附件）：`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/class-schedule-light.png`；详情：`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/class-detail-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/class-detail-dark.png`（深色课程块）
+- 全校课表（结果折叠）：`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/full-school-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/full-school-dark.png`
+- 首页 / 设置（设置页无附件）：`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/home-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/settings2-light.png`
+- 课程详情、添加日程、我的日程、分享图片：`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/detail-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/sheet-add-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/sheet-list-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/share-light.png`
+- iOS 18 降级路径：`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/legacy-schedule-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/legacy-schedule-dark.png`
+- 工具箱：`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/toolbox-light.png`
+
+新增 DEBUG 启动参数：`-GxuScheduleScrollTop` / `-GxuScheduleScrollEnd`（课表滚到顶 / 底）。
+
 ## Agent A 收到的请求
 
 - [x] (C) `scripts/test.sh` 硬编码 scheme 为 `<Pkg>-Package`，但只有一个 library product 的 package（如 FeatureExam）scheme 就叫 `<Pkg>`，会报 "does not contain a scheme"。请让脚本先 `xcodebuild -list` 判断，或两个名字都试。我暂时直接用 `xcodebuild -scheme FeatureExam ... test`

@@ -168,6 +168,8 @@ struct FullScheduleView: View {
     @Environment(\.services) private var services
     @State private var context = CampusContext()
     @State private var model = FullScheduleModel()
+    /// 出结果后查询条件折叠成一行，点“修改”再展开
+    @State private var editingFilters = false
 
     var body: some View {
         Group {
@@ -190,28 +192,60 @@ struct FullScheduleView: View {
 
     private var list: some View {
         List {
-            Section {
-                Picker("学院", selection: $model.schoolId) {
-                    ForEach(model.schools) { Text($0.name).tag($0.id) }
+            if showFilters {
+                Section {
+                    Picker("学院", selection: $model.schoolId) {
+                        ForEach(model.schools) { Text($0.name).tag($0.id) }
+                    }
+                    MomentPickers(model: model, context: context)
+                } header: {
+                    Text("查询条件")
+                } footer: {
+                    Text("查看这一刻这个学院有哪些班级正在上课。需要逐个读取班级课表，学院班级多时要等一会儿，读取过的班级课表会缓存。")
                 }
-                MomentPickers(model: model, context: context)
-            } header: {
-                Text("查询条件")
-            } footer: {
-                Text("查看这一刻这个学院有哪些班级正在上课。需要逐个读取班级课表，学院班级多时要等一会儿，读取过的班级课表会缓存。")
-            }
 
-            Section {
-                if model.phase == .running {
-                    Button("停止查询", role: .destructive) { model.cancel() }
-                } else {
-                    Button("开始查询", systemImage: "magnifyingglass") { model.run() }
-                        .disabled(model.schoolId.isEmpty)
+                Section {
+                    Button("开始查询", systemImage: "magnifyingglass") {
+                        editingFilters = false
+                        model.run()
+                    }
+                    .disabled(model.schoolId.isEmpty)
+                }
+            } else {
+                Section {
+                    Button { editingFilters = true } label: {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(model.schools.first { $0.id == model.schoolId }?.name ?? "").foregroundStyle(Color.primary)
+                                Text(momentSummary).font(.footnote).foregroundStyle(Color.secondary)
+                            }
+                            Spacer()
+                            if model.phase == .running {
+                                Button("停止", role: .destructive) { model.cancel() }.buttonStyle(.borderless)
+                            } else {
+                                Text("修改").font(.subheadline)
+                            }
+                        }
+                    }
                 }
             }
 
             resultSections
         }
+    }
+
+    /// 出结果（或正在查询）后条件折叠，结果成为页面主体
+    private var showFilters: Bool {
+        switch model.phase {
+        case .idle, .failed: true
+        case .running, .finished: editingFilters
+        }
+    }
+
+    private var momentSummary: String {
+        let term = model.term?.displayName ?? ""
+        let moment = model.moment
+        return "\(term) · 第 \(moment.week) 周 \(WeekdayName.full(moment.weekday)) 第 \(moment.period) 节"
     }
 
     @ViewBuilder

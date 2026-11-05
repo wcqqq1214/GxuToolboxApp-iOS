@@ -17,12 +17,15 @@ struct WeekGridView: View {
 
     var body: some View {
         ScrollView {
-            WeekBody(week: week, model: model, onSelect: onSelect)
-                .padding(.bottom, GxuDesign.Spacing.s)
+            VStack(spacing: 0) {
+                WeekBody(week: week, model: model, onSelect: onSelect)
+                PracticeSection(courses: model.practiceCourses(inWeek: week))
+            }
+            .padding(.bottom, GxuDesign.Spacing.s)
         }
         .scrollPosition($position)
         .onAppear(perform: scrollToNow)
-        .contentMargins(.bottom, 96 + accessoryHeight, for: .scrollContent)   // 给浮动控件留位置
+        .contentMargins(.bottom, 170 + accessoryHeight, for: .scrollContent)   // 滚到底时要能完整露出内容：避开标签栏、附件和“回到本周”
         .scrollIndicators(.hidden)
         .refreshable { await model.refresh() }
         // 网格是定高布局，限制字体放大范围避免文字溢出课程块
@@ -33,6 +36,14 @@ struct WeekGridView: View {
 extension WeekGridView {
     /// 看本周时，直接滚到当前时间附近（像系统日历）。当前时间在前 3 节以内就停在顶部。
     private func scrollToNow() {
+        #if DEBUG
+        // 截图自查：`-GxuScheduleScrollEnd` 直接滚到底（看网格下方的实践课）
+        if CommandLine.arguments.contains("-GxuScheduleScrollEnd") {
+            Task { try? await Task.sleep(for: .seconds(1)); position.scrollTo(edge: .bottom) }
+            return
+        }
+        if CommandLine.arguments.contains("-GxuScheduleScrollTop") { return }
+        #endif
         guard let termCalendar = model.termCalendar, termCalendar.week(containing: .now) == week else { return }
         let rows = ClassPeriods.position(at: .now, calendar: termCalendar.calendar)
         guard rows > 3 else { return }
@@ -126,10 +137,11 @@ struct WeekBody: View {
                 TimeColumn(rowHeight: rowHeight)
                 TodayColumn(week: week, termCalendar: model.termCalendar, columnWidth: columnWidth, height: rowHeight * CGFloat(ClassPeriods.count))
 
-                ForEach(model.index.dayBlocks(inWeek: week)) { block in
-                    DayBlockView(block: block)
-                        .frame(width: columnWidth - 3, height: rowHeight * CGFloat(ClassPeriods.count) - 3)
-                        .offset(x: WeekGridView.timeColumnWidth + CGFloat(block.weekday - 1) * columnWidth + 1.5, y: 1.5)
+                // 连续的假期合并成一条横跨的色带，文字只出现一次
+                ForEach(DayRun.runs(model.index.dayBlocks(inWeek: week))) { run in
+                    DayBlockView(run: run)
+                        .frame(width: columnWidth * CGFloat(run.days) - 3, height: rowHeight * CGFloat(ClassPeriods.count) - 3)
+                        .offset(x: WeekGridView.timeColumnWidth + CGFloat(run.firstWeekday - 1) * columnWidth + 1.5, y: 1.5)
                 }
 
                 ForEach(1...7, id: \.self) { weekday in

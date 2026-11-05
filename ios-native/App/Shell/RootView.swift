@@ -15,6 +15,8 @@ struct RootView: View {
     @State private var theme = GxuTheme()
     @State private var selection: AppTab = Self.initialTab
     @State private var home = HomeModel()
+    /// 每分钟更新一次，让“有没有下一件事”随时间变化（附件栏据此显示 / 隐藏）
+    @State private var clock = Date.now
     @State private var preferences = SchedulePreferencesStore(shared: RootView.makeSharedStore())
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.services) private var services
@@ -51,10 +53,17 @@ struct RootView: View {
             }
         }
         .gxuTabBarMinimizeOnScroll()
-        // “今天”页本身已经展示下一件事，附件只在其他标签出现
-        .gxuTabAccessory(isEnabled: home.phase == .ready && selection != .home) { NextEventAccessory(model: home) }
+        // 附件只在“课表”和“工具箱”首页出现：“今天”本身就是下一件事，设置页的列表不该被盖住；没有下一件事时直接隐藏；
+        // 工具箱的二级页面隐藏标签栏时附件也一起收起
+        .gxuTabAccessory(isEnabled: home.phase == .ready && (selection == .schedule || selection == .toolbox) && home.hasNextEvent(now: clock)) { NextEventAccessory(model: home) }
         .gxuTheme(theme)
         .environment(preferences)
+        .task {
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(30))
+                clock = .now
+            }
+        }
         .task(id: AccountKey(studentId: services.accounts.studentId, state: services.accounts.states[.jw])) {
             await home.load(services: resolvedServices)
         }

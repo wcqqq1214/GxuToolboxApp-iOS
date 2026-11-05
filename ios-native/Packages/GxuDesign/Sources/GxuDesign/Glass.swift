@@ -30,6 +30,11 @@ public extension View {
     /// 标签栏上方的常驻附件（例如“下一节课”）。`isEnabled` 为 false 时不显示（iOS 26.1+；26.0 和 18 降级为不放内容）。
     /// 标签栏收起时（iOS 26 的 inline 位置）空间很窄，附件里用 `@Environment(\.gxuAccessoryCompact)` 判断并精简内容。
     /// iOS 18 降级为贴在标签栏上方的材质条：**每个标签页的内容都要加 `.gxuAccessoryInset()`**（iOS 26 上它什么都不做）。
+    /// 二级页面用：隐藏标签栏，同时隐藏标签栏上方的附件（iOS 26 的附件属于标签栏，iOS 18 降级的附件靠这个偏好值收起）。
+    func gxuHidesTabChrome() -> some View {
+        toolbar(.hidden, for: .tabBar).preference(key: HidesTabChromeKey.self, value: true)
+    }
+
     /// 配合 `gxuTabAccessory` 的 iOS 18 降级：放在每个标签页内容上，附件显示在标签栏上方。
     func gxuAccessoryInset() -> some View {
         modifier(LegacyAccessoryInsetModifier())
@@ -119,15 +124,22 @@ private struct TabAccessoryModifier<Accessory: View>: ViewModifier {
     }
 }
 
+private struct HidesTabChromeKey: PreferenceKey {
+    static let defaultValue = false
+    static func reduce(value: inout Bool, nextValue: () -> Bool) { value = value || nextValue() }
+}
+
 private struct LegacyAccessoryInsetModifier: ViewModifier {
     @Environment(\.gxuLegacyAccessory) private var accessory
     @State private var height: CGFloat = 0
+    @State private var hidden = false
 
     func body(content: Content) -> some View {
         content
-            .environment(\.gxuAccessoryHeight, accessory == nil ? 0 : height)
+            .onPreferenceChange(HidesTabChromeKey.self) { hidden = $0 }
+            .environment(\.gxuAccessoryHeight, accessory == nil || hidden ? 0 : height)
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                if let accessory {
+                if let accessory, !hidden {
                     accessory
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, GxuDesign.Spacing.s)

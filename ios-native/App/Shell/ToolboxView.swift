@@ -47,7 +47,7 @@ struct ToolboxView: View {
             .searchable(text: $query, prompt: "搜索功能")
             #if DEBUG
             .navigationDestination(isPresented: $debugOpen) {
-                if let item = Self.debugItem { item.destination?().navigationTitle(item.title) }
+                if let item = Self.debugItem { item.destination?().navigationTitle(item.title).gxuHidesTabChrome() }
             }
             #endif
         }
@@ -59,7 +59,7 @@ private struct ToolboxCell: View {
 
     var body: some View {
         if let destination = item.destination {
-            NavigationLink { destination().navigationTitle(item.title) } label: { cell }
+            NavigationLink { destination().navigationTitle(item.title).gxuHidesTabChrome() } label: { cell }
                 .buttonStyle(.plain)
         } else {
             cell

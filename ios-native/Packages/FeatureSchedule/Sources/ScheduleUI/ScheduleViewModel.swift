@@ -68,6 +68,14 @@ final class ScheduleViewModel {
         Set(index.items(inWeek: week).filter(\.isMakeup).map(\.weekday))
     }
 
+    /// 这一周要上的实践课（`practiceList`）。周次无法解析的实践课每周都列出，宁可多显示不漏掉
+    func practiceCourses(inWeek week: Int) -> [PracticeCourse] {
+        (schedule?.practiceList ?? []).filter { course in
+            let weeks = WeekParser.parse(course.time)
+            return weeks.isEmpty || weeks.contains(week)
+        }
+    }
+
     func weekRangeText(_ week: Int) -> String {
         guard let termCalendar else { return "" }
         let style = Date.FormatStyle(calendar: termCalendar.calendar, timeZone: termCalendar.calendar.timeZone).month(.defaultDigits).day()

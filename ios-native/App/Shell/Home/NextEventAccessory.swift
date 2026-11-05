@@ -15,10 +15,6 @@ struct NextEventAccessory: View {
             if let snapshot = model.snapshot,
                let event = HomeEvent.pick(plan: snapshot.todayPlan(now: now), exams: model.exams, now: now) {
                 row(event, now: now)
-            } else {
-                Label("今天没有更多安排", systemImage: "checkmark.circle")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
             }
         }
         .padding(.horizontal, GxuDesign.Spacing.l)

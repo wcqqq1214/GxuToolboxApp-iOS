@@ -1,4 +1,5 @@
 import GxuDesign
+import GxuFoundation
 import ScheduleKit
 import SwiftUI
 
@@ -6,7 +7,6 @@ import SwiftUI
 struct ScheduleBoard: View {
     let model: ScheduleViewModel
     let onSelect: (ConflictGroup) -> Void
-    @Namespace private var glassNamespace
     @Environment(\.gxuAccessoryHeight) private var accessoryHeight
 
     var body: some View {
@@ -14,7 +14,8 @@ struct ScheduleBoard: View {
             WeekHeader(week: model.selectedWeek, termCalendar: model.termCalendar, makeupDays: model.makeupDays(inWeek: model.selectedWeek))
             pager
         }
-        .overlay(alignment: .bottom) { weekControls }
+        .overlay(alignment: .bottom) { returnToCurrent }
+        .animation(.smooth, value: model.isViewingCurrentWeek)
     }
 
     /// 横向分页。不用 `TabView(.page)`：它的 UIKit 容器会让内部滚动视图重复计算顶部安全区。
@@ -42,50 +43,49 @@ struct ScheduleBoard: View {
         )
     }
 
-    /// 浮动玻璃控件。“回到本周”只在离开本周时出现，并与两侧按钮一起变形。
-    private var weekControls: some View {
-        GlassGroup(spacing: GxuDesign.Spacing.m) {
-            HStack(spacing: GxuDesign.Spacing.m) {
-                GlassButton(systemImage: "chevron.left", accessibilityLabel: "上一周") { move(-1) }
-                    .disabled(model.selectedWeek <= 1)
-                    .gxuGlassID("previous", in: glassNamespace)
-                if !model.isViewingCurrentWeek {
-                    GlassButton("本周", systemImage: "arrow.uturn.backward", prominent: true) { select(model.currentWeek) }
-                        .gxuGlassID("current", in: glassNamespace)
+    /// 滑动切周；不在本周时只在底部放一个小的“回到本周”玻璃按钮
+    @ViewBuilder
+    private var returnToCurrent: some View {
+        if !model.isViewingCurrentWeek {
+            GlassGroup {
+                GlassButton("回到本周", systemImage: "arrow.uturn.backward") {
+                    withAnimation(.smooth) { model.selectedWeek = min(max(model.currentWeek, 1), model.weekCount) }
                 }
-                GlassButton(systemImage: "chevron.right", accessibilityLabel: "下一周") { move(1) }
-                    .disabled(model.selectedWeek >= model.weekCount)
-                    .gxuGlassID("next", in: glassNamespace)
             }
+            .padding(.bottom, GxuDesign.Spacing.m + accessoryHeight)
+            .transition(.opacity.combined(with: .scale(scale: 0.9)))
         }
-        .padding(.bottom, GxuDesign.Spacing.m + accessoryHeight)
-        .animation(.smooth, value: model.isViewingCurrentWeek)
-    }
-
-    private func move(_ delta: Int) { select(model.selectedWeek + delta) }
-
-    private func select(_ week: Int) {
-        withAnimation(.smooth) { model.selectedWeek = min(max(week, 1), model.weekCount) }
     }
 }
 
-/// 导航栏中间的“第 N 周 + 日期范围”，点开可跳转到任意一周
+/// 导航栏中间的“第 N 周 + 日期范围”。标题本身就是菜单：选周次，有多个学期时还能选学期。
 struct ScheduleWeekTitle: View {
     @Bindable var model: ScheduleViewModel
+    /// 学期菜单。只读课表（班级课表）不传
+    var terms: [AcademicTerm] = []
+    var term: Binding<AcademicTerm>?
 
     var body: some View {
         Menu {
             Picker("跳转到", selection: $model.selectedWeek) {
                 ForEach(1...model.weekCount, id: \.self) { Text("第 \($0) 周").tag($0) }
             }
+            if let term, terms.count > 1 {
+                Picker("学期", selection: term) {
+                    ForEach(terms, id: \.self) { Text($0.displayName).tag($0) }
+                }
+            }
         } label: {
             VStack(spacing: 0) {
-                Text("第 \(model.selectedWeek) 周").font(.headline)
+                HStack(spacing: 3) {
+                    Text("第 \(model.selectedWeek) 周").font(.headline)
+                    Image(systemName: "chevron.down").font(.caption2.weight(.bold)).foregroundStyle(.secondary)
+                }
                 Text(model.subtitle()).font(.caption2).foregroundStyle(.secondary)
             }
             .foregroundStyle(.primary)
         }
         .tint(.primary)
-        .accessibilityLabel("第 \(model.selectedWeek) 周，\(model.subtitle())，选择周次")
+        .accessibilityLabel("第 \(model.selectedWeek) 周，\(model.subtitle())，选择周次\(term == nil ? "" : "或学期")")
     }
 }

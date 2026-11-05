@@ -13,6 +13,17 @@ public struct CourseTint: Sendable {
         func mixed(with other: RGB, _ amount: Double) -> RGB {
             RGB(r: r + (other.r - r) * amount, g: g + (other.g - g) * amount, b: b + (other.b - b) * amount)
         }
+        /// 色相 / 饱和度 / 明度，各 0...1
+        var hsb: (h: Double, s: Double, b: Double) {
+            var (h, sat, br): (CGFloat, CGFloat, CGFloat) = (0, 0, 0)
+            uiColor.getHue(&h, saturation: &sat, brightness: &br, alpha: nil)
+            return (Double(h), Double(sat), Double(br))
+        }
+        init(h: Double, s: Double, b: Double) {
+            var (r, g, bl): (CGFloat, CGFloat, CGFloat) = (0, 0, 0)
+            UIColor(hue: h, saturation: s, brightness: b, alpha: 1).getRed(&r, green: &g, blue: &bl, alpha: nil)
+            self.init(r: Double(r), g: Double(g), b: Double(bl))
+        }
         /// WCAG 相对亮度
         public var luminance: Double {
             func lin(_ c: Double) -> Double { c <= 0.03928 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4) }
@@ -38,23 +49,17 @@ public struct CourseTint: Sendable {
 
     private static let white = RGB(r: 1, g: 1, b: 1)
     private static let black = RGB(r: 0, g: 0, b: 0)
-    /// 周视图底色：浅色 systemBackground / 深色 secondarySystemBackground 附近
-    private static let darkBackdrop = RGB(r: 28 / 255, g: 28 / 255, b: 30 / 255)
 
-    /// 基色极端（纯黑 / 纯白，用户自定义颜色时可能出现）时，逐步减淡底色 / 加深文字，保证文字对底 ≥ 4.5:1
+    /// 基色极端（纯黑 / 纯白，用户自定义颜色时可能出现）时，逐步减淡底色 / 加深文字，保证文字对底 ≥ 4.5:1。
+    /// 深色模式不能把基色直接和深灰底混合（会变成发灰的泥色）：保留色相、提高饱和度，用较暗但鲜明的底色；
+    /// 文字取同色相的浅色，左侧竖条取同色相的亮色。
     public func resolved(dark: Bool) -> Resolved {
         let base = RGB(hex: hex)
-        var fillAmount = dark ? 0.38 : 0.55
-        var textAmount = dark ? 0.60 : 0.72
+        if dark { return resolvedDark(base) }
+        var fillAmount = 0.55
+        var textAmount = 0.72
         func make() -> Resolved {
-            if dark {
-                return Resolved(
-                    fill: Self.darkBackdrop.mixed(with: base, fillAmount),
-                    text: base.mixed(with: Self.white, textAmount),
-                    marker: base.mixed(with: Self.white, 0.15)
-                )
-            }
-            return Resolved(
+            Resolved(
                 fill: Self.white.mixed(with: base, fillAmount),
                 text: base.mixed(with: Self.black, textAmount),
                 marker: base.mixed(with: Self.black, 0.15)
@@ -64,6 +69,28 @@ public struct CourseTint: Sendable {
         for _ in 0..<20 where result.contrast < Self.minimumContrast {
             fillAmount = max(fillAmount - 0.04, 0)
             textAmount = min(textAmount + 0.04, 1)
+            result = make()
+        }
+        return result
+    }
+
+    private func resolvedDark(_ base: RGB) -> Resolved {
+        let (hue, sat, _) = base.hsb
+        let isGray = sat < 0.05   // 灰色基色没有色相，不要硬染成红色
+        var fillBrightness = 0.36
+        var textBrightness = 0.97
+        func make() -> Resolved {
+            let fillSat = isGray ? 0 : min(max(sat * 1.9, 0.42), 0.80)
+            return Resolved(
+                fill: RGB(h: hue, s: fillSat, b: fillBrightness),
+                text: RGB(h: hue, s: isGray ? 0 : 0.14, b: textBrightness),
+                marker: RGB(h: hue, s: isGray ? 0 : min(max(sat * 1.5, 0.40), 0.85), b: 0.92)
+            )
+        }
+        var result = make()
+        for _ in 0..<20 where result.contrast < Self.minimumContrast {
+            fillBrightness = max(fillBrightness - 0.03, 0)
+            textBrightness = min(textBrightness + 0.01, 1)
             result = make()
         }
         return result

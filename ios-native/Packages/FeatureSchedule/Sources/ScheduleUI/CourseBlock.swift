@@ -37,7 +37,11 @@ struct CourseBlock: View {
         .padding(.horizontal, 3)
         .padding(.vertical, 4)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(tint.fill, in: RoundedRectangle(cornerRadius: GxuDesign.Radius.block, style: .continuous))
+        .padding(.leading, 3)
+        .background(tint.fill)
+        // 左侧色条：用同色相的亮色，深色模式下也能一眼分辨颜色
+        .overlay(alignment: .leading) { Rectangle().fill(tint.marker).frame(width: 3) }
+        .clipShape(RoundedRectangle(cornerRadius: GxuDesign.Radius.block, style: .continuous))
         .overlay(alignment: .topLeading) {
             if selected.isMakeup {
                 Text("补")
