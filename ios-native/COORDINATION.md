@@ -140,7 +140,7 @@ await repo.current()            // CampusCalendar：本地缓存，没有缓存�
 try await repo.refresh()        // 联网更新 data.json 并写缓存；失败抛 GxuError，旧缓存保留
 CampusCalendar { timeShift: [ShiftRule(workDate, restDate)], holidays: [HolidayRange(title, from, to, kind)], updatedAt: Date? }
 ```
-- 数据源 `https://file.unde.site/GxuToolApp/data.json`，现在只有 `timeShift: [["补班日","休息日"], …]`。我扩展了可选字段 `holidays: [{"title","from","to","kind"}]`（`kind` = national / local / school，缺省 national）。**远程文件还没有 `holidays`**，缺的字段回退到内置备份 `Resources/campus-calendar-fallback.json`（由 RN 里写死的日期整理而来）；需要有人在服务器上的 data.json 里补上 `holidays`，之后改日期不用发版。单条数据格式不对只丢那一条。
+- 数据源 `https://file.unde.site/GxuToolApp/data.json`，只更新 `timeShift: [["补班日","休息日"], …]`。**节假日（`holidays`）不做远程更新（用户已决定）**：内置备份 `Resources/campus-calendar-fallback.json` 就是学校最新数据，最晚到 2027 年元旦；内置数据之外的日期按没有假期处理，不报错。模型仍接受可选的远程 `holidays`（`kind` = national / local / school，缺省 national），但没有人维护它。单条数据格式不对只丢那一条。
 - 你的节假日 / 调课页面请直接读 `current()`（进页面时再 `refresh()` 一次），不要自己请求。`kind == .local` 对应 HolidayScreen 的“地方”标签，其余是“全国”；调课通知页的 timeShift 同理。
 - 课表已经叠加：假期 / 休息日的课移除并显示整天块，补班日显示被调过来的课（`CourseOccurrence.shiftedFrom` 非 nil，带“补”标记）。`NextCourseCalculator.compute(schedule:term:campus:now:)` 新增 `campus:` 参数（默认 `.empty`）；**小组件请传 `repo.current()`**，否则下一节课不含调课。课表页写进 SharedStore 的快照已经包含调课。
 - `CalendarOverlay.apply(to:calendar:term:)` 可对任意 `[CourseOccurrence]` 叠加，返回 `(occurrences, dayBlocks)`。

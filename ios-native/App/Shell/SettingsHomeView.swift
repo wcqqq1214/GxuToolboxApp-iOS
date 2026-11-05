@@ -19,6 +19,11 @@ struct SettingsHomeView: View {
                         AccountRow(status: accountStatus)
                     }
                     NavigationLink {
+                        AccountFeature.makePersonalInfoView()
+                    } label: {
+                        Text("个人信息")
+                    }
+                    NavigationLink {
                         AccountFeature.makeUnifiedAccountView()
                     } label: {
                         accountLabel("统一认证账号", state: services.accounts.states[.unified])
@@ -44,7 +49,11 @@ struct SettingsHomeView: View {
 
                 Section("关于") {
                     LabeledContent("版本", value: appVersion)
-                    comingSoon("意见反馈", systemImage: "bubble.left.and.text.bubble.right")
+                    NavigationLink {
+                        AccountFeature.makeFeedbackView()
+                    } label: {
+                        Label("意见反馈", systemImage: "bubble.left.and.text.bubble.right")
+                    }
                 }
             }
             .navigationTitle("设置")

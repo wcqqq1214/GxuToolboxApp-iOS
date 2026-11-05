@@ -40,7 +40,6 @@ enum ToolboxCatalog {
         // 校园
         item("classSchedule", "班级课表", "person.3", .campus),
         item("fullSchedule", "全校课表", "building.columns", .campus),
-        item("emptyClassroom", "空教室", "door.left.hand.open", .campus),
         item("campusMap", "校园地图", "map", .campus),
         item("practice", "实践课", "flask", .campus),
         item("holiday", "节假日", "sun.max", .campus),
