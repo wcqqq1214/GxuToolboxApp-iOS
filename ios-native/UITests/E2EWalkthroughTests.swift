@@ -12,6 +12,7 @@ final class E2EWalkthroughTests: XCTestCase {
         let env = ProcessInfo.processInfo.environment
         app.launchEnvironment["GXU_TEST_USER"] = env["GXU_TEST_USER"]
         app.launchEnvironment["GXU_TEST_PASS"] = env["GXU_TEST_PASS"]
+        if env["GXU_FORCE_LEGACY"] == "1" { app.launchArguments += ["-GxuForceLegacy"] }   // 强制走 iOS 18 的降级（Material）路径
     }
 
     private func shot(_ name: String) {
@@ -120,7 +121,7 @@ final class E2EWalkthroughTests: XCTestCase {
 
         tap(tabs.buttons["工具箱"], "工具箱标签")
         shot("p2-02-toolbox")
-        let titles = ["已选课程", "选课策略", "调课通知", "教学评价", "班级课表", "全校课表", "校园地图", "实践课", "节假日", "教师查询", "考勤查询", "校园网充值", "OA 文件"]
+        let titles = ["考试信息", "成绩查询", "GPA 计算", "已选课程", "选课策略", "调休补班", "教学评价", "班级课表", "全校课表", "校园地图", "实践课", "节假日", "教师查询", "考勤查询", "校园网充值", "OA 文件"]
         for (index, title) in titles.enumerated() {
             visit(title, shot: String(format: "p2-03-toolbox-%02d", index + 1))
         }

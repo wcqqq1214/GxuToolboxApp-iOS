@@ -1,6 +1,6 @@
 # Agent A 状态
 
-- 当前 Phase：Phase 2（Phase 1 已验收 [phase1-accepted]；考勤认证已交付，进行 CA 统一认证 / PEC / xlzxms）
+- 当前 Phase：Phase 2 已验收（[phase2-accepted]，2026-11-06）；下一步 Phase 3：OA 文件、问卷 wjxt、隐私清单、ATS 复查、App 图标、archive.sh、错误日志
 - 已完成：
   - ios-native 骨架、project.yml、全部 package 空壳、契约 v1（GxuFoundation/Networking/Auth/Storage/TestSupport）
   - BackendClient（含会话失效检测、自动重登一次并重试）、JwSessionManager（actor，并发重登合并）、AccountCenter、Keychain/内存 CredentialStore
@@ -41,3 +41,5 @@
 - PLAN §1 / §5.1 (f)(g)(h) / §7 已更新并发布；`_env.sh` 在 rebase / detached 时从 rebase 状态或 worktree 目录名解析专属模拟器（不再新建 `gxu-detached`，已确认无人使用后删除）
 - 用户补充决定已落实：节假日不再待办；CA / 考勤真实账号验证改为后续测试；隐藏「我的反馈」入口（开关默认关闭）；version.json 没有 `ios` 通道时静默
 - **iOS 18 降级走查：当前无法安装 runtime（阻塞）**。磁盘空间足够（可用约 55 GiB，runtime 约 8.9 GB），但 Xcode 27.2 的下载目录里没有 iOS 18：`xcodebuild -downloadPlatform iOS -buildVersion 18.0…18.6`（含 `-architectureVariant arm64` 和构建号 22G86）全部返回 "not available for download"；Apple 旧版目录里的 iOS 18.6 条目是 `mobileAsset` 方式，没有可直接下载的地址。可选办法（需用户决定）：① 另装一个 Xcode 16.x（约 3–5 GB 安装包，需 Apple ID 下载，可用 `xcodes`）并用它下载 iOS 18 runtime；② 退而求其次，让 B 在 GxuDesign 里加一个 DEBUG 开关强制走 `#available(iOS 26)` 的降级分支，在 iOS 27 模拟器上审查降级外观（只能发现样式问题，不能替代真 runtime）
+
+- Phase 2 验收：light / dark / legacy 各一遍通过；1 项界面小问题已写进 C 的请求区（成绩、GPA 标题被挤）；CA、考勤完整登录标「后续测试」；iOS 18 runtime 仍装不到（见上）
