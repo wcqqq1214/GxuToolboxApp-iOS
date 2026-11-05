@@ -542,5 +542,4 @@ export const BuildingList: IPos[] = [
         simpleName:[],
         test:/#/,
     },
-
 ];

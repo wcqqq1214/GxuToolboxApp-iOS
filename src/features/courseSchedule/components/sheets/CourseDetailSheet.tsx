@@ -184,34 +184,6 @@ export function CourseDetailSheet(props: Props) {
     );
 }
 
-// function CourseExamCard({examInfo, onPress}: {examInfo: ExamWithMeta; onPress?: () => void}) {
-//     const exam = examInfo;
-//     const {theme} = useTheme();
-//     const {status} = parseExamTime(exam.time);
-//     const date = exam.time.slice(0, 10);
-//     const time = exam.time.match(/(?<=\().*?(?=\))/)?.[0] ?? "";
-//     const diff = moment(date).diff(moment(), "days");
-//     const suffix = status === "past" ? "已结束" : diff === 0 ? "今天" : `${diff}天后`;
-//
-//     return (
-//         <UnPressable
-//             onPress={onPress}
-//             style={{
-//                 padding: 6,
-//                 borderRadius: 4,
-//                 width: "100%",
-//                 backgroundColor: Color(theme.colors.primary).setAlpha(theme.mode === "light" ? 0.08 : 0.15).rgbaString,
-//             }}>
-//             <UnText weight="bold" size={16}>
-//                 {exam.type}
-//             </UnText>
-//             <UnText size={12} color={theme.colors.grey1}>
-//                 {date}（{suffix}）{time}，{exam.classroom}&lt;{exam.seat || "-"}&gt;
-//             </UnText>
-//         </UnPressable>
-//     );
-// }
-
 // function CourseDebugCard() {
 //     const course = useContext(CourseContext);
 //     const {theme} = useTheme();
