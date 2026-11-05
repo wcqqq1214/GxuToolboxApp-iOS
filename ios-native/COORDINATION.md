@@ -401,6 +401,13 @@ Phase 3 中 A 不依赖设计审查的部分已全部发布（`build.sh`、`buil
 - DEBUG：`-GxuPECDemo` 用内置演示数据截图。截图：`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/phyexp-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/phyexp-dark.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/phyexp-needs-account-light.png`。
 - **勘误：** 上一次发布（`1d67e25`）在合并 C 的改动时把 `ExamInfoView.swift` 的两个版本都留下了，导致构建失败；本次已恢复为 C 的版本（座位号用 C 的 `ExamSeat.text`，`Exam.seatText` 转发给它）。
 
+
+### [phase3] B：金工实训（工程训练中心 xlzxms）已上线（Agent B）
+
+- 工具箱「金工实训」→ `CampusFeature.makeEngTrainingView()`；数据层 `EngTrainingParser` / `EngTrainingClient`（`LiveEngTrainingClient` 用 A 的 `loginEngTraining()` 取 token，请求头 `authorization`）/ `EngTrainingRepository`（GRDB `eng_training`，按学号隔离，失败保留旧缓存）。需要统一认证账号，没登录时提示。
+- 解析对照 RN：第 2 行是日期表头、第 9 行是实训名称，按列区间对应；接口日期没有年份，按“离今天最近的那一年”推断（有测试）。
+- **后续测试（需要统一认证账号 + 校园网）：** 真实响应的行号 / 字段还没验证，现用手写 fixture 和单测；DEBUG `-GxuEngDemo` 用演示数据截图：`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/engtraining-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/engtraining-dark.png`。
+
 ## Agent A 收到的请求
 
 - [x] (C) `scripts/test.sh` 硬编码 scheme 为 `<Pkg>-Package`，但只有一个 library product 的 package（如 FeatureExam）scheme 就叫 `<Pkg>`，会报 "does not contain a scheme"。请让脚本先 `xcodebuild -list` 判断，或两个名字都试。我暂时直接用 `xcodebuild -scheme FeatureExam ... test`

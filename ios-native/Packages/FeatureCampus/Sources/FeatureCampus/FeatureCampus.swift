@@ -12,6 +12,15 @@ public enum CampusFeature {
                 t.primaryKey(["studentId", "id"])
             }
         }
+        // 金工实训（工程训练中心）：每个学号一份
+        migrator.registerMigration("campus.v1.createEngTraining") { db in
+            try db.create(table: "eng_training") { t in
+                t.column("studentId", .text).notNull()
+                t.column("id", .text).notNull()
+                t.column("json", .blob).notNull()
+                t.primaryKey(["studentId", "id"])
+            }
+        }
     }
 
     /// 工具箱 → 班级课表
@@ -25,6 +34,10 @@ public enum CampusFeature {
     /// 工具箱 → 物理实验课（PEC）
     @MainActor
     public static func makePhyExpView() -> some View { PhyExpView() }
+
+    /// 工具箱 → 金工实训（工程训练中心）
+    @MainActor
+    public static func makeEngTrainingView() -> some View { EngTrainingView() }
 
     @MainActor
     public static func makeRootView() -> some View { makeClassScheduleView() }

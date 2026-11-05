@@ -63,7 +63,7 @@ enum ToolboxCatalog {
         item("teacherInfo", "教师信息查询", "person.text.rectangle", .info),
         // 实践课
         item("phyExp", "物理实验课", "atom", .practice, .push { AnyView(CampusFeature.makePhyExpView()) }),
-        item("engTraining", "金工实训", "wrench.and.screwdriver", .practice),
+        item("engTraining", "金工实训", "wrench.and.screwdriver", .practice, .push { AnyView(CampusFeature.makeEngTrainingView()) }),
         // 通知
         item("timeShift", "调休信息", "calendar.badge.exclamationmark", .notice, .push { AnyView(TimeShiftView()) }),
         item("holiday", "法定节假日", "sun.max", .notice, .push { AnyView(HolidayView()) }),

@@ -1,6 +1,6 @@
 # Agent B 状态
 
-- 当前 Phase：Phase 2 审查修改已完成（[phase2-review-fixes] B）；Phase 3 进行中：物理实验课（PEC）已完成；待做 金工实训、地图导航、教学楼平面图、全局打磨。后续测试：PEC 真实响应字段（需统一认证账号 + 校园网）
+- 当前 Phase：Phase 2 审查修改已完成（[phase2-review-fixes] B）；Phase 3 进行中：物理实验课（PEC）、金工实训已完成；待做 地图导航、教学楼平面图、全局打磨。后续测试：PEC / xlzxms 真实响应字段（需统一认证账号 + 校园网）
 - Phase 2 已完成：
   - 修复课表刷新把 CancellationError 显示成错误条（`Error.isCancellation`，有测试）
   - 节假日 / 调课（`CampusCalendarRepository`、`CalendarOverlay`）：data.json 获取 + GRDB 缓存 + 内置备份，叠加到课表（休息日移除、补班日显示被调课程并带“补”标记、假期整天块），小组件快照同步；用法见 COORDINATION「[B] 节假日 / 调课数据」。节假日不做远程更新（用户决定），内置备份即最新数据（到 2027 年元旦），之外的日期无假期不报错；仍远程获取 timeShift。工具箱已删除“空教室”
