@@ -78,4 +78,70 @@ final class E2EWalkthroughTests: XCTestCase {
         tap(app.staticTexts["教务账号"].firstMatch, "教务账号入口")
         sleep(1); shot("09-account")
     }
+
+    // MARK: Phase 2
+
+    private var report: [String] = []
+
+    private func note(_ line: String) {
+        report.append(line)
+        if let dir = shotDir {
+            try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+            try? report.joined(separator: "\n").write(toFile: "\(dir)/phase2-report.txt", atomically: true, encoding: .utf8)
+        }
+    }
+
+    /// 打开一个入口，截图，返回；入口不存在或点进去没有导航（即将上线）只记录，不算失败
+    private func visit(_ title: String, shot name: String, wait: UInt32 = 4, scrollingIn container: XCUIElement? = nil) {
+        func find() -> XCUIElement { app.buttons[title].firstMatch.exists ? app.buttons[title].firstMatch : app.staticTexts[title].firstMatch }
+        var entry = find()
+        for _ in 0..<3 where !entry.waitForExistence(timeout: 3) { app.swipeUp(); entry = find() }   // 入口可能在屏幕下方
+        if !entry.exists { note("缺失  \(title)：页面上找不到入口"); return }
+        entry.tap()
+        sleep(wait)
+        let pushed = app.navigationBars.buttons.firstMatch.exists   // 推入新页面后导航栏左侧才有返回按钮
+        shot(name)
+        if pushed {
+            note("上线  \(title)")
+            let back = app.navigationBars.buttons.firstMatch
+            if back.exists { back.tap() }
+        } else {
+            note("未上线  \(title)：点击后没有进入新页面（多半是「即将上线」）")
+        }
+    }
+
+    func testPhase2() {
+        app.launch()
+        let tabs = app.tabBars.firstMatch
+        XCTAssertTrue(tabs.waitForExistence(timeout: 30))
+        sleep(10)
+        shot("p2-01-home")                                   // 课表 / 首页（含下一节课附件、节假日 / 调课叠加）
+        note("首页：见 p2-01-home.png")
+
+        tap(tabs.buttons["工具箱"], "工具箱标签")
+        shot("p2-02-toolbox")
+        let titles = ["已选课程", "选课策略", "调课通知", "教学评价", "班级课表", "全校课表", "校园地图", "实践课", "节假日", "教师查询", "考勤查询", "校园网充值", "OA 文件"]
+        for (index, title) in titles.enumerated() {
+            visit(title, shot: String(format: "p2-03-toolbox-%02d", index + 1))
+        }
+        note(app.buttons["空教室"].exists ? "未通过  工具箱里仍有「空教室」" : "通过  工具箱已删除「空教室」")
+
+        // 设置里的 A 的页面
+        tap(tabs.buttons["设置"], "设置标签")
+        shot("p2-04-settings")
+        for (index, title) in ["个人信息", "统一认证账号", "考勤账号", "意见反馈"].enumerated() {
+            visit(title, shot: String(format: "p2-05-settings-%02d", index + 1), wait: 6)
+            if title == "意见反馈" {
+                // 我的反馈入口应已隐藏；这里在页面内检查，所以重新进入一次
+                var entry = app.staticTexts[title].firstMatch.exists ? app.staticTexts[title].firstMatch : app.buttons[title].firstMatch
+                for _ in 0..<3 where !entry.exists { app.swipeUp(); entry = app.staticTexts[title].firstMatch }
+                if entry.exists {
+                    entry.tap(); sleep(2)
+                    note(app.buttons["我的反馈"].exists ? "未通过  意见反馈页仍显示「我的反馈」入口" : "通过  意见反馈页已隐藏「我的反馈」入口")
+                    shot("p2-06-feedback-form")
+                    if app.navigationBars.buttons.firstMatch.exists { app.navigationBars.buttons.firstMatch.tap() }
+                }
+            }
+        }
+    }
 }
