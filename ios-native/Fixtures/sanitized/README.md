@@ -16,6 +16,10 @@
 | `profile.json` | `POST /jw/profile` | body `{"isFull":false}` | **返回 HTTP 201**；`grade`（入学年份）、`study_years` 都是**字符串** |
 | `selected-courses.json` | `GET /jw/selected-courses` | 无参数 | `data = {currentPage, totalPage, totalCount, items}`，一页返回全部（135 门，含历年）。条目字段：`classId, courseId, courseName, type(理论/实验/实践/实习), selectionType(主修课程/通识选修课/重修课程/体育分项…), classification(公共课/专业课), belongTo, system, teacher, teacherId, location, credit, year, term`（`credit/year/term` 是数字，其余是字符串）。`teacher` / `teacherId` 可能是逗号分隔的多人；`location` 多个教室用 `;` 分隔，可能为空串；`belongTo` 可能为空串。教师姓名、工号已替换（工号 `000000` 是网络课程占位，保留） |
 | `selected-courses-term.json` | `GET /jw/selected-courses` | `year=2025&term=1` | 同上，只含该学期（17 门） |
+| `teachers-search.json` | `GET /teachers/search` | `q=王&page=1`（无需登录） | `data = {pages, total, list: [{id, name, picUrl, unit}]}`（第 1 页 12 条，共 194 条 / 17 页）。教师姓名换成「王测一…」、`id` 换成同长度假值、`picUrl` 换成 `example.invalid` |
+| `teachers-profile.json` | `GET /teachers/profile` | `name=<搜索结果第一条的姓名>&school=<该条的 unit>`（无需登录） | `data = {baseInfo, academicProfile}`。姓名、头像、电话、邮箱、QQ、微信、地址、工号已替换；个人简介、主讲课程、学术兼职、研究方向、成果等自由文本换成同结构的示例文字（多行字段保持行数）；职称、学历、导师类别、研究生学科等不指向个人的字段保持原样。真实响应里空字段是 `""` 不是 null |
 | `jw-login-success.json` | `POST /jw/login` | 正确账号 | **HTTP 201**，响应头带 `Set-Cookie: JSESSIONID, route`（头未保存） |
 | `jw-login-failure.json` | `POST /jw/login` | 错误密码 | HTTP 401，手写 |
 | `session-expired.json` | 任意需登录接口 | Cookie 无效 | HTTP 401，手写 |
+
+**缺失：`GET /jw/evaluation`**（期末评教列表）——2026-11-06 真实后端返回 HTTP 404 `{"code":404,"message":"Cannot GET /jw/evaluation","data":null}`，后端没有部署这个路由，所以没有样本（没有手写伪造）。RN 的兜底是直连教务 `/xspjgl/xspj_cxXspjIndex.html`，需要教务直连会话，这里没有抓。

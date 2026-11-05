@@ -25,6 +25,21 @@ fetch score             "/jw/score?pageSize=100&pageNo=1&orderBy=desc&order=cjbd
 fetch score_usual       "/jw/score/usual?year=$YEAR&term=$TERM"
 fetch selected_courses       "/jw/selected-courses"
 fetch selected_courses_term  "/jw/selected-courses?year=$YEAR&term=$TERM"
+fetch evaluation             "/jw/evaluation"   # 只读：不会提交任何评教
+fetch teachers_search        "/teachers/search?q=%E7%8E%8B&page=1"   # 常见姓氏「王」，只读
+# 教师详情需要搜索结果里的姓名和单位：取第一条，只读
+read -r TNAME TUNIT < <(python3 - "$OUT/teachers_search.json" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1])).get("data") or {}
+items = d.get("items") or d.get("list") or (d if isinstance(d, list) else [])
+first = items[0] if items else {}
+print(first.get("name", ""), first.get("school") or first.get("unit") or first.get("department") or "")
+PY
+)
+if [ -n "${TNAME:-}" ]; then
+  curl -sS -b "$JAR" -G --data-urlencode "name=$TNAME" --data-urlencode "school=${TUNIT:-}" \
+    -o "$OUT/teachers_profile.json" -w "teachers_profile -> HTTP %{http_code}\n" "$BASE/teachers/profile"
+fi
 curl -sS -b "$JAR" -X POST -H 'Content-Type: application/json' -d '{"isFull":false}' \
   -o "$OUT/profile.json" -w "profile -> HTTP %{http_code}\n" "$BASE/jw/profile"
 echo "已保存到 ${OUT}（含真实数据，使用前请脱敏）"

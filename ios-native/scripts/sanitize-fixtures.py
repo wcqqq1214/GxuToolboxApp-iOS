@@ -120,6 +120,68 @@ for raw_name, out_name in FILES.items():
     cleaned = scrub(json.loads(path.read_text(encoding="utf-8")))
     (OUT / out_name).write_text(json.dumps(cleaned, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
+
+# ---- 教师查询（/teachers/search、/teachers/profile）：姓名、工号、联系方式、头像、自由文本全部替换 ----
+teacher_leak_needles = set()
+if (RAW / "teachers_search.json").exists():
+    NUM = "一二三四五六七八九十"
+    search = load("teachers_search.json")
+    items = (search.get("data") or {}).get("list") or []
+    fake_name = {}
+    for i, item in enumerate(items):
+        real = item.get("name", "")
+        if real:
+            fake_name[real] = "王测" + (NUM[i] if i < 10 else str(i + 1))
+            teacher_leak_needles.add(real)
+        if item.get("id"):
+            teacher_leak_needles.add(item["id"])
+        if item.get("picUrl"):
+            teacher_leak_needles.add(item["picUrl"])
+    for i, item in enumerate(items):
+        item["name"] = fake_name.get(item.get("name", ""), item.get("name", ""))
+        if item.get("id"):
+            item["id"] = hashlib.sha1(("t-id-" + item["id"]).encode()).hexdigest()[: len(item["id"])]
+        if item.get("picUrl"):
+            item["picUrl"] = f"https://example.invalid/avatar/{i + 1:02d}.jpg"
+    (OUT / "teachers-search.json").write_text(json.dumps(search, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    if (RAW / "teachers_profile.json").exists():
+        prof = load("teachers_profile.json")
+        data = prof.get("data") or {}
+        base, acad = data.get("baseInfo") or {}, data.get("academicProfile") or {}
+        for key in ("name", "pic", "telephone", "email", "qq", "wechat", "address"):
+            if base.get(key):
+                teacher_leak_needles.add(base[key])
+        if acad.get("employeeNumber"):
+            teacher_leak_needles.add(acad["employeeNumber"])
+        real_name = base.get("name", "")
+        if real_name:
+            base["name"] = fake_name.get(real_name, "王测一")
+        replace = {
+            "pic": "https://example.invalid/avatar/01.jpg", "telephone": "13800000000", "email": "teacher01@example.invalid",
+            "qq": "10000", "wechat": "wx_test_01", "address": "示例路 1 号",
+        }
+        for key, value in replace.items():
+            if base.get(key):
+                base[key] = value
+        def lines(text, label):
+            return "\n".join(f"{label}{i + 1}" for i in range(len(text.split("\n")))) if text else text
+        if acad.get("employeeNumber"):
+            acad["employeeNumber"] = "90009999"
+        if acad.get("biography"):
+            acad["biography"] = "示例简介；示例单位；示例研究方向。"
+        for key, label in (("coursesTaught", "示例课程"), ("academicAppointments", "示例学术兼职"), ("researchProjects", "示例项目")):
+            if acad.get(key):
+                acad[key] = lines(acad[key], label)
+        for key in ("researchDirections", "admissionsInformation", "honorsAndAwards"):
+            if acad.get(key):
+                acad[key] = "示例" + key
+        ach = acad.get("achievements") or {}
+        for key in ("summary", "papers", "books", "patents"):
+            if ach.get(key):
+                ach[key] = "示例" + key
+        (OUT / "teachers-profile.json").write_text(json.dumps(prof, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
 # 手写的错误响应（后端真实格式，不含个人信息）
 (OUT / "jw-login-failure.json").write_text(
     json.dumps({"code": 401, "message": "账号或密码错误，登录失败", "data": None}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -127,7 +189,7 @@ for raw_name, out_name in FILES.items():
     json.dumps({"code": 401, "message": "登录态过期，请重新登录", "data": None}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 # 残留检查
-needles = set(sensitive_scalars) | set(teacher_map) | set(teacher_ids) | set(qq_map)
+needles = set(sensitive_scalars) | set(teacher_map) | set(teacher_ids) | set(qq_map) | teacher_leak_needles
 leaks = []
 for f in OUT.glob("*.json"):
     text = f.read_text(encoding="utf-8")

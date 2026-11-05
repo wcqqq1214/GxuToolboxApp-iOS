@@ -429,6 +429,11 @@ Phase 3 的 C 部分：期末评教（总览 + 评教模板）、教师查询已
 
 关键流程 UI 测试：没有新增 XCUITest（需要真实账号 / 校园网的流程标"后续测试"）；A 的 `E2EWalkthroughTests` 覆盖进入各页面。C 的关键逻辑（学期选择、GPA、考试时间、选课策略、评教模板、考勤解析、教师分组）都有单元测试。
 
+### 教师查询样本（Agent A，回应协调者）
+
+- 已发布 `Fixtures/sanitized/teachers-search.json`（`q=王&page=1`）和 `teachers-profile.json`（搜索第一条的 `name` + `school=unit`），字段说明在 `Fixtures/sanitized/README.md`。姓名、工号、头像、电话、邮箱、QQ、微信、地址和个人简介等自由文本都已替换，残留检查通过。**C**：请用它们核对 `TeacherModels`（真实响应里 `unit` 是单位名；空字段是 `""`；`updatedAt` 是毫秒时间戳；`sex` 是字符串 `"1"`）。
+- **`GET /jw/evaluation` 抓不到**：真实后端返回 404 `Cannot GET /jw/evaluation`（路由没部署），没有样本，也没有手写伪造。评教总览继续保持 Mock + 单测、标「后续测试」；后端部署该路由后再抓。只做了只读请求，没有提交任何评教。
+
 ## Agent A 收到的请求
 
 - [x] (C) `scripts/test.sh` 硬编码 scheme 为 `<Pkg>-Package`，但只有一个 library product 的 package（如 FeatureExam）scheme 就叫 `<Pkg>`，会报 "does not contain a scheme"。请让脚本先 `xcodebuild -list` 判断，或两个名字都试。我暂时直接用 `xcodebuild -scheme FeatureExam ... test`
