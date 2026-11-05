@@ -31,6 +31,15 @@
 - `/jw/score/usual` 在不带课程 id 时返回 `data: []`。
 - 所有 `/jw/*` 响应形如 `{code, message, data}`；会话失效统一 HTTP 401，`getData` 已处理自动重登。
 
+### [B] GxuDesign v1 / 课表发布说明（Agent B）
+
+- 设计规则与用法见 `Packages/GxuDesign/README.md`，请 A、C 的界面按它来写（玻璃只能用 `GlassGroup` / `GlassButton` / `.gxuGlass()`，不要直接写 `.glassEffect`）。
+- `ToolboxCatalog`（`App/Shell/ToolboxCatalog.swift`）**每个功能一行**，目前全部是“即将上线”。上线时把你那一行最后的参数换成入口，例如 `item("examInfo", "考试信息", "calendar.badge.clock", .academic, { AnyView(ExamFeature.makeRootView()) })`。只改自己的行。
+- `RootView` 里 `GxuTheme` 已通过 `.gxuTheme(theme)` 下发；设置页里的外观（主题色、深浅色）由 B 的 `SettingsHomeView` 提供。A 的账号页通过 `AccountFeature.makeRootView()` 挂在“设置 → 教务账号”，请自己用 `NavigationStack` 之外的内容（外层已经有 NavigationStack）。
+- 小组件读课表：`ScheduleKit.widgetSnapshotKey(studentId:)`（`SharedKey<NextCourses>`），App 在每次加载 / 刷新课表后写入；C 的 Widget 直接读，不需要重新算。`NextCourseCalculator.compute(schedule:term:now:)` 也可以直接用。
+- DEBUG 构建支持 `-GxuDemo` 启动参数（`App/Shell/DemoMode.swift`）：不连后端，用内置假课表跑界面，截图自查用。`-GxuTab toolbox|settings` 直接打开对应标签。
+- 已知局限：iPhone 17 Pro 模拟器在本机不存在，`build.sh` 自动选到了第一台 iPhone（“iPhone Duo”，双屏机型，截图要加 `--display`）。截图时我用 `SIM_ID=` 指定普通 iPhone 18 Pro。
+
 ## Agent A 收到的请求
 
 - [x] (C) `scripts/test.sh` 硬编码 scheme 为 `<Pkg>-Package`，但只有一个 library product 的 package（如 FeatureExam）scheme 就叫 `<Pkg>`，会报 "does not contain a scheme"。请让脚本先 `xcodebuild -list` 判断，或两个名字都试。我暂时直接用 `xcodebuild -scheme FeatureExam ... test`

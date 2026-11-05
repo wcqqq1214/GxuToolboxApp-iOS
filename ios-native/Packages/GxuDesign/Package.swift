@@ -8,5 +8,6 @@ let package = Package(
     dependencies: [.package(path: "../GxuCore")],
     targets: [
         .target(name: "GxuDesign", dependencies: [.product(name: "GxuFoundation", package: "GxuCore")]),
+        .testTarget(name: "GxuDesignTests", dependencies: ["GxuDesign"]),
     ]
 )
