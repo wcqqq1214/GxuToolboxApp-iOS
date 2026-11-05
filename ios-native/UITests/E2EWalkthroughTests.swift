@@ -80,7 +80,7 @@ final class E2EWalkthroughTests: XCTestCase {
         sleep(1); shot("09-account")
     }
 
-    // MARK: Phase 2
+    // MARK: Phase 2 / Phase 3 公共
 
     private var report: [String] = []
 
@@ -88,22 +88,48 @@ final class E2EWalkthroughTests: XCTestCase {
         report.append(line)
         if let dir = shotDir {
             try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
-            try? report.joined(separator: "\n").write(toFile: "\(dir)/phase2-report.txt", atomically: true, encoding: .utf8)
+            try? report.joined(separator: "\n").write(toFile: "\(dir)/\(reportName)", atomically: true, encoding: .utf8)
         }
     }
 
-    /// 打开一个入口，截图，返回；入口不存在或点进去没有导航（即将上线）只记录，不算失败
-    private func visit(_ title: String, shot name: String, wait: UInt32 = 4, scrollingIn container: XCUIElement? = nil) {
-        func find() -> XCUIElement { app.buttons[title].firstMatch.exists ? app.buttons[title].firstMatch : app.staticTexts[title].firstMatch }
-        var entry = find()
-        for _ in 0..<3 where !entry.waitForExistence(timeout: 3) { app.swipeUp(); entry = find() }   // 入口可能在屏幕下方
-        if !entry.exists { note("缺失  \(title)：页面上找不到入口"); return }
+    private var reportName = "phase2-report.txt"
+
+    /// 当前页面不允许出现的文字（PLAN §6 用户审查规则里能自动检查的：2「8 号座」、9「……学年第一学期」类说明）
+    private func scanText(_ screen: String) {
+        let labels = app.staticTexts.allElementsBoundByIndex.prefix(150).map { $0.label }
+        for label in labels {
+            if label.contains("号座") { note("违反规则2  \(screen)：出现「\(label)」") }
+            if label.range(of: "学年第[一二]学期", options: .regularExpression) != nil { note("违反规则9  \(screen)：出现「\(label)」") }
+        }
+    }
+
+    /// 按名称找入口；跳过标签栏里的同名按钮（例如「课表」标签和工具箱里的「课表」入口）
+    private func find(_ aliases: [String]) -> XCUIElement? {
+        let tabBarFrame = app.tabBars.firstMatch.frame
+        for title in aliases {
+            for query in [app.buttons.matching(identifier: title), app.staticTexts.matching(identifier: title)] {
+                for element in query.allElementsBoundByIndex.prefix(6) where element.exists && !tabBarFrame.intersects(element.frame) {
+                    return element
+                }
+            }
+        }
+        return nil
+    }
+
+    /// 打开一个入口（`aliases` 是新旧名称，按顺序找），截图，返回；找不到入口或没有进入新页面只记录，不算失败
+    private func visit(_ aliases: [String], shot name: String, wait: UInt32 = 4, expectedHidden: Bool = false) {
+        let title = aliases[0]
+        var entry = find(aliases)
+        for _ in 0..<3 where entry == nil { app.swipeUp(); sleep(1); entry = find(aliases) }
+        guard let entry else { note(expectedHidden ? "隐藏（预期）  \(title)" : "缺失  \(title)：页面上找不到入口"); return }
+        if expectedHidden { note("未通过  \(title) 应该隐藏，但仍有入口") }
         entry.tap()
         sleep(wait)
         let pushed = app.navigationBars.buttons.firstMatch.exists   // 推入新页面后导航栏左侧才有返回按钮
         shot(name)
         if pushed {
             note("上线  \(title)")
+            scanText(title)
             let back = app.navigationBars.buttons.firstMatch
             if back.exists { back.tap() }
         } else {
@@ -111,38 +137,84 @@ final class E2EWalkthroughTests: XCTestCase {
         }
     }
 
+    private func settingsEntries(_ titles: [[String]], prefix: String) {
+        for (index, aliases) in titles.enumerated() {
+            visit(aliases, shot: String(format: "%@-%02d", prefix, index + 1), wait: 6)
+        }
+    }
+
     func testPhase2() {
+        reportName = "phase2-report.txt"
         app.launch()
         let tabs = app.tabBars.firstMatch
         XCTAssertTrue(tabs.waitForExistence(timeout: 30))
         sleep(10)
-        shot("p2-01-home")                                   // 课表 / 首页（含下一节课附件、节假日 / 调课叠加）
+        shot("p2-01-home")
         note("首页：见 p2-01-home.png")
 
         tap(tabs.buttons["工具箱"], "工具箱标签")
         shot("p2-02-toolbox")
-        let titles = ["考试信息", "成绩查询", "GPA 计算", "已选课程", "选课策略", "调休补班", "教学评价", "班级课表", "全校课表", "校园地图", "实践课", "节假日", "教师查询", "考勤查询", "校园网充值", "OA 文件"]
-        for (index, title) in titles.enumerated() {
-            visit(title, shot: String(format: "p2-03-toolbox-%02d", index + 1))
-        }
+        // 新旧名称都认（B 把工具箱重排成 RN 的名称之后，旧名称找不到会自动用新名称）
+        let entries: [[String]] = [
+            ["考试考场", "考试信息"], ["考试成绩", "成绩查询"], ["GPA 计算"], ["已选课程"], ["校选课查漏", "选课策略"], ["调休信息", "调休补班"],
+            ["调课信息", "调课通知"], ["期末学生评价", "教学评价"], ["班级课表"], ["全校实时课表", "全校课表"], ["地图导航", "校园地图"],
+            ["物理实验课", "实践课"], ["金工实训"], ["法定节假日", "节假日"], ["教师信息查询", "教师查询"], ["考勤信息", "考勤查询"],
+            ["学校文件", "OA 文件"], ["教学楼平面图"],
+        ]
+        for (index, aliases) in entries.enumerated() { visit(aliases, shot: String(format: "p2-03-toolbox-%02d", index + 1)) }
         note(app.buttons["空教室"].exists ? "未通过  工具箱里仍有「空教室」" : "通过  工具箱已删除「空教室」")
 
-        // 设置里的 A 的页面
         tap(tabs.buttons["设置"], "设置标签")
         shot("p2-04-settings")
-        for (index, title) in ["个人信息", "统一认证账号", "考勤账号", "意见反馈"].enumerated() {
-            visit(title, shot: String(format: "p2-05-settings-%02d", index + 1), wait: 6)
-            if title == "意见反馈" {
-                // 我的反馈入口应已隐藏；这里在页面内检查，所以重新进入一次
-                var entry = app.staticTexts[title].firstMatch.exists ? app.staticTexts[title].firstMatch : app.buttons[title].firstMatch
-                for _ in 0..<3 where !entry.exists { app.swipeUp(); entry = app.staticTexts[title].firstMatch }
-                if entry.exists {
-                    entry.tap(); sleep(2)
-                    note(app.buttons["我的反馈"].exists ? "未通过  意见反馈页仍显示「我的反馈」入口" : "通过  意见反馈页已隐藏「我的反馈」入口")
-                    shot("p2-06-feedback-form")
-                    if app.navigationBars.buttons.firstMatch.exists { app.navigationBars.buttons.firstMatch.tap() }
-                }
-            }
+        settingsEntries([["个人信息"], ["统一认证账号"], ["考勤账号"], ["意见反馈"]], prefix: "p2-05-settings")
+        if let entry = find(["意见反馈"]) {
+            entry.tap(); sleep(2)
+            note(app.buttons["我的反馈"].exists ? "未通过  意见反馈页仍显示「我的反馈」入口" : "通过  意见反馈页已隐藏「我的反馈」入口")
+            shot("p2-06-feedback-form")
+            if app.navigationBars.buttons.firstMatch.exists { app.navigationBars.buttons.firstMatch.tap() }
         }
+    }
+
+    /// Phase 3 验收：工具箱按 RN `ToolboxIndex.tsx` 的分组和名称；隐藏项、范围外项；设置里 A 的新页面；各页面文字规则扫描
+    func testPhase3() {
+        reportName = "phase3-report.txt"
+        app.launch()
+        let tabs = app.tabBars.firstMatch
+        XCTAssertTrue(tabs.waitForExistence(timeout: 30))
+        sleep(10)
+        shot("p3-01-today")
+        tap(tabs.buttons["课表"], "课表标签")
+        sleep(5)
+        shot("p3-02-schedule")                      // 规则 3/4/6/8：纯底色课程块、教室教师小一号、时间列上下课、标题居中
+        scanText("课表")
+
+        tap(tabs.buttons["工具箱"], "工具箱标签")
+        shot("p3-03-toolbox")
+        for group in ["信息查询", "实践课", "通知", "教学评价", "其他"] {
+            var found = app.staticTexts[group].firstMatch.exists
+            for _ in 0..<3 where !found { app.swipeUp(); found = app.staticTexts[group].firstMatch.exists }
+            note(found ? "通过  工具箱分组「\(group)」" : "未通过  工具箱缺少分组「\(group)」（RN ToolboxIndex）")
+        }
+        app.swipeDown(); app.swipeDown()
+        let entries: [([String], Bool)] = [
+            (["课表"], false), (["班级课表"], false), (["导出课表"], false), (["考试考场"], false), (["考试成绩"], false), (["考勤信息"], false),
+            (["选课课程列表"], true), (["校选课查漏"], false), (["教师信息查询"], false),
+            (["物理实验课"], false), (["金工实训"], false),
+            (["调课信息"], true), (["调休信息"], false), (["法定节假日"], false), (["学校文件"], false),
+            (["期末学生评价"], false),
+            (["地图导航"], false), (["全校实时课表"], false), (["教学楼平面图"], false),
+        ]
+        for (index, entry) in entries.enumerated() {
+            // 「课表」「导出课表」会和标签栏 / 其他文字重名，只在工具箱页内找按钮
+            visit(entry.0, shot: String(format: "p3-04-toolbox-%02d", index + 1), wait: 5, expectedHidden: entry.1)
+        }
+        // 不该出现的入口
+        for removed in ["校园网充值", "空教室", "已选课程", "GPA 计算"] {
+            note(find([removed]) != nil ? "未通过  工具箱里不应该有「\(removed)」" : "通过  工具箱没有「\(removed)」")
+        }
+
+        tap(tabs.buttons["设置"], "设置标签")
+        shot("p3-05-settings")
+        settingsEntries([["个人信息"], ["统一认证账号"], ["考勤账号"], ["OA 账号"], ["意见反馈"], ["诊断日志"]], prefix: "p3-06-settings")
     }
 }
