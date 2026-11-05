@@ -103,12 +103,17 @@ final class E2EWalkthroughTests: XCTestCase {
         }
     }
 
-    /// 按名称找入口；跳过标签栏里的同名按钮（例如「课表」标签和工具箱里的「课表」入口）
+    /// 按名称找入口：先精确匹配按钮 / 文字，再匹配标签里包含该名称的按钮（卡片的无障碍标签可能带有附加文字）。
+    /// 只认当前能点到的元素（`isHittable`），所以被浮动标签栏盖住或在屏幕外的入口要先滚动出来。
     private func find(_ aliases: [String]) -> XCUIElement? {
-        let tabBarFrame = app.tabBars.firstMatch.frame
         for title in aliases {
-            for query in [app.buttons.matching(identifier: title), app.staticTexts.matching(identifier: title)] {
-                for element in query.allElementsBoundByIndex.prefix(6) where element.exists && !tabBarFrame.intersects(element.frame) {
+            let queries = [
+                app.buttons.matching(NSPredicate(format: "label == %@ OR identifier == %@", title, title)),
+                app.staticTexts.matching(NSPredicate(format: "label == %@", title)),
+                app.buttons.matching(NSPredicate(format: "label CONTAINS %@", title)),
+            ]
+            for query in queries {
+                for element in query.allElementsBoundByIndex.prefix(8) where element.exists && element.isHittable {
                     return element
                 }
             }
@@ -117,7 +122,7 @@ final class E2EWalkthroughTests: XCTestCase {
     }
 
     /// 打开一个入口（`aliases` 是新旧名称，按顺序找），截图，返回；找不到入口或没有进入新页面只记录，不算失败
-    private func visit(_ aliases: [String], shot name: String, wait: UInt32 = 4, expectedHidden: Bool = false) {
+    private func visit(_ aliases: [String], shot name: String, wait: UInt32 = 4, expectedHidden: Bool = false, rootTab: String? = nil) {
         let title = aliases[0]
         var entry = find(aliases)
         for _ in 0..<3 where entry == nil { app.swipeUp(); sleep(1); entry = find(aliases) }
@@ -125,9 +130,15 @@ final class E2EWalkthroughTests: XCTestCase {
         if expectedHidden { note("未通过  \(title) 应该隐藏，但仍有入口") }
         entry.tap()
         sleep(wait)
-        let pushed = app.navigationBars.buttons.firstMatch.exists   // 推入新页面后导航栏左侧才有返回按钮
+        // 入口可能只是切换了标签（例如工具箱里的「课表」），这时不能去点导航栏按钮（课表页左上角是「+」）
+        var switchedTab = false
+        if let rootTab, app.tabBars.firstMatch.exists { switchedTab = !app.tabBars.buttons[rootTab].isSelected }
+        let pushed = !switchedTab && app.navigationBars.buttons.firstMatch.exists   // 推入新页面后导航栏左侧才有返回按钮
         shot(name)
-        if pushed {
+        if switchedTab {
+            note("上线  \(title)（切换到对应标签）")
+            scanText(title)
+        } else if pushed {
             note("上线  \(title)")
             scanText(title)
             let back = app.navigationBars.buttons.firstMatch
@@ -135,11 +146,16 @@ final class E2EWalkthroughTests: XCTestCase {
         } else {
             note("未上线  \(title)：点击后没有进入新页面（多半是「即将上线」）")
         }
+        // 有的入口（例如工具箱里的「课表」）是切换标签而不是推入页面：回到出发的标签再继续
+        if let rootTab, app.tabBars.firstMatch.exists {
+            app.tabBars.buttons[rootTab].tap()
+            sleep(1)
+        }
     }
 
     private func settingsEntries(_ titles: [[String]], prefix: String) {
         for (index, aliases) in titles.enumerated() {
-            visit(aliases, shot: String(format: "%@-%02d", prefix, index + 1), wait: 6)
+            visit(aliases, shot: String(format: "%@-%02d", prefix, index + 1), wait: 6, rootTab: "设置")
         }
     }
 
@@ -161,7 +177,7 @@ final class E2EWalkthroughTests: XCTestCase {
             ["物理实验课", "实践课"], ["金工实训"], ["法定节假日", "节假日"], ["教师信息查询", "教师查询"], ["考勤信息", "考勤查询"],
             ["学校文件", "OA 文件"], ["教学楼平面图"],
         ]
-        for (index, aliases) in entries.enumerated() { visit(aliases, shot: String(format: "p2-03-toolbox-%02d", index + 1)) }
+        for (index, aliases) in entries.enumerated() { visit(aliases, shot: String(format: "p2-03-toolbox-%02d", index + 1), rootTab: "工具箱") }
         note(app.buttons["空教室"].exists ? "未通过  工具箱里仍有「空教室」" : "通过  工具箱已删除「空教室」")
 
         tap(tabs.buttons["设置"], "设置标签")
@@ -206,7 +222,7 @@ final class E2EWalkthroughTests: XCTestCase {
         ]
         for (index, entry) in entries.enumerated() {
             // 「课表」「导出课表」会和标签栏 / 其他文字重名，只在工具箱页内找按钮
-            visit(entry.0, shot: String(format: "p3-04-toolbox-%02d", index + 1), wait: 5, expectedHidden: entry.1)
+            visit(entry.0, shot: String(format: "p3-04-toolbox-%02d", index + 1), wait: 5, expectedHidden: entry.1, rootTab: "工具箱")
         }
         // 不该出现的入口
         for removed in ["校园网充值", "空教室", "已选课程", "GPA 计算"] {

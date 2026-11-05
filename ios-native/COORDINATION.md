@@ -472,6 +472,43 @@ Phase 3 的 B 部分全部完成并逐项发布（构建通过；FeatureSchedule
 - 班级详情深色（补拍）：`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/class-detail-dark.png`
 - iOS 18 降级走查：`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/legacy-home-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/legacy-toolbox-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/legacy-settings-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/legacy-phyexp-light.png`（均有 dark）
 
+### [phase3-accepted]（Agent A，2026-11-06）
+
+基于 ios-native 的 efa5864（B、C 的 `[phase3-done]` 之后）验收。`scripts/run-e2e-ui.sh <light|dark> phase3 [legacy]` 在真实后端上用**真实导航**走：今天、课表、工具箱（按 RN 的 5 个分组）、19 个工具箱入口、设置里的 6 个账号 / 日志页；浅色、深色、`-GxuForceLegacy` 各一遍，**全部跑通，无崩溃、无空白页，三种模式结果一致**（每个入口都有截图和 `phase3-report.txt`）。
+
+**规则核对（PLAN §6，9 条 + 两点修正）：**
+- ✅ 3 课表网格课程块纯底色、无竖线（今日课程 / 小组件保留竖线属于例外，首页今日卡片已按规则去重）；✅ 4 教室、教师字号比课程名小一号；✅ 6 时间列同时显示上课和下课时间，9、10 节合并成一行；✅ 7 工具箱分组（信息查询 / 实践课 / 通知 / 教学评价 / 其他）和名称与 RN `ToolboxIndex.tsx` 一致，`选课课程列表`、`调课信息`按决定隐藏，校园网充值 / 空教室 / 已选课程 / GPA 计算不在工具箱；✅ 8 课表标题和日期范围在同一中轴线，「+」只在左侧；✅ 2 / 9 自动扫描全部页面文字没有「号座」「……学年第一学期」，代码里也没有（只有 DEBUG 示例数据）；✅ 5 抽查的页面（今天、考试、成绩、班级课表）没有重复信息；✅ 1 抽查的页面边距一致、文字没有被裁切。
+- ⚠️ 未通过的小问题（不阻塞，已写进 B 的请求区）：**地图导航**顶部筛选按钮条的左边距和下面列表卡片不一致（按钮条更靠里）；**课表 9-10 节**时间列显示为「9-10 / 18:10 / 19:30」三行，没有「节」字，和 PLAN 里的「9-10节 18:10–19:30」写法不完全一样（如果用户认为这样就行，B 可以不改）。
+- 🔎 第 2 条座位号：当前学期没有考试，页面上看不到真实的座位号，只能确认代码里没有「号座」，座位号显示留到有考试数据时复核（后续测试）。
+
+**附录 A 逐项状态：**
+
+| 功能 | 状态 |
+|---|---|
+| 首页「今天」、添加日程（B） | ✅ 通过 |
+| 课表、导出课表（B） | ✅ 通过（工具箱「课表」切换到课表标签） |
+| 班级课表、全校实时课表（B） | ✅ 页面通过；真实数据 B 已用账号验证 |
+| 物理实验课 PEC、金工实训 xlzxms（B） | ✅ 页面通过；**真实数据后续测试**（需要统一认证账号 + 校园网） |
+| 地图导航、教学楼平面图（B） | ✅ 通过（小边距问题见上）；Apple 地图搜索 / 楼层图图片后续测试（真机 / 校园网） |
+| ~~校园网充值~~ | 已从范围删除 |
+| 考试考场、考试成绩、GPA（C；GPA 只从成绩页进入） | ✅ 通过 |
+| 已选课程（无工具箱入口）、校选课查漏（选课策略）、未出分科目（C） | ✅ 通过（已选课程页面本身没有入口，按 PLAN） |
+| 选课课程列表、调课信息 | 按决定**隐藏**，等后端接口 |
+| 调休信息、法定节假日（C） | ✅ 通过 |
+| 考勤信息（C + A 认证） | ✅ 页面通过；**完整登录后续测试**（账号 + 人工验证码） |
+| 教师信息查询（C） | ✅ 通过（真实脱敏样本核对） |
+| 期末学生评价（C） | ⏳ **未上线**：后端 `GET /jw/evaluation` 404（路由没部署），入口保持「即将上线」；评教模板已做；详情 / 评语 / 一键评教 / 提交走教务直连，未做，**待后端或用户决定** |
+| 学校文件 OA（A） | ✅ 页面通过；**真实登录后续测试**（这台机器访问不到 OA，也没有账号） |
+| 小组件 / Live Activity / App Intents（C） | ✅ 已做；真机效果、App Group 容器共享（§5.1 (e)）待真机 |
+| 设置：个人信息、统一认证 / 考勤 / OA 账号、意见反馈、诊断日志（A） | ✅ 通过（「我的反馈」入口按决定隐藏） |
+| WebView 容器、版本检查、埋点（A） | ✅ 已做（`version.json` 无 `ios` 通道时静默） |
+| otaList / TestPage | 不做 |
+
+**后续测试清单（不算未通过）：** CA / PEC / 工程训练中心真实登录；考勤完整登录；OA / wjxt 真实登录；真机 + 校园网下的地图搜索 / 楼层图；小组件 App Group 共享；`archive.sh` 的 archive / 上传（需要 Team ID）；**真实 iOS 18 验证（上架前必须，需 Xcode 16.x）**——这次只用 `-GxuForceLegacy` 走了降级路径。
+**留给用户（PLAN §7）：** App 名称和图标、Team ID、隐私清单复核 + 隐私政策链接、`version.json` 的 `ios` 通道、后端 `/jw/evaluation` 和 `GET /feedback/{userId}`、调课信息 / 选课课程列表的后端接口。
+
+截图（不入库）：浅色 `/Users/wcqqq1214/Project/gxu_ios_a/ios-native/.screens/ui-light-050129/`、深色 `/Users/wcqqq1214/Project/gxu_ios_a/ios-native/.screens/ui-dark-050625/`、legacy `/Users/wcqqq1214/Project/gxu_ios_a/ios-native/.screens/ui-light-legacy-051057/`，每个目录里的 `phase3-report.txt` 是逐个入口的状态。
+
 ## Agent A 收到的请求
 
 - [x] (C) `scripts/test.sh` 硬编码 scheme 为 `<Pkg>-Package`，但只有一个 library product 的 package（如 FeatureExam）scheme 就叫 `<Pkg>`，会报 "does not contain a scheme"。请让脚本先 `xcodebuild -list` 判断，或两个名字都试。我暂时直接用 `xcodebuild -scheme FeatureExam ... test`
@@ -487,6 +524,7 @@ Phase 3 的 B 部分全部完成并逐项发布（构建通过；FeatureSchedule
 
 ## Agent B 收到的请求
 
+- [ ] (A → B，Phase 3 验收，界面小问题，不阻塞) ① **地图导航**顶部类型筛选按钮条的左边距比下面列表卡片更靠里，按页面对齐规则统一成同一个边距；② **课表 9-10 节**时间列现在是「9-10 / 18:10 / 19:30」三行、没有「节」字，PLAN 规则 6 写的是「9-10节 18:10–19:30」——请和用户确认这样是否可以，不行再改。截图：`/Users/wcqqq1214/Project/gxu_ios_a/ios-native/.screens/ui-light-050129/p3-04-toolbox-17.png`（地图）、`p3-02-schedule.png`（课表）。
 - [x] (A → B，Phase 3) 设置页「关于」里挂上"诊断日志"（B 已挂）：`NavigationLink { AccountFeature.makeErrorLogView() }`。用法见公告「错误日志已就绪」。
 - [x] (A → B，Phase 3) ① 工具箱 `oaFiles`（B 已接，现名“学校文件”；设置页已挂 OA 账号） 一行接入 `AccountFeature.makeOAFilesView()`；② 设置页账号区挂上"OA 账号"：`NavigationLink { AccountFeature.makeOAAccountView() }`。用法见公告「OA 文件 / OA 账号 / 问卷系统（wjxt）已就绪」。
 - [x] (A → B，可选，等用户决定装不装 iOS 18 runtime 之前的替代方案) 本机装不到 iOS 18 runtime（Xcode 27.2 目录里没有）。请在 GxuDesign 里加一个 DEBUG 开关（例如启动参数 `-GxuForceLegacyGlass`），让所有 `if #available(iOS 26, *)` 的玻璃封装强制走降级（Material）分支，这样可以在 iOS 27 模拟器上先审查降级外观。只能发现样式问题，不能替代真 runtime。 B 已完成：`-GxuForceLegacy`（不是 `-GxuForceLegacyGlass`），见公告「DEBUG 开关 `-GxuForceLegacy`」，并修了一个 iOS 18 附件盖住标签栏的问题。

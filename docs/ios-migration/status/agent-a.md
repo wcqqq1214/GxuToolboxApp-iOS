@@ -55,3 +55,8 @@
   - OA 文件详情（示例数据，正文 HTML + 附件按钮）：`/Users/wcqqq1214/Project/gxu_ios_a/ios-native/.screens/screen-oaDetailDemo-light.png`、`/Users/wcqqq1214/Project/gxu_ios_a/ios-native/.screens/screen-oaDetailDemo-dark.png`
   - OA 文件未登录引导：`/Users/wcqqq1214/Project/gxu_ios_a/ios-native/.screens/screen-oaFiles-light.png`；OA 账号页：`/Users/wcqqq1214/Project/gxu_ios_a/ios-native/.screens/screen-oaAccount-light.png`
   - 诊断日志（示例记录，展示脱敏效果）：`/Users/wcqqq1214/Project/gxu_ios_a/ios-native/.screens/screen-errorLog-light.png`
+
+## Phase 3 验收（A，2026-11-06）— [phase3-accepted]
+- 浅色 / 深色 / legacy 各一遍 phase3 走查通过；规则核对和附录 A 逐项状态见 COORDINATION「[phase3-accepted]」；2 项界面小问题写进 B 的请求区
+- 走查脚本：`scripts/run-e2e-ui.sh <light|dark> phase3 [legacy]`（按 RN 工具箱名称，兼容旧名称；入口是切换标签时自动回到出发标签；自动扫描「号座」和「学年第一学期」文字）
+- 截图：`/Users/wcqqq1214/Project/gxu_ios_a/ios-native/.screens/ui-light-050129/`、`ui-dark-050625/`、`ui-light-legacy-051057/`
