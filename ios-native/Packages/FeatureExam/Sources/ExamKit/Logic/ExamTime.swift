@@ -53,6 +53,12 @@ public struct ExamItem: Hashable, Sendable, Identifiable {
         self.status = parsed.status
     }
 
+    /// 今日或明日开考（界面只对这两种用红色强调）
+    public func isUrgent(now: Date = .now, calendar: Calendar = .current) -> Bool {
+        guard let text = countdownText(now: now, calendar: calendar) else { return false }
+        return text == "今日开考" || text == "明日开考"
+    }
+
     /// 距开考的日历天数文案：今日开考 / 明日开考 / N天后；已过或没有日期时为 nil
     public func countdownText(now: Date = .now, calendar: Calendar = .current) -> String? {
         guard status == .upcoming, let date else { return nil }

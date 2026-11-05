@@ -71,3 +71,19 @@ struct PendingCourseTests {
         #expect(ids == ["4", "2", "3"])
     }
 }
+
+struct UrgencyTests {
+    var cal: Calendar = { var c = Calendar(identifier: .gregorian); c.timeZone = TimeZone(identifier: "Asia/Shanghai")!; return c }()
+
+    @Test func onlyTodayAndTomorrowAreUrgent() {
+        let f = DateFormatter(); f.calendar = cal; f.timeZone = cal.timeZone; f.dateFormat = "yyyy-MM-dd HH:mm"
+        let now = f.date(from: "2026-01-10 08:00")!
+        func item(_ t: String) -> ExamItem { ExamItem(Exam(id: t, course: "x", classroom: "", time: t, type: ""), now: now, calendar: cal) }
+        #expect(item("2026-01-10(14:00-16:00)").isUrgent(now: now, calendar: cal))
+        #expect(item("2026-01-11(09:00-11:00)").isUrgent(now: now, calendar: cal))
+        #expect(!item("2026-01-12(09:00-11:00)").isUrgent(now: now, calendar: cal))
+        #expect(!item("2026-01-19(09:00-11:00)").isUrgent(now: now, calendar: cal))
+        #expect(!item("2026-01-05(09:00-11:00)").isUrgent(now: now, calendar: cal))   // 已结束
+        #expect(!item("待定").isUrgent(now: now, calendar: cal))                       // 时间未知
+    }
+}

@@ -89,6 +89,18 @@ public enum AttendanceState: Int, Sendable, Hashable {
     case normal = 1, late = 2, absent = 4, notStarted = 5, noNeed = 100, unknown = 0
 
     public init(id: Int?) { self = id.flatMap(AttendanceState.init(rawValue:)) ?? .unknown }
+
+    /// 文字说明（图标之外不能只靠颜色和形状区分）
+    public var label: String {
+        switch self {
+        case .normal: "正常"
+        case .late: "迟到"
+        case .absent: "缺勤"
+        case .notStarted: "未开始"
+        case .noNeed: "无需打卡"
+        case .unknown: "状态未知"
+        }
+    }
 }
 
 /// 一条考勤记录（`/attendance/personal-data` 的 `records` 一项）

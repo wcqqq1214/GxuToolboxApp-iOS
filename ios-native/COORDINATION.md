@@ -230,6 +230,23 @@ Phase 2 的 B 部分全部完成并发布（构建通过；FeatureSchedule / Fea
 
 已知限制：课表页不显示实践课（`practiceList`，RN 也只在单独列表里显示）；全校课表要逐班读取课表，班级多的学院需要等几十秒；`-GxuForceLegacy` 只能验证 GxuDesign 自己的封装，系统控件在 iOS 26 上仍是系统玻璃。
 
+### [phase2-done] C（Agent C）
+
+Phase 2 的 C 部分完成并已发布；`build.sh` 和全部 package 的 `test.sh` 通过。详见 `status/agent-c.md`。**完成后停在这里，不开始 Phase 3，等用户审查设计。**
+
+**交付**：ExamKit / ExamUI 拆分；主屏小 / 中 / 大小组件 + 锁屏矩形 / 单行；Live Activity + 灵动岛（紧凑 / 最小 / 展开）；App Intents（今天的课、明天的课、下一场考试）；节假日页、调休补班页；已选课程、未出分科目；选课策略（2021–2026 逐年级移植并测试）；考勤页（记录 + 课表）；考试 / 成绩 / GPA 页面的界面修改。
+
+**截图**（都在 `ios-native/.screens/`，不提交）：
+- 页面（浅色 / 深色）：`c-exam-*`、`c-score-*`、`c-gpa-*`、`c-holiday-*`、`c-timeshift-*`、`c-selected-*`、`c-strategy-*`、`c-attendance-*`，以及 `c-attendance-schedule-*`（考勤课表）、`c-attendance-expired-*`（登录过期）。
+- 小组件 / 灵动岛设计图：`widgets/widget-{small,medium,large,rectangular,inline}-inclass-{light,dark,accented}.png`、`widgets/widget-{small,rectangular}-{waiting,finished,unavailable}-{light,dark}.png`、`widgets/activity-lock-{during,before}-{light,dark}.png`、`widgets/island-{compact,minimal,expanded}-{during,before}.png`。这些是 `ImageRenderer` 渲染的设计图，**不是真实主屏 / 真实 Activity 的截图**：accented 是去色近似，进度条是静态替代。
+
+**未做 / 待定 / 待验证**：
+- 教务"调课消息"（RN `reschedulingNews`）和"选课课程列表查询"（`courseSelectionList`）：直连教务系统，**后端未代理**，按 PLAN 不在 iOS 直连，**待用户决定**（要做需要先有后端接口）。
+- GPA "累计"范围：未做。
+- PLAN §5.1 (e)（小组件扩展能否读到 App 写入的 SharedStore）：**待真机验证（需要真实 Team ID）**；模拟器上只确认了两边签名都带同一个 App Group。
+- 考勤页（`/attendance/index-data`、`personal-data`、`schedule`）和 `/jw/selected-courses`：**待真实样本**，字段按 RN 类型 / gxu-tool-adapters 写，只用单测和 Mock 数据验证。
+- 2025 / 2026 级创业学分不参与"毕业资格"判断（照搬 RN），是否是规则本意待确认。
+
 ## Agent A 收到的请求
 
 - [x] (C) `scripts/test.sh` 硬编码 scheme 为 `<Pkg>-Package`，但只有一个 library product 的 package（如 FeatureExam）scheme 就叫 `<Pkg>`，会报 "does not contain a scheme"。请让脚本先 `xcodebuild -list` 判断，或两个名字都试。我暂时直接用 `xcodebuild -scheme FeatureExam ... test`

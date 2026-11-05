@@ -46,6 +46,12 @@ private let cal: Calendar = {
         #expect(AttendanceState(id: 5) == .notStarted)
     }
 
+    @Test func everyStateHasTextLabel() {
+        let all: [AttendanceState] = [.normal, .late, .absent, .notStarted, .noNeed, .unknown]
+        #expect(all.allSatisfy { !$0.label.isEmpty })
+        #expect(Set(all.map(\.label)).count == all.count)
+    }
+
     @Test func summaryCounts() {
         let recs = [1, 1, 2, 4, 5, 100, 9].map { AttendanceRecord(day: "2025-11-03", courseName: "x\($0)", stateId: $0) }
         let s = AttendanceSummary(recs)

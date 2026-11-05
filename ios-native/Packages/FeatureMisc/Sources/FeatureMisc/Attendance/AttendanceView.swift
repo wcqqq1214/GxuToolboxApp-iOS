@@ -196,6 +196,7 @@ private struct RecordRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: record.state.symbol).foregroundStyle(record.state.tint).font(.title3)
+                .accessibilityHidden(true)   // 右侧有文字状态
             VStack(alignment: .leading, spacing: 2) {
                 Text(record.courseName).font(.headline)
                 Text([record.periodConnect.isEmpty ? "" : "第\(record.periodConnect)节", record.roomName].filter { !$0.isEmpty }.joined(separator: " · "))
@@ -203,11 +204,12 @@ private struct RecordRow: View {
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {
-                Text(record.stateName).font(.subheadline).foregroundStyle(record.state.tint)
+                Text(record.stateName.isEmpty ? record.state.label : record.stateName).font(.subheadline).foregroundStyle(record.state.tint)
                 if record.atdTime.contains(":") { Text(String(record.atdTime.suffix(8).prefix(5))).font(.caption).foregroundStyle(.secondary) }
             }
         }
         .padding(.vertical, 2)
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -229,9 +231,11 @@ private struct CourseRow: View {
             }
             Spacer()
             if let state {
-                Image(systemName: state.symbol).foregroundStyle(state.tint).font(.title3)
+                Label(state.label, systemImage: state.symbol)
+                    .font(.subheadline).foregroundStyle(state.tint)
             }
         }
         .padding(.vertical, 2)
+        .accessibilityElement(children: .combine)
     }
 }

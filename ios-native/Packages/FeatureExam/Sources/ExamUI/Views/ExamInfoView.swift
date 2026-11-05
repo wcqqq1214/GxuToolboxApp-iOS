@@ -96,16 +96,19 @@ private struct ExamRow: View {
         return f.string(from: date)
     }
 
+    /// 只有今日、明日开考用红色；更远的用主题色；时间未知用橙色。已结束的行不显示徽章
     private var badge: some View {
-        let (text, color): (String, Color) = switch item.status {
-        case .upcoming: (item.countdownText() ?? "即将开考", .red)
-        case .past: ("", .gray)   // 已结束的行不显示徽章，分组标题已说明
-        case .tbd: ("时间未知", .orange)
+        let urgent = item.isUrgent()
+        let text: String = switch item.status {
+        case .upcoming: item.countdownText() ?? "即将开考"
+        case .past: ""
+        case .tbd: "时间未知"
         }
+        let tint: Color = item.status == .tbd ? .orange : (urgent ? .red : .accentColor)
         return Text(text)
             .font(.caption.bold())
-            .foregroundStyle(.white)
+            .foregroundStyle(urgent || item.status == .tbd ? Color.white : tint)
             .padding(.horizontal, 8).padding(.vertical, 3)
-            .background(color, in: Capsule())
+            .background(urgent || item.status == .tbd ? tint : tint.opacity(0.15), in: Capsule())
     }
 }

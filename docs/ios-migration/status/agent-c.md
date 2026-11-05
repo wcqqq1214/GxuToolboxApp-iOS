@@ -10,6 +10,7 @@
   - **已选课程**（`GET /jw/selected-courses`，GRDB 缓存按学号隔离，按学期分组、搜索、范围菜单）、**未出分科目**（成绩页，已选课程与成绩的差集，通过 `PendingCourseSource` 注入）
   - **选课策略**（校选课查漏）：2021–2026 各年级规则完整移植，每个年级都有"达标 / 空列表 / 必修课 / 学分口径"测试（`ElectiveStrategyTests`，约 45 个用例）
   - **考勤页**（FeatureMisc）：考勤记录（分页、汇总、按日分组）+ 考勤课表（按周，课程上标出勤状态）；内层 `code == 600` 才算成功；未登录 / `sessionExpired(.attendance)` 引导去考勤账号页
+  - 考试倒计时标签：只有今日 / 明日开考用红色，其余用主题色（`ExamItem.isUrgent`）；考勤状态图标旁加文字说明并合并无障碍元素
   - 界面修改：学期选择改为工具栏菜单；GPA 分隔线与表头；去掉重复信息；不及格只标红分数；`1月23日` / `（30%）` / 同步时间不带秒
 - 待真实账号（考勤）：考勤页只用单测和 Mock 数据（`MiscDebugScreens`）验证，字段按 RN 类型定义写，**标 TODO(verify)**：`/attendance/index-data`、`personal-data`、`schedule` 的真实响应；`/jw/selected-courses` 也没有真实脱敏样本（请 A 抓一份放进 Fixtures/sanitized）
 - PLAN §5.1 (e) 小组件读 SharedStore 的实测：**待真机验证（需要真实 Team ID）**。已确认的：App 与 Widget 的 `.xcent` 都带 `group.com.gxutool.ios`（`strings` 可见），App 能拿到 App Group 容器；扩展运行时是否读到同一容器没有在模拟器上做（这台机器没有 Simulator.app，驱动 SpringBoard 加小组件超出 30 分钟时限，按用户指示停止）。WidgetBridge 同时把"当前学号"写进共享键 `widget.activeStudentId`，所以小组件不依赖 Keychain 就能找到快照
@@ -17,7 +18,7 @@
 - 页面截图：`ios-native/.screens/c-*-{light,dark}.png`（`-GxuScreen c-exam|c-score|c-gpa|c-holiday|c-timeshift|c-selected|c-strategy|c-attendance[-expired|-nologin]`，内置假数据）
 - 没做 / 后端不支持：教务"调课消息"（RN `reschedulingNews`，直连教务 `/xtgl/index_cxDbsy.html`，后端没有代理，按 PLAN 不在 iOS 直连）；"选课课程列表查询"（`courseSelectionList`，同样直连教务）；GPA 累计范围
 - TODO(verify) 新增：实验课判断（`type`/课程名含"实验"）；2025/2026 级创业学分不参与"毕业资格"（RN 如此，界面逐项却显示未达标）；考勤课表 `courses[day]` 下标 0 是表头列的假设
-- 阻塞 / 等待：无
+- 阻塞 / 等待：无。已按用户指示停在 Phase 2 结束，不开始 Phase 3，等设计审查
 
 ---
 
