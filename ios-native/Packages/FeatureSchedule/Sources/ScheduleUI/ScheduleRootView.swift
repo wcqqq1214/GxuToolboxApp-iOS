@@ -11,6 +11,7 @@ public struct ScheduleRootView: View {
     @State private var detail: ConflictGroup?
     @State private var editor: ActivityEditorRequest?
     @State private var showActivityList = false
+    @State private var showShare = false
     @Environment(SchedulePreferencesStore.self) private var preferences
     @Environment(\.scenePhase) private var scenePhase
     private let onRequestLogin: @MainActor () -> Void
@@ -62,6 +63,9 @@ public struct ScheduleRootView: View {
                 onDelete: request.isNew ? nil : { Task { await model.delete(request.activity) } }
             )
         }
+        .sheet(isPresented: $showShare) {
+            ShareScheduleSheet(model: model, week: model.selectedWeek, preferences: preferences)
+        }
         .sheet(isPresented: $showActivityList) {
             ActivityListSheet(
                 activities: model.activities,
@@ -105,6 +109,8 @@ public struct ScheduleRootView: View {
                 Menu {
                     Button("添加日程", systemImage: "plus") { addActivity() }
                     Button("我的日程", systemImage: "list.bullet") { showActivityList = true }
+                    Divider()
+                    Button("分享本周课表", systemImage: "square.and.arrow.up") { showShare = true }
                 } label: {
                     Image(systemName: "plus.circle")
                 }
@@ -147,6 +153,7 @@ public struct ScheduleRootView: View {
             await model.save(CustomActivity(name: "社团例会", note: "活动室", weekday: 3, begin: 9, end: 10, weekFrom: 1, weekTo: 12, colorHex: 0xB3E5FC))
             await model.save(CustomActivity(name: "英语角", weekday: 5, begin: 11, end: 12, weekFrom: 3, weekTo: 3, colorHex: 0xFFE0B2))
             showActivityList = true
+        case "share": showShare = true
         case "detail":
             let week = model.selectedWeek
             if let group = ScheduleExpander.conflictGroups(model.index.items(inWeek: week, weekday: 1)).first { detail = group }

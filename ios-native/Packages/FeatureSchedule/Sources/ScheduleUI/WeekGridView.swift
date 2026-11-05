@@ -111,7 +111,7 @@ private struct DayHeader: View {
     }
 }
 
-private struct WeekBody: View {
+struct WeekBody: View {
     let week: Int
     let model: ScheduleViewModel
     let onSelect: (ConflictGroup) -> Void

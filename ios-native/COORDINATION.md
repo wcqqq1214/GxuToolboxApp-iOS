@@ -208,6 +208,28 @@ CampusCalendar { timeShift: [ShiftRule(workDate, restDate)], holidays: [HolidayR
 - 同批还有两处很小的 DEBUG 改动：`App/Composition/DebugScreens.swift` 多一个 `case`，把 `-GxuScreen c-*` 交给 `FeatureCourse` 的 `CourseDebugScreens`（用内置假数据打开 C 的页面截图）；`ToolboxCatalog` 的 `reschedulingNews` 行改名为"调休补班"并接入 `TimeShiftView`，`holiday` 行接入 `HolidayView`（均为 C 的行）。
 - 教务"调课消息"（RN `reschedulingNews`，直连教务 `/xtgl/index_cxDbsy.html`）后端没有代理，按 PLAN 原则不在 iOS 直连；iOS 的"调课"页只做 `CampusCalendar.timeShift` 的调休补班。如需要这个功能，要先有后端接口。
 
+### [phase2-done] B（Agent B）
+
+Phase 2 的 B 部分全部完成并发布（构建通过；FeatureSchedule / FeatureCampus / GxuDesign 测试通过）：
+- 修复课表刷新时把取消当错误展示；节假日 / 调课数据进 ScheduleKit 并叠加到课表（供 C 的节假日页使用）；
+- 首页「今天」+ 标签栏上方“下一件事”附件（课程 + ExamKit 的考试）；冲突课程选择持久化（带 studentId + 学期）；
+- 自定义日程（添加 / 编辑 / 删除 / 管理列表）；课表外观、课程 / 考试详情显示偏好、设置页挂载（教务 / 统一认证 / 考勤账号、个人信息、意见反馈）；
+- 班级课表、全校课表（FeatureCampus，真实账号验证）；分享本周课表图片（`ImageRenderer` + `ShareLink`）；
+- `-GxuForceLegacy` 降级开关，并修复 iOS 18 附件盖住标签栏。
+
+**本阶段新页面截图（浅色 + 深色，供用户审查设计）：**
+- 首页「今天」：`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/home-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/home-dark.png`
+- 课表（节假日整天块、补班标记）：`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/holiday-week-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/holiday-week-dark.png`
+- 课程详情（按偏好显示字段）：`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/detail-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/detail-dark.png`
+- 添加日程：`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/sheet-add-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/sheet-add-dark.png`；我的日程：`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/sheet-list-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/sheet-list-dark.png`
+- 分享课表图片：`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/share-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/share-dark.png`
+- 设置页（账号入口、课表与考试）：`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/settings2-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/settings2-dark.png`
+- 班级课表（筛选 + 班级列表）：`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/class-schedule-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/class-schedule-dark.png`；班级课表详情：`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/class-detail-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/class-detail-dark.png`
+- 全校课表：`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/full-school-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/full-school-dark.png`
+- iOS 18 降级路径（`-GxuForceLegacy`）：`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/legacy-schedule-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/legacy-schedule-dark.png`
+
+已知限制：课表页不显示实践课（`practiceList`，RN 也只在单独列表里显示）；全校课表要逐班读取课表，班级多的学院需要等几十秒；`-GxuForceLegacy` 只能验证 GxuDesign 自己的封装，系统控件在 iOS 26 上仍是系统玻璃。
+
 ## Agent A 收到的请求
 
 - [x] (C) `scripts/test.sh` 硬编码 scheme 为 `<Pkg>-Package`，但只有一个 library product 的 package（如 FeatureExam）scheme 就叫 `<Pkg>`，会报 "does not contain a scheme"。请让脚本先 `xcodebuild -list` 判断，或两个名字都试。我暂时直接用 `xcodebuild -scheme FeatureExam ... test`
@@ -220,14 +242,14 @@ CampusCalendar { timeShift: [ShiftRule(workDate, restDate)], holidays: [HolidayR
 
 ## Agent B 收到的请求
 
-- [ ] (A → B，可选，等用户决定装不装 iOS 18 runtime 之前的替代方案) 本机装不到 iOS 18 runtime（Xcode 27.2 目录里没有）。请在 GxuDesign 里加一个 DEBUG 开关（例如启动参数 `-GxuForceLegacyGlass`），让所有 `if #available(iOS 26, *)` 的玻璃封装强制走降级（Material）分支，这样可以在 iOS 27 模拟器上先审查降级外观。只能发现样式问题，不能替代真 runtime。
-- [ ] (A → B，用户决定) 从 `ToolboxCatalog` 删除 `空教室`（`emptyClassroom`）一行，它不在附录 A 和 RN 的 `src` 里。
-- [ ] (A → B) 设置页账号区请再挂上"统一认证账号"：`NavigationLink { AccountFeature.makeUnifiedAccountView() }`；PEC / 工程训练中心用法见公告「CA 统一认证 / PEC / 工程训练中心已就绪」。
-- [ ] (A → B) 设置页账号区请挂上"考勤账号"：`NavigationLink { AccountFeature.makeAttendanceAccountView() }`（`import FeatureAccount`），状态读 `services.accounts.states[.attendance]`，用法见公告「考勤认证已就绪」。
+- [x] (A → B，可选，等用户决定装不装 iOS 18 runtime 之前的替代方案) 本机装不到 iOS 18 runtime（Xcode 27.2 目录里没有）。请在 GxuDesign 里加一个 DEBUG 开关（例如启动参数 `-GxuForceLegacyGlass`），让所有 `if #available(iOS 26, *)` 的玻璃封装强制走降级（Material）分支，这样可以在 iOS 27 模拟器上先审查降级外观。只能发现样式问题，不能替代真 runtime。 B 已完成：`-GxuForceLegacy`（不是 `-GxuForceLegacyGlass`），见公告「DEBUG 开关 `-GxuForceLegacy`」，并修了一个 iOS 18 附件盖住标签栏的问题。
+- [x] (A → B，用户决定) 从 `ToolboxCatalog` 删除 `空教室`（`emptyClassroom`）一行，它不在附录 A 和 RN 的 `src` 里。 B 已完成：已删除。
+- [x] (A → B) 设置页账号区请再挂上"统一认证账号"：`NavigationLink { AccountFeature.makeUnifiedAccountView() }`；PEC / 工程训练中心用法见公告「CA 统一认证 / PEC / 工程训练中心已就绪」。 B 已完成：已挂。
+- [x] (A → B) 设置页账号区请挂上"考勤账号"：`NavigationLink { AccountFeature.makeAttendanceAccountView() }`（`import FeatureAccount`），状态读 `services.accounts.states[.attendance]`，用法见公告「考勤认证已就绪」。 B 已完成：已挂。
 
 - [x] (A → B) 设置页账号区请再挂上"统一认证账号"（B 已挂，设置页显示登录状态）：`NavigationLink { AccountFeature.makeUnifiedAccountView() }`；PEC / 工程训练中心用法见公告「CA 统一认证 / PEC / 工程训练中心已就绪」。
 - [x] (A → B) 设置页账号区请挂上"考勤账号"（B 已挂）：`NavigationLink { AccountFeature.makeAttendanceAccountView() }`（`import FeatureAccount`），状态读 `services.accounts.states[.attendance]`，用法见公告「考勤认证已就绪」。
-- [ ] (A → B，低优先级) 验收时深色模式下课表出现过"网络连接失败"提示（见 [phase1-accepted]），多半是机器过载；如果你觉得 10 秒超时对课表偏短，可以评估（`BackendClient.makeSession` 是 A 的，需要改超时请告诉我）。
+- [x] (A → B，低优先级) 验收时深色模式下课表出现过"网络连接失败"提示（见 [phase1-accepted]），多半是机器过载；如果你觉得 10 秒超时对课表偏短，可以评估（`BackendClient.makeSession` 是 A 的，需要改超时请告诉我）。 B 已完成：不改超时。课表页本来就是缓存优先、刷新失败保留缓存并标注最后更新时间，行为符合预期。
 
 - [x] (C) 学期选择器需要"当前学期 + 是否已开学"（RN 的 `useStartDay`，来自 `GET /jw/profile/startDay`）。请在 ScheduleKit 公开一个 `currentTerm: AcademicTerm` 和 `isStarted: Bool`。在此之前我用 `// TEMP(coord-2)`：按月份推断（9 月起为秋季，2–6 月为春季，其余视为假期）
   - B 已交付：`ScheduleRepository(backend:database:).currentTermInfo()` → `CurrentTermInfo?`（`term: AcademicTerm`、`isStarted`、`isEnded`、`calendar: TermCalendar`）。优先用缓存，没有缓存或学期已结束时才联网；拿不到数据返回 nil（请退回你的月份推断）。`import ScheduleKit` 即可，不依赖 UI

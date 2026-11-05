@@ -1,6 +1,6 @@
 # Agent B 状态
 
-- 当前 Phase：Phase 2 进行中
+- 当前 Phase：Phase 2 已完成（[phase2-done] B，截图清单见 COORDINATION）
 - Phase 2 已完成：
   - 修复课表刷新把 CancellationError 显示成错误条（`Error.isCancellation`，有测试）
   - 节假日 / 调课（`CampusCalendarRepository`、`CalendarOverlay`）：data.json 获取 + GRDB 缓存 + 内置备份，叠加到课表（休息日移除、补班日显示被调课程并带“补”标记、假期整天块），小组件快照同步；用法见 COORDINATION「[B] 节假日 / 调课数据」。节假日不做远程更新（用户决定），内置备份即最新数据（到 2027 年元旦），之外的日期无假期不报错；仍远程获取 timeShift。工具箱已删除“空教室”
@@ -8,6 +8,7 @@
   - 自定义日程（添加 / 编辑 / 删除 / 管理列表，GRDB）、课表外观与课程 / 考试详情显示偏好（`SchedulePreferences`）、设置页「课表与考试」
   - 首页按协调者意见调整（今天标签不显示底部附件、考试去重、座位文案、课程结束折叠 + 明天预览）；`-GxuForceLegacy` 开关；ScheduleUI 抽出 `ScheduleBoard`，新增只读 `StaticScheduleView`（班级课表用）
   - FeatureCampus：班级课表（筛选 + 班级列表 + 只读周网格）、全校课表（此刻有课的班级）；真实账号验证通过（49 个班 / 31 个在上课）
+  - 分享本周课表图片（`ImageRenderer` + `ShareLink`）
   - 截图：`ios-native/.screens/holiday-week-{light,dark}.png`、`home-{light,dark}.png`
 - Phase 1 状态（保留）：已完成（待用户验收）
 - 已完成：
