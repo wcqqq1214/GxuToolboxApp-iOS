@@ -1,6 +1,6 @@
 # Agent A 状态
 
-- 当前 Phase：Phase 1 收尾（fixtures、profile、term=3、DEBUG 自动登录、run-e2e 已完成；等 B/C 的 [phase1-done] 后做整体验收）
+- 当前 Phase：Phase 2（Phase 1 已验收 [phase1-accepted]；考勤认证已交付，进行 CA 统一认证 / PEC / xlzxms）
 - 已完成：
   - ios-native 骨架、project.yml、全部 package 空壳、契约 v1（GxuFoundation/Networking/Auth/Storage/TestSupport）
   - BackendClient（含会话失效检测、自动重登一次并重试）、JwSessionManager（actor，并发重登合并）、AccountCenter、Keychain/内存 CredentialStore
@@ -26,3 +26,9 @@
   - Keychain access group 尚未启用（GxuConfig.keychainAccessGroup = nil），填真实 Team ID 后再开
   - project.yml 的 DEVELOPMENT_TEAM 目前是占位 `YOUR_TEAM_ID`
   - test.sh 偶发 `xcrun: unable to find utility simctl`（连续启动多个 xcodebuild test 时），重跑即可
+
+## Phase 2 进度（2026-11-05）
+- 完成：Phase 1 验收（run-e2e-ui.sh，浅色/深色各 9 步通过）；每个 worktree 专属模拟器；考勤认证（AttendanceSession、`Authorization: Token` 注入、401 → signedOut、考勤账号页、单测）
+- 进行中：CA 统一认证（RSA + zfca 登录）、PEC / xlzxms SSO
+- 需要用户：**`.secrets/account.env` 里补 `CA_USER`、`CA_PASS`（统一认证账号）**才能真实验证 CA / PEC / xlzxms；另需一个考勤系统账号 + 人工看验证码才能验证考勤完整登录（目前只验证了验证码接口，登录流程由单测覆盖）
+- TODO(verify)：考勤 `/attendance/login` 的真实响应（code 600 / token / userInfo.userId）；验证码错误时的 msg 文案
