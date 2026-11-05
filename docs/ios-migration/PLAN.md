@@ -17,7 +17,7 @@
 
 | 项 | 决策 |
 |---|---|
-| 工具链 | Xcode 26，Swift 6 语言模式，开启严格并发检查 |
+| 工具链 | Xcode 27.2（本机实际版本；原计划写的是 Xcode 26），Swift 6 语言模式，开启严格并发检查。本机原本只有 iOS 27.2 模拟器 runtime，iOS 18 runtime 需另装（见 §5.1 (h)） |
 | 最低系统 | **iOS 18.0**。所有 iOS 26 才有的 API（`glassEffect`、`GlassEffectContainer`、`tabBarMinimizeBehavior`、`tabViewBottomAccessory` 等）**只能出现在 `GxuDesign` 内部**，用 `if #available(iOS 26, *)` 包装，并在 iOS 18 上降级为 Material |
 | UI | SwiftUI 优先；只有确实做不到时才用 UIKit 桥接（例如 `WKWebView`） |
 | 状态 | `@Observable` + Swift Concurrency（`async/await`、`actor`）。不用 Combine，不用第三方状态库 |
@@ -217,6 +217,12 @@ B、C：在 bootstrap 发布之前，先读 RN 源码，把自己 Phase 1 功能
 - **(d) 学期参数**：后端 GET 接口（`/jw/schedule/personal`、`/jw/exam`、`/jw/score`）**只接受逻辑学期 1 / 2**。2026-11-05 用真实后端验证：`term=3`（小学期）、`term=12`、`term=16` 一律返回 HTTP 400 `不支持的学期参数`。因此 feature **不能用 term=3 查询**；`AcademicTerm.isBackendQueryable` 为 false 时，UI 不要发请求（隐藏该学期或提示"暂不支持"）。`AcademicTerm.term == 3` 仍可用于展示。
 - **(e) 小组件前置条件（已验证）**：未签名构建（`CODE_SIGNING_ALLOWED=NO`）下 Keychain 报 -34018、拿不到 App Group 容器。改用 ad-hoc 签名（`CODE_SIGN_IDENTITY="-"`，entitlements 由 `*-Simulated.xcent` 写进二进制）后，**App 能拿到 App Group 容器，Keychain 读写正常**，所以**模拟器开发不需要真实 Team ID**（`project.yml` 里 `DEVELOPMENT_TEAM` 保持占位符即可）。小组件扩展用同一个 `group.com.gxutool.ios`，entitlements 与 App 相同；扩展在运行时是否读到同一个容器，还要 C 在 Phase 2 做小组件时实测（在 Widget 里写入、在 App 里读取 SharedStore）。真机运行和 Keychain access group（`$(AppIdentifierPrefix)`）需要真实 Team ID，届时由用户填写。
 
+- **(f) 一次性所有权例外（用户已同意，2026-11-05）**：小组件 / Live Activity / App Intents 这一批，由 C 直接发布 `project.yml`、`App/GxuToolApp.swift`、Info.plist 和 `App/Composition/IntentsPackage.swift` 的相关改动（含 `ClassWidgetKit`、`ToolboxIntents`、`NSSupportsLiveActivities`、`WidgetBridge`）。**仅此一批**，之后恢复 §2 的所有权。C 发布这批之前，A 不改这些文件里相关的部分。
+- **(g) 小组件验证**：设计审查用 `ImageRenderer` 渲染的截图；§5.1 (e) 的"扩展是否读到同一个 App Group 容器"用 XCUITest 限时 30 分钟实测，做不出就留到真机（需要真实 Team ID）。这台机器没有 Simulator.app，无法手动操作。
+- **(h) iOS 18 降级走查**：本机安装 iOS 18 模拟器 runtime 和一台专用模拟器，用 `SIM_ID` 跑 `run-e2e-ui.sh`，对比 iOS 27 与 iOS 18 的关键页面（课表、工具箱、考试、成绩、GPA、设置），截图放 `ios-native/.screens/ios18-*/`；问题按所有权写进 B、C 的请求区。磁盘空间不足时不安装，写进 A 的 status。
+- **工具箱**：`空教室` 不在附录 A 和 RN 的 `src` 里，用户决定删除，由 B 执行。
+- **节假日数据**：远程 `data.json` 没有 `holidays`，内置备份只到 2027 年元旦；更新方式待用户决定（见 §7）。
+
 ### Phase 2：系统集成 + 次要功能
 
 | Agent | 交付内容 |
@@ -255,9 +261,12 @@ B、C：在 bootstrap 发布之前，先读 RN 源码，把自己 Phase 1 功能
 
 ## 7. 待用户决定 / 风险
 
-- [ ] 最低系统版本：目前定为 iOS 18。如果改成 iOS 26，GxuDesign 里的降级逻辑可以删掉（要在 Phase 0 之前决定）。
+- [x] 最低系统版本：**iOS 18**（已确定，GxuDesign 保留降级逻辑）。
 - [ ] Bundle ID、Team ID、App 名称和图标（App Store 审核时，使用"广西大学"名称和校徽可能被问到知识产权问题）。
-- [ ] 提供测试账号（`.secrets/account.env`）。
+- [ ] 提供测试账号（`.secrets/account.env`）：教务账号已提供；**还缺统一认证 `CA_USER` / `CA_PASS`**（CA、PEC、工程训练中心的真实验证），以及一个考勤系统账号（完整登录需要人工看验证码）。
+- [ ] `version.json`（`https://file.unde.site/GxuToolApp/version.json`）增加 `ios` 通道，iOS 版本检查才会有提示；格式见 COORDINATION「个人信息 / 反馈 / 埋点 / 版本检查 / WebView 容器已就绪」。
+- [ ] 后端 `GET /feedback/{userId}` 对所有请求返回 401 "看板：未登录或登录已过期"（2026-11-05 真实验证，带有效教务 Cookie 也一样），iOS 的"我的反馈"无法查看；需要后端修复。
+- [ ] 节假日数据：远程 `data.json` 没有 `holidays`，内置备份只到 2027 年元旦，更新方式待决定。
 - [ ] 后端上 HTTPS；确认 iOS 也走后端代理时，后端的限流和稳定性够用。
 - iOS 没有 OTA，修 bug 要走审核；TestFlight 可以作为测试通道。
 - Android 和 iOS 两端要各写一遍功能，所以新的教务功能应该**先做后端接口**，两端都只接后端。

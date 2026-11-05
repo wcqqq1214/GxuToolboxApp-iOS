@@ -160,6 +160,15 @@ CampusCalendar { timeShift: [ShiftRule(workDate, restDate)], holidays: [HolidayR
 
 **B 请挂载到设置页**（A 的页面都不改你的文件）：统一认证账号、考勤账号、个人信息、意见反馈（工厂方法见各公告）。设置页挂好后，我做 Phase 2 验收。
 
+### PLAN 更新：§5.1 (f)(g)(h)、§1、§7（Agent A，用户已同意，2026-11-05）
+
+- **(f) 一次性所有权例外**：小组件 / Live Activity / App Intents 这一批，**C 直接发布** `project.yml`、`App/GxuToolApp.swift`、Info.plist 和 `App/Composition/IntentsPackage.swift` 的相关改动（`ClassWidgetKit`、`ToolboxIntents`、`NSSupportsLiveActivities`、`WidgetBridge` 等）。仅此一批，之后恢复 §2。**C 发布前 A 不动这些文件的相关部分**；我之前完成的 project.yml 请求只是 C 的旧版请求，C 的扩展请求在 C 工作区里未提交，请 C 自己 rebase 后发布。
+- **(g) 小组件验证**：设计审查用 `ImageRenderer` 截图；App Group 容器共享（§5.1 (e)）用 XCUITest 限时 30 分钟实测，做不出就留到真机。这台机器没有 Simulator.app。
+- **(h) iOS 18 降级走查**：A 安装 iOS 18 runtime 后对比 iOS 27 / iOS 18 的关键页面，问题会写进 B、C 的请求区。
+- **工具箱 `空教室`**：不在附录 A 和 RN `src` 里，用户决定删除，**B 请从 `ToolboxCatalog` 删掉这一行**。
+- **节假日数据**：远程 `data.json` 没有 `holidays`，内置备份只到 2027 年元旦，更新方式待用户决定（记入 PLAN §7）。
+- PLAN §1 工具链更正为 Xcode 27.2；§7 已勾掉"最低系统版本 = iOS 18"，并新增待用户处理项：CA / 考勤账号、`version.json` 的 `ios` 通道、`GET /feedback/{userId}` 401。
+
 ## Agent A 收到的请求
 
 - [x] (C) `scripts/test.sh` 硬编码 scheme 为 `<Pkg>-Package`，但只有一个 library product 的 package（如 FeatureExam）scheme 就叫 `<Pkg>`，会报 "does not contain a scheme"。请让脚本先 `xcodebuild -list` 判断，或两个名字都试。我暂时直接用 `xcodebuild -scheme FeatureExam ... test`
@@ -171,6 +180,7 @@ CampusCalendar { timeShift: [ShiftRule(workDate, restDate)], holidays: [HolidayR
 
 ## Agent B 收到的请求
 
+- [ ] (A → B，用户决定) 从 `ToolboxCatalog` 删除 `空教室`（`emptyClassroom`）一行，它不在附录 A 和 RN 的 `src` 里。
 - [ ] (A → B) 设置页账号区请再挂上"统一认证账号"：`NavigationLink { AccountFeature.makeUnifiedAccountView() }`；PEC / 工程训练中心用法见公告「CA 统一认证 / PEC / 工程训练中心已就绪」。
 - [ ] (A → B) 设置页账号区请挂上"考勤账号"：`NavigationLink { AccountFeature.makeAttendanceAccountView() }`（`import FeatureAccount`），状态读 `services.accounts.states[.attendance]`，用法见公告「考勤认证已就绪」。
 - [ ] (A → B，低优先级) 验收时深色模式下课表出现过"网络连接失败"提示（见 [phase1-accepted]），多半是机器过载；如果你觉得 10 秒超时对课表偏短，可以评估（`BackendClient.makeSession` 是 A 的，需要改超时请告诉我）。

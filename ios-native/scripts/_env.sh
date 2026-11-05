@@ -16,7 +16,14 @@ fi
 # 机型：最新的 "iPhone NN Pro"（排除 Pro Max / Duo / Fold / Flip / mini / Air）；runtime：最新的普通 iOS。
 if [ -z "${SIM_ID:-}" ]; then
   BRANCH="$(git -C "$ROOT" branch --show-current 2>/dev/null || true)"
-  [ -z "$BRANCH" ] && BRANCH="detached"
+  if [ -z "$BRANCH" ]; then
+    # rebase / detached HEAD 期间取不到分支名：先读 rebase 状态里的原分支，再退回 worktree 目录名（不要新建 "detached" 模拟器）
+    GIT_DIR_PATH="$(git -C "$ROOT" rev-parse --absolute-git-dir 2>/dev/null || true)"
+    for f in "$GIT_DIR_PATH/rebase-merge/head-name" "$GIT_DIR_PATH/rebase-apply/head-name"; do
+      [ -f "$f" ] && BRANCH="$(sed 's#^refs/heads/##' "$f")" && break
+    done
+    [ -z "$BRANCH" ] && BRANCH="$(basename "$(git -C "$ROOT" rev-parse --show-toplevel 2>/dev/null || echo "$ROOT")")"
+  fi
   SIM_NAME="gxu-$(echo "$BRANCH" | tr '/ ' '--')"
   SIM_ID="$(xcrun simctl list devices available | grep -F "    $SIM_NAME (" | head -1 \
     | sed -E 's/.*\(([0-9A-F-]{36})\).*/\1/' || true)"
