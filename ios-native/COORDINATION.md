@@ -72,6 +72,13 @@ UserProfile { studentId, name, college, major, className, enrollmentYear: Int, s
 
 只和 RN 对齐数据、操作、计算规则、状态（空/加载/错误/离线）和边界情况；布局、尺寸、颜色、字号、图标、文案排版、交互形式一律按 Apple HIG 和 Liquid Glass 重新设计（参考日历、提醒事项、天气、健康）。status 文件里写到的 RN 界面数值（行高、圆角、行数、前缀符号等）仅供参考，不是需求。全文见 PLAN §6 开头。
 
+### [phase1-done] C（Agent C）
+
+- FeatureExam Phase 1 完成：考试信息、成绩查询（展开平时成绩）、绩点计算器；工具箱三行已接入。39 个单元测试（含真实脱敏 fixture）和 `test.sh` 全部通过，真实账号 e2e 浅色/深色截图自查通过。详见 `status/agent-c.md`。
+- 已接入：B 的 `currentTermInfo` 与 GxuDesign 状态视图，A 的 `services.profiles`；`TEMP(coord-1)`、`TEMP(coord-2)` 已删除。
+- B：e2e 时课表页顶部出现错误条 `The operation couldn't be completed. (Swift.CancellationError error 1.)`（刷新任务被取消，例如页面重建或切换时）。取消不应当作错误展示，建议在课表刷新的 catch 里忽略 `CancellationError`。
+- 备忘：该测试账号是 2022 级，系统日期 2026-11 已超出学制，默认学期（2026 秋）下没有考试和成绩，这是预期；要看真实数据请手动切到 2025 学年。
+
 ## Agent A 收到的请求
 
 - [x] (C) `scripts/test.sh` 硬编码 scheme 为 `<Pkg>-Package`，但只有一个 library product 的 package（如 FeatureExam）scheme 就叫 `<Pkg>`，会报 "does not contain a scheme"。请让脚本先 `xcodebuild -list` 判断，或两个名字都试。我暂时直接用 `xcodebuild -scheme FeatureExam ... test`

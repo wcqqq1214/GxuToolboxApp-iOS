@@ -1,15 +1,17 @@
 # Agent C 状态
 
-- 当前 Phase：Phase 1 收尾（工具箱入口、currentTermInfo、真实 fixture 测试已完成；等 A 的 profile 与 run-e2e.sh）
+- 当前 Phase：Phase 1 已完成（[phase1-done] C）。未开始 Phase 2
 - 已完成：
-  - FeatureExam：模型与解码、`ExamTimeParser`/排序分组/倒计时、`GpaCalculator`、`TermOptions`、GRDB 仓储（按 studentId 隔离，迁移 `exam.v1.*`）、`ExamAPI`/`ScoreAPI`、三个 ViewModel 和三个页面（考试信息、成绩查询含平时分展开、绩点计算器）
-  - 28 个单元测试通过（`xcodebuild -scheme FeatureExam ... test`）；App 与 Widget 构建通过
-  - 模拟器截图自查（浅色/深色）：`ios-native/.screens/{exam,score,gpa}-{light,dark}.png`，用内置假数据的临时入口拍摄，入口未提交
+  - FeatureExam：模型与解码、`ExamTimeParser`/排序分组/倒计时、`GpaCalculator`、`TermOptions`、GRDB 仓储（按 studentId 隔离，迁移 `exam.v1.*`）、`ExamAPI`/`ScoreAPI`、三个 ViewModel、三个页面（考试信息、成绩查询含平时分展开、绩点计算器）
+  - 工具箱三行已接入 `ToolboxCatalog`（examInfo / examScore / gpa）
+  - 默认学期用 B 的 `ScheduleRepository.currentTermInfo()`（假期看刚结束的学期，早于入学年份则看当前；拿不到时按月份推断）；学年范围用 A 的 `services.profiles`（入学年份起 `studyYears` 个，不晚于当前学年）。TEMP(coord-1)、TEMP(coord-2) 已删除
+  - 状态视图换用 GxuDesign（`GxuLoadingView`/`GxuEmptyView`/`GxuErrorView`/`GxuStaleBanner`）：有缓存时刷新失败只贴提示条，没有缓存才整页显示错误
+  - 39 个单元测试（含用 A 的真实脱敏 fixture 的 `RealFixtureTests`，期望值由 RN 同一公式独立算出）；App、Widget 构建通过；全部 package 的 `test.sh` 通过
+  - 真实账号 e2e 自查（浅色/深色）：`ios-native/.screens/real-{examInfo,examScore,gpa}-{light,dark}.png`。成绩页展开可见平时成绩（含占比）、总评、发布时间、学分、绩点、教师；GPA 页数值与成绩页一致。该账号是 2022 级，默认学期（2026 秋）已超出学制，所以截图用本地临时覆盖指到 2025 学年（覆盖代码未提交）
 - 进行中：无
-- 阻塞 / 等待：
-  - A：profile（coord-1，入学年份/学制）、`run-e2e.sh`
-- 给其他 agent 的通知：见 `ios-native/COORDINATION.md` 对方小节
-- 未做 / 后续：未出分科目（依赖 Phase 2 已选课程）；GPA "累计"范围；用真实响应核对 TODO(verify)
+- 阻塞 / 等待：无
+- 给其他 agent 的通知：见 COORDINATION 的 `[phase1-done] C`
+- 未做 / Phase 2：未出分科目（依赖已选课程）；GPA "累计"范围；`ExamKit`/`ExamUI` 拆分（PLAN §5.1 (a)）；小学期（`term = 0`/3）后端不支持查询（§5.1 (d)），UI 只提供 1/2
 
 ---
 
@@ -163,15 +165,15 @@ WAM = wamNumerator / denominator    // 加权平均成绩
 
 ## TODO(verify)
 
-已用 A 的真实脱敏响应（`Fixtures/sanitized/`，测试见 `RealFixtureTests`）核对：
-- [x] `/jw/score` 字段：snake_case 与 camelCase 两套同时存在（另有 `updateTime`），Swift 只读 snake_case（camelCase 作回退）；样本 100 条 `score` 全是数字，没有 `null` 也没有缺字段，解码仍按可选处理；`credit` 有整数和小数；有 1 条 `term = 0`；`upload_at` 可为空串；`id` 不重复
-- [x] 外层都是 `{code, message, data}`，`getData` 直接可用；`/jw/exam` 的 `data` 是数组
-- [x] `/jw/exam` 没有 `seat` 字段；结果里混有往届缓考/补考，按 `time` 自然落入"已结束"
+已用 A 的真实脱敏响应（`Fixtures/sanitized/`，测试见 `RealFixtureTests`）和真实账号 e2e 核对：
+- [x] `/jw/score`：snake_case 与 camelCase 两套同时存在（另有 `updateTime`），Swift 只读 snake_case（camelCase 作回退）；样本 100 条 `score` 全是数字，没有 `null` 也没有缺字段，解码仍按可选处理；`credit` 有整数和小数；有 1 条 `term = 0`；`upload_at` 可为空串；`id` 不重复
+- [x] 外层都是 `{code, message, data}`，`getData` 直接可用
+- [x] `/jw/exam` 没有 `seat` 字段；结果里混有往届缓考/补考
 - [x] 成绩真实 GPA 对照：全部 100 条、2023 秋、2023 学年三组期望值与 RN 公式一致
+- [x] `/jw/score/usual?year=2025&term=1&id=...`：真实账号下返回平时成绩/期末成绩/总评三项，`ratio` 为 "40"/"60"/"N/A"（e2e 截图可见）。传 term 1/2 正确
+- [x] 学期选择器所需的入学年份/学制：A 的 `services.profiles` 已接入
 
-仍未确认：
-- `/jw/score/usual` 带课程 id 的真实响应（fixture 里只有不带 id 的空数组）；`term` 参数传 1/2 是否正确
+仍未确认（均不阻塞）：
 - 越界日期时间（Swift 判 tbd，与 RN 滚动进位不同，有意为之）
-- 小学期（成绩 `term = 0`）在 UI 里的归属：按 term 1/2 查询看不到，全学年也看不到
+- 成绩 `term = 0`（未分学期）的记录：按 term 1/2 查询看不到，全学年也看不到
 - GPA 精度（RN 三位，官方办法两位）以用户确认为准
-- 入学年份/学制：等 A 交付 profile（coord-1），fixture 里 `profile.json` 的 `grade`、`study_years` 是**字符串**
