@@ -303,6 +303,13 @@ Phase 2 的 C 部分完成并已发布；`build.sh` 和全部 package 的 `test.
 - **真实验证：后续测试**。从这台机器访问 OA 返回 403 页面、wjxt 无响应（疑似只允许校内网络），而且没有 OA 账号；用 StubURLProtocol 单测覆盖了登录、登录失败、403 提示、401 重登重试、二次 401 → sessionExpired、解码和 wjxt 解析（含 GB2312）。403 时界面提示「OA 系统拒绝访问，可能需要连接校园网」。
 - DEBUG 自查：`-GxuScreen oaFiles|oaFilesDemo|oaDetailDemo|oaAccount`（`*Demo` 用示例数据，不联网）。
 
+### 错误日志已就绪（Agent A，Phase 3）
+
+- **诊断日志页**：`AccountFeature.makeErrorLogView()`（查看 / 分享 / 清除；自带 `navigationTitle`）。**B：请在设置页「关于」里挂上"诊断日志"**。日志只存在本机（Caches/GxuLogs），**不会自动上传**，用户可以分享给开发者。
+- **自动记录**：`BackendClient`、OA、问卷、统一认证的网络失败和 HTTP 非 2xx（只记方法 + 路径，不含查询参数 / 请求体 / 头），以及未捕获的异常（异常名 + 原因）。
+- **脱敏**：写入前统一处理（`ErrorLog.redact`，有单测）：URL 查询参数、password / token / Authorization / Bearer / Cookie、JSESSIONID、8 位以上的数字（学号 / 身份证 / 手机号）。文件 256 KB 滚动，只保留一份历史。
+- feature 里需要记录自己的错误时：`ErrorLog.shared.record("类别", "消息")`（`import GxuFoundation`，消息会自动脱敏）。**不要把用户数据、账号、响应内容写进消息**。
+
 ## Agent A 收到的请求
 
 - [x] (C) `scripts/test.sh` 硬编码 scheme 为 `<Pkg>-Package`，但只有一个 library product 的 package（如 FeatureExam）scheme 就叫 `<Pkg>`，会报 "does not contain a scheme"。请让脚本先 `xcodebuild -list` 判断，或两个名字都试。我暂时直接用 `xcodebuild -scheme FeatureExam ... test`
@@ -318,6 +325,7 @@ Phase 2 的 C 部分完成并已发布；`build.sh` 和全部 package 的 `test.
 
 ## Agent B 收到的请求
 
+- [ ] (A → B，Phase 3) 设置页「关于」里挂上"诊断日志"：`NavigationLink { AccountFeature.makeErrorLogView() }`。用法见公告「错误日志已就绪」。
 - [ ] (A → B，Phase 3) ① 工具箱 `oaFiles` 一行接入 `AccountFeature.makeOAFilesView()`；② 设置页账号区挂上"OA 账号"：`NavigationLink { AccountFeature.makeOAAccountView() }`。用法见公告「OA 文件 / OA 账号 / 问卷系统（wjxt）已就绪」。
 - [x] (A → B，可选，等用户决定装不装 iOS 18 runtime 之前的替代方案) 本机装不到 iOS 18 runtime（Xcode 27.2 目录里没有）。请在 GxuDesign 里加一个 DEBUG 开关（例如启动参数 `-GxuForceLegacyGlass`），让所有 `if #available(iOS 26, *)` 的玻璃封装强制走降级（Material）分支，这样可以在 iOS 27 模拟器上先审查降级外观。只能发现样式问题，不能替代真 runtime。 B 已完成：`-GxuForceLegacy`（不是 `-GxuForceLegacyGlass`），见公告「DEBUG 开关 `-GxuForceLegacy`」，并修了一个 iOS 18 附件盖住标签栏的问题。
 - [x] (A → B，用户决定) 从 `ToolboxCatalog` 删除 `空教室`（`emptyClassroom`）一行，它不在附录 A 和 RN 的 `src` 里。 B 已完成：已删除。

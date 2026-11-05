@@ -1,11 +1,19 @@
 import ClassWidgetKit
 import FeatureAccount
 import GxuAuth
+import GxuFoundation
 import SwiftUI
 
 @main
 struct GxuToolApp: App {
     private let services = AppComposition.live()
+
+    init() {
+        // 未捕获的异常也记进本机日志（已脱敏，只有异常名和原因）
+        NSSetUncaughtExceptionHandler { exception in
+            ErrorLog.shared.record("crash", "\(exception.name.rawValue): \(exception.reason ?? "")")
+        }
+    }
 
     var body: some Scene {
         WindowGroup {

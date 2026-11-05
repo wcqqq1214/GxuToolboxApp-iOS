@@ -137,12 +137,14 @@ public actor OASession {
         } catch let error as URLError where error.code == .cancelled {
             throw CancellationError()
         } catch {
+            ErrorLog.shared.recordRequest(method: request.httpMethod ?? "GET", url: request.url, failure: "network error \((error as? URLError)?.code.rawValue ?? 0)")
             throw GxuError.network("网络连接失败，请检查网络后重试")
         }
     }
 
     /// 403 多半是 OA 只允许校内网络访问
     static func httpError(_ response: HTTPURLResponse, _ data: Data) -> GxuError {
+        ErrorLog.shared.recordRequest(method: "OA", url: response.url, failure: "HTTP \(response.statusCode)")
         if response.statusCode == 403 { return .http(status: 403, message: "OA 系统拒绝访问，可能需要连接校园网") }
         let message = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["message"] as? String
         return .http(status: response.statusCode, message: message)

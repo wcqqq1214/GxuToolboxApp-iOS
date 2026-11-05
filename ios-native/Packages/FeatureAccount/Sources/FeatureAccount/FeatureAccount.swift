@@ -44,6 +44,10 @@ public enum AccountFeature {
     @MainActor
     public static func makeOAAccountView() -> some View { JwAccountView(system: .oa) }
 
+    /// 设置 → 诊断日志（本机脱敏的错误日志，可分享 / 清除，不会自动上传）
+    @MainActor
+    public static func makeErrorLogView() -> some View { ErrorLogView() }
+
     #if DEBUG
     /// DEBUG 截图用：OA 文件列表（示例数据，不联网）
     @MainActor

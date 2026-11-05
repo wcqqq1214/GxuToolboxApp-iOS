@@ -95,6 +95,7 @@ public final class BackendClient: BackendAPI {
         } catch let error as URLError where error.code == .cancelled {
             throw CancellationError()
         } catch {
+            ErrorLog.shared.recordRequest(method: request.httpMethod ?? "GET", url: request.url, failure: "network error \((error as? URLError)?.code.rawValue ?? 0)")
             throw GxuError.network("网络连接失败，请检查网络后重试")
         }
     }
@@ -108,6 +109,7 @@ public final class BackendClient: BackendAPI {
             if SessionExpiry.isExpired(response, data: data) { throw GxuError.sessionExpired(auth) }
         }
         guard (200..<300).contains(response.statusCode) else {
+            ErrorLog.shared.recordRequest(method: request.httpMethod ?? "GET", url: request.url, failure: "HTTP \(response.statusCode)")
             throw GxuError.http(status: response.statusCode, message: Self.errorMessage(in: data))
         }
         return data

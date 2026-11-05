@@ -178,6 +178,7 @@ public actor UnifiedAuthSession {
         } catch let error as URLError where error.code == .cancelled {
             throw CancellationError()
         } catch {
+            ErrorLog.shared.recordRequest(method: request.httpMethod ?? "GET", url: request.url, failure: "network error \((error as? URLError)?.code.rawValue ?? 0)")
             throw GxuError.network("网络连接失败，请检查网络后重试")
         }
     }
