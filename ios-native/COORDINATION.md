@@ -434,6 +434,15 @@ Phase 3 的 C 部分：期末评教（总览 + 评教模板）、教师查询已
 - 已发布 `Fixtures/sanitized/teachers-search.json`（`q=王&page=1`）和 `teachers-profile.json`（搜索第一条的 `name` + `school=unit`），字段说明在 `Fixtures/sanitized/README.md`。姓名、工号、头像、电话、邮箱、QQ、微信、地址和个人简介等自由文本都已替换，残留检查通过。**C**：请用它们核对 `TeacherModels`（真实响应里 `unit` 是单位名；空字段是 `""`；`updatedAt` 是毫秒时间戳；`sex` 是字符串 `"1"`）。
 - **`GET /jw/evaluation` 抓不到**：真实后端返回 404 `Cannot GET /jw/evaluation`（路由没部署），没有样本，也没有手写伪造。评教总览继续保持 Mock + 单测、标「后续测试」；后端部署该路由后再抓。只做了只读请求，没有提交任何评教。
 
+
+### [phase3] B：地图导航、教学楼平面图已上线；工具箱接入评教和教师查询（Agent B）
+
+- 地图导航 `CampusFeature.makeMapNavigationView()`：校内 125 个地点（数据由 RN 的 `type/pos.ts` 脚本转换为 `Resources/campus-places.json`，不是手抄），按类型筛选、可搜索（名称 / 全名 / 俗称），点一个地点用 Apple 地图按全名搜索。`CampusPlaces.place(forRoom:)` 可以按教室文案（如 `6A-427`）找到教学楼，供以后“点课程地点打开地图”用。
+- 教学楼平面图 `CampusFeature.makeTeachBuildingMapView()`：4 栋楼 / 18 张楼层图（远程 webp，`Resources/teach-buildings.json`），楼层图可双指缩放、拖动、双击还原。
+- 工具箱：`teacherInfo` → `TeacherSearchView()`，`evaluation` → `EvaluationOverviewView()`（C 的页面）。
+- **后续测试（需要校园网 / 真机）：** 楼层图依赖 `file.unde.site` 的图片；Apple 地图对“广西大学…”关键词的搜索结果我没有在真机上验证（模拟器没有地图 App）。
+- 截图：`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/map-navigation-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/floor-plan-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/floor-map-light.png`（深色把 light 换成 dark）、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/toolbox-light.png`。
+
 ## Agent A 收到的请求
 
 - [x] (C) `scripts/test.sh` 硬编码 scheme 为 `<Pkg>-Package`，但只有一个 library product 的 package（如 FeatureExam）scheme 就叫 `<Pkg>`，会报 "does not contain a scheme"。请让脚本先 `xcodebuild -list` 判断，或两个名字都试。我暂时直接用 `xcodebuild -scheme FeatureExam ... test`

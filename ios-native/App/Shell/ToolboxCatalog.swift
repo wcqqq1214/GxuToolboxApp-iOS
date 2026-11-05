@@ -60,7 +60,7 @@ enum ToolboxCatalog {
         item("examScore", "考试成绩", "chart.bar.doc.horizontal", .info, .push { AnyView(ScoreWithPendingView()) }),
         item("attendance", "考勤信息", "person.badge.clock", .info, .push { AnyView(AttendanceView()) }),
         item("electiveStrategy", "校选课查漏", "checklist", .info, .push { AnyView(ElectiveStrategyView()) }),
-        item("teacherInfo", "教师信息查询", "person.text.rectangle", .info),
+        item("teacherInfo", "教师信息查询", "person.text.rectangle", .info, .push { AnyView(TeacherSearchView()) }),
         // 实践课
         item("phyExp", "物理实验课", "atom", .practice, .push { AnyView(CampusFeature.makePhyExpView()) }),
         item("engTraining", "金工实训", "wrench.and.screwdriver", .practice, .push { AnyView(CampusFeature.makeEngTrainingView()) }),
@@ -69,7 +69,7 @@ enum ToolboxCatalog {
         item("holiday", "法定节假日", "sun.max", .notice, .push { AnyView(HolidayView()) }),
         item("oaFiles", "学校文件", "doc.text", .notice, .push { AnyView(AccountFeature.makeOAFilesView()) }),
         // 教学评价
-        item("evaluation", "期末学生评价", "text.badge.checkmark", .evaluation),
+        item("evaluation", "期末学生评价", "text.badge.checkmark", .evaluation, .push { AnyView(EvaluationOverviewView()) }),
         // 其他
         item("campusMap", "地图导航", "map", .other, .push { AnyView(CampusFeature.makeMapNavigationView()) }),
         item("fullSchedule", "全校实时课表", "building.columns", .other, .push { AnyView(CampusFeature.makeFullScheduleView()) }),
