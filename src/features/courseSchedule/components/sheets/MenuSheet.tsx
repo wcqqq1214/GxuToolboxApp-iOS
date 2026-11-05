@@ -25,7 +25,7 @@ export const MenuSheet = ({setSheet}: {setSheet: (s: SheetState) => void}) => {
     ];
 
     const actionItems = [
-        {label: "事件编辑", icon: {name: "table-edit"}, onPress: () => setSheet({type: "closed"})},
+        {label: "我的实验课", icon: {name: "table-edit"}, onPress: () => setSheet({type: "customEvents"})},
         {label: "分享课表", icon: {type: "antdesign", name: "share-alt"}, onPress: () => setSheet({type: "share"})},
         {label: "课表设置", icon: {name: "cog"}, onPress: () => setSheet({type: "setting"})},
     ];

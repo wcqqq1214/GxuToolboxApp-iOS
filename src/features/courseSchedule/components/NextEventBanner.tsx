@@ -57,6 +57,7 @@ export function NextEventBanner({items, startDay, ready}: {
                     course: ev =>
                         `下节课：${ev.title}${ev.location ? ` · ${ev.location}` : ""} ${daysFromNow(ev).includes("后") ? `（${daysFromNow(ev)}）` : ""}`,
                     exam: ev => `下场考试：${ev.title}${ev.location ? ` · ${ev.location}` : ""}（${daysFromNow(ev)}）`,
+                    custom: ev => `下节实验课：${ev.title}${ev.location ? ` · ${ev.location}` : ""}（${daysFromNow(ev)}）`,
                     holiday: ev => `下个假期：${ev.title}（${daysFromNow(ev)}）`,
                 })}
             </Text>

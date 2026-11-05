@@ -1,6 +1,6 @@
 import {Divider, Text, useTheme} from "@rneui/themed";
 import {StyleSheet, View} from "react-native";
-import React, {useCallback, useEffect, useMemo, useState} from "react";
+import React, {useEffect, useMemo, useState} from "react";
 import Flex from "@/components/un-ui/Flex.tsx";
 import {Icon} from "@/components/un-ui/Icon.tsx";
 import moment from "moment";
@@ -8,25 +8,23 @@ import {getWeekOfDate} from "@/features/courseSchedule/utils/weekOfDate.ts";
 import {Color} from "@/shared/color.ts";
 import {usePagerView} from "react-native-pager-view";
 import {useUserConfig} from "@/hooks/useUserConfig.ts";
-import {UnBottomSheet, UnJsonEditor, UnPressable, UnText} from "@/components/un-ui";
+import {UnJsonEditor, UnPressable, UnText} from "@/components/un-ui";
 import {TimeScheduleView} from "@/components/tool/infoQuery/courseSchedule/TimeScheduleView.tsx";
-import {ScheduleTableItem, TimeScheduleItemData} from "@/features/courseSchedule/type/schedule.ts";
 import {useJwAccount} from "@/core/auth/Jw/hooks/useJwAccount";
 import type {ScheduleScope} from "@/features/courseSchedule/repo/personalSchedule";
 import {PracticalCourseList} from "@/features/courseSchedule/components/PracticalCourseList.tsx";
 import {useJwAuth} from "@/core/auth/Jw/hooks/useJwAuth.ts";
 import {useUnifiedAuth} from "@/core/auth/unified/hook/useUnifiedAuth.ts";
 import {useAttendanceAuth} from "@/core/auth/attendance/hooks/useAttendanceAuth.ts";
-import {NewCourseItem} from "@/features/courseSchedule/components/NewCourseItem.tsx";
 import {CourseClass} from "@/class/jw/course.ts";
-import {StackCourseItem} from "@/features/courseSchedule/components/StackCourseItem.tsx";
-import {useConflictCourseStore} from "@/features/courseSchedule/stores/useConflictCourseStore.ts";
-import {ConflictCourseSheet} from "@/features/courseSchedule/components/ConflictCourseList.tsx";
 import {NextEventBanner} from "@/features/courseSchedule/components/NextEventBanner.tsx";
 import {MainBottomSheet} from "@/features/courseSchedule/components/sheets/MainBottomSheet.tsx";
 import {useScheduleCardData} from "@/features/courseSchedule/hooks/detail/useScheduleCardData.ts";
 import {Schedule} from "gxu-tool-adapters/jw";
 import {ExamWithMeta} from "@/features/examInfo/type/exam.types.ts";
+import {useTimelineLayers} from "@/features/courseSchedule/hooks/useTimelineLayers.tsx";
+import {useShift} from "../hooks/detail/useShift";
+import {timelineEvents} from "../utils/timelineEvents";
 
 // 菜单的类型
 export type SheetState =
@@ -34,9 +32,9 @@ export type SheetState =
     | {type: "menu"}
     | {type: "setting"}
     | {type: "share"}
+    | {type: "customEvents"; eventId?: number}
     | {type: "courseDetail"; course: Schedule["theoryList"][number]}
     | {type: "examDetail"; exam: ExamWithMeta}
-    | {type: "itemDetail"; item: ScheduleTableItem; day: moment.Moment}
     | {type: "courseConflict"; courses: CourseClass[]; day: moment.Moment};
 
 /**
@@ -47,10 +45,6 @@ export function ScheduleCard() {
     const {store: ucStore} = useUserConfig();
     const devMode = ucStore(s => s.devMode);
     const {theme} = useTheme();
-    const pagerView = usePagerView({pagesAmount: 20});
-    const {...rest} = pagerView;
-
-    const {store: conflictStore} = useConflictCourseStore();
 
     const {authState: JWAuthState} = useJwAuth();
     const {authState: unifiedAuthState} = useUnifiedAuth();
@@ -59,74 +53,60 @@ export function ScheduleCard() {
     const year = +ucStore(s => s.jw.year);
     const term = ucStore(s => s.jw.term);
 
-    const {account, hydrating} = useJwAccount();
+    const {account} = useJwAccount();
     const logicalTerm =
         term === 1 || term === 3 || term === "3" ? 1 : term === 2 || term === 12 || term === "12" ? 2 : null;
     const inputError = !Number.isInteger(year) || year <= 0 ? "请选择有效学年" : !logicalTerm ? "暂不支持该学期" : null;
+
     const scope: ScheduleScope | null =
         account?.username && !inputError && logicalTerm ? {username: account.username, year, term: logicalTerm} : null;
-    // const {schedule, status, refresh, error} = usePersonalCourseData(scope);
-    // const courseItems = useMemo(() => (schedule ? normalizeCourse(schedule) : []), [schedule]);
 
-    const {courseItem, examInfo, practiceList, startDay, ready, termReady} = useScheduleCardData(
-        year,
-        logicalTerm ?? 1,
+    const {
+        courseItem,
+        examInfo,
+        practiceList,
+        startDay,
+        ready,
+        holidayItems,
+        refresh,
+        refreshing,
+        customEvents,
+        customItems,
+        customOwner,
+        weekCount,
+    } = useScheduleCardData(year, logicalTerm ?? 1);
+    const pagerView = usePagerView({pagesAmount: weekCount || 20});
+    const {...rest} = pagerView;
+
+    // 组装网格渲染图层
+    const timelineLayers = useTimelineLayers(
+        {
+            courses: courseItem,
+            holidays: holidayItems,
+            exams: examInfo,
+            startDay,
+            customItems,
+        },
+        {
+            onCoursePress: item => setSheet({type: "courseDetail", course: item.raw}),
+            onExamPress: exam => setSheet({type: "examDetail", exam}),
+            onConflictPress: (courses, day) => setSheet({type: "courseConflict", courses, day}),
+            onCustomEventPress: eventId => setSheet({type: "customEvents", eventId}),
+        },
     );
     const practiceItems = practiceList ?? [];
 
-    const [sheet, setSheet] = useState<SheetState>({type: "closed"});
-    useEffect(() => {
-        setSheet(current =>
-            current.type === "itemDetail" || current.type === "courseConflict" || current.type === "share"
-                ? {type: "closed"}
-                : current,
-        );
-    }, [scope?.username, year, term]);
-
-    const onItemPress = useCallback((item: ScheduleTableItem) => {
-        if (item.kind === "exam") {
-            setSheet({type: "examDetail", exam: item.raw});
-        } else {
-            setSheet({type: "courseDetail", course: item.raw});
-        }
-    }, []);
-
-    const scheduleItems: TimeScheduleItemData[] = useMemo(
-        () =>
-            [
-                {
-                    data: courseItem,
-                    showPreShiftItems: true,
-                    itemRender: (item, day) => <NewCourseItem item={item} onPress={() => onItemPress(item, day)} />,
-                    isItemStack: (a, b) => a.begin <= b.end && b.begin <= a.end,
-                    stackRender: (items, day, _week, timeRange) => {
-                        const courses = items.map(i => new CourseClass(i.raw));
-                        if (courses.length === 0) return null;
-                        const courseCodes = courses.map(c => c._ori.courseName + "_" + c._ori.teacher).sort();
-                        const storedActive = conflictStore.getState().getActive(courseCodes);
-                        const activeCourse =
-                            storedActive ??
-                            (courses[0] ? courses[0]._ori.courseName + "_" + courses[0]._ori.teacher : "");
-                        return (
-                            <StackCourseItem
-                                course={courses}
-                                activeCourse={activeCourse}
-                                timeRange={timeRange}
-                                onPress={c => setSheet({type: "courseConflict", courses: c, day})}
-                            />
-                        );
-                    },
-                } as TimeScheduleItemData<ScheduleTableItem>,
-            ]
-                .filter(td => td.data.length > 0)
-                .map(td => ({
-                    ...td,
-                    isItemShow: (item: ScheduleTableItem, day: moment.Moment, week: number) => {
-                        return item.week === week && item.day === day.isoWeekday();
-                    },
-                })),
-        [courseItem, onItemPress, conflictStore],
+    const shiftRules = useShift().store(state => state.shiftRules);
+    const allScheduleEvents = useMemo(
+        () => timelineEvents(timelineLayers, startDay, shiftRules),
+        [timelineLayers, startDay, shiftRules],
     );
+
+    const [sheet, setSheet] = useState<SheetState>({type: "closed"});
+
+    useEffect(() => {
+        setSheet({type: "closed"});
+    }, [scope?.username, year, term, customOwner]);
 
     const realCurrentWeek = getWeekOfDate(moment(), startDay);
 
@@ -174,17 +154,17 @@ export function ScheduleCard() {
                     </UnPressable>
                 </Flex>
                 <Flex gap={15} justify="flex-end">
-                    {/*<UnPressable*/}
-                    {/*    onPress={() => {*/}
-                    {/*        refresh();*/}
-                    {/*    }}*/}
-                    {/*    disabled={refreshing || !scope}>*/}
-                    {/*    <Icon*/}
-                    {/*        name={refreshing ? "loading" : "refresh"}*/}
-                    {/*        size={24}*/}
-                    {/*        style={refreshing ? {opacity: 0.5} : undefined}*/}
-                    {/*    />*/}
-                    {/*</UnPressable>*/}
+                    <UnPressable
+                        onPress={() => {
+                            refresh();
+                        }}
+                        disabled={refreshing || !scope}>
+                        <Icon
+                            name={refreshing ? "loading" : "refresh"}
+                            size={24}
+                            style={refreshing ? {opacity: 0.5} : undefined}
+                        />
+                    </UnPressable>
                     {rest.activePage + 1 !== realCurrentWeek && (
                         <UnPressable
                             onPress={function () {
@@ -202,14 +182,14 @@ export function ScheduleCard() {
                 </Flex>
             </Flex>
             <Divider />
-            <NextEventBanner items={courseItem} startDay={startDay} ready={ready} />
+            <NextEventBanner items={allScheduleEvents} startDay={startDay} ready={ready} />
             <TimeScheduleView
                 showDate
                 showTimeSpanHighlight
                 showDayHighlight
                 startDay={startDay}
                 pageView={pagerView}
-                scheduleItems={scheduleItems}
+                scheduleItems={timelineLayers}
             />
             <Divider />
             <PracticalCourseList courseList={practiceItems} />
@@ -219,53 +199,16 @@ export function ScheduleCard() {
                     <ScheduleDataDebugCard label="查看实践课数据" data={practiceItems} />
                 </Flex>
             )}
-            <MainBottomSheet sheet={sheet} setSheet={setSheet} pageViewRest={rest} examInfo={examInfo} />
-            <UnBottomSheet
-                isVisible={
-                    sheet.type !== "closed" &&
-                    sheet.type !== "menu" &&
-                    sheet.type !== "setting" &&
-                    sheet.type !== "courseDetail"
-                }
-                onBackdropPress={() => setSheet({type: "closed"})}
-                containerStyle={{padding: "5%"}}>
-                {/*{sheet.type === "itemDetail" &&*/}
-                {/*    sheet.item &&*/}
-                {/*    (() => {*/}
-                {/*        return <CourseDetail course={new CourseClass(sheet.item.raw)} />;*/}
-                {/*    })()}*/}
-                {/*{sheet.type === "share" && (*/}
-                {/*    <ScheduleShareSheet*/}
-                {/*        week={rest.activePage + 1}*/}
-                {/*        schedule={schedule}*/}
-                {/*        startDay={startDay}*/}
-                {/*        onClose={() => setSheet({type: "closed"})}*/}
-                {/*    />*/}
-                {/*)}*/}
-                {sheet.type === "courseConflict" && (
-                    <ConflictCourseSheet
-                        courses={sheet.courses}
-                        onSelect={() => setSheet({type: "closed"})}
-                        onPressActiveCourse={course => {
-                            setSheet({
-                                type: "itemDetail",
-                                day: sheet.day,
-                                item: {
-                                    id: course._ori.courseName,
-                                    week: 0,
-                                    day: 1 as ScheduleTableItem["day"],
-                                    begin: 1 as ScheduleTableItem["begin"],
-                                    end: 1 as ScheduleTableItem["begin"],
-                                    title: course._ori.courseName,
-                                    location: course._ori.venueName,
-                                    teacher: course._ori.teacher,
-                                    raw: course,
-                                },
-                            });
-                        }}
-                    />
-                )}
-            </UnBottomSheet>
+            <MainBottomSheet
+                sheet={sheet}
+                setSheet={setSheet}
+                pageViewRest={rest}
+                examInfo={examInfo}
+                customEvents={customEvents}
+                year={year}
+                term={logicalTerm ?? 1}
+                weekCount={weekCount}
+            />
         </View>
     );
 }
