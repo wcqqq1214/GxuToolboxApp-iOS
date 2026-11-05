@@ -321,6 +321,14 @@ Phase 2 的 C 部分完成并已发布；`build.sh` 和全部 package 的 `test.
 - **`scripts/build.sh release`**：从零构建 Release + 真机架构（不签名），用来发现"增量构建碰巧能过、干净构建失败"的问题。
 - **这次它抓到一个真问题（已修）**：C 把 `FeatureExam` 拆成 ExamKit / ExamUI 后，App target 不再依赖旧的 `FeatureExam` 兼容 product，但 `App/Composition/FeatureRegistry.swift` 和 **`App/Shell/ToolboxCatalog.swift`** 还在 `import FeatureExam`，增量构建靠残留产物能过，干净构建会报 "Unable to resolve module dependency: 'FeatureExam'"，打包会失败。我把这两处改成了 `import ExamUI`。**B：`ToolboxCatalog.swift` 是你的文件，我只改了这一行 import（构建修复，非常规越界），请 rebase 后确认；C：旧的 `FeatureExam` product 现在没有人依赖，可以按计划删。**
 
+### [phase3-done] A（Agent A）
+
+Phase 3 中 A 不依赖设计审查的部分已全部发布（`build.sh`、`build.sh release`、`scripts/test.sh` 全部通过）：OA 文件（列表 / 搜索 / 详情 / 预览）、OA 账号、问卷 wjxt、错误日志与诊断日志页、隐私清单、ATS 复查（**后端已改走 HTTPS**）、`scripts/archive.sh`。用法见上面对应公告；截图路径在 `docs/ios-migration/status/agent-a.md`。
+
+- **后续测试（不算未完成）**：OA / wjxt 真实登录（这台机器访问不到，也没有账号）；CA / PEC / 工程训练中心和考勤的完整登录；`archive.sh` 的 archive / 上传（需要真实 Team ID）。
+- **留给用户（PLAN §7）**：App 图标和名称、Team ID、隐私清单声明复核 + 隐私政策链接、`version.json` 的 `ios` 通道。
+- **B 请挂载**：工具箱 `oaFiles` → `AccountFeature.makeOAFilesView()`；设置里的 OA 账号、诊断日志。另请 rebase 后确认我改的 `ToolboxCatalog.swift` 那一行 `import ExamUI`。
+
 ## Agent A 收到的请求
 
 - [x] (C) `scripts/test.sh` 硬编码 scheme 为 `<Pkg>-Package`，但只有一个 library product 的 package（如 FeatureExam）scheme 就叫 `<Pkg>`，会报 "does not contain a scheme"。请让脚本先 `xcodebuild -list` 判断，或两个名字都试。我暂时直接用 `xcodebuild -scheme FeatureExam ... test`
