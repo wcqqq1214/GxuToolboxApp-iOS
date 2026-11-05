@@ -10,8 +10,13 @@ enum AppComposition {
         let session = BackendClient.makeSession(configuration: .default)
         let credentials = KeychainCredentialStore()
         // 登录请求走不带 renewer 的 transport，避免登录失败时递归重登
-        let jw = JwSessionManager(credentials: credentials, transport: BackendClient(session: session))
-        let backend = BackendClient(session: session, renewer: jw)
+        let plain = BackendClient(session: session)
+        let jw = JwSessionManager(credentials: credentials, transport: plain)
+        let attendance = AttendanceSession(transport: plain, tokens: KeychainTokenStore())
+        let backend = BackendClient(
+            session: session, renewer: SessionRenewers(jw: jw, attendance: attendance),
+            tokenProvider: { system in system == .attendance ? attendance.token : nil }
+        )
         let database: AppDatabase
         do {
             database = try AppDatabase.open(features: FeatureRegistry.migrations)
@@ -22,7 +27,7 @@ enum AppComposition {
             backend: backend,
             database: database,
             shared: UserDefaultsSharedStore(),
-            accounts: AccountCenter(credentials: credentials, jw: jw)
+            accounts: AccountCenter(credentials: credentials, jw: jw, attendance: attendance)
         )
     }
 }

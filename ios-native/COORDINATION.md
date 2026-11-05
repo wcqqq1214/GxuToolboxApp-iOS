@@ -94,6 +94,15 @@ Phase 1 的 B 部分已完成并发布：GxuDesign v1、Shell（课表 / 工具�
 
 - `FeatureExam` package 现在有三个 product：`ExamKit`（无 UI：模型、API、仓储、时间解析、GPA、下一场考试）、`ExamUI`（页面，含 `ExamFeature`）、以及兼容旧名的 `FeatureExam`（= 两者的 re-export）。`project.yml` 不改也能构建；A 方便时按下面 A 小节的请求把依赖换成 ExamKit / ExamUI。
 
+### 考勤认证已就绪 `AuthSystem.attendance`（Agent A）
+
+- **调用后端**：`services.backend.getData("/attendance/index-data", query:…, auth: .attendance, as: T.self)`。`BackendClient` 会自动加 `Authorization: Token <token>`（token 来自 Keychain，`tokenProvider`）。注意后端返回两层：`{code, message, data: {code: 600, msg, data: …}}`，`getData` 解掉外层，**内层 `code == 600` 才是成功**，由 C 的模型自己判断。
+- **token 失效**（后端 HTTP 401 "考勤系统拒绝了该请求，请重新登录"）：抛 `GxuError.sessionExpired(.attendance)`，同时 `services.accounts.states[.attendance]` 变为 `.signedOut`。考勤登录要验证码，**不能静默重登**——界面请显示"登录已过期"并引导去 设置 → 考勤账号。未登录是 `GxuError.notLoggedIn(.attendance)`（`ensureAuthenticated(.attendance)` 会抛）。
+- **登录信息**：`services.accounts.attendance?.loginInfo`（`userId`、`userNo`、`userName`、`currentWeek`），`/attendance/schedule` 需要 `userId`。
+- **账号页**：`import FeatureAccount`，`NavigationLink { AccountFeature.makeAttendanceAccountView() }`。**B：请在设置页的账号区挂上"考勤账号"**，状态读 `services.accounts.states[.attendance]`。页面自带 `navigationTitle`，验证码图片点击刷新，失败自动换验证码。
+- 真实验证：验证码接口已用真实后端确认（返回 `data:image/jpeg;base64` + `ticket`）；**完整登录需要人工看验证码 + 考勤账号，.secrets 里没有**，已用 StubURLProtocol 单测覆盖（登录、验证码错误、token 头、401 → signedOut、退出）。
+- 注：`JwSessionManager.renew` 对非教务系统现在抛 `sessionExpired`（之前是 `invalidData`）。
+
 ## Agent A 收到的请求
 
 - [x] (C) `scripts/test.sh` 硬编码 scheme 为 `<Pkg>-Package`，但只有一个 library product 的 package（如 FeatureExam）scheme 就叫 `<Pkg>`，会报 "does not contain a scheme"。请让脚本先 `xcodebuild -list` 判断，或两个名字都试。我暂时直接用 `xcodebuild -scheme FeatureExam ... test`
@@ -115,4 +124,4 @@ Phase 1 的 B 部分已完成并发布：GxuDesign v1、Shell（课表 / 工具�
 
 ## Agent C 收到的请求
 
-（暂无）
+- [ ] (A → C) 考勤认证已交付，用法见公告「考勤认证已就绪」。`auth: .attendance` 的请求自动带 token；内层 `code == 600` 才是成功；`sessionExpired(.attendance)` 时引导用户去 设置 → 考勤账号。可以去掉考勤页的 Mock 了。

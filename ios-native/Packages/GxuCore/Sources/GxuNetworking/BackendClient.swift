@@ -17,13 +17,19 @@ public final class BackendClient: BackendAPI {
     public let baseURL: URL
     private let session: URLSession
     private let renewer: (any SessionRenewer)?
+    private let tokenProvider: (@Sendable (AuthSystem) -> String?)?
     private let decoder = JSONDecoder()
     private let encoder = JSONEncoder()
 
-    public init(baseURL: URL = GxuConfig.backendBaseURL, session: URLSession, renewer: (any SessionRenewer)? = nil) {
+    /// - Parameter tokenProvider: 为非 Cookie 认证的系统（考勤）提供 token；有值时请求头加 `Authorization: Token <token>`
+    public init(
+        baseURL: URL = GxuConfig.backendBaseURL, session: URLSession,
+        renewer: (any SessionRenewer)? = nil, tokenProvider: (@Sendable (AuthSystem) -> String?)? = nil
+    ) {
         self.baseURL = baseURL
         self.session = session
         self.renewer = renewer
+        self.tokenProvider = tokenProvider
     }
 
     /// 创建一个不跟随重定向、10 秒超时的 session。测试里可以传入带 `URLProtocol` 的 configuration。
@@ -94,17 +100,24 @@ public final class BackendClient: BackendAPI {
     }
 
     private func send(_ request: URLRequest, auth: AuthSystem?) async throws -> Data {
-        var (data, response) = try await perform(request)
+        var (data, response) = try await perform(authorized(request, auth))
         if let auth, SessionExpiry.isExpired(response, data: data) {
             guard let renewer else { throw GxuError.sessionExpired(auth) }
             try await renewer.renew(auth)
-            (data, response) = try await perform(request)
+            (data, response) = try await perform(authorized(request, auth))
             if SessionExpiry.isExpired(response, data: data) { throw GxuError.sessionExpired(auth) }
         }
         guard (200..<300).contains(response.statusCode) else {
             throw GxuError.http(status: response.statusCode, message: Self.errorMessage(in: data))
         }
         return data
+    }
+
+    private func authorized(_ request: URLRequest, _ auth: AuthSystem?) -> URLRequest {
+        guard let auth, let token = tokenProvider?(auth) else { return request }
+        var request = request
+        request.setValue("Token \(token)", forHTTPHeaderField: "Authorization")
+        return request
     }
 
     private func decode<T: Decodable>(_ data: Data, as type: T.Type) throws -> T {

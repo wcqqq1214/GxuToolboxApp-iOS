@@ -9,4 +9,10 @@ public enum AccountFeature {
     public static func makeRootView() -> some View {
         JwAccountView()
     }
+
+    /// 设置 → 考勤账号（验证码登录）。同样以导航目标挂载，自带 `navigationTitle`。
+    @MainActor
+    public static func makeAttendanceAccountView() -> some View {
+        AttendanceAccountView()
+    }
 }

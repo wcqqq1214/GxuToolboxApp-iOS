@@ -62,7 +62,7 @@ public actor JwSessionManager: SessionRenewer {
     }
 
     public func renew(_ system: AuthSystem) async throws {
-        guard system == .jw else { throw GxuError.invalidData("\(system.displayName)暂未支持") }
+        guard system == .jw else { throw GxuError.sessionExpired(system) }
         if let pending { return try await pending.value }
         let task = Task<Void, Error> {
             guard let credential = credentials.load(.jw) else { throw GxuError.notLoggedIn(.jw) }
