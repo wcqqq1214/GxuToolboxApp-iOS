@@ -2,7 +2,7 @@ import Foundation
 import GxuFoundation
 import GxuTestSupport
 import Testing
-@testable import FeatureExam
+@testable import ExamKit
 
 /// 用 A 抓取并脱敏的真实响应（`Fixtures/sanitized/`），期望值由 RN 同一公式在 python 里独立算出。
 @Suite struct RealFixtureTests {

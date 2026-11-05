@@ -1,6 +1,6 @@
 # Agent C 状态
 
-- 当前 Phase：Phase 1 已完成（[phase1-done] C）。未开始 Phase 2
+- 当前 Phase：Phase 2。ExamKit/ExamUI 拆分已完成
 - 已完成：
   - FeatureExam：模型与解码、`ExamTimeParser`/排序分组/倒计时、`GpaCalculator`、`TermOptions`、GRDB 仓储（按 studentId 隔离，迁移 `exam.v1.*`）、`ExamAPI`/`ScoreAPI`、三个 ViewModel、三个页面（考试信息、成绩查询含平时分展开、绩点计算器）
   - 工具箱三行已接入 `ToolboxCatalog`（examInfo / examScore / gpa）

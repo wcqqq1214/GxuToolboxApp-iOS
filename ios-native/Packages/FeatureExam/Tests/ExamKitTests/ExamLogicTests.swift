@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 import GxuFoundation
-@testable import FeatureExam
+@testable import ExamKit
 
 private let calendar: Calendar = {
     var c = Calendar(identifier: .gregorian)

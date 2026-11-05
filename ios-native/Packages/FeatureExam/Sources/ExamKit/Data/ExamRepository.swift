@@ -165,3 +165,27 @@ public struct ExamRepository: Sendable {
               score: r.score, teacherName: r.teacherName, uploadAt: r.uploadAt)
     }
 }
+
+// MARK: 下一场考试
+
+extension ExamRepository {
+    /// 本账号所有已缓存学期里的考试，状态按 `now` 重新计算
+    public func allExams(studentId: String, now: Date = .now, calendar: Calendar = .current) async throws -> [ExamItem] {
+        try await database.writer.read { db in
+            try ExamInfoRecord.filter(Column("studentId") == studentId).fetchAll(db)
+                .map { Exam(id: $0.id, course: $0.course, classroom: $0.classroom, time: $0.time, type: $0.type, seat: $0.seat) }
+        }
+        .map { ExamItem($0, now: now, calendar: calendar) }
+    }
+
+    /// 最近的一场未结束的考试（只读本地缓存，不联网，适合小组件和 App Intent）。
+    /// 正在进行的考试（结束时间不早于 now）也算；时间未知的考试不参与。
+    public func nextExam(studentId: String, now: Date = .now, calendar: Calendar = .current) async throws -> ExamItem? {
+        NextExam.pick(from: try await allExams(studentId: studentId, now: now, calendar: calendar))
+    }
+
+    /// 最近 `limit` 场未结束的考试，按开考时间升序
+    public func upcomingExams(studentId: String, limit: Int = 3, now: Date = .now, calendar: Calendar = .current) async throws -> [ExamItem] {
+        Array(NextExam.upcoming(in: try await allExams(studentId: studentId, now: now, calendar: calendar)).prefix(limit))
+    }
+}

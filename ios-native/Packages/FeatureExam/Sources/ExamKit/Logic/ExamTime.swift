@@ -8,6 +8,11 @@ public struct ParsedExamTime: Equatable, Sendable {
     /// 开始时间，用于排序和展示
     public var date: Date?
     public var status: ExamStatus
+
+    public init(date: Date?, status: ExamStatus) {
+        self.date = date
+        self.status = status
+    }
 }
 
 /// 移植自 RN `parseExamTime`。
@@ -65,6 +70,11 @@ public struct ExamSections: Equatable, Sendable {
     /// upcoming + tbd
     public var upcoming: [ExamItem]
     public var past: [ExamItem]
+
+    public init(upcoming: [ExamItem] = [], past: [ExamItem] = []) {
+        self.upcoming = upcoming
+        self.past = past
+    }
 }
 
 public enum ExamSorting {
@@ -91,4 +101,15 @@ public enum ExamSorting {
         let all = sorted(items)
         return ExamSections(upcoming: all.filter { $0.status != .past }, past: all.filter { $0.status == .past })
     }
+}
+
+/// "下一场考试"的纯逻辑：不依赖界面和存储，B 的首页、课表叠加、小组件、App Intent 共用
+public enum NextExam {
+    /// 状态为 upcoming 且有开考时间的考试，按开考时间升序
+    public static func upcoming(in items: [ExamItem]) -> [ExamItem] {
+        items.filter { $0.status == .upcoming && $0.date != nil }
+            .sorted { ($0.date ?? .distantFuture) < ($1.date ?? .distantFuture) }
+    }
+
+    public static func pick(from items: [ExamItem]) -> ExamItem? { upcoming(in: items).first }
 }

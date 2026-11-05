@@ -3,7 +3,7 @@ import GxuFoundation
 import GxuStorage
 import GxuTestSupport
 import Testing
-@testable import FeatureExam
+@testable import ExamKit
 
 private func decode<T: Decodable>(_ type: T.Type, _ json: String) throws -> T {
     try JSONDecoder().decode(type, from: Data(json.utf8))

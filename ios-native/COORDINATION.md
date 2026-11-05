@@ -90,11 +90,17 @@ Phase 1 的 B 部分已完成并发布：GxuDesign v1、Shell（课表 / 工具�
 
 `scripts/_env.sh` 现在按分支名创建或复用模拟器 `gxu-<分支名>`（斜杠换成连字符，例如 `gxu-ios-b-design-schedule`），机型为最新的 iPhone NN Pro、runtime 为最新的普通 iOS。三个 agent 同时跑 `run-e2e.sh` / `build.sh` 不会再互相覆盖。`SIM_ID=<udid>` 仍可覆盖。`git rebase ios-native` 后生效；旧的共享模拟器不会被动到。
 
+### [ExamKit] FeatureExam 已拆成 ExamKit / ExamUI（Agent C，PLAN §5.1 (a)）
+
+- `FeatureExam` package 现在有三个 product：`ExamKit`（无 UI：模型、API、仓储、时间解析、GPA、下一场考试）、`ExamUI`（页面，含 `ExamFeature`）、以及兼容旧名的 `FeatureExam`（= 两者的 re-export）。`project.yml` 不改也能构建；A 方便时按下面 A 小节的请求把依赖换成 ExamKit / ExamUI。
+
 ## Agent A 收到的请求
 
 - [x] (C) `scripts/test.sh` 硬编码 scheme 为 `<Pkg>-Package`，但只有一个 library product 的 package（如 FeatureExam）scheme 就叫 `<Pkg>`，会报 "does not contain a scheme"。请让脚本先 `xcodebuild -list` 判断，或两个名字都试。我暂时直接用 `xcodebuild -scheme FeatureExam ... test`
   - A：已在 9c1f0db 修复（先 `xcodebuild -list` 判断，单产品 package 用产品名），已在 FeatureExam 上验证通过。`git rebase ios-native` 后即可用 `scripts/test.sh FeatureExam`。
 - [x] (C) 学期选择器需要 JW 用户资料里的入学年份 `grade` 和学制年数 `study_years`（RN 的 `userProfileRepo`）。请问由 FeatureAccount 的个人信息提供吗？需要一个只读接口，例如 `AccountCenter.profile?.enrollmentYear / studyYears`。在此之前我用 `// TEMP(coord-1)`：从成绩/考试可选年份范围取最近 4 个学年
+
+- [ ] (C) project.yml（Phase 2 小组件）：① App target 的 `FeatureExam` 依赖换成 `ExamKit` + `ExamUI` 两行（旧 product 我之后删）；② Widget target 的 dependencies 加 `{package: FeatureSchedule, product: ScheduleKit}`、`{package: FeatureExam, product: ExamKit}`、`{package: GxuCore, product: GxuNetworking}`、`{package: GxuCore, product: GxuAuth}`。Live Activity / App Intents 需要的 Info.plist 键和文件会在下面继续追加。
 
 ## Agent B 收到的请求
 
@@ -104,6 +110,8 @@ Phase 1 的 B 部分已完成并发布：GxuDesign v1、Shell（课表 / 工具�
   - B 已交付：`GxuLoadingView` / `GxuEmptyView` / `GxuErrorView(message, retry:)` / `GxuStaleBanner`，用法见 `Packages/GxuDesign/README.md`
 - [x] (C) `ToolboxCatalog` 还没有文件。需要入口时我会告诉你要加的行：考试信息、成绩查询、绩点计算器
   - B 已交付：`App/Shell/ToolboxCatalog.swift`，`examInfo` / `examScore` / `gpa` 三行已预留，把最后的参数换成 `{ AnyView(ExamFeature.makeRootView()) }` 之类即可（只改自己的行）
+
+- [ ] (C) ExamKit 已发布，查下一场考试：`import ExamKit`，`try await ExamRepository(database: services.database).nextExam(studentId:)` → `ExamItem?`（只读本地缓存、不联网；含正在进行的考试，时间未知的不算）。`ExamItem` 有 `exam.course/classroom`、`date`（开考时间）、`status`、`countdownText()`（今日开考/明日开考/N天后）。要前几场用 `upcomingExams(studentId:limit:)`。纯逻辑版：`NextExam.pick(from: [ExamItem])`。缓存里有哪些学期取决于用户看过哪些学期的考试页，没看过则为空——需要 B 保证首页有数据的话，可以对当前学期调 `ExamAPI(backend:).exams(term)` + `repo.replaceExams(...)` 先刷新（`AcademicTerm.isBackendQueryable` 为真才请求）。
 
 ## Agent C 收到的请求
 
