@@ -251,6 +251,18 @@ B、C：在 bootstrap 发布之前，先读 RN 源码，把自己 Phase 1 功能
 - 界面按 Apple HIG 和 Liquid Glass 重新设计，参考系统自带 App（日历、提醒事项、天气、健康）的质感。同一个功能如果有更符合 iOS 习惯的做法，就用那种做法。
 - 规格文档（status 文件等）里已经写进去的 RN 界面数值（行高、圆角、行数、前缀符号等）一律当作"仅供参考"，不是需求。
 
+**用户审查定下的规则（长期有效，2026-11-06，所有人遵守）：**
+
+1. 全部组件和文字都要做视觉对齐；页面边距和对齐规则统一由 GxuDesign 提供；文字不得被圆角或容器裁切。
+2. 座位号显示为「8 号」，不写「8 号座」。
+3. 课程表（课表网格、班级课表、分享图片）的课程块用**纯底色，不加左侧竖线**。小组件不受此限。
+4. 课程块里教室和教师的字号比课程名**小一号**。
+5. 同一张卡片或同一行里，同一个信息只出现一次，例如时间不重复显示。
+6. 课表时间列同时显示上课和下课时间，数据以 RN `timeSpanList` 为准，不修改。
+7. 工具箱的分组、名称和入口以 RN `src/screens/tool/ToolboxIndex.tsx` 为准，不新增功能。
+8. 课表标题和日期范围在同一中轴线上，附加控件不能把文字挤偏。
+9. 不显示「2026-2027 学年第一学期……」这类没有信息量的说明字样。
+
 以下是具体的 Liquid Glass 规则：
 
 
@@ -273,6 +285,10 @@ B、C：在 bootstrap 发布之前，先读 RN 源码，把自己 Phase 1 功能
 - [ ] 确认 iOS 也走后端代理时，后端的限流和稳定性够用。
 - [ ] 上架前由用户复核 `PrivacyInfo.xcprivacy` 里声明的收集数据类型（学号、姓名、学业数据、反馈联系方式、事件埋点），并在 App Store Connect 的「隐私营养标签」里填写一致的内容；需要隐私政策链接。
 - [ ] App 图标和名称由用户决定（使用「广西大学」名称和校徽可能被问到知识产权问题）。
+- [ ] `调课信息`、`选课课程列表` 暂时隐藏，等后端接口（用户决定，2026-11-06）；后端提供后再恢复入口。
+- [ ] 创业学分的处理与 RN 保持一致，待用户确认（选课策略页里的创业模块）。
+- [ ] **iOS 18：上架前必须用真实 iOS 18 验证。** 目前只能用 `-GxuForceLegacy` 在 iOS 27 模拟器上走降级路径（只能发现样式问题）；本机 Xcode 27.2 装不到 iOS 18 runtime，需要另装 Xcode 16.x（约 3–5 GB，需 Apple ID）下载 runtime。
+- [ ] App 名称和图标：建议使用中性名称和自制图标，上架前由用户确认（避免「广西大学」名称和校徽的知识产权问题）。
 - iOS 没有 OTA，修 bug 要走审核；TestFlight 可以作为测试通道。
 - Android 和 iOS 两端要各写一遍功能，所以新的教务功能应该**先做后端接口**，两端都只接后端。
 
@@ -286,10 +302,10 @@ B、C：在 bootstrap 发布之前，先读 RN 源码，把自己 Phase 1 功能
 | `phyExpScreen`、`engTrainingScheduleScreen` | B | 3 |
 | `HolidayScreen` | C | 2 |
 | `PositionListScreen`、`TeachBuildingListScreen`、`FloorListScreen`、`FloorMapScreen` | B | 3 |
-| `EduRechargeScreen`（WebView） | B | 3 |
-| `examInfo`、`examScore`、`gpaCalculator` | C | 1 |
-| `SelfSelectedCourse`、`courseSelectionList`、`ElectiveStrategy` | C | 2 |
-| `reschedulingNews`、`timeShiftScreen` | C | 2 |
+| ~~`EduRechargeScreen`（WebView）~~ | — | **已从范围中删除**（RN 已注释入口，用户决定） |
+| `examInfo`、`examScore`、`gpaCalculator` | C | 1（`GPA 计算`只从成绩页进入，工具箱没有入口） |
+| `SelfSelectedCourse`、`courseSelectionList`、`ElectiveStrategy` | C | 2（`已选课程`无工具箱入口；`选课课程列表`暂时隐藏，等后端接口） |
+| `reschedulingNews`、`timeShiftScreen` | C | 2（`调课信息`暂时隐藏，等后端接口；`调休补班`保留） |
 | `AttendanceInfoQueryScreen` | C（认证由 A 负责） | 2 |
 | `TeacherInfo` | C | 3 |
 | `EvaluationOverview/Detail/Comment/Template` | C | 3 |

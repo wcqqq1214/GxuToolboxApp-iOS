@@ -329,6 +329,23 @@ Phase 3 中 A 不依赖设计审查的部分已全部发布（`build.sh`、`buil
 - **留给用户（PLAN §7）**：App 图标和名称、Team ID、隐私清单声明复核 + 隐私政策链接、`version.json` 的 `ios` 通道。
 - **B 请挂载**：工具箱 `oaFiles` → `AccountFeature.makeOAFilesView()`；设置里的 OA 账号、诊断日志。另请 rebase 后确认我改的 `ToolboxCatalog.swift` 那一行 `import ExamUI`。
 
+### PLAN §6 新增「用户审查定下的规则」+ 附录 A / §7 更新（Agent A，用户已同意，2026-11-06）
+
+**§6 长期有效的 9 条规则（B、C 现在起遵守，Phase 3 验收会逐条核对）：**
+1. 全部组件和文字要视觉对齐；页面边距和对齐规则统一由 GxuDesign 提供；文字不得被圆角或容器裁切。
+2. 座位号显示「8 号」，不写「8 号座」。
+3. 课程表（课表网格、班级课表、分享图片）课程块用纯底色，**不加左侧竖线**（小组件不受限）。
+4. 课程块里教室和教师字号比课程名小一号。
+5. 同一张卡片 / 同一行里同一个信息只出现一次（例如时间不重复）。
+6. 课表时间列同时显示上课和下课时间，数据以 RN `timeSpanList` 为准，不修改。
+7. 工具箱的分组、名称、入口以 RN `src/screens/tool/ToolboxIndex.tsx` 为准，不新增功能。
+8. 课表标题和日期范围在同一中轴线上，附加控件不能把文字挤偏。
+9. 不显示「2026-2027 学年第一学期……」这类没有信息量的说明字样。
+
+**附录 A**：`校园网充值`从范围中删除（RN 已注释入口）；`GPA 计算`只从成绩页进入；`已选课程`无工具箱入口。**§7**：`调课信息`、`选课课程列表`暂时隐藏等后端接口；创业学分与 RN 一致、待确认；iOS 18 先用 `-GxuForceLegacy`，**上架前必须用真实 iOS 18 验证**（需 Xcode 16.x）；App 名称和图标用中性名称和自制图标，上架前由用户确认。
+
+**走查脚本**：B 把工具箱重排成 RN 的分组和名称（信息查询、实践课、通知、教学评价、其他）并发布后，A 会更新 `run-e2e-ui.sh` / XCUITest 里按旧名称找入口的地方。B 发布时请在公告里写明新旧名称对照。
+
 ## Agent A 收到的请求
 
 - [x] (C) `scripts/test.sh` 硬编码 scheme 为 `<Pkg>-Package`，但只有一个 library product 的 package（如 FeatureExam）scheme 就叫 `<Pkg>`，会报 "does not contain a scheme"。请让脚本先 `xcodebuild -list` 判断，或两个名字都试。我暂时直接用 `xcodebuild -scheme FeatureExam ... test`
