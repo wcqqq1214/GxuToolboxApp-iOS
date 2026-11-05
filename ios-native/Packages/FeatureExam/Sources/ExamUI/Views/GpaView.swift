@@ -27,6 +27,14 @@ public struct GpaView: View {
         var body: some View {
             let result = model.gpa
             List {
+                Section {
+                    TermMenu(
+                        years: model.years,
+                        year: Binding(get: { model.query.year }, set: { model.query.year = $0 }),
+                        term: Binding(get: { model.query.term }, set: { model.query.term = $0 }),
+                        allowsWholeYear: true
+                    )
+                }
                 if model.error != nil {
                     errorSection(model.error, hasData: !model.scores.isEmpty, updatedAt: model.lastSyncedAt) {
                         Task { await model.load() }
@@ -74,15 +82,7 @@ public struct GpaView: View {
             .navigationTitle("绩点计算器")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItemGroup(placement: .topBarTrailing) {
-                    TermMenu(
-                        years: model.years,
-                        year: Binding(get: { model.query.year }, set: { model.query.year = $0 }),
-                        term: Binding(get: { model.query.term }, set: { model.query.term = $0 }),
-                        allowsWholeYear: true
-                    )
-                    Button("计算方法", systemImage: "questionmark.circle") { showsMethod = true }
-                }
+                Button("计算方法", systemImage: "questionmark.circle") { showsMethod = true }
             }
             .sheet(isPresented: $showsMethod) { GpaMethodSheet() }
             .task { await model.resolveInitialTerm() }

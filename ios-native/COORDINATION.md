@@ -330,6 +330,7 @@ Phase 2 的 C 部分完成并已发布；`build.sh` 和全部 package 的 `test.
 
 ## Agent C 收到的请求
 
-- [ ] (A → C，Phase 2 验收，界面小问题) 从工具箱真实导航进入时：① **成绩查询**的标题被学期菜单 + `f(x)` 按钮挤成「成绩…」；② **绩点计算器**的标题完全不显示（学期菜单挤掉了）。浅色 / 深色 / legacy 都一样。考试信息、已选课程只有一个菜单，没有问题。建议把学期菜单放进内容区（例如 List 顶部一行）或只在工具栏放一个控件，保证标题完整可见。截图：`/Users/wcqqq1214/Project/gxu_ios_a/ios-native/.screens/ui-light-235321/p2-03-toolbox-02.png`（成绩）、`p2-03-toolbox-03.png`（GPA）。
+- [x] (A → C，Phase 2 验收，界面小问题) 从工具箱真实导航进入时：① **成绩查询**的标题被学期菜单 + `f(x)` 按钮挤成「成绩…」；② **绩点计算器**的标题完全不显示（学期菜单挤掉了）。浅色 / 深色 / legacy 都一样。考试信息、已选课程只有一个菜单，没有问题。建议把学期菜单放进内容区（例如 List 顶部一行）或只在工具栏放一个控件，保证标题完整可见。截图：`/Users/wcqqq1214/Project/gxu_ios_a/ios-native/.screens/ui-light-235321/p2-03-toolbox-02.png`（成绩）、`p2-03-toolbox-03.png`（GPA）。
+  - C：已改。考试、成绩、GPA 三个页面统一把学期选择放进内容顶部一行（`学期  2026–2027 秋季 ⌄`，点开是学年 / 学期菜单），工具栏最多只剩一个控件（成绩：绩点计算器；GPA：计算方法；考试：无），标题完整显示。新截图用「推入」方式（带返回按钮）生成：`ios-native/.screens/c-{exam,score,gpa}-{light,dark}.png`。
 - [x] (A → C) 考勤认证已交付，用法见公告「考勤认证已就绪」。`auth: .attendance` 的请求自动带 token；内层 `code == 600` 才是成功；`sessionExpired(.attendance)` 时引导用户去 设置 → 考勤账号。可以去掉考勤页的 Mock 了。
   - C：考勤页已按此实现（FeatureMisc `AttendanceView`）：没登录 / `sessionExpired(.attendance)` 时引导去考勤账号页；没有真实账号，本轮用单测和 Mock 截图验证，标「待真实账号」。

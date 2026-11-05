@@ -13,21 +13,37 @@ import SwiftUI
 public enum CourseDebugScreens {
     public static func handles(_ name: String) -> Bool { name.hasPrefix("c-") && !name.hasPrefix("c-attendance") }
 
-    @MainActor @ViewBuilder
+    /// 和真实使用一样从上一级页面"推"进去（有返回按钮，标题可用宽度更窄），而不是作为根页面
+    @MainActor
     public static func view(for name: String) -> some View {
-        NavigationStack {
+        PushedScreen(name: name)
+    }
+
+    private struct PushedScreen: View {
+        let name: String
+        @State private var path = [String]()
+
+        var body: some View {
+            NavigationStack(path: $path) {
+                Text("工具箱").navigationTitle("工具箱")
+                    .navigationDestination(for: String.self) { page(for: $0).environment(\.services, CourseDebugScreens.services) }
+            }
+            .task { path = [name] }
+        }
+
+        @ViewBuilder
+        private func page(for name: String) -> some View {
             switch name {
             case "c-exam": ExamInfoView()
             case "c-score": ScoreWithPendingView()
-            case "c-selected": SelectedCoursesView()
-            case "c-strategy": ElectiveStrategyView()
             case "c-gpa": GpaView()
             case "c-holiday": HolidayView()
             case "c-timeshift": TimeShiftView()
+            case "c-selected": SelectedCoursesView()
+            case "c-strategy": ElectiveStrategyView()
             default: Text("未知页面 \(name)")
             }
         }
-        .environment(\.services, services)
     }
 
     @MainActor static let services: AppServices = {

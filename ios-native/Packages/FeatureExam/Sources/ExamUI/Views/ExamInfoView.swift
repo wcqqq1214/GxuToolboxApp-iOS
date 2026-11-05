@@ -22,6 +22,7 @@ public struct ExamInfoView: View {
 
         var body: some View {
             List {
+                Section { TermMenu(years: model.years, year: yearBinding, term: termBinding) }
                 if model.error != nil {
                     errorSection(model.error, hasData: model.hasData) { Task { await model.load() } }
                         .listRowInsets(EdgeInsets())
@@ -40,7 +41,6 @@ public struct ExamInfoView: View {
             }
             .navigationTitle("考试信息")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { TermMenu(years: model.years, year: yearBinding, term: termBinding) }
             .task { await model.resolveInitialTerm() }
             .task(id: LoadKey(value: model.term, ready: model.isReady)) { await model.load() }
             .refreshable { await model.load() }

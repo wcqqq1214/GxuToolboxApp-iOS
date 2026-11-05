@@ -25,6 +25,9 @@ public struct ScoreView: View {
 
         var body: some View {
             List {
+                Section {
+                    TermMenu(years: model.years, year: yearBinding, term: termBinding, allowsWholeYear: true)
+                }
                 if model.error != nil {
                     errorSection(model.error, hasData: !model.scores.isEmpty, updatedAt: model.lastSyncedAt) {
                         Task { await model.load() }
@@ -71,14 +74,10 @@ public struct ScoreView: View {
             .navigationTitle("成绩查询")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItemGroup(placement: .topBarTrailing) {
-                    if model.isLoading { ProgressView().controlSize(.small) }
-                    TermMenu(years: model.years, year: yearBinding, term: termBinding, allowsWholeYear: true)
-                    NavigationLink {
-                        GpaView(initial: model.query)
-                    } label: {
-                        Label("绩点计算器", systemImage: "function")
-                    }
+                NavigationLink {
+                    GpaView(initial: model.query)
+                } label: {
+                    Label("绩点计算器", systemImage: "function")
                 }
             }
             .task { await model.resolveInitialTerm() }

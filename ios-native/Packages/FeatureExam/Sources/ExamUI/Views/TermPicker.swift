@@ -3,7 +3,8 @@ import GxuDesign
 import GxuFoundation
 import SwiftUI
 
-/// 学年 + 学期选择，放在工具栏里的紧凑菜单。`term == nil` 表示全学年（仅 `allowsWholeYear` 时可选）
+/// 学年 + 学期选择：内容顶部的一行（"学期  2026–2027 秋季 ⌄"），点开是菜单。
+/// 不放工具栏：工具栏里再有别的控件时，导航标题会被挤掉。`term == nil` 表示全学年（仅 `allowsWholeYear` 时可选）
 struct TermMenu: View {
     let years: [Int]
     @Binding var year: Int
@@ -19,22 +20,23 @@ struct TermMenu: View {
     }
 
     var body: some View {
-        Menu {
-            Picker("学年", selection: $year) {
-                ForEach(years.contains(year) ? years : (years + [year]).sorted(), id: \.self) {
-                    Text(verbatim: "\($0)–\($0 + 1) 学年").tag($0)
+        LabeledContent("学期") {
+            Menu {
+                Picker("学年", selection: $year) {
+                    ForEach(years.contains(year) ? years : (years + [year]).sorted(), id: \.self) {
+                        Text(verbatim: "\($0)–\($0 + 1) 学年").tag($0)
+                    }
                 }
-            }
-            Picker("学期", selection: $term) {
-                Text("秋季").tag(Int?.some(1))
-                Text("春季").tag(Int?.some(2))
-                if allowsWholeYear { Text("全学年").tag(Int?.none) }
-            }
-        } label: {
-            // 工具栏里 Label 会被收成纯图标，看不到当前学期，所以用文字 + 箭头
-            HStack(spacing: 4) {
-                Text(verbatim: "\(year)–\(year + 1) \(termName)")
-                Image(systemName: "chevron.down").font(.caption2.weight(.semibold))
+                Picker("学期", selection: $term) {
+                    Text("秋季").tag(Int?.some(1))
+                    Text("春季").tag(Int?.some(2))
+                    if allowsWholeYear { Text("全学年").tag(Int?.none) }
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Text(verbatim: "\(year)–\(year + 1) \(termName)")
+                    Image(systemName: "chevron.up.chevron.down").font(.caption2.weight(.semibold))
+                }
             }
         }
         .accessibilityLabel("选择学年和学期")
