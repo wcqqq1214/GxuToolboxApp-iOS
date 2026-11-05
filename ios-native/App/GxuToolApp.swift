@@ -1,3 +1,4 @@
+import ClassWidgetKit
 import FeatureAccount
 import GxuAuth
 import SwiftUI
@@ -20,6 +21,7 @@ struct GxuToolApp: App {
                 #if !DEBUG
                 .task { services.track("open_app", feature: "app") }   // 开发构建不上报埋点，避免污染线上数据
                 #endif
+                .task { await WidgetBridge.run(services: services) }
                 #if DEBUG
                 .task { await DebugAutoLogin.runIfRequested(services.accounts) }
                 #endif

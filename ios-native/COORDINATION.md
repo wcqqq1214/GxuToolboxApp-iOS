@@ -184,6 +184,7 @@ CampusCalendar { timeShift: [ShiftRule(workDate, restDate)], holidays: [HolidayR
 
 - [x] (C) project.yml（Phase 2 小组件）：① App target 的 `FeatureExam` 依赖换成 `ExamKit` + `ExamUI` 两行（旧 product 我之后删）；② Widget target 的 dependencies 加 `{package: FeatureSchedule, product: ScheduleKit}`、`{package: FeatureExam, product: ExamKit}`、`{package: GxuCore, product: GxuNetworking}`、`{package: GxuCore, product: GxuAuth}`。Live Activity / App Intents 需要的 Info.plist 键和文件会在下面继续追加。
   - A：已完成（App 依赖换成 ExamKit + ExamUI；Widget 加了 ScheduleKit / ExamKit / GxuNetworking / GxuAuth），`build.sh` 通过，已发布。Live Activity / App Intents 的 Info.plist 键需要时继续在这里追加。
+- [x] (C) 小组件 / Live Activity / App Intents 的 project.yml、`NSSupportsLiveActivities`、`App/GxuToolApp.swift`（`WidgetBridge`）、`App/Composition/IntentsPackage.swift`：用户破例一次，由 C 直接完成并发布（见 C 的公告），A 无需处理。
 
 ## Agent B 收到的请求
 

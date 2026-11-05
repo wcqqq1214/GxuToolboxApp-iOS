@@ -41,6 +41,8 @@ targets:
       properties:
         CFBundleDisplayName: 西大工具箱
         UILaunchScreen: {}
+        NSSupportsLiveActivities: true
+        NSSupportsLiveActivitiesFrequentUpdates: false
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         NSAppTransportSecurity:
           NSExceptionDomains:
@@ -70,6 +72,8 @@ targets:
       - {package: FeatureExam, product: ExamKit}
       - {package: FeatureExam, product: ExamUI}
       - {package: FeatureCourse, product: FeatureCourse}
+      - {package: FeatureCourse, product: ClassWidgetKit}
+      - {package: FeatureCourse, product: ToolboxIntents}
       - {package: FeatureMisc, product: FeatureMisc}
   GxuToolAppUITests:
     type: bundle.ui-testing
@@ -108,6 +112,8 @@ targets:
       - {package: GxuCore, product: GxuAuth}
       - {package: FeatureSchedule, product: ScheduleKit}
       - {package: FeatureExam, product: ExamKit}
+      - {package: GxuDesign, product: GxuDesign}
+      - {package: FeatureCourse, product: ClassWidgetKit}
 schemes:
   GxuToolApp:
     build:
