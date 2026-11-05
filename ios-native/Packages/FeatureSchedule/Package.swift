@@ -15,7 +15,7 @@ let package = Package(
             .product(name: "GxuNetworking", package: "GxuCore"),
             .product(name: "GxuAuth", package: "GxuCore"),
             .product(name: "GxuStorage", package: "GxuCore"),
-        ]),
+        ], resources: [.copy("Resources/campus-calendar-fallback.json")]),
         .target(name: "ScheduleUI", dependencies: [
             "ScheduleKit",
             .product(name: "GxuDesign", package: "GxuDesign"),

@@ -43,6 +43,8 @@ extension WeekGridView {
 struct WeekHeader: View {
     let week: Int
     let termCalendar: TermCalendar?
+    /// 这一周里有补班课的星期
+    var makeupDays: Set<Int> = []
 
     var body: some View {
         HStack(spacing: 0) {
@@ -51,7 +53,10 @@ struct WeekHeader: View {
                 .foregroundStyle(.secondary)
                 .frame(width: WeekGridView.timeColumnWidth)
             ForEach(1...7, id: \.self) { weekday in
-                DayHeader(weekday: weekday, date: termCalendar?.date(week: week, weekday: weekday), calendar: termCalendar?.calendar ?? .current)
+                DayHeader(
+                    weekday: weekday, date: termCalendar?.date(week: week, weekday: weekday),
+                    calendar: termCalendar?.calendar ?? .current, isMakeup: makeupDays.contains(weekday)
+                )
             }
         }
         .frame(height: WeekGridView.headerHeight)
@@ -69,6 +74,7 @@ private struct DayHeader: View {
     let weekday: Int
     let date: Date?
     let calendar: Calendar
+    var isMakeup = false
 
     private var isToday: Bool { date.map { calendar.isDateInToday($0) } ?? false }
 
@@ -82,6 +88,16 @@ private struct DayHeader: View {
                 .foregroundStyle(isToday ? Color.white : .primary)
                 .frame(width: 26, height: 26)
                 .background { if isToday { Circle().fill(Color.accentColor) } }
+                .overlay(alignment: .topTrailing) {
+                    if isMakeup {
+                        Text("补")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 13, height: 13)
+                            .background(Color.orange, in: Circle())
+                            .offset(x: 9, y: -5)
+                    }
+                }
         }
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .combine)
@@ -90,7 +106,7 @@ private struct DayHeader: View {
 
     private var accessibilityText: String {
         let day = date.map { "\(calendar.component(.month, from: $0))月\(calendar.component(.day, from: $0))日" } ?? ""
-        return "\(WeekdayName.full(weekday)) \(day)\(isToday ? "，今天" : "")"
+        return "\(WeekdayName.full(weekday)) \(day)\(isToday ? "，今天" : "")\(isMakeup ? "，补班" : "")"
     }
 }
 
@@ -107,6 +123,12 @@ private struct WeekBody: View {
             ZStack(alignment: .topLeading) {
                 TimeColumn(rowHeight: rowHeight)
                 TodayColumn(week: week, termCalendar: model.termCalendar, columnWidth: columnWidth, height: rowHeight * CGFloat(ClassPeriods.count))
+
+                ForEach(model.index.dayBlocks(inWeek: week)) { block in
+                    DayBlockView(block: block)
+                        .frame(width: columnWidth - 3, height: rowHeight * CGFloat(ClassPeriods.count) - 3)
+                        .offset(x: WeekGridView.timeColumnWidth + CGFloat(block.weekday - 1) * columnWidth + 1.5, y: 1.5)
+                }
 
                 ForEach(1...7, id: \.self) { weekday in
                     let groups = ScheduleExpander.conflictGroups(model.index.items(inWeek: week, weekday: weekday))

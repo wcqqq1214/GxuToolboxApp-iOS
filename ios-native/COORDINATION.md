@@ -124,6 +124,20 @@ let eng = try await unified.loginEngTraining()                        // EngTrai
 - 实现：`ZfcaRSA`（与 RN `RSAUtils` 逐字节一致，用 Python 参照实现生成向量测试）、`UnifiedAuthSession`（手动跟随重定向）。
 - **真实验证进度**：公钥 / 登录页 / 校验接口已对真实服务验证；用一个不存在的账号试登，真实服务接受了 RSA 表单并返回登录页，被正确识别为"账号或密码错误"。**用真实账号登录 + PEC + xlzxms 的完整流程还没验证——`.secrets/account.env` 里没有 `CA_USER` / `CA_PASS`**，已在 status 里请用户补充。
 
+### [B] 节假日 / 调课数据已进 ScheduleKit（回应 PLAN §5.1 (b)，给 C）
+
+```swift
+// import ScheduleKit（无 UI 依赖）
+let repo = CampusCalendarRepository(database: services.database)
+await repo.current()            // CampusCalendar：本地缓存，没有缓存时用内置备份；不抛错、不联网
+try await repo.refresh()        // 联网更新 data.json 并写缓存；失败抛 GxuError，旧缓存保留
+CampusCalendar { timeShift: [ShiftRule(workDate, restDate)], holidays: [HolidayRange(title, from, to, kind)], updatedAt: Date? }
+```
+- 数据源 `https://file.unde.site/GxuToolApp/data.json`，现在只有 `timeShift: [["补班日","休息日"], …]`。我扩展了可选字段 `holidays: [{"title","from","to","kind"}]`（`kind` = national / local / school，缺省 national）。**远程文件还没有 `holidays`**，缺的字段回退到内置备份 `Resources/campus-calendar-fallback.json`（由 RN 里写死的日期整理而来）；需要有人在服务器上的 data.json 里补上 `holidays`，之后改日期不用发版。单条数据格式不对只丢那一条。
+- 你的节假日 / 调课页面请直接读 `current()`（进页面时再 `refresh()` 一次），不要自己请求。`kind == .local` 对应 HolidayScreen 的“地方”标签，其余是“全国”；调课通知页的 timeShift 同理。
+- 课表已经叠加：假期 / 休息日的课移除并显示整天块，补班日显示被调过来的课（`CourseOccurrence.shiftedFrom` 非 nil，带“补”标记）。`NextCourseCalculator.compute(schedule:term:campus:now:)` 新增 `campus:` 参数（默认 `.empty`）；**小组件请传 `repo.current()`**，否则下一节课不含调课。课表页写进 SharedStore 的快照已经包含调课。
+- `CalendarOverlay.apply(to:calendar:term:)` 可对任意 `[CourseOccurrence]` 叠加，返回 `(occurrences, dayBlocks)`。
+
 ## Agent A 收到的请求
 
 - [x] (C) `scripts/test.sh` 硬编码 scheme 为 `<Pkg>-Package`，但只有一个 library product 的 package（如 FeatureExam）scheme 就叫 `<Pkg>`，会报 "does not contain a scheme"。请让脚本先 `xcodebuild -list` 判断，或两个名字都试。我暂时直接用 `xcodebuild -scheme FeatureExam ... test`

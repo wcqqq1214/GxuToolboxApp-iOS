@@ -34,6 +34,16 @@ struct CourseBlock: View {
         .padding(.vertical, 4)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(tint.fill, in: RoundedRectangle(cornerRadius: GxuDesign.Radius.block, style: .continuous))
+        .overlay(alignment: .topLeading) {
+            if group.items.contains(where: \.isMakeup) {
+                Text("补")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(tint.fill)
+                    .frame(width: 14, height: 14)
+                    .background(tint.text, in: Circle())
+                    .offset(x: -3, y: -3)
+            }
+        }
         .overlay(alignment: .topTrailing) {
             if group.isConflict {
                 Text("\(group.items.count)")
@@ -52,6 +62,7 @@ struct CourseBlock: View {
     private var accessibilityText: String {
         let place = course.venueName.isEmpty ? "" : "，\(course.venueName)"
         let conflict = group.isConflict ? "，另有 \(group.items.count - 1) 门课冲突" : ""
-        return "\(course.courseName)\(place)，\(WeekdayName.full(course.weekday)) 第\(group.begin)到\(group.end)节\(conflict)"
+        let makeup = group.items[0].isMakeup ? "，补班" : ""
+        return "\(course.courseName)\(place)，\(WeekdayName.full(group.items[0].weekday)) 第\(group.begin)到\(group.end)节\(makeup)\(conflict)"
     }
 }

@@ -14,6 +14,14 @@ public enum ScheduleKit {
                 t.primaryKey(["studentId", "year", "term"])
             }
         }
+        // 节假日和调课数据（data.json）是学校日历，整份 JSON 存一行
+        migrator.registerMigration("schedule.v1.createCampusCalendar") { db in
+            try db.create(table: "campus_calendar") { t in
+                t.primaryKey("id", .integer)
+                t.column("json", .blob).notNull()
+                t.column("updatedAt", .double).notNull()
+            }
+        }
         // 学期开始日是学校日历，不含个人数据
         migrator.registerMigration("schedule.v1.createTermStartDay") { db in
             try db.create(table: "term_start_day") { t in

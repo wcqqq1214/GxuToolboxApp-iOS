@@ -54,7 +54,7 @@ public struct ScheduleRootView: View {
             GxuErrorView(message) { Task { await model.refresh() } }
         case .content:
             VStack(spacing: 0) {
-                WeekHeader(week: model.selectedWeek, termCalendar: model.termCalendar)
+                WeekHeader(week: model.selectedWeek, termCalendar: model.termCalendar, makeupDays: model.makeupDays(inWeek: model.selectedWeek))
                 pager
             }
                 .safeAreaInset(edge: .top, spacing: 0) {

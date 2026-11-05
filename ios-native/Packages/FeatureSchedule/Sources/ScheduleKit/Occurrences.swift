@@ -8,9 +8,15 @@ public struct CourseOccurrence: Sendable, Hashable, Identifiable, Codable {
     public let date: Date
     public let startsAt: Date
     public let endsAt: Date
+    /// 星期几（1 = 周一）。补班日的课挪到了别的星期，所以不能直接用 `course.weekday`
+    public let weekday: Int
+    /// 补班：这节课原本在哪一天上（当天 00:00）；正常上课为 nil
+    public let shiftedFrom: Date?
 
-    public var id: String { "\(course.id)#\(week)" }
-    public var weekday: Int { course.weekday }
+    public var id: String {
+        shiftedFrom == nil ? "\(course.id)#\(week)" : "\(course.id)#\(week)@\(weekday)"
+    }
+    public var isMakeup: Bool { shiftedFrom != nil }
     public var begin: Int { course.begin }
     public var end: Int { course.end }
 }
@@ -22,6 +28,18 @@ public struct ConflictGroup: Sendable, Hashable, Identifiable {
     public var end: Int { items.map(\.end).max() ?? 1 }
     public var id: String { items.map(\.id).joined(separator: "&") }
     public var isConflict: Bool { items.count > 1 }
+}
+
+extension CourseOccurrence {
+    public init(course: TheoryCourse, week: Int, date: Date, startsAt: Date, endsAt: Date, weekday: Int? = nil, shiftedFrom: Date? = nil) {
+        self.course = course
+        self.week = week
+        self.date = date
+        self.startsAt = startsAt
+        self.endsAt = endsAt
+        self.weekday = weekday ?? course.weekday
+        self.shiftedFrom = shiftedFrom
+    }
 }
 
 public enum ScheduleExpander {
@@ -71,12 +89,19 @@ public enum ScheduleExpander {
 /// 按周索引，方便周视图取数
 public struct ScheduleIndex: Sendable {
     public let occurrences: [CourseOccurrence]
+    /// 假期 / 调休休息的整天块
+    public let dayBlocks: [DayBlock]
     private let byWeek: [Int: [CourseOccurrence]]
+    private let blocksByWeek: [Int: [DayBlock]]
 
-    public init(occurrences: [CourseOccurrence]) {
+    public init(occurrences: [CourseOccurrence], dayBlocks: [DayBlock] = []) {
         self.occurrences = occurrences
+        self.dayBlocks = dayBlocks
         self.byWeek = Dictionary(grouping: occurrences, by: \.week)
+        self.blocksByWeek = Dictionary(grouping: dayBlocks, by: \.week)
     }
+
+    public func dayBlocks(inWeek week: Int) -> [DayBlock] { blocksByWeek[week] ?? [] }
 
     public func items(inWeek week: Int) -> [CourseOccurrence] { byWeek[week] ?? [] }
     public func items(inWeek week: Int, weekday: Int) -> [CourseOccurrence] { items(inWeek: week).filter { $0.weekday == weekday } }

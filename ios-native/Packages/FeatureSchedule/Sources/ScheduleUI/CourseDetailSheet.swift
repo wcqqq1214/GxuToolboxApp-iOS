@@ -40,7 +40,11 @@ private struct CourseSection: View {
     var body: some View {
         Section {
             if sectionHasHeader { header }
-            row("时间", "\(WeekdayName.full(course.weekday)) 第\(course.begin)-\(course.end)节  \(timeText)")
+            if let from = item.shiftedFrom {
+                Label("补班：按 \(from.formatted(.dateTime.month().day().weekday(.wide).locale(Locale(identifier: "zh_CN")))) 的课表上课", systemImage: "arrow.triangle.swap")
+                    .foregroundStyle(.orange)
+            }
+            row("时间", "\(WeekdayName.full(item.weekday)) 第\(course.begin)-\(course.end)节  \(timeText)")
             row("周次", WeekFormatter.describe(course.weeks))
             row("地点", LocationFormatter.display(building: course.building, venue: course.venueName))
             row("教师", course.teacher)

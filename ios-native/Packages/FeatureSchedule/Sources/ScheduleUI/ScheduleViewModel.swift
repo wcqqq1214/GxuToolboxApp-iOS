@@ -26,6 +26,8 @@ final class ScheduleViewModel {
     /// 刷新失败的原因；有缓存时页面照常显示，只在顶部给一条非阻塞提示
     private(set) var refreshError: GxuError?
     private(set) var isRefreshing = false
+    /// 节假日 / 补班数据；已经叠加到 `index` 里
+    private(set) var campusCalendar: CampusCalendar = .empty
 
     var selectedWeek = 1
     var palette: CoursePalette = .macaron
@@ -51,6 +53,10 @@ final class ScheduleViewModel {
         return weekRangeText(selectedWeek)
     }
 
+    func makeupDays(inWeek week: Int) -> Set<Int> {
+        Set(index.items(inWeek: week).filter(\.isMakeup).map(\.weekday))
+    }
+
     func weekRangeText(_ week: Int) -> String {
         guard let termCalendar else { return "" }
         let style = Date.FormatStyle(calendar: termCalendar.calendar, timeZone: termCalendar.calendar.timeZone).month(.defaultDigits).day()
@@ -74,6 +80,7 @@ final class ScheduleViewModel {
 
         let repository = makeRepository(services)
         startDays = (try? await repository.cachedStartDays()) ?? []
+        campusCalendar = await CampusCalendarRepository(database: services.database).current()
         await applyTerm(repository: repository, studentId: studentId, useCache: true)
         await refresh()
     }
@@ -91,6 +98,16 @@ final class ScheduleViewModel {
         lastRefresh = .now
         defer { isRefreshing = false }
         let repository = makeRepository(services)
+        // 节假日数据与课表并行请求，失败或很慢都不影响课表：继续用缓存 / 内置备份
+        let campusRefresh = Task { try? await CampusCalendarRepository(database: services.database).refresh() }
+        defer {
+            Task { @MainActor in
+                if let updated = await campusRefresh.value, updated != campusCalendar {
+                    campusCalendar = updated
+                    rebuildIndex()
+                }
+            }
+        }
         do {
             startDays = try await repository.refreshStartDays()
             let previous = term
@@ -166,17 +183,25 @@ final class ScheduleViewModel {
             phase = .failed("暂时无法获取学期开始日，请下拉刷新重试")
             return
         }
-        index = ScheduleIndex(occurrences: ScheduleExpander.occurrences(of: cached.schedule, in: termCalendar))
+        rebuildIndex()
         colors = CourseColorAssigner.assign(courses: cached.schedule.theoryList.filter(\.isValid), palette: palette)
         if resetWeek { selectedWeek = termCalendar.clampedWeek(at: .now) }
         selectedWeek = min(max(selectedWeek, 1), weekCount)
         phase = .content
+    }
+
+    /// 课表 + 节假日 / 补班 → 周视图用的索引
+    private func rebuildIndex() {
+        guard let schedule, let termCalendar else { return }
+        let base = ScheduleExpander.occurrences(of: schedule, in: termCalendar)
+        let overlaid = CalendarOverlay.apply(to: base, calendar: campusCalendar, term: termCalendar)
+        index = ScheduleIndex(occurrences: overlaid.occurrences, dayBlocks: overlaid.dayBlocks)
         publishWidgetSnapshot()
     }
 
     private func publishWidgetSnapshot() {
         guard let services, let studentId else { return }
-        let snapshot = NextCourseCalculator.compute(schedule: schedule, term: termCalendar, now: .now)
+        let snapshot = NextCourseCalculator.compute(schedule: schedule, term: termCalendar, campus: campusCalendar, now: .now)
         services.shared.set(snapshot, for: ScheduleKit.widgetSnapshotKey(studentId: studentId))
     }
 }

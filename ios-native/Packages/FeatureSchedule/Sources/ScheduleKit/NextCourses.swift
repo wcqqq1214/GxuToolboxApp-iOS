@@ -79,9 +79,10 @@ public enum NextCourseCalculator {
         )
     }
 
-    public static func compute(schedule: Schedule?, term: TermCalendar?, now: Date) -> NextCourses {
+    public static func compute(schedule: Schedule?, term: TermCalendar?, campus: CampusCalendar = .empty, now: Date) -> NextCourses {
         guard let schedule else { return .empty(.missingSchedule, now: now) }
         guard let term else { return .empty(.missingStartDay, now: now) }
-        return compute(occurrences: ScheduleExpander.occurrences(of: schedule, in: term), now: now, calendar: term.calendar)
+        let occurrences = CalendarOverlay.apply(to: ScheduleExpander.occurrences(of: schedule, in: term), calendar: campus, term: term).occurrences
+        return compute(occurrences: occurrences, now: now, calendar: term.calendar)
     }
 }
