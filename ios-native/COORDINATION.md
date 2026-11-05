@@ -40,11 +40,39 @@
 - DEBUG 构建支持 `-GxuDemo` 启动参数（`App/Shell/DemoMode.swift`）：不连后端，用内置假课表跑界面，截图自查用。`-GxuTab toolbox|settings` 直接打开对应标签。
 - 已知局限：iPhone 17 Pro 模拟器在本机不存在，`build.sh` 自动选到了第一台 iPhone（“iPhone Duo”，双屏机型，截图要加 `--display`）。截图时我用 `SIM_ID=` 指定普通 iPhone 18 Pro。
 
+### [fixtures] 脱敏数据已发布（Agent A）
+
+`Fixtures/sanitized/` 里有 9 个文件，README 写明了每个文件对应的接口和参数；由 `scripts/sanitize-fixtures.py` 生成，已逐项检查无真实姓名、学号、身份证、教师名、QQ 群号。需要别的接口或带参数（如 `score/usual?id=`）的响应，写到 A 的请求区。
+
+### 用户资料 `services.profiles`（Agent A，回应 coord-1）
+
+```swift
+// import GxuAuth
+let repo = services.profiles                       // ProfileRepository（struct，无状态）
+repo.cached(studentId:) -> UserProfile?            // 同步读缓存
+try await repo.profile(studentId:refresh:)         // 有缓存直接返回；请求失败时回退到缓存
+try await repo.load(studentId:)                    // 强制请求并更新缓存
+UserProfile { studentId, name, college, major, className, enrollmentYear: Int, studyYears: Int, academicYears: [Int] }
+```
+- 后端 `POST /jw/profile`（body `{"isFull":false}`，返回 HTTP 201），`grade` 和 `study_years` 是**字符串**，已转成 Int；不保存身份证号。
+- 缓存按学号隔离（App Group UserDefaults，key `profile.<studentId>`）；返回的学号与传入不一致会抛 `invalidData`，不会写入缓存。
+- `academicYears` = 入学年份起、学制年数个学年起始年，例如 2022 入学、学制 4 → [2022, 2023, 2024, 2025]。学期选择器直接用它即可，去掉 `TEMP(coord-1)`。
+- `studentId` 用 `services.accounts.studentId`。
+
+### 学期参数结论（Agent A）
+
+后端 `/jw/schedule/personal`、`/jw/exam`、`/jw/score` **只接受 term=1/2**。`term=3`、`12`、`16` 全部 HTTP 400 `不支持的学期参数`（2026-11-05 真实验证）。已新增 `AcademicTerm.isBackendQueryable`（term 为 1 或 2 时为 true）。feature 不要用 term=3 发请求。详见 PLAN §5.1 (d)。
+
+### 构建/调试变化（Agent A）
+
+- `build.sh` 改为 ad-hoc 签名（Keychain 和 App Group 在模拟器可用）；模拟器选择规则改为"最新 iPhone NN Pro"。
+- DEBUG 构建支持自动登录；`scripts/run-e2e.sh [light|dark|both]` 构建、安装、带测试账号启动并截图（账号读自 `.secrets/account.env`）。
+
 ## Agent A 收到的请求
 
 - [x] (C) `scripts/test.sh` 硬编码 scheme 为 `<Pkg>-Package`，但只有一个 library product 的 package（如 FeatureExam）scheme 就叫 `<Pkg>`，会报 "does not contain a scheme"。请让脚本先 `xcodebuild -list` 判断，或两个名字都试。我暂时直接用 `xcodebuild -scheme FeatureExam ... test`
   - A：已在 9c1f0db 修复（先 `xcodebuild -list` 判断，单产品 package 用产品名），已在 FeatureExam 上验证通过。`git rebase ios-native` 后即可用 `scripts/test.sh FeatureExam`。
-- [ ] (C) 学期选择器需要 JW 用户资料里的入学年份 `grade` 和学制年数 `study_years`（RN 的 `userProfileRepo`）。请问由 FeatureAccount 的个人信息提供吗？需要一个只读接口，例如 `AccountCenter.profile?.enrollmentYear / studyYears`。在此之前我用 `// TEMP(coord-1)`：从成绩/考试可选年份范围取最近 4 个学年
+- [x] (C) 学期选择器需要 JW 用户资料里的入学年份 `grade` 和学制年数 `study_years`（RN 的 `userProfileRepo`）。请问由 FeatureAccount 的个人信息提供吗？需要一个只读接口，例如 `AccountCenter.profile?.enrollmentYear / studyYears`。在此之前我用 `// TEMP(coord-1)`：从成绩/考试可选年份范围取最近 4 个学年
 
 ## Agent B 收到的请求
 

@@ -1,6 +1,6 @@
 # Agent A 状态
 
-- 当前 Phase：Phase 1 进行中（等待测试账号做真实联调）
+- 当前 Phase：Phase 1 收尾（fixtures、profile、term=3、DEBUG 自动登录、run-e2e 已完成；等 B/C 的 [phase1-done] 后做整体验收）
 - 已完成：
   - ios-native 骨架、project.yml、全部 package 空壳、契约 v1（GxuFoundation/Networking/Auth/Storage/TestSupport）
   - BackendClient（含会话失效检测、自动重登一次并重试）、JwSessionManager（actor，并发重登合并）、AccountCenter、Keychain/内存 CredentialStore
@@ -18,7 +18,11 @@
   - 临时联调测试：登录 → 取数 → 破坏 Cookie 后自动重登 → 错误密码，全部通过（测试已删除，未提交）
   - `/jw/*` 响应形如 `{code, message, data}`，`DataEnvelope` 可直接解
 - Fixture 已抓到 `Fixtures/raw/`（gitignore）：schedule_personal、profile_startDay、exam、score、score_usual、profile
+- 本轮完成：脱敏 fixtures（已发布）；`services.profiles`（ProfileRepository）；term=3 结论 + `AcademicTerm.isBackendQueryable`；DEBUG 自动登录 + `scripts/run-e2e.sh`；模拟器选择规则；PLAN §5.1；ad-hoc 签名验证（App Group / Keychain 可用）
+- 给用户：模拟器开发不需要真实 Team ID；真机运行和 Keychain access group 才需要，到时在 project.yml 把 `YOUR_TEAM_ID` 换成真实值
 - TODO(verify)：
+  - 小组件扩展运行时是否读到同一个 App Group 容器（需 C 在 Widget 里实测）
+  - `/jw/score/usual` 带课程 id 的真实响应尚未抓取
   - Keychain access group 尚未启用（GxuConfig.keychainAccessGroup = nil），填真实 Team ID 后再开
   - project.yml 的 DEVELOPMENT_TEAM 目前是占位 `YOUR_TEAM_ID`
   - test.sh 偶发 `xcrun: unable to find utility simctl`（连续启动多个 xcodebuild test 时），重跑即可

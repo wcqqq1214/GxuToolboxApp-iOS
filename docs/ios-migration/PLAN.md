@@ -174,7 +174,8 @@ brew install xcodegen
 
 ### 4.2 验证标准
 
-- `scripts/build.sh`：`xcodegen generate` 后用 `xcodebuild` 构建 App 和 Widget scheme，目标是 iOS 模拟器（优先 iPhone 17 Pro，没有就选 `xcrun simctl list devices available` 里第一台 iPhone）。
+- `scripts/build.sh`：`xcodegen generate` 后用 `xcodebuild` 构建 App 和 Widget scheme，目标是 iOS 模拟器。模拟器选择规则见 `scripts/_env.sh`：优先最新的 "iPhone NN Pro"，其次最新的普通 "iPhone NN"，排除 Duo / Fold / Flip / mini / Air 等特殊机型；可用 `SIM_ID=<udid>` 覆盖。构建使用 ad-hoc 签名（`CODE_SIGN_IDENTITY="-"`，见 §5.1 (e)）。
+- `scripts/run-e2e.sh`：构建、安装、用 `.secrets/account.env` 的测试账号自动登录（仅 DEBUG，经 `SIMCTL_CHILD_GXU_TEST_USER/PASS` 传入）并截图。
 - `scripts/test.sh`：运行所有 package 的测试。
 - 有 UI 改动时：在模拟器里启动 App，用 `xcrun simctl io booted screenshot` 截图并**自己看一遍**，分别检查浅色和深色模式。截图放到 `ios-native/.screens/`（已 gitignore）。
 - 不确定的接口字段：写 `// TODO(verify): ...`，并记在自己的 status 文件里。
@@ -187,7 +188,7 @@ brew install xcodegen
 
 - 用户把测试账号放到 `ios-native/.secrets/account.env`（已 gitignore，内容是 `JW_USER=...`、`JW_PASS=...`）。
 - A 提供 `scripts/capture-fixtures.sh`：登录后端，把各接口的原始响应保存到 `ios-native/Fixtures/raw/`（已 gitignore）。
-- 各 feature 的所有者把需要的响应**脱敏**（姓名、学号、手机号替换成假数据）后，复制到自己 package 的 `Tests/.../Fixtures/` 里。
+- 脱敏后的共享数据由 A 用 `scripts/sanitize-fixtures.py` 生成，放在 `ios-native/Fixtures/sanitized/`（含 README，说明各文件对应的接口和参数），可直接提交。各 feature 的所有者按需把其中的文件复制到自己 package 的 `Tests/.../Fixtures/` 里；需要 A 没覆盖的接口，写到 COORDINATION 的 A 小节。
 - 拿不到真实数据时，根据 RN 的 TS 类型和 Zod schema 手写 fixture，并标注 TODO(verify)。
 
 ## 5. 分阶段计划
@@ -207,6 +208,14 @@ B、C：在 bootstrap 发布之前，先读 RN 源码，把自己 Phase 1 功能
 | C | FeatureExam：考试信息 `GET /jw/exam`（按学号+学期缓存，显示倒计时）、成绩 `GET /jw/score`（**缓存加上 studentId**）、平时分 `GET /jw/score/usual`、GPA 计算器（逻辑移植自 `src/hooks/useGpa.ts`、`GPAcalculator.tsx`），并写单元测试<br>工具箱里对应的入口 |
 
 **阶段验收**：真机或模拟器上能登录教务 → 看到真实课表 → 考试信息 → 成绩/GPA；构建和测试全部通过。
+
+### 5.1 跨阶段约定（2026-11-05，用户已同意）
+
+- **(a) ExamKit / ExamUI 拆分**：Phase 2 开始时，C 把 `FeatureExam` 拆成 `ExamKit`（不依赖界面，B 的首页和课表叠加要用）和 `ExamUI` 两个 product，沿用 `FeatureSchedule` 的做法。拆分时更新 `project.yml`（向 A 提请求）和 `FeatureRegistry`。
+- **(b) 节假日和调课数据**：节假日和调课数据（`data.json`）的获取和模型由 B 放进 `ScheduleKit`；C 的节假日和调课页面读取它，不自己再请求。
+- **(c) 脱敏共享数据**：放在 `ios-native/Fixtures/sanitized/`（见 §4.4）。
+- **(d) 学期参数**：后端 GET 接口（`/jw/schedule/personal`、`/jw/exam`、`/jw/score`）**只接受逻辑学期 1 / 2**。2026-11-05 用真实后端验证：`term=3`（小学期）、`term=12`、`term=16` 一律返回 HTTP 400 `不支持的学期参数`。因此 feature **不能用 term=3 查询**；`AcademicTerm.isBackendQueryable` 为 false 时，UI 不要发请求（隐藏该学期或提示"暂不支持"）。`AcademicTerm.term == 3` 仍可用于展示。
+- **(e) 小组件前置条件（已验证）**：未签名构建（`CODE_SIGNING_ALLOWED=NO`）下 Keychain 报 -34018、拿不到 App Group 容器。改用 ad-hoc 签名（`CODE_SIGN_IDENTITY="-"`，entitlements 由 `*-Simulated.xcent` 写进二进制）后，**App 能拿到 App Group 容器，Keychain 读写正常**，所以**模拟器开发不需要真实 Team ID**（`project.yml` 里 `DEVELOPMENT_TEAM` 保持占位符即可）。小组件扩展用同一个 `group.com.gxutool.ios`，entitlements 与 App 相同；扩展在运行时是否读到同一个容器，还要 C 在 Phase 2 做小组件时实测（在 Widget 里写入、在 App 里读取 SharedStore）。真机运行和 Keychain access group（`$(AppIdentifierPrefix)`）需要真实 Team ID，届时由用户填写。
 
 ### Phase 2：系统集成 + 次要功能
 

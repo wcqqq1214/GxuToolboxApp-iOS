@@ -35,6 +35,10 @@ public struct AcademicTerm: Hashable, Codable, Sendable, Comparable {
         }
     }
 
+    /// 后端 GET 接口（`/jw/schedule/personal`、`/jw/exam`、`/jw/score` 等）只接受逻辑学期 1 / 2；
+    /// 小学期（3）会返回 400"不支持的学期参数"，不能用它查询。
+    public var isBackendQueryable: Bool { term == 1 || term == 2 }
+
     /// 例如 "2025-2026 秋季学期"
     public var displayName: String {
         let name: String = switch term {

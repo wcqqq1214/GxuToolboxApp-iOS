@@ -9,6 +9,9 @@ struct GxuToolApp: App {
         WindowGroup {
             RootView()
                 .environment(\.services, services)
+                #if DEBUG
+                .task { await DebugAutoLogin.runIfRequested(services.accounts) }
+                #endif
         }
     }
 }

@@ -23,6 +23,12 @@ struct FoundationTests {
         #expect(AcademicTerm(year: 2025, term: 1) < AcademicTerm(year: 2025, term: 2))
     }
 
+    @Test func onlyAutumnAndSpringAreBackendQueryable() {
+        #expect(AcademicTerm(year: 2025, term: 1).isBackendQueryable)
+        #expect(AcademicTerm(year: 2025, term: 2).isBackendQueryable)
+        #expect(!AcademicTerm(year: 2025, term: 3).isBackendQueryable)
+    }
+
     @Test func errorMessages() {
         #expect(GxuError.notLoggedIn(.jw).userMessage.contains("教务"))
         #expect(GxuError.http(status: 500, message: "boom").userMessage == "boom")

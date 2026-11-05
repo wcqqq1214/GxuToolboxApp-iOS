@@ -11,6 +11,9 @@ public struct AppServices: Sendable {
     /// 只能在 MainActor 上访问
     public let accounts: AccountCenter
 
+    /// 用户资料（入学年份、学制等），按学号缓存
+    public var profiles: ProfileRepository { ProfileRepository(backend: backend, shared: shared) }
+
     public init(backend: any BackendAPI, database: AppDatabase, shared: any SharedStore, accounts: AccountCenter) {
         self.backend = backend
         self.database = database

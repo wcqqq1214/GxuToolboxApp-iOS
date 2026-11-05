@@ -7,6 +7,6 @@ for scheme in GxuToolApp GxuWidget; do
   echo "==> build $scheme"
   xcodebuild -project GxuToolApp.xcodeproj -scheme "$scheme" \
     -destination "$DESTINATION" -derivedDataPath .build \
-    CODE_SIGNING_ALLOWED=NO build -quiet
+    CODE_SIGN_IDENTITY="-" CODE_SIGNING_ALLOWED=YES build -quiet
 done
 echo "BUILD OK"

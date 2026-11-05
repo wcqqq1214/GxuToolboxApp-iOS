@@ -11,13 +11,17 @@ if ! xcrun --find simctl >/dev/null 2>&1; then
   done
 fi
 
-# 优先 iPhone 17 Pro，没有就取第一台可用 iPhone
+# 选模拟器：优先最新的 "iPhone NN Pro"（排除 Pro Max），其次最新的普通 "iPhone NN"；
+# 始终排除 Duo / Fold / Flip / mini / Air / e 等特殊机型。可用 SIM_ID=<udid> 覆盖。
 if [ -z "${SIM_ID:-}" ]; then
-  DEVICES="$(xcrun simctl list devices available)"
-  SIM_ID="$(echo "$DEVICES" | grep -E 'iPhone 17 Pro \(' | head -1 | sed -E 's/.*\(([0-9A-F-]{36})\).*/\1/' || true)"
-  if [ -z "$SIM_ID" ]; then
-    SIM_ID="$(echo "$DEVICES" | grep -E 'iPhone' | head -1 | sed -E 's/.*\(([0-9A-F-]{36})\).*/\1/')"
-  fi
+  DEVICES="$(xcrun simctl list devices available | grep -E '^\s+iPhone ')"
+  pick() { # $1 = 机型名正则（NN 为数字）
+    echo "$DEVICES" | grep -E "^\s+$1 \(" | grep -vE 'Duo|Fold|Flip|mini' \
+      | sed -E 's/^ +iPhone ([0-9]+).*\(([0-9A-F-]{36})\).*/\1 \2/' | sort -rn | head -1 | cut -d' ' -f2
+  }
+  SIM_ID="$(pick 'iPhone [0-9]+ Pro')"
+  [ -z "$SIM_ID" ] && SIM_ID="$(pick 'iPhone [0-9]+')"
+  [ -z "$SIM_ID" ] && SIM_ID="$(echo "$DEVICES" | head -1 | sed -E 's/.*\(([0-9A-F-]{36})\).*/\1/')"
 fi
 export SIM_ID
 DESTINATION="platform=iOS Simulator,id=$SIM_ID"
