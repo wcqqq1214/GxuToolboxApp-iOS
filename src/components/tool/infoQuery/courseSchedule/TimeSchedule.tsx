@@ -2,13 +2,22 @@ import {StyleProp, StyleSheet, TextStyle, View, ViewStyle} from "react-native";
 import moment from "moment/moment";
 import {Color} from "@/shared/color.ts";
 import {Text, useTheme} from "@rneui/themed";
-import {Fragment, useEffect, useMemo, useState} from "react";
+import {type ReactNode, useEffect, useMemo, useState} from "react";
 import Flex from "@/components/un-ui/Flex.tsx";
 import {useCourseData} from "@/hooks/useCourseData.ts";
 import {useUserConfig} from "@/hooks/useUserConfig.ts";
 import {TimeScheduleItemData} from "@/features/courseSchedule/type/schedule.ts";
 import {useShift} from "@/features/courseSchedule/hooks/detail/useShift.ts";
 import {getWeekOfDate} from "@/features/courseSchedule/utils/weekOfDate.ts";
+import {layoutScheduleBlocks} from "@/features/courseSchedule/utils/layoutScheduleBlocks";
+
+interface RenderBlock {
+    key: string;
+    begin: number;
+    end: number;
+    content: ReactNode;
+    avoidOverlap: boolean;
+}
 
 function groupByTimeOverlap<T>(
     items: T[],
@@ -136,7 +145,7 @@ export function TimeSchedule<T = any>(props: TimeScheduleProps<T>) {
         keyPrefix: string,
         day: moment.Moment,
         week: number,
-    ) {
+    ): RenderBlock[] {
         const visibleItems = td.data.filter(item => td.isItemShow?.(item, day, week));
         // 按时段重叠分组
         const groups = groupByTimeOverlap(visibleItems, td.isItemStack, day, week);
@@ -145,13 +154,16 @@ export function TimeSchedule<T = any>(props: TimeScheduleProps<T>) {
                 Math.min(...group.map(g => (g as any).begin ?? 1)),
                 Math.max(...group.map(g => (g as any).end ?? 1)),
             ];
-            return (
-                <View key={`${tdIndex}-${keyPrefix}-${gi}`}>
-                    {group.length > 1
+            return {
+                key: `${tdIndex}-${keyPrefix}-${gi}`,
+                begin: timeRange[0],
+                end: timeRange[1],
+                avoidOverlap: td.avoidOverlap === true,
+                content:
+                    group.length > 1
                         ? (td.stackRender?.(group, day, week, timeRange) ?? null)
-                        : group.map((item, ii) => <View key={ii}>{td.itemRender?.(item, day, week)}</View>)}
-                </View>
-            );
+                        : group.map((item, ii) => <View key={ii}>{td.itemRender?.(item, day, week)}</View>),
+            };
         });
     }
 
@@ -243,25 +255,44 @@ export function TimeSchedule<T = any>(props: TimeScheduleProps<T>) {
                                 })()}
                             </Text>
                         </View>
-                        {(props.scheduleItems ?? []).map((td, tdIndex) => {
-                            const applyShift = td.needShift !== false;
-                            // 调休日（放假那天）不排课：参与调课的数据源整列跳过
-                            if (applyShift && isRestDay) return null;
+                        {(() => {
+                            const blocks = (props.scheduleItems ?? []).flatMap((td, tdIndex) => {
+                                const applyShift = td.needShift !== false;
+                                // 调休日（放假那天）不排课：参与调课的数据源整列跳过
+                                if (applyShift && isRestDay) return [];
 
-                            // 参与调课的数据源取被补日与其所在教学周，其余取本列自然日期与当前周
-                            const targetDay = applyShift ? effectiveDay : currentDay;
-                            const targetWeek = applyShift ? getWeekOfDate(effectiveDay, startDay) : currentWeek;
+                                // 参与调课的数据源取被补日与其所在教学周，其余取本列自然日期与当前周
+                                const targetDay = applyShift ? effectiveDay : currentDay;
+                                const targetWeek = applyShift ? getWeekOfDate(effectiveDay, startDay) : currentWeek;
 
-                            return (
-                                <Fragment key={tdIndex}>
-                                    {renderItems(td, tdIndex, "main", targetDay, targetWeek)}
-                                    {/* 补课日列可选追加：本列在调休前本来应有的元素 */}
-                                    {applyShift && isWorkDay && td.showPreShiftItems
+                                return [
+                                    ...renderItems(td, tdIndex, "main", targetDay, targetWeek),
+                                    ...(applyShift && isWorkDay && td.showPreShiftItems
                                         ? renderItems(td, tdIndex, "pre", currentDay, currentWeek)
-                                        : null}
-                                </Fragment>
+                                        : []),
+                                ];
+                            });
+                            const positions = new Map(
+                                layoutScheduleBlocks(blocks.filter(block => block.avoidOverlap)).map(position => [
+                                    position.item,
+                                    position,
+                                ]),
                             );
-                        })}
+                            return blocks.map(block => {
+                                const position = positions.get(block);
+                                const count = position?.columnCount ?? 1;
+                                return (
+                                    <View
+                                        key={block.key}
+                                        style={{
+                                            width: `${100 / count}%`,
+                                            marginLeft: `${((position?.column ?? 0) * 100) / count}%`,
+                                        }}>
+                                        {block.content}
+                                    </View>
+                                );
+                            });
+                        })()}
                     </View>
                 );
             })}

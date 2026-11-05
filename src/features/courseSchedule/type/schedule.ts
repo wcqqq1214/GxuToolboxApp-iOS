@@ -4,6 +4,8 @@ import {ExamWithMeta} from "@/features/examInfo/type/exam.types.ts";
 import {Schedule} from "gxu-tool-adapters/jw";
 
 export interface TimeScheduleItemData<T = any> {
+    /** 将本组占用块与其他开启此选项的数据源并排排布，避免跨来源遮挡。 */
+    avoidOverlap?: boolean;
     /** 元素数据 */
     data: T[];
     /** 元素渲染 */
