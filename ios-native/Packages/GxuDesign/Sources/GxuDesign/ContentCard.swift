@@ -5,7 +5,7 @@ public struct ContentCard<Content: View>: View {
     private let padding: CGFloat
     private let content: Content
 
-    public init(padding: CGFloat = GxuDesign.Spacing.l, @ViewBuilder content: () -> Content) {
+    public init(padding: CGFloat = GxuDesign.Layout.cardInset, @ViewBuilder content: () -> Content) {
         self.padding = padding
         self.content = content()
     }
@@ -18,5 +18,15 @@ public struct ContentCard<Content: View>: View {
                 Color(.secondarySystemGroupedBackground),
                 in: RoundedRectangle(cornerRadius: GxuDesign.Radius.card, style: .continuous)
             )
+    }
+}
+
+public extension View {
+    /// 自拼页面（非 `List`）里的分组标题：文字落在 B 线，和系统列表的分组标题、卡片内文字对齐。
+    func gxuSectionHeader() -> some View {
+        font(.footnote.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .padding(.leading, GxuDesign.Layout.cardInset)
+            .accessibilityAddTraits(.isHeader)
     }
 }

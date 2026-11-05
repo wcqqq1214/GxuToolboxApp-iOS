@@ -14,13 +14,14 @@ struct CourseBlock: View {
     var showTeacher = true
 
     private var course: TheoryCourse { selected.course }
-    private var rows: Int { group.end - group.begin + 1 }
+    private var rows: Int { PeriodRows.rows(begin: group.begin, end: group.end).count }
     private var tint: CourseTint { CourseTint(hex: colors[course.courseName] ?? 0xC7CEEA) }
 
     var body: some View {
         VStack(spacing: 2) {
+            // 课程名比教室 / 教师大一号：.caption（课程名）> .caption2（教室、教师）
             Text(course.courseName)
-                .font(.caption2.weight(.semibold))
+                .font(.caption.weight(.semibold))
                 .lineLimit(rows >= 2 ? 3 : 2)
             if showVenue, !course.venueName.isEmpty {
                 Text(LocationFormatter.blockText(venue: course.venueName, singleLine: rows < 2))
@@ -37,11 +38,8 @@ struct CourseBlock: View {
         .padding(.horizontal, 3)
         .padding(.vertical, 4)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .padding(.leading, 3)
-        .background(tint.fill)
-        // 左侧色条：用同色相的亮色，深色模式下也能一眼分辨颜色
-        .overlay(alignment: .leading) { Rectangle().fill(tint.marker).frame(width: 3) }
-        .clipShape(RoundedRectangle(cornerRadius: GxuDesign.Radius.block, style: .continuous))
+        // 纯底色，不加竖线（用户明确不要）
+        .background(tint.fill, in: RoundedRectangle(cornerRadius: GxuDesign.Radius.block, style: .continuous))
         .overlay(alignment: .topLeading) {
             if selected.isMakeup {
                 Text("补")

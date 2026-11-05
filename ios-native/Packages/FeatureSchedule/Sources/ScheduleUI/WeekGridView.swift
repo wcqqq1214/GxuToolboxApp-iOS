@@ -45,7 +45,7 @@ extension WeekGridView {
         if CommandLine.arguments.contains("-GxuScheduleScrollTop") { return }
         #endif
         guard let termCalendar = model.termCalendar, termCalendar.week(containing: .now) == week else { return }
-        let rows = ClassPeriods.position(at: .now, calendar: termCalendar.calendar)
+        let rows = PeriodRows.position(at: .now, calendar: termCalendar.calendar)
         guard rows > 3 else { return }
         position.scrollTo(y: (rows - 3) * Self.rowHeight)
     }
@@ -135,26 +135,33 @@ struct WeekBody: View {
             let columnWidth = (proxy.size.width - WeekGridView.timeColumnWidth) / 7
             ZStack(alignment: .topLeading) {
                 TimeColumn(rowHeight: rowHeight)
-                TodayColumn(week: week, termCalendar: model.termCalendar, columnWidth: columnWidth, height: rowHeight * CGFloat(ClassPeriods.count))
+                // 今天这一列在假期色带下面不再铺底色（否则两层颜色叠成一块浑浊的矩形），表头日期的高亮保留
+                TodayColumn(
+                    week: week, termCalendar: model.termCalendar, columnWidth: columnWidth, height: rowHeight * CGFloat(PeriodRows.count),
+                    coveredWeekdays: Set(model.index.dayBlocks(inWeek: week).map(\.weekday))
+                )
 
                 // 连续的假期合并成一条横跨的色带，文字只出现一次
                 ForEach(DayRun.runs(model.index.dayBlocks(inWeek: week))) { run in
                     DayBlockView(run: run)
-                        .frame(width: columnWidth * CGFloat(run.days) - 3, height: rowHeight * CGFloat(ClassPeriods.count) - 3)
+                        .frame(width: columnWidth * CGFloat(run.days) - 3, height: rowHeight * CGFloat(PeriodRows.count) - 3)
                         .offset(x: WeekGridView.timeColumnWidth + CGFloat(run.firstWeekday - 1) * columnWidth + 1.5, y: 1.5)
                 }
 
                 ForEach(1...7, id: \.self) { weekday in
                     let groups = ScheduleExpander.conflictGroups(model.index.items(inWeek: week, weekday: weekday))
-                    ForEach(groups) { group in
+                    ForEach(GroupLane.layout(groups)) { placed in
+                        let group = placed.group
+                        let rows = PeriodRows.rows(begin: group.begin, end: group.end)
+                        let laneWidth = columnWidth / CGFloat(placed.laneCount)
                         CourseBlock(
                             group: group, selected: group.selected(choices: model.choices), colors: model.colors, rowHeight: rowHeight,
                             showVenue: preferences.value.showVenueInBlock, showTeacher: preferences.value.showTeacherInBlock
                         )
-                            .frame(width: columnWidth - 3, height: CGFloat(group.end - group.begin + 1) * rowHeight - 3)
+                            .frame(width: laneWidth - 3, height: CGFloat(rows.count) * rowHeight - 3)
                             .offset(
-                                x: WeekGridView.timeColumnWidth + CGFloat(weekday - 1) * columnWidth + 1.5,
-                                y: CGFloat(group.begin - 1) * rowHeight + 1.5
+                                x: WeekGridView.timeColumnWidth + CGFloat(weekday - 1) * columnWidth + CGFloat(placed.lane) * laneWidth + 1.5,
+                                y: CGFloat(rows.lowerBound - 1) * rowHeight + 1.5
                             )
                             .onTapGesture { onSelect(group) }
                     }
@@ -165,7 +172,7 @@ struct WeekBody: View {
                 }
             }
         }
-        .frame(height: rowHeight * CGFloat(ClassPeriods.count))
+        .frame(height: rowHeight * CGFloat(PeriodRows.count))
     }
 }
 
@@ -174,22 +181,27 @@ private struct TimeColumn: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ForEach(ClassPeriods.all, id: \.number) { period in
+            ForEach(PeriodRows.all, id: \.index) { period in
                 ZStack(alignment: .top) {
                     Rectangle().fill(Color(.separator).opacity(0.5)).frame(height: 0.5)
-                    VStack(spacing: 1) {
-                        Text("\(period.number)").font(.footnote.weight(.semibold))
-                        Text(period.startText).font(.system(size: 9)).foregroundStyle(.secondary)
+                    // 节次 + 上课 + 下课时间（和 RN 的 TimeSchedule 一致）
+                    VStack(spacing: 0) {
+                        Text(period.label).font(.footnote.weight(.semibold))
+                        Text(period.startText)
+                        Text(period.endText)
                     }
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .minimumScaleFactor(0.8)
                     .monospacedDigit()
-                    .padding(.top, 8)
+                    .padding(.top, 6)
                     .frame(width: WeekGridView.timeColumnWidth)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .frame(height: rowHeight)
                 // 上午 / 下午 / 晚上之间加粗一点分隔，帮助定位
                 .overlay(alignment: .top) {
-                    if period.number == 5 || period.number == 9 {
+                    if period.first == 5 || period.first == 9 {
                         Rectangle().fill(Color(.separator)).frame(height: 1)
                     }
                 }
@@ -204,9 +216,10 @@ private struct TodayColumn: View {
     let termCalendar: TermCalendar?
     let columnWidth: CGFloat
     let height: CGFloat
+    var coveredWeekdays: Set<Int> = []
 
     var body: some View {
-        if let termCalendar, termCalendar.week(containing: .now) == week {
+        if let termCalendar, termCalendar.week(containing: .now) == week, !coveredWeekdays.contains(termCalendar.weekday(of: .now)) {
             let weekday = termCalendar.weekday(of: .now)
             Rectangle()
                 .fill(Color.accentColor.opacity(0.07))
@@ -224,7 +237,7 @@ private struct NowLine: View {
 
     var body: some View {
         TimelineView(.everyMinute) { context in
-            let y = ClassPeriods.position(at: context.date, calendar: calendar) * rowHeight
+            let y = PeriodRows.position(at: context.date, calendar: calendar) * rowHeight
             HStack(spacing: 0) {
                 Circle().fill(.red).frame(width: 7, height: 7)
                 Rectangle().fill(.red).frame(height: 1)
@@ -234,5 +247,46 @@ private struct NowLine: View {
             .accessibilityHidden(true)
         }
         .allowsHitTesting(false)
+    }
+}
+
+/// 一个冲突组在网格里的位置。显示行相同或相交的几组（例如只占第 9 节和只占第 10 节的两门课，它们在“9-10”这一行里重叠）
+/// 并排分栏显示，不重叠、不丢失。
+struct PlacedGroup: Identifiable {
+    let group: ConflictGroup
+    let lane: Int
+    let laneCount: Int
+    var id: String { group.id }
+}
+
+enum GroupLane {
+    static func layout(_ groups: [ConflictGroup]) -> [PlacedGroup] {
+        let sorted = groups.sorted { ($0.begin, $0.end, $0.id) < ($1.begin, $1.end, $1.id) }
+        var result: [PlacedGroup] = []
+        var cluster: [(group: ConflictGroup, lane: Int)] = []
+        var laneEnds: [Int] = []
+        var clusterEnd = 0
+
+        func flush() {
+            let count = max(laneEnds.count, 1)
+            result += cluster.map { PlacedGroup(group: $0.group, lane: $0.lane, laneCount: count) }
+            cluster = []
+            laneEnds = []
+        }
+
+        for group in sorted {
+            let rows = PeriodRows.rows(begin: group.begin, end: group.end)
+            if !cluster.isEmpty, rows.lowerBound > clusterEnd { flush() }
+            if let lane = laneEnds.firstIndex(where: { $0 < rows.lowerBound }) {
+                laneEnds[lane] = rows.upperBound
+                cluster.append((group, lane))
+            } else {
+                laneEnds.append(rows.upperBound)
+                cluster.append((group, laneEnds.count - 1))
+            }
+            clusterEnd = cluster.count == 1 ? rows.upperBound : max(clusterEnd, rows.upperBound)
+        }
+        flush()
+        return result
     }
 }

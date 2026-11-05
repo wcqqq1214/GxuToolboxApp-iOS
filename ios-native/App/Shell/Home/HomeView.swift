@@ -55,6 +55,12 @@ private struct HomeList: View {
     /// 今日课程：没上完的直接列出；上完的折叠起来，全部结束时给一句明确的状态
     @ViewBuilder
     private var todaySection: some View {
+        // 放假 / 调休休息日已经有“今天放假…”的提示，不再重复一张“今天没有课”
+        if !(plan.courses.isEmpty && plan.note != nil) { todayCoursesSection }
+    }
+
+    @ViewBuilder
+    private var todayCoursesSection: some View {
         Section(header: Text("今日课程"), footer: coursesFooter) {
             if plan.courses.isEmpty {
                 StatusRow(systemImage: plan.note == nil ? "cup.and.saucer" : "sun.max", title: "今天没有课", subtitle: nil)
@@ -77,10 +83,12 @@ private struct HomeList: View {
 
     var body: some View {
         List {
-            Section {
+            // 日期行和大标题、卡片共用 A 线（左边缘）。放在分组标题里而不是列表行里：
+            // 列表行的圆角容器会把贴着左边缘的文字裁掉第一个字；分组标题没有这个问题，系统默认缩进到 B 线，这里往回挪一个 cardInset
+            Section {} header: {
                 DateHeader(plan: plan, termCalendar: snapshot.termCalendar)
-                    .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets())
+                    .padding(.leading, -GxuDesign.Layout.cardInset)
+                    .textCase(nil)
             }
 
             switch plan.phase {
@@ -139,10 +147,11 @@ private struct DateHeader: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(plan.date.formatted(.dateTime.month(.wide).day().weekday(.wide).locale(Locale(identifier: "zh_CN"))))
                 .font(.title3.weight(.semibold))
+                .foregroundStyle(Color.primary)
             if let week = plan.week {
                 Text("第 \(week) 周")
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.secondary)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -221,6 +230,7 @@ private struct EventCard: View {
         }
     }
 
+    /// 右上角：“什么时候”，只在这里说一次
     private var trailing: String {
         switch event {
         case .course(let item, true, _): RelativeTime.remaining(until: item.endsAt, now: now)
@@ -238,11 +248,12 @@ private struct EventCard: View {
 
     private var detail: String? {
         switch event {
+        // 右上角如果已经写了具体时刻（“明天 08:00”），这里就不再写时间；同一张卡片里同一个信息只出现一次
         case .course(let item, _, _):
-            [item.sectionText, item.timeRangeText, item.course.venueName, item.course.teacher].filter { !$0.isEmpty }.joined(separator: " · ")
+            [item.sectionText, RelativeTime.showsClock(in: trailing) ? "" : item.timeRangeText, item.course.venueName, item.course.teacher]
+                .filter { !$0.isEmpty }.joined(separator: " · ")
         case .exam(let item, _):
-            [item.date.map { $0.formatted(.dateTime.month().day().locale(Locale(identifier: "zh_CN"))) + " " + RelativeTime.clock($0) } ?? "",
-             item.exam.classroom, SeatText.text(item.exam.seat)].filter { !$0.isEmpty }.joined(separator: " · ")
+            [item.exam.classroom, item.exam.seatText, item.exam.type].filter { !$0.isEmpty }.joined(separator: " · ")
         }
     }
 }
@@ -295,7 +306,7 @@ private struct ExamRow: View {
 
     private var detail: String {
         let when = item.date.map { $0.formatted(.dateTime.month().day().weekday().locale(Locale(identifier: "zh_CN"))) + " " + RelativeTime.clock($0) } ?? item.exam.time
-        return [when, item.exam.classroom, SeatText.text(item.exam.seat)].filter { !$0.isEmpty }.joined(separator: " · ")
+        return [when, item.exam.classroom, item.exam.seatText].filter { !$0.isEmpty }.joined(separator: " · ")
     }
 }
 
@@ -311,14 +322,5 @@ private struct Tag: View {
             .padding(.horizontal, 6)
             .padding(.vertical, 1)
             .background(color.opacity(0.15), in: Capsule())
-    }
-}
-
-enum SeatText {
-    /// 纯数字写成“23 号座”；有别的写法（如 A12）写成“座位 A12”；没有座位号就不显示
-    static func text(_ seat: String) -> String {
-        let seat = seat.trimmingCharacters(in: .whitespaces)
-        if seat.isEmpty { return "" }
-        return seat.allSatisfy(\.isNumber) ? "\(seat) 号座" : "座位 \(seat)"
     }
 }

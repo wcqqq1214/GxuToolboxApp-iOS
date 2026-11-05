@@ -33,6 +33,11 @@ struct SettingsHomeView: View {
                     } label: {
                         accountLabel("考勤账号", state: services.accounts.states[.attendance])
                     }
+                    NavigationLink {
+                        AccountFeature.makeOAAccountView()
+                    } label: {
+                        accountLabel("OA 账号", state: services.accounts.states[.oa])
+                    }
                 }
 
                 Section("外观") {
@@ -50,6 +55,11 @@ struct SettingsHomeView: View {
 
                 Section("关于") {
                     LabeledContent("版本", value: appVersion)
+                    NavigationLink {
+                        AccountFeature.makeErrorLogView()
+                    } label: {
+                        Label("诊断日志", systemImage: "stethoscope")
+                    }
                     NavigationLink {
                         AccountFeature.makeFeedbackView()
                     } label: {

@@ -59,13 +59,10 @@ struct PracticeSection: View {
     var body: some View {
         if !courses.isEmpty {
             VStack(alignment: .leading, spacing: GxuDesign.Spacing.s) {
-                Text("实践课")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, GxuDesign.Spacing.s)
+                Text("实践课").gxuSectionHeader()
                 VStack(spacing: 0) {
                     ForEach(Array(courses.enumerated()), id: \.offset) { index, course in
-                        if index > 0 { Divider().padding(.leading, GxuDesign.Spacing.l) }
+                        if index > 0 { Divider().padding(.leading, GxuDesign.Layout.cardInset) }
                         HStack(spacing: GxuDesign.Spacing.m) {
                             Image(systemName: "wrench.and.screwdriver").foregroundStyle(.tint).frame(width: 24)
                             VStack(alignment: .leading, spacing: 2) {
@@ -75,13 +72,14 @@ struct PracticeSection: View {
                             }
                             Spacer(minLength: 0)
                         }
-                        .padding(GxuDesign.Spacing.m)
+                        .padding(.vertical, GxuDesign.Spacing.m)
+                        .padding(.horizontal, GxuDesign.Layout.cardInset)
                         .accessibilityElement(children: .combine)
                     }
                 }
                 .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: GxuDesign.Radius.card, style: .continuous))
             }
-            .padding(.horizontal, GxuDesign.Spacing.m)
+            .padding(.horizontal, GxuDesign.Layout.pageMargin)
             .padding(.top, GxuDesign.Spacing.l)
         }
     }

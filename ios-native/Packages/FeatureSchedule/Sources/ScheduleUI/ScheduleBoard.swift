@@ -76,13 +76,19 @@ struct ScheduleWeekTitle: View {
                 }
             }
         } label: {
+            // 标题和日期范围在同一条中轴线上：箭头做成 overlay，不占布局宽度，不会把文字挤偏
             VStack(spacing: 0) {
-                HStack(spacing: 3) {
-                    Text("第 \(model.selectedWeek) 周").font(.headline)
-                    Image(systemName: "chevron.down").font(.caption2.weight(.bold)).foregroundStyle(.secondary)
-                }
+                Text("第 \(model.selectedWeek) 周")
+                    .font(.headline)
+                    .overlay(alignment: .trailing) {
+                        Image(systemName: "chevron.down")
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(.secondary)
+                            .offset(x: 16)
+                    }
                 Text(model.subtitle()).font(.caption2).foregroundStyle(.secondary)
             }
+            .multilineTextAlignment(.center)
             .foregroundStyle(.primary)
         }
         .tint(.primary)

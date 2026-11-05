@@ -46,7 +46,7 @@ struct RootView: View {
                 ScheduleFeature.makeRootView(onRequestLogin: { selection = .settings }).gxuAccessoryInset()
             }
             Tab("工具箱", systemImage: "square.grid.2x2", value: AppTab.toolbox) {
-                ToolboxView().gxuAccessoryInset()
+                ToolboxView(onSelectTab: { selection = $0 }).gxuAccessoryInset()
             }
             Tab("设置", systemImage: "gearshape", value: AppTab.settings) {
                 SettingsHomeView().gxuAccessoryInset()

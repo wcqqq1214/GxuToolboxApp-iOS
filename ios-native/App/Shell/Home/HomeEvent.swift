@@ -53,6 +53,9 @@ enum RelativeTime {
         return start.formatted(.dateTime.month().day().locale(Locale(identifier: "zh_CN"))) + " " + time
     }
 
+    /// 文案里是否已经写了具体时刻（如“明天 08:00”“11月8日 08:00”）。相对时间（“12 分钟后”“还剩…”）不含时刻。
+    static func showsClock(in text: String) -> Bool { text.contains(":") }
+
     /// "还剩 25 分钟"
     static func remaining(until end: Date, now: Date) -> String {
         let minutes = max(Int(end.timeIntervalSince(now) / 60), 0)

@@ -21,6 +21,20 @@ public enum GxuDesign {
         public static let card: CGFloat = 16
     }
 
+    /// 页面水平对齐规则（所有页面共用，不要自己写边距数字）。两条线：
+    /// - **A 线（卡片边）**：大标题、卡片 / 色带 / 整行背景的左边缘，距屏幕 `pageMargin`；
+    /// - **B 线（内容边）**：分组标题、日期行、卡片里的文字和图标的左边缘 = A 线 + `cardInset`。
+    /// 系统 `List` / `Form` 自动遵守这两条线；自己用 `ScrollView` + `VStack` 拼的页面要用下面的常量或 `gxuSectionHeader()` / `ContentCard`。
+    public enum Layout {
+        /// A 线：页面左右边距，和系统 insetGrouped 列表的卡片边一致
+        public static let pageMargin: CGFloat = 16
+        /// A 线到 B 线的距离：系统列表行的内边距（iOS 26 是 20，更早的系统是 16）
+        public static var cardInset: CGFloat {
+            if #available(iOS 26, *) { return 20 }
+            return 16
+        }
+    }
+
     public enum Spacing {
         public static let xs: CGFloat = 4
         public static let s: CGFloat = 8

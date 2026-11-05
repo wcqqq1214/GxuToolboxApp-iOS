@@ -366,6 +366,25 @@ Phase 3 中 A 不依赖设计审查的部分已全部发布（`build.sh`、`buil
 - `/jw/evaluation` 没有真实样本：模型两种字段名都认（转换后的驼峰 / 教务原始 `jzgmc` …），TODO(verify)，**后续测试**。
 - 教师信息查询、关键流程 UI 测试、附录 A 验收：**尚未开始**。
 
+
+### [phase2-review-fixes] B（Agent B，回应 round-b-2 第 1、2 节和协调者补充）
+
+1. 首页日期行被裁：根因是 `listRowInsets` 设成 0，文字贴在行容器的圆角边缘被裁；日期行改放进分组标题，和大标题、卡片同一左边缘（A 线）。
+2. 全局对齐：`GxuDesign.Layout`（A 线 `pageMargin`、B 线 `cardInset`）、`.gxuSectionHeader()`、`ContentCard` 默认内边距；工具箱、课表实践课、导出页都改用它；规则写进 `GxuDesign/README.md`。
+3. 座位号统一“8 号”（`Exam.seatText`；ExamUI 的 `ExamInfoView` 也已改用，这是对 C 的包的一处小改）。
+4. 课程块去掉左侧竖线（课表、班级课表、分享图片）；深色色彩保留。
+5. 课程块字号：课程名 `.caption`，教室 / 教师 `.caption2`。
+6. 不重复显示时间：附件和首页“接下来”卡片右侧写了具体时刻时左侧不再写时间；放假 / 调休休息日不再显示“今天没有课”。
+7. 时间列同时显示上课、下课时间；**第 9、10 节显示层合并成“9-10”一行（18:10–19:30），共 12 行**（`PeriodRows`，有测试；`ClassPeriods` 数据和计算逻辑不变）。课程块和当前时间线按行对齐；只占第 9 或第 10 节的课进同一行，同行重叠的课并排分栏。分享图片、班级课表同样。
+8. 课表标题“第 N 周 ⌄”：箭头改 overlay，文字和日期范围在同一中轴线。
+9. 假期色带上不再叠今天列底色，只保留表头高亮。
+10. 工具箱按 RN 重排（信息查询 / 实践课 / 通知 / 教学评价 / 其他）；移除 GPA 计算（成绩页保留入口）、已选课程、校园网充值；调课信息、选课课程列表暂不放；“课表”入口切到课表标签；“导出课表”进入新的导出页面；学校文件接 `makeOAFilesView()`；设置页挂 OA 账号、诊断日志。
+11. 未上线项（教师信息查询、物理实验课、金工实训、期末学生评价、地图导航、教学楼平面图）照常显示“即将上线”。
+
+截图（浅色 + 深色，把 `light` 换成 `dark`）：`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/home-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/holiday-week-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/schedule-practice-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/class-detail-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/share-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/toolbox-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/settings2-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/export-schedule-light.png`。
+
+**还没做：** Phase 3（物理实验课 / 金工实训、地图导航、教学楼平面图、全局打磨）一项都没开始。
+
 ## Agent A 收到的请求
 
 - [x] (C) `scripts/test.sh` 硬编码 scheme 为 `<Pkg>-Package`，但只有一个 library product 的 package（如 FeatureExam）scheme 就叫 `<Pkg>`，会报 "does not contain a scheme"。请让脚本先 `xcodebuild -list` 判断，或两个名字都试。我暂时直接用 `xcodebuild -scheme FeatureExam ... test`
@@ -381,8 +400,8 @@ Phase 3 中 A 不依赖设计审查的部分已全部发布（`build.sh`、`buil
 
 ## Agent B 收到的请求
 
-- [ ] (A → B，Phase 3) 设置页「关于」里挂上"诊断日志"：`NavigationLink { AccountFeature.makeErrorLogView() }`。用法见公告「错误日志已就绪」。
-- [ ] (A → B，Phase 3) ① 工具箱 `oaFiles` 一行接入 `AccountFeature.makeOAFilesView()`；② 设置页账号区挂上"OA 账号"：`NavigationLink { AccountFeature.makeOAAccountView() }`。用法见公告「OA 文件 / OA 账号 / 问卷系统（wjxt）已就绪」。
+- [x] (A → B，Phase 3) 设置页「关于」里挂上"诊断日志"（B 已挂）：`NavigationLink { AccountFeature.makeErrorLogView() }`。用法见公告「错误日志已就绪」。
+- [x] (A → B，Phase 3) ① 工具箱 `oaFiles`（B 已接，现名“学校文件”；设置页已挂 OA 账号） 一行接入 `AccountFeature.makeOAFilesView()`；② 设置页账号区挂上"OA 账号"：`NavigationLink { AccountFeature.makeOAAccountView() }`。用法见公告「OA 文件 / OA 账号 / 问卷系统（wjxt）已就绪」。
 - [x] (A → B，可选，等用户决定装不装 iOS 18 runtime 之前的替代方案) 本机装不到 iOS 18 runtime（Xcode 27.2 目录里没有）。请在 GxuDesign 里加一个 DEBUG 开关（例如启动参数 `-GxuForceLegacyGlass`），让所有 `if #available(iOS 26, *)` 的玻璃封装强制走降级（Material）分支，这样可以在 iOS 27 模拟器上先审查降级外观。只能发现样式问题，不能替代真 runtime。 B 已完成：`-GxuForceLegacy`（不是 `-GxuForceLegacyGlass`），见公告「DEBUG 开关 `-GxuForceLegacy`」，并修了一个 iOS 18 附件盖住标签栏的问题。
 - [x] (A → B，用户决定) 从 `ToolboxCatalog` 删除 `空教室`（`emptyClassroom`）一行，它不在附录 A 和 RN 的 `src` 里。 B 已完成：已删除。
 - [x] (A → B) 设置页账号区请再挂上"统一认证账号"：`NavigationLink { AccountFeature.makeUnifiedAccountView() }`；PEC / 工程训练中心用法见公告「CA 统一认证 / PEC / 工程训练中心已就绪」。 B 已完成：已挂。

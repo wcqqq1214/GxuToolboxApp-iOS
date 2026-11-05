@@ -28,7 +28,7 @@ struct NextEventAccessory: View {
             Image(systemName: icon(event)).foregroundStyle(.tint)
             VStack(alignment: .leading, spacing: 0) {
                 Text(title(event)).font(.subheadline.weight(.semibold)).lineLimit(1)
-                if !compact { Text(detail(event)).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
+                if !compact { Text(detail(event, now: now)).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
             }
             Spacer(minLength: GxuDesign.Spacing.s)
             Text(trailing(event, now: now))
@@ -52,12 +52,14 @@ struct NextEventAccessory: View {
         }
     }
 
-    private func detail(_ event: HomeEvent) -> String {
+    private func detail(_ event: HomeEvent, now: Date) -> String {
         switch event {
+        // 右侧已经写了具体时刻时（“明天 09:00”），左侧不再重复时间
         case .course(let item, _, _):
-            [item.timeRangeText, item.course.venueName].filter { !$0.isEmpty }.joined(separator: " · ")
+            [RelativeTime.showsClock(in: trailing(event, now: now)) ? "" : item.timeRangeText, item.course.venueName]
+                .filter { !$0.isEmpty }.joined(separator: " · ")
         case .exam(let item, _):
-            [item.date.map(RelativeTime.clock) ?? "", item.exam.classroom].filter { !$0.isEmpty }.joined(separator: " · ")
+            [item.exam.classroom, item.exam.seatText].filter { !$0.isEmpty }.joined(separator: " · ")
         }
     }
 
