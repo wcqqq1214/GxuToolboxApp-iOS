@@ -13,8 +13,10 @@ public enum SnapshotProvider {
               let start = TermResolver.current(in: days, now: now, calendar: calendar)
         else { return .empty(.missingStartDay, now: now) }
         let cached = try? await repo.cachedSchedule(studentId: studentId, term: start.academicTerm)
+        // 带上节假日 / 调课，否则下一节课会漏掉补班、多出放假日的课
+        let campus = await CampusCalendarRepository(database: database).current()
         return NextCourseCalculator.compute(
-            schedule: cached?.schedule, term: TermCalendar(start, calendar: calendar), now: now
+            schedule: cached?.schedule, term: TermCalendar(start, calendar: calendar), campus: campus, now: now
         )
     }
 }

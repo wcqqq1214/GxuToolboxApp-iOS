@@ -5,10 +5,11 @@ import ScheduleKit
 /// "某一天有什么课"：App Intent 用的查询与口语化文案。
 public enum ScheduleQuery {
     public static func courses(
-        on day: Date, schedule: Schedule, term: TermCalendar
+        on day: Date, schedule: Schedule, term: TermCalendar, campus: CampusCalendar = .empty
     ) -> [WidgetCourse] {
         let start = term.calendar.startOfDay(for: day)
-        return ScheduleExpander.occurrences(of: schedule, in: term)
+        let all = CalendarOverlay.apply(to: ScheduleExpander.occurrences(of: schedule, in: term), calendar: campus, term: term).occurrences
+        return all
             .filter { $0.date == start }
             .map { WidgetCourse($0, calendar: term.calendar) }
     }
@@ -27,7 +28,8 @@ public enum ScheduleQuery {
               let term = TermCalendar(start, calendar: calendar)
         else { throw Failure.noTermCalendar }
         guard let cached = try? await repo.cachedSchedule(studentId: studentId, term: start.academicTerm) else { throw Failure.noSchedule }
-        return courses(on: day, schedule: cached.schedule, term: term)
+        let campus = await CampusCalendarRepository(database: database).current()
+        return courses(on: day, schedule: cached.schedule, term: term, campus: campus)
     }
 
     /// "今天有 3 节课：08:00 高等数学（西3-406）；……"
