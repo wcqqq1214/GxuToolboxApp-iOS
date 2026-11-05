@@ -1,0 +1,119 @@
+{
+ "baseURL": "https://file.unde.site/GxuToolApp/resource/img/plan_view/",
+ "buildings": [
+  {
+   "id": "erjiao",
+   "name": "第二教学楼",
+   "floors": [
+    {
+     "id": "1",
+     "name": "1层楼层图",
+     "image": "2/2-1.webp"
+    },
+    {
+     "id": "2-4",
+     "name": "2~4层楼层图",
+     "image": "2/2-2~4.webp"
+    },
+    {
+     "id": "5-6",
+     "name": "5~6层楼层图",
+     "image": "2/2-5~6.webp"
+    },
+    {
+     "id": "7",
+     "name": "7层楼层图",
+     "image": "2/2-7.webp"
+    }
+   ]
+  },
+  {
+   "id": "sanjiao",
+   "name": "第三教学楼",
+   "floors": [
+    {
+     "id": "1",
+     "name": "1~2层楼层图",
+     "image": "3/3-1~2.webp"
+    },
+    {
+     "id": "3-6",
+     "name": "3~6层楼层图",
+     "image": "3/3-3~6.webp"
+    },
+    {
+     "id": "7",
+     "name": "7层楼层图",
+     "image": "3/3-7.webp"
+    }
+   ]
+  },
+  {
+   "id": "liujiao",
+   "name": "第六教学楼",
+   "floors": [
+    {
+     "id": "all",
+     "name": "总楼层图",
+     "image": "6/6-all.webp"
+    },
+    {
+     "id": "1",
+     "name": "1楼",
+     "image": "6/6-1.webp"
+    },
+    {
+     "id": "2",
+     "name": "2楼",
+     "image": "6/6-2.webp"
+    },
+    {
+     "id": "3",
+     "name": "3楼",
+     "image": "6/6-3.webp"
+    },
+    {
+     "id": "4",
+     "name": "4楼",
+     "image": "6/6-4.webp"
+    },
+    {
+     "id": "5",
+     "name": "5楼",
+     "image": "6/6-5.webp"
+    },
+    {
+     "id": "6",
+     "name": "6楼",
+     "image": "6/6-6.webp"
+    }
+   ]
+  },
+  {
+   "id": "shijiao",
+   "name": "第十教学楼",
+   "floors": [
+    {
+     "id": "A1",
+     "name": "A区1层",
+     "image": "10/10-A1.webp"
+    },
+    {
+     "id": "A2",
+     "name": "A区2层",
+     "image": "10/10-A2.webp"
+    },
+    {
+     "id": "B23",
+     "name": "B区2~3平面图",
+     "image": "10/10B-2~3.webp"
+    },
+    {
+     "id": "B46",
+     "name": "B区4~6平面图",
+     "image": "10/10B-4~6.webp"
+    }
+   ]
+  }
+ ]
+}

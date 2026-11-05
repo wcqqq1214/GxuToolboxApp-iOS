@@ -39,6 +39,14 @@ public enum CampusFeature {
     @MainActor
     public static func makeEngTrainingView() -> some View { EngTrainingView() }
 
+    /// 工具箱 → 地图导航
+    @MainActor
+    public static func makeMapNavigationView() -> some View { MapNavigationView() }
+
+    /// 工具箱 → 教学楼平面图
+    @MainActor
+    public static func makeTeachBuildingMapView() -> some View { TeachBuildingListView() }
+
     @MainActor
     public static func makeRootView() -> some View { makeClassScheduleView() }
 }

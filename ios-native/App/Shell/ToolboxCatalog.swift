@@ -71,8 +71,8 @@ enum ToolboxCatalog {
         // 教学评价
         item("evaluation", "期末学生评价", "text.badge.checkmark", .evaluation),
         // 其他
-        item("campusMap", "地图导航", "map", .other),
+        item("campusMap", "地图导航", "map", .other, .push { AnyView(CampusFeature.makeMapNavigationView()) }),
         item("fullSchedule", "全校实时课表", "building.columns", .other, .push { AnyView(CampusFeature.makeFullScheduleView()) }),
-        item("floorPlan", "教学楼平面图", "building.2.crop.circle", .other),
+        item("floorPlan", "教学楼平面图", "building.2.crop.circle", .other, .push { AnyView(CampusFeature.makeTeachBuildingMapView()) }),
     ]
 }

@@ -15,7 +15,7 @@ let package = Package(
             .product(name: "GxuDesign", package: "GxuDesign"),
             .product(name: "ScheduleKit", package: "FeatureSchedule"),
             .product(name: "ScheduleUI", package: "FeatureSchedule"),
-        ]),
+        ], resources: [.copy("Resources/campus-places.json"), .copy("Resources/teach-buildings.json")]),
         .testTarget(
             name: "FeatureCampusTests",
             dependencies: ["FeatureCampus", .product(name: "GxuTestSupport", package: "GxuCore")],
