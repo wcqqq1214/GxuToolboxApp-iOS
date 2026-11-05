@@ -38,20 +38,21 @@ struct RootView: View {
     var body: some View {
         TabView(selection: $selection) {
             Tab("今天", systemImage: "sun.horizon", value: AppTab.home) {
-                HomeView(model: home, onRequestLogin: { selection = .settings })
+                HomeView(model: home, onRequestLogin: { selection = .settings }).gxuAccessoryInset()
             }
             Tab("课表", systemImage: "calendar", value: AppTab.schedule) {
-                ScheduleFeature.makeRootView(onRequestLogin: { selection = .settings })
+                ScheduleFeature.makeRootView(onRequestLogin: { selection = .settings }).gxuAccessoryInset()
             }
             Tab("工具箱", systemImage: "square.grid.2x2", value: AppTab.toolbox) {
-                ToolboxView()
+                ToolboxView().gxuAccessoryInset()
             }
             Tab("设置", systemImage: "gearshape", value: AppTab.settings) {
-                SettingsHomeView()
+                SettingsHomeView().gxuAccessoryInset()
             }
         }
         .gxuTabBarMinimizeOnScroll()
-        .gxuTabAccessory(isEnabled: home.phase == .ready) { NextEventAccessory(model: home) }
+        // “今天”页本身已经展示下一件事，附件只在其他标签出现
+        .gxuTabAccessory(isEnabled: home.phase == .ready && selection != .home) { NextEventAccessory(model: home) }
         .gxuTheme(theme)
         .environment(preferences)
         .task(id: AccountKey(studentId: services.accounts.studentId, state: services.accounts.states[.jw])) {

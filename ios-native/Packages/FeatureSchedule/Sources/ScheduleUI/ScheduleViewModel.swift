@@ -89,6 +89,19 @@ final class ScheduleViewModel {
         await refresh()
     }
 
+    /// 只读展示一份现成的课表（班级课表等）：不联网、不读写本地数据
+    func loadStatic(schedule: Schedule, termCalendar: TermCalendar, campus: CampusCalendar) {
+        self.schedule = schedule
+        self.termCalendar = termCalendar
+        self.campusCalendar = campus
+        activities = []
+        choices = [:]
+        rebuildIndex()
+        recolor()
+        selectedWeek = termCalendar.clampedWeek(at: .now)
+        phase = .content
+    }
+
     /// 回到前台时调用：距上次刷新不到 `minimumInterval` 秒就不再请求
     func refreshIfStale(minimumInterval: TimeInterval = 30) async {
         guard phase == .content else { return }

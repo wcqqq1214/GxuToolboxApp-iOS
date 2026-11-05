@@ -13,7 +13,6 @@ public struct ScheduleRootView: View {
     @State private var showActivityList = false
     @Environment(SchedulePreferencesStore.self) private var preferences
     @Environment(\.scenePhase) private var scenePhase
-    @Namespace private var glassNamespace
     private let onRequestLogin: @MainActor () -> Void
 
     public init(onRequestLogin: @escaping @MainActor () -> Void = {}) {
@@ -86,82 +85,20 @@ public struct ScheduleRootView: View {
         case .failed(let message):
             GxuErrorView(message) { Task { await model.refresh() } }
         case .content:
-            VStack(spacing: 0) {
-                WeekHeader(week: model.selectedWeek, termCalendar: model.termCalendar, makeupDays: model.makeupDays(inWeek: model.selectedWeek))
-                pager
-            }
+            ScheduleBoard(model: model) { detail = $0 }
                 .safeAreaInset(edge: .top, spacing: 0) {
                     if model.refreshError != nil {
                         GxuStaleBanner(updatedAt: model.updatedAt, message: model.refreshError?.userMessage)
                     }
                 }
-                .overlay(alignment: .bottom) { weekControls }
         }
     }
 
-    /// 横向分页。不用 `TabView(.page)`：它的 UIKit 容器会让内部滚动视图重复计算顶部安全区。
-    private var pager: some View {
-        ScrollView(.horizontal) {
-            LazyHStack(spacing: 0) {
-                ForEach(1...model.weekCount, id: \.self) { week in
-                    WeekGridView(week: week, model: model) { detail = $0 }
-                        .containerRelativeFrame(.horizontal)
-                        .id(week)
-                }
-            }
-            .scrollTargetLayout()
-        }
-        .scrollTargetBehavior(.paging)
-        .scrollPosition(id: weekPosition)
-        .scrollIndicators(.hidden)
-        .ignoresSafeArea(.container, edges: .bottom)
-    }
-
-    private var weekPosition: Binding<Int?> {
-        Binding(
-            get: { model.selectedWeek },
-            set: { if let week = $0 { model.selectedWeek = week } }
-        )
-    }
-
-    /// 浮动玻璃控件。“回到本周”只在离开本周时出现，并与两侧按钮一起变形。
-    private var weekControls: some View {
-        GlassGroup(spacing: GxuDesign.Spacing.m) {
-            HStack(spacing: GxuDesign.Spacing.m) {
-                GlassButton(systemImage: "chevron.left", accessibilityLabel: "上一周") { moveWeek(-1) }
-                    .disabled(model.selectedWeek <= 1)
-                    .gxuGlassID("previous", in: glassNamespace)
-                if !model.isViewingCurrentWeek {
-                    GlassButton("本周", systemImage: "arrow.uturn.backward", prominent: true) { select(model.currentWeek) }
-                        .gxuGlassID("current", in: glassNamespace)
-                }
-                GlassButton(systemImage: "chevron.right", accessibilityLabel: "下一周") { moveWeek(1) }
-                    .disabled(model.selectedWeek >= model.weekCount)
-                    .gxuGlassID("next", in: glassNamespace)
-            }
-        }
-        .padding(.bottom, GxuDesign.Spacing.m)
-        .animation(.smooth, value: model.isViewingCurrentWeek)
-    }
 
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
         ToolbarItem(placement: .principal) {
-            if model.phase == .content {
-                Menu {
-                    Picker("跳转到", selection: $model.selectedWeek) {
-                        ForEach(1...model.weekCount, id: \.self) { Text("第 \($0) 周").tag($0) }
-                    }
-                } label: {
-                    VStack(spacing: 0) {
-                        Text("第 \(model.selectedWeek) 周").font(.headline)
-                        Text(model.subtitle()).font(.caption2).foregroundStyle(.secondary)
-                    }
-                    .foregroundStyle(.primary)
-                }
-                .tint(.primary)
-                .accessibilityLabel("第 \(model.selectedWeek) 周，\(model.subtitle())，选择周次")
-            }
+            if model.phase == .content { ScheduleWeekTitle(model: model) }
         }
         ToolbarItem(placement: .topBarLeading) {
             if model.phase == .content {
@@ -224,12 +161,6 @@ public struct ScheduleRootView: View {
             activity: CustomActivity(name: "", weekday: min(max(model.termCalendar?.weekday(of: .now) ?? 1, 1), 7), weekFrom: week, weekTo: week, colorHex: preferences.value.palette.colors.randomElement() ?? 0xB5EAD7),
             isNew: true
         )
-    }
-
-    private func moveWeek(_ delta: Int) { select(model.selectedWeek + delta) }
-
-    private func select(_ week: Int) {
-        withAnimation(.smooth) { model.selectedWeek = min(max(week, 1), model.weekCount) }
     }
 }
 

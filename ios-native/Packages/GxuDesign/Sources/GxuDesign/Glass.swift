@@ -29,13 +29,23 @@ public extension View {
 
     /// 标签栏上方的常驻附件（例如“下一节课”）。`isEnabled` 为 false 时不显示（iOS 26.1+；26.0 和 18 降级为不放内容）。
     /// 标签栏收起时（iOS 26 的 inline 位置）空间很窄，附件里用 `@Environment(\.gxuAccessoryCompact)` 判断并精简内容。
-    /// iOS 18 降级为贴在底部的材质条。
+    /// iOS 18 降级为贴在标签栏上方的材质条：**每个标签页的内容都要加 `.gxuAccessoryInset()`**（iOS 26 上它什么都不做）。
+    /// 配合 `gxuTabAccessory` 的 iOS 18 降级：放在每个标签页内容上，附件显示在标签栏上方。
+    func gxuAccessoryInset() -> some View {
+        modifier(LegacyAccessoryInsetModifier())
+    }
+
     func gxuTabAccessory<Accessory: View>(isEnabled: Bool = true, @ViewBuilder _ accessory: () -> Accessory) -> some View {
         modifier(TabAccessoryModifier(isEnabled: isEnabled, accessory: accessory()))
     }
 }
 
 extension EnvironmentValues {
+    @Entry var gxuLegacyAccessory: AnyView? = nil
+
+    /// iOS 18 降级附件的高度（没有附件或 iOS 26 为 0）。贴着底部的浮动控件要把它加进底部间距，否则会被附件盖住
+    @Entry public var gxuAccessoryHeight: CGFloat = 0
+
     /// 底部附件处于收起（inline）位置，只有很窄的空间
     @Entry public var gxuAccessoryCompact: Bool = false
 }
@@ -45,14 +55,12 @@ private struct GlassModifier<S: InsettableShape>: ViewModifier {
     let tint: Color?
     let interactive: Bool
 
+    @ViewBuilder
     func body(content: Content) -> some View {
-        if #available(iOS 26, *) {
-            var glass = Glass.regular
-            if let tint { glass = glass.tint(tint) }
-            if interactive { glass = glass.interactive() }
-            return content.glassEffect(glass, in: shape)
+        if GxuDesign.useModernGlass, #available(iOS 26, *) {
+            content.glassEffect(glassStyle, in: shape)
         } else {
-            return content
+            content
                 .background {
                     shape.fill(.regularMaterial)
                     if let tint { shape.fill(tint.opacity(0.35)) }
@@ -61,6 +69,14 @@ private struct GlassModifier<S: InsettableShape>: ViewModifier {
                 .shadow(color: .black.opacity(0.08), radius: 8, y: 2)
         }
     }
+
+    @available(iOS 26, *)
+    private var glassStyle: Glass {
+        var glass = Glass.regular
+        if let tint { glass = glass.tint(tint) }
+        if interactive { glass = glass.interactive() }
+        return glass
+    }
 }
 
 private struct GlassIDModifier<ID: Hashable & Sendable>: ViewModifier {
@@ -68,7 +84,7 @@ private struct GlassIDModifier<ID: Hashable & Sendable>: ViewModifier {
     let namespace: Namespace.ID
 
     func body(content: Content) -> some View {
-        if #available(iOS 26, *) {
+        if GxuDesign.useModernGlass, #available(iOS 26, *) {
             content.glassEffectID(id, in: namespace)
         } else {
             content
@@ -78,7 +94,7 @@ private struct GlassIDModifier<ID: Hashable & Sendable>: ViewModifier {
 
 private struct TabBarMinimizeModifier: ViewModifier {
     func body(content: Content) -> some View {
-        if #available(iOS 26, *) {
+        if GxuDesign.useModernGlass, #available(iOS 26, *) {
             content.tabBarMinimizeBehavior(.onScrollDown)
         } else {
             content
@@ -91,19 +107,34 @@ private struct TabAccessoryModifier<Accessory: View>: ViewModifier {
     let accessory: Accessory
 
     func body(content: Content) -> some View {
-        if #available(iOS 26.1, *) {
+        if GxuDesign.useModernGlass, #available(iOS 26.1, *) {
             content.tabViewBottomAccessory(isEnabled: isEnabled) { AccessoryHost(content: accessory) }
-        } else if #available(iOS 26, *) {
+        } else if GxuDesign.useModernGlass, #available(iOS 26, *) {
             content.tabViewBottomAccessory { AccessoryHost(content: isEnabled ? accessory : nil) }
-        } else if isEnabled {
-            content.safeAreaInset(edge: .bottom, spacing: 0) {
-                accessory
-                    .frame(maxWidth: .infinity)
-                    .background(.bar)
-            }
         } else {
-            content
+            // iOS 18：没有系统附件。把内容交给环境，由各标签页内容用 `.gxuAccessoryInset()` 放在标签栏上方
+            // （直接给 TabView 加 safeAreaInset 会盖住标签栏）
+            content.environment(\.gxuLegacyAccessory, isEnabled ? AnyView(accessory) : nil)
         }
+    }
+}
+
+private struct LegacyAccessoryInsetModifier: ViewModifier {
+    @Environment(\.gxuLegacyAccessory) private var accessory
+    @State private var height: CGFloat = 0
+
+    func body(content: Content) -> some View {
+        content
+            .environment(\.gxuAccessoryHeight, accessory == nil ? 0 : height)
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                if let accessory {
+                    accessory
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, GxuDesign.Spacing.s)
+                        .background(.bar)
+                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height = $0 }
+                }
+            }
     }
 }
 
@@ -128,7 +159,7 @@ public struct GlassGroup<Content: View>: View {
     }
 
     public var body: some View {
-        if #available(iOS 26, *) {
+        if GxuDesign.useModernGlass, #available(iOS 26, *) {
             GlassEffectContainer(spacing: spacing) { content }
         } else {
             content

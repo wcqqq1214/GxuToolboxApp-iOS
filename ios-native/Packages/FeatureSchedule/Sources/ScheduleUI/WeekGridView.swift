@@ -13,6 +13,7 @@ struct WeekGridView: View {
     static let headerHeight: CGFloat = 54
 
     @State private var position = ScrollPosition(edge: .top)
+    @Environment(\.gxuAccessoryHeight) private var accessoryHeight
 
     var body: some View {
         ScrollView {
@@ -21,7 +22,7 @@ struct WeekGridView: View {
         }
         .scrollPosition($position)
         .onAppear(perform: scrollToNow)
-        .contentMargins(.bottom, 96, for: .scrollContent)   // 给浮动控件留位置
+        .contentMargins(.bottom, 96 + accessoryHeight, for: .scrollContent)   // 给浮动控件留位置
         .scrollIndicators(.hidden)
         .refreshable { await model.refresh() }
         // 网格是定高布局，限制字体放大范围避免文字溢出课程块

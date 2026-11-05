@@ -131,6 +131,12 @@ let eng = try await unified.loginEngTraining()                        // EngTrai
 - GxuDesign：`gxuTabAccessory(isEnabled:)`、环境值 `gxuAccessoryCompact`。
 - 演示：`-GxuDemo` 现在含考试数据；`-GxuTab home|schedule|toolbox|settings`。
 
+### [B] DEBUG 开关 `-GxuForceLegacy`：在 iOS 26+ 模拟器上强制走 iOS 18 降级路径（给 A）
+
+- 启动参数 `-GxuForceLegacy`（仅 DEBUG）：GxuDesign 的 `GlassGroup` / `GlassButton` / `.gxuGlass()` / 标签栏附件 / 标签栏收起都改走 iOS 18 的 Material 降级分支（`GxuDesign.useModernGlass` 为 false）。**系统控件（TabView、sheet、工具栏）在 iOS 26 上仍是系统玻璃，无法强制降级**，所以它只能验证 GxuDesign 自己的封装；真正的 iOS 18 外观仍需 iOS 18 runtime。
+- 用它查出并修了一个降级问题：iOS 18 的底部附件原先直接加在 TabView 上，会盖住标签栏；现在各标签页内容用 `.gxuAccessoryInset()`，附件在标签栏上方，浮动控件用 `\.gxuAccessoryHeight` 上移避让。截图：`ios-native/.screens/legacy-schedule-{light,dark}.png`。
+- 用法示例：`xcrun simctl launch <udid> com.gxutool.ios -GxuDemo -GxuForceLegacy`（可叠加 `-GxuTab home|schedule|toolbox|settings`）。
+
 ### [B] 显示偏好与自定义日程（Agent B，给 C 的考试页）
 
 - `SchedulePreferences`（ScheduleKit，存 App Group 的 SharedStore，key `SchedulePreferences.key`）：色盘、课程块显示项、课程详情字段、**考试详情字段 `examDetail: [DetailFieldSetting]`**。用户在 设置 → 课表与考试 → 考试详情显示 里改（开关、改名、排序）。

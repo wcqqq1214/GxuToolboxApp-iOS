@@ -47,6 +47,33 @@ private struct HomeList: View {
     let now: Date
 
     private var plan: TodayPlan { snapshot.todayPlan(now: now) }
+    private var event: HomeEvent? { HomeEvent.pick(plan: plan, exams: model.exams, now: now) }
+    /// 正在上或还没上的课
+    private var remaining: [CourseOccurrence] { plan.courses.filter { plan.status(of: $0, now: now) != .finished } }
+    private var finished: [CourseOccurrence] { plan.courses.filter { plan.status(of: $0, now: now) == .finished } }
+
+    /// 今日课程：没上完的直接列出；上完的折叠起来，全部结束时给一句明确的状态
+    @ViewBuilder
+    private var todaySection: some View {
+        Section(header: Text("今日课程"), footer: coursesFooter) {
+            if plan.courses.isEmpty {
+                StatusRow(systemImage: plan.note == nil ? "cup.and.saucer" : "sun.max", title: "今天没有课", subtitle: nil)
+            } else {
+                if remaining.isEmpty {
+                    StatusRow(systemImage: "checkmark.circle", title: "今天的课已结束", subtitle: "共 \(plan.courses.count) 节课")
+                }
+                ForEach(remaining) { item in
+                    CourseRow(item: item, status: plan.status(of: item, now: now), colors: model.colors)
+                }
+                if !finished.isEmpty {
+                    DisclosureGroup("已结束的课（\(finished.count)）") {
+                        ForEach(finished) { item in CourseRow(item: item, status: .finished, colors: model.colors) }
+                    }
+                    .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
 
     var body: some View {
         List {
@@ -67,34 +94,27 @@ private struct HomeList: View {
                 }
             case .inTerm:
                 if let note = plan.note { Section { NoteRow(note: note) } }
-                if let event = HomeEvent.pick(plan: plan, exams: model.exams, now: now) {
-                    Section("接下来") { EventCard(event: event, now: now, colors: model.colors) }
-                }
-                Section(header: Text("今日课程"), footer: coursesFooter) {
-                    if plan.courses.isEmpty {
-                        StatusRow(
-                            systemImage: plan.note == nil ? "cup.and.saucer" : "sun.max",
-                            title: plan.note == nil ? "今天没有课" : "今天没有课",
-                            subtitle: nil
-                        )
-                    } else {
-                        ForEach(plan.courses) { item in
-                            CourseRow(item: item, status: plan.status(of: item, now: now), colors: model.colors)
-                        }
-                    }
-                }
+                if let event = event { Section("接下来") { EventCard(event: event, now: now, colors: model.colors) } }
+                todaySection
                 if !plan.tomorrow.isEmpty {
                     Section("明天") {
                         ForEach(plan.tomorrow) { item in
                             CourseRow(item: item, status: .upcoming, colors: model.colors)
                         }
                     }
+                } else if remaining.isEmpty {
+                    Section("明天") { StatusRow(systemImage: "cup.and.saucer", title: "明天没有课", subtitle: nil) }
                 }
             }
 
-            if !model.exams.isEmpty {
+            // 已经在“接下来”里展示的那场考试不再重复
+            let otherExams = model.exams.filter { exam in
+                if case .exam(let shown, _) = event { return shown.id != exam.id }
+                return true
+            }
+            if !otherExams.isEmpty {
                 Section("近期考试") {
-                    ForEach(model.exams) { ExamRow(item: $0, now: now) }
+                    ForEach(otherExams) { ExamRow(item: $0, now: now) }
                 }
             }
         }
@@ -126,7 +146,6 @@ private struct DateHeader: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, GxuDesign.Spacing.s)
         .accessibilityElement(children: .combine)
     }
 }
@@ -161,7 +180,7 @@ private struct StatusRow: View {
                 if let subtitle { Text(subtitle).font(.footnote).foregroundStyle(.secondary) }
             }
         } icon: {
-            Image(systemName: systemImage)
+            Image(systemName: systemImage).frame(width: 28)
         }
         .foregroundStyle(.secondary)
         .padding(.vertical, 4)
@@ -223,7 +242,7 @@ private struct EventCard: View {
             [item.sectionText, item.timeRangeText, item.course.venueName, item.course.teacher].filter { !$0.isEmpty }.joined(separator: " · ")
         case .exam(let item, _):
             [item.date.map { $0.formatted(.dateTime.month().day().locale(Locale(identifier: "zh_CN"))) + " " + RelativeTime.clock($0) } ?? "",
-             item.exam.classroom, item.exam.seat.isEmpty ? "" : "座位 \(item.exam.seat)"].filter { !$0.isEmpty }.joined(separator: " · ")
+             item.exam.classroom, SeatText.text(item.exam.seat)].filter { !$0.isEmpty }.joined(separator: " · ")
         }
     }
 }
@@ -276,7 +295,7 @@ private struct ExamRow: View {
 
     private var detail: String {
         let when = item.date.map { $0.formatted(.dateTime.month().day().weekday().locale(Locale(identifier: "zh_CN"))) + " " + RelativeTime.clock($0) } ?? item.exam.time
-        return [when, item.exam.classroom, item.exam.seat.isEmpty ? "" : "座位 \(item.exam.seat)"].filter { !$0.isEmpty }.joined(separator: " · ")
+        return [when, item.exam.classroom, SeatText.text(item.exam.seat)].filter { !$0.isEmpty }.joined(separator: " · ")
     }
 }
 
@@ -292,5 +311,14 @@ private struct Tag: View {
             .padding(.horizontal, 6)
             .padding(.vertical, 1)
             .background(color.opacity(0.15), in: Capsule())
+    }
+}
+
+enum SeatText {
+    /// 纯数字写成“23 号座”；有别的写法（如 A12）写成“座位 A12”；没有座位号就不显示
+    static func text(_ seat: String) -> String {
+        let seat = seat.trimmingCharacters(in: .whitespaces)
+        if seat.isEmpty { return "" }
+        return seat.allSatisfy(\.isNumber) ? "\(seat) 号座" : "座位 \(seat)"
     }
 }
