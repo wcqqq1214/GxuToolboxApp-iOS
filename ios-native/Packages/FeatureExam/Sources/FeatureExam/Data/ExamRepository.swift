@@ -154,7 +154,7 @@ public struct ExamRepository: Sendable {
         guard !items.isEmpty else { return }
         let json = String(decoding: try JSONEncoder().encode(items), as: UTF8.self)
         try await database.writer.write { db in
-            try ScoreRecord
+            _ = try ScoreRecord
                 .filter(Column("studentId") == studentId && Column("id") == scoreId)
                 .updateAll(db, Column("usualScoreJSON").set(to: json))
         }

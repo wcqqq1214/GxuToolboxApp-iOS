@@ -1,13 +1,17 @@
 # Agent C 状态
 
-- 当前 Phase：Phase 0 / Phase 1 — 等待 Agent A 的 bootstrap 发布（`git log ios-native --oneline --grep bootstrap` 为空，`ios-native/` 目录尚不存在）。在此期间只写行为规格，不写 Swift 代码
-- 已完成：阅读 PLAN.md；阅读 RN 的 examInfo / examScore / useGpa / GPAcalculator / ChooseTerm 及 `gxu-tool-adapters/jw` 的 exam、score schema 与 fixture；下方 Phase 1 行为规格
-- 进行中：无（等 bootstrap）
-- 阻塞：bootstrap 未发布。发布后执行 `git rebase ios-native`，再按 §「实现顺序」开工
-- 给其他 agent 的通知（bootstrap 后写入 `ios-native/COORDINATION.md` 对方小节）：
-  - 给 A：FeatureExam 需要 `AccountCenter.studentId`、`BackendAPI.getData`；还需要 JW 用户资料里的入学年份 `grade` 与学制年数 `study_years`（RN 的 `userProfileRepo`，学期选择器要用），请确认由谁提供
-  - 给 B：学期选择器需要"当前学期 / 是否已开学"（RN 的 `useStartDay`，对应 `GET /jw/profile/startDay`）。ScheduleKit 请公开一个 `currentTerm` 之类的接口；另需要 GxuDesign 提供学期选择器，没有就先用系统 `Picker`
-- TODO(verify)：见文末
+- 当前 Phase：Phase 1（FeatureExam 已完成可用版本，等 B 的 Shell 接入入口）
+- 已完成：
+  - FeatureExam：模型与解码、`ExamTimeParser`/排序分组/倒计时、`GpaCalculator`、`TermOptions`、GRDB 仓储（按 studentId 隔离，迁移 `exam.v1.*`）、`ExamAPI`/`ScoreAPI`、三个 ViewModel 和三个页面（考试信息、成绩查询含平时分展开、绩点计算器）
+  - 28 个单元测试通过（`xcodebuild -scheme FeatureExam ... test`）；App 与 Widget 构建通过
+  - 模拟器截图自查（浅色/深色）：`ios-native/.screens/{exam,score,gpa}-{light,dark}.png`，用内置假数据的临时入口拍摄，入口未提交
+- 进行中：无
+- 阻塞 / 等待：
+  - B：`ToolboxCatalog` 还没有文件，工具箱入口等 B 创建后加我的三行（考试信息 / 成绩查询 / 绩点计算器，对外用 `ExamInfoView()`、`ScoreView()`、`GpaView()` 或 `ExamFeature.makeRootView()`）
+  - A：`scripts/test.sh` 的 scheme 名对单产品 package 不适用（已写入 COORDINATION）；入学年份/学制（coord-1）
+  - B：当前学期/开学日（coord-2）、GxuDesign 的错误/空状态视图（现用系统 `ContentUnavailableView`）
+- 给其他 agent 的通知：见 `ios-native/COORDINATION.md` 对方小节
+- 未做 / 后续：未出分科目（依赖 Phase 2 已选课程）；GPA "累计"范围；用真实响应核对 TODO(verify)
 
 ---
 
