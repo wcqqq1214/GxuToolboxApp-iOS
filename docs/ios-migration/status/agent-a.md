@@ -36,3 +36,8 @@
 - 后端问题（需用户处理）：`GET /feedback/{userId}` 一律 401 "看板：未登录或登录已过期"（真实验证，带有效教务 Cookie 也一样），"我的反馈"无法查看
 - 需要用户：version.json 增加 `ios` 通道；`.secrets/account.env` 补 `CA_USER`/`CA_PASS`
 - TODO(verify)：WebView 带统一认证 Cookie 访问 OA 的实际效果（Phase 3 OA 文件时验证）
+
+## 2026-11-05 晚：协调者指令后的进展
+- PLAN §1 / §5.1 (f)(g)(h) / §7 已更新并发布；`_env.sh` 在 rebase / detached 时从 rebase 状态或 worktree 目录名解析专属模拟器（不再新建 `gxu-detached`，已确认无人使用后删除）
+- 用户补充决定已落实：节假日不再待办；CA / 考勤真实账号验证改为后续测试；隐藏「我的反馈」入口（开关默认关闭）；version.json 没有 `ios` 通道时静默
+- **iOS 18 降级走查：当前无法安装 runtime（阻塞）**。磁盘空间足够（可用约 55 GiB，runtime 约 8.9 GB），但 Xcode 27.2 的下载目录里没有 iOS 18：`xcodebuild -downloadPlatform iOS -buildVersion 18.0…18.6`（含 `-architectureVariant arm64` 和构建号 22G86）全部返回 "not available for download"；Apple 旧版目录里的 iOS 18.6 条目是 `mobileAsset` 方式，没有可直接下载的地址。可选办法（需用户决定）：① 另装一个 Xcode 16.x（约 3–5 GB 安装包，需 Apple ID 下载，可用 `xcodes`）并用它下载 iOS 18 runtime；② 退而求其次，让 B 在 GxuDesign 里加一个 DEBUG 开关强制走 `#available(iOS 26)` 的降级分支，在 iOS 27 模拟器上审查降级外观（只能发现样式问题，不能替代真 runtime）

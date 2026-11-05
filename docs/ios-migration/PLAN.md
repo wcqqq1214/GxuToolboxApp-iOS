@@ -219,9 +219,12 @@ B、C：在 bootstrap 发布之前，先读 RN 源码，把自己 Phase 1 功能
 
 - **(f) 一次性所有权例外（用户已同意，2026-11-05）**：小组件 / Live Activity / App Intents 这一批，由 C 直接发布 `project.yml`、`App/GxuToolApp.swift`、Info.plist 和 `App/Composition/IntentsPackage.swift` 的相关改动（含 `ClassWidgetKit`、`ToolboxIntents`、`NSSupportsLiveActivities`、`WidgetBridge`）。**仅此一批**，之后恢复 §2 的所有权。C 发布这批之前，A 不改这些文件里相关的部分。
 - **(g) 小组件验证**：设计审查用 `ImageRenderer` 渲染的截图；§5.1 (e) 的"扩展是否读到同一个 App Group 容器"用 XCUITest 限时 30 分钟实测，做不出就留到真机（需要真实 Team ID）。这台机器没有 Simulator.app，无法手动操作。
-- **(h) iOS 18 降级走查**：本机安装 iOS 18 模拟器 runtime 和一台专用模拟器，用 `SIM_ID` 跑 `run-e2e-ui.sh`，对比 iOS 27 与 iOS 18 的关键页面（课表、工具箱、考试、成绩、GPA、设置），截图放 `ios-native/.screens/ios18-*/`；问题按所有权写进 B、C 的请求区。磁盘空间不足时不安装，写进 A 的 status。
+- **(h) iOS 18 降级走查**：本机安装 iOS 18 模拟器 runtime 和一台专用模拟器，用 `SIM_ID` 跑 `run-e2e-ui.sh`，对比 iOS 27 与 iOS 18 的关键页面（课表、工具箱、考试、成绩、GPA、设置），截图放 `ios-native/.screens/ios18-*/`；问题按所有权写进 B、C 的请求区。磁盘空间不足时不安装，写进 A 的 status。**2026-11-05 实测：Xcode 27.2 的下载目录里没有任何 iOS 18 runtime（`-downloadPlatform iOS -buildVersion 18.x` 全部 "not available"），磁盘空间不是问题；需要用户决定是否另装 Xcode 16.x 来下载**，详见 A 的 status。
 - **工具箱**：`空教室` 不在附录 A 和 RN 的 `src` 里，用户决定删除，由 B 执行。
-- **节假日数据**：远程 `data.json` 没有 `holidays`，内置备份只到 2027 年元旦；更新方式待用户决定（见 §7）。
+- **节假日数据**（用户已决定）：远程 `data.json` 不会增加 `holidays`，学校最新数据就是 App 内置备份（到 2027 年元旦），不再作为待用户项。
+- **真实账号验证**（用户已决定）：CA / PEC / 工程训练中心和考勤的完整登录改为**后续测试**，本轮不等账号；Phase 2 验收对这两项标「后续测试」，不算未通过。
+- **「我的反馈」入口**（用户已决定）：`GET /feedback/{userId}` 一律 401，隐藏该入口，只保留提交反馈；列表 / 详情代码保留，由默认关闭的开关 `FeedbackFeatures.showsMyFeedback`（UserDefaults 键 `feature.showsMyFeedback`）控制，后端修复后再开放（见 §7）。
+- **版本检查 `ios` 通道**（用户已决定）：放到上架前处理；`version.json` 没有 `ios` 通道时必须静默——不弹窗、不显示错误（已有单测覆盖）。
 
 ### Phase 2：系统集成 + 次要功能
 
@@ -263,10 +266,9 @@ B、C：在 bootstrap 发布之前，先读 RN 源码，把自己 Phase 1 功能
 
 - [x] 最低系统版本：**iOS 18**（已确定，GxuDesign 保留降级逻辑）。
 - [ ] Bundle ID、Team ID、App 名称和图标（App Store 审核时，使用"广西大学"名称和校徽可能被问到知识产权问题）。
-- [ ] 提供测试账号（`.secrets/account.env`）：教务账号已提供；**还缺统一认证 `CA_USER` / `CA_PASS`**（CA、PEC、工程训练中心的真实验证），以及一个考勤系统账号（完整登录需要人工看验证码）。
-- [ ] `version.json`（`https://file.unde.site/GxuToolApp/version.json`）增加 `ios` 通道，iOS 版本检查才会有提示；格式见 COORDINATION「个人信息 / 反馈 / 埋点 / 版本检查 / WebView 容器已就绪」。
-- [ ] 后端 `GET /feedback/{userId}` 对所有请求返回 401 "看板：未登录或登录已过期"（2026-11-05 真实验证，带有效教务 Cookie 也一样），iOS 的"我的反馈"无法查看；需要后端修复。
-- [ ] 节假日数据：远程 `data.json` 没有 `holidays`，内置备份只到 2027 年元旦，更新方式待决定。
+- [ ] 后续测试（本轮不等）：统一认证 `CA_USER` / `CA_PASS`（CA、PEC、工程训练中心的真实验证）和一个考勤系统账号（完整登录需要人工看验证码）。教务测试账号已提供。
+- [ ] **上架前**：`version.json`（`https://file.unde.site/GxuToolApp/version.json`）增加 `ios` 通道，iOS 版本检查才会有提示；没有通道时现在是静默的。格式见 COORDINATION「个人信息 / 反馈 / 埋点 / 版本检查 / WebView 容器已就绪」。
+- [ ] 后端 `GET /feedback/{userId}` 对所有请求返回 401 "看板：未登录或登录已过期"（2026-11-05 真实验证，带有效教务 Cookie 也一样）。iOS 已隐藏"我的反馈"入口（默认关闭的开关，代码保留）；**等后端修复后**再打开 `FeedbackFeatures.showsMyFeedback`。
 - [ ] 后端上 HTTPS；确认 iOS 也走后端代理时，后端的限流和稳定性够用。
 - iOS 没有 OTA，修 bug 要走审核；TestFlight 可以作为测试通道。
 - Android 和 iOS 两端要各写一遍功能，所以新的教务功能应该**先做后端接口**，两端都只接后端。

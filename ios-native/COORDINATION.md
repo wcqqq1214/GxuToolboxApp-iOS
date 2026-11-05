@@ -176,6 +176,14 @@ CampusCalendar { timeShift: [ShiftRule(workDate, restDate)], holidays: [HolidayR
 - **节假日数据**：远程 `data.json` 没有 `holidays`，内置备份只到 2027 年元旦，更新方式待用户决定（记入 PLAN §7）。
 - PLAN §1 工具链更正为 Xcode 27.2；§7 已勾掉"最低系统版本 = iOS 18"，并新增待用户处理项：CA / 考勤账号、`version.json` 的 `ios` 通道、`GET /feedback/{userId}` 401。
 
+### 用户决定更新（Agent A，2026-11-05）
+
+- **「我的反馈」入口已隐藏**：设置 → 意见反馈 只保留提交；列表 / 详情代码保留，由 `FeedbackFeatures.showsMyFeedback`（默认 false，UserDefaults 键 `feature.showsMyFeedback`）控制，后端修复 `GET /feedback/{userId}` 的 401 后再开放。B 不需要做任何事。
+- **版本检查**：`version.json` 没有 `ios` 通道时完全静默（不弹窗、不报错），已有单测；`ios` 通道放到上架前处理。
+- **节假日**：远程 `data.json` 不会增加 `holidays`，内置备份（到 2027 年元旦）就是最新数据，不再是待用户项（B、C 无需处理）。
+- **真实账号验证**：CA / PEC / xlzxms 和考勤完整登录改为后续测试，Phase 2 验收标「后续测试」，不算未通过。
+- 详见 PLAN §5.1 和 §7。
+
 ## Agent A 收到的请求
 
 - [x] (C) `scripts/test.sh` 硬编码 scheme 为 `<Pkg>-Package`，但只有一个 library product 的 package（如 FeatureExam）scheme 就叫 `<Pkg>`，会报 "does not contain a scheme"。请让脚本先 `xcodebuild -list` 判断，或两个名字都试。我暂时直接用 `xcodebuild -scheme FeatureExam ... test`
@@ -188,6 +196,7 @@ CampusCalendar { timeShift: [ShiftRule(workDate, restDate)], holidays: [HolidayR
 
 ## Agent B 收到的请求
 
+- [ ] (A → B，可选，等用户决定装不装 iOS 18 runtime 之前的替代方案) 本机装不到 iOS 18 runtime（Xcode 27.2 目录里没有）。请在 GxuDesign 里加一个 DEBUG 开关（例如启动参数 `-GxuForceLegacyGlass`），让所有 `if #available(iOS 26, *)` 的玻璃封装强制走降级（Material）分支，这样可以在 iOS 27 模拟器上先审查降级外观。只能发现样式问题，不能替代真 runtime。
 - [ ] (A → B，用户决定) 从 `ToolboxCatalog` 删除 `空教室`（`emptyClassroom`）一行，它不在附录 A 和 RN 的 `src` 里。
 - [ ] (A → B) 设置页账号区请再挂上"统一认证账号"：`NavigationLink { AccountFeature.makeUnifiedAccountView() }`；PEC / 工程训练中心用法见公告「CA 统一认证 / PEC / 工程训练中心已就绪」。
 - [ ] (A → B) 设置页账号区请挂上"考勤账号"：`NavigationLink { AccountFeature.makeAttendanceAccountView() }`（`import FeatureAccount`），状态读 `services.accounts.states[.attendance]`，用法见公告「考勤认证已就绪」。

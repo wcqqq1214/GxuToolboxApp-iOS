@@ -2,6 +2,15 @@ import GxuAuth
 import GxuDesign
 import SwiftUI
 
+/// 功能开关。后端 `GET /feedback/{userId}` 目前一律返回 401（见 `FeedbackRepository`），所以"我的反馈"入口默认关闭，
+/// 只保留提交反馈；列表 / 详情代码保留。后端修复后，把 UserDefaults 键 `feature.showsMyFeedback` 置为 true
+/// 或把这里的默认值改为 true 即可重新开放。
+public enum FeedbackFeatures {
+    public static var showsMyFeedback: Bool {
+        UserDefaults.standard.object(forKey: "feature.showsMyFeedback") as? Bool ?? false
+    }
+}
+
 /// 设置 → 意见反馈
 public struct FeedbackView: View {
     @Environment(\.services) private var services
@@ -60,7 +69,9 @@ public struct FeedbackView: View {
             .navigationTitle("意见反馈")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                NavigationLink("我的反馈") { FeedbackListView() }
+                if FeedbackFeatures.showsMyFeedback {
+                    NavigationLink("我的反馈") { FeedbackListView() }
+                }
             }
             .onChange(of: model.submittedID) { _, id in showsSuccess = id != nil }
             .alert("提交成功", isPresented: $showsSuccess) {

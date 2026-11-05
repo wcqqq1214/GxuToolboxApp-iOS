@@ -75,6 +75,13 @@ struct FeedbackTests {
     }
 }
 
+struct FeedbackFeatureFlagTests {
+    @Test func myFeedbackEntryIsOffByDefault() {
+        UserDefaults.standard.removeObject(forKey: "feature.showsMyFeedback")
+        #expect(FeedbackFeatures.showsMyFeedback == false)
+    }
+}
+
 struct VersionCheckTests {
     private func json(_ entries: String) -> Data { Data(#"{"beta":[],"ios":[\#(entries)]}"#.utf8) }
 
@@ -86,6 +93,14 @@ struct VersionCheckTests {
         let update = VersionCheck.newestUpdate(in: data, currentBuild: 1)
         #expect(update?.versionName == "1.0.2")
         #expect(update?.url.host == "apps.apple.com")
+    }
+
+    /// 没有 `ios` 通道（目前线上就是这样）必须静默：不弹窗、不报错
+    @Test func silentWhenVersionJsonHasNoIosChannel() {
+        let androidOnly = Data(#"{"beta":[{"versionName":"beta 2.2.0","versionCode":20200,"desc":"x","ori":{"official":"https://a.b/x.apk"}}],"release":[]}"#.utf8)
+        #expect(VersionCheck.newestUpdate(in: androidOnly, currentBuild: 1) == nil)
+        #expect(VersionCheck.newestUpdate(in: Data("not json".utf8), currentBuild: 1) == nil)
+        #expect(VersionCheck.newestUpdate(in: Data(), currentBuild: 1) == nil)
     }
 
     @Test func noUpdateWhenCurrentOrNoLinkOrNoIosChannel() {
