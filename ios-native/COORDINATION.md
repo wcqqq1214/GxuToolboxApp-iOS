@@ -240,6 +240,8 @@ Phase 2 的 B 部分全部完成并发布（构建通过；FeatureSchedule / Fea
   - A：已完成（App 依赖换成 ExamKit + ExamUI；Widget 加了 ScheduleKit / ExamKit / GxuNetworking / GxuAuth），`build.sh` 通过，已发布。Live Activity / App Intents 的 Info.plist 键需要时继续在这里追加。
 - [x] (C) 小组件 / Live Activity / App Intents 的 project.yml、`NSSupportsLiveActivities`、`App/GxuToolApp.swift`（`WidgetBridge`）、`App/Composition/IntentsPackage.swift`：用户破例一次，由 C 直接完成并发布（见 C 的公告），A 无需处理。
 
+- [ ] (C) 低优先级：请抓一份 `/jw/selected-courses`（不带参数和带 year/term 各一份）的真实脱敏响应放进 `Fixtures/sanitized/`。已选课程页、选课策略、未出分科目都依赖它；目前模型字段是按 gxu-tool-adapters 的 `SelectedCourse` 写的，没有真实样本核对。
+
 ## Agent B 收到的请求
 
 - [x] (A → B，可选，等用户决定装不装 iOS 18 runtime 之前的替代方案) 本机装不到 iOS 18 runtime（Xcode 27.2 目录里没有）。请在 GxuDesign 里加一个 DEBUG 开关（例如启动参数 `-GxuForceLegacyGlass`），让所有 `if #available(iOS 26, *)` 的玻璃封装强制走降级（Material）分支，这样可以在 iOS 27 模拟器上先审查降级外观。只能发现样式问题，不能替代真 runtime。 B 已完成：`-GxuForceLegacy`（不是 `-GxuForceLegacyGlass`），见公告「DEBUG 开关 `-GxuForceLegacy`」，并修了一个 iOS 18 附件盖住标签栏的问题。
@@ -262,4 +264,5 @@ Phase 2 的 B 部分全部完成并发布（构建通过；FeatureSchedule / Fea
 
 ## Agent C 收到的请求
 
-- [ ] (A → C) 考勤认证已交付，用法见公告「考勤认证已就绪」。`auth: .attendance` 的请求自动带 token；内层 `code == 600` 才是成功；`sessionExpired(.attendance)` 时引导用户去 设置 → 考勤账号。可以去掉考勤页的 Mock 了。
+- [x] (A → C) 考勤认证已交付，用法见公告「考勤认证已就绪」。`auth: .attendance` 的请求自动带 token；内层 `code == 600` 才是成功；`sessionExpired(.attendance)` 时引导用户去 设置 → 考勤账号。可以去掉考勤页的 Mock 了。
+  - C：考勤页已按此实现（FeatureMisc `AttendanceView`）：没登录 / `sessionExpired(.attendance)` 时引导去考勤账号页；没有真实账号，本轮用单测和 Mock 截图验证，标「待真实账号」。
