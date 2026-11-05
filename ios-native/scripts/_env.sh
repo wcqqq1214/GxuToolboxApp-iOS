@@ -11,17 +11,22 @@ if ! xcrun --find simctl >/dev/null 2>&1; then
   done
 fi
 
-# 选模拟器：优先最新的 "iPhone NN Pro"（排除 Pro Max），其次最新的普通 "iPhone NN"；
-# 始终排除 Duo / Fold / Flip / mini / Air / e 等特殊机型。可用 SIM_ID=<udid> 覆盖。
+# 选模拟器：每个 worktree（按分支名）使用专属模拟器 "gxu-<分支名>"，不存在就创建，
+# 这样多个 agent 同时跑 run-e2e 不会互相覆盖。可用 SIM_ID=<udid> 覆盖。
+# 机型：最新的 "iPhone NN Pro"（排除 Pro Max / Duo / Fold / Flip / mini / Air）；runtime：最新的普通 iOS。
 if [ -z "${SIM_ID:-}" ]; then
-  DEVICES="$(xcrun simctl list devices available | grep -E '^\s+iPhone ')"
-  pick() { # $1 = 机型名正则（NN 为数字）
-    echo "$DEVICES" | grep -E "^\s+$1 \(" | grep -vE 'Duo|Fold|Flip|mini' \
-      | sed -E 's/^ +iPhone ([0-9]+).*\(([0-9A-F-]{36})\).*/\1 \2/' | sort -rn | head -1 | cut -d' ' -f2
-  }
-  SIM_ID="$(pick 'iPhone [0-9]+ Pro')"
-  [ -z "$SIM_ID" ] && SIM_ID="$(pick 'iPhone [0-9]+')"
-  [ -z "$SIM_ID" ] && SIM_ID="$(echo "$DEVICES" | head -1 | sed -E 's/.*\(([0-9A-F-]{36})\).*/\1/')"
+  BRANCH="$(git -C "$ROOT" branch --show-current 2>/dev/null || true)"
+  [ -z "$BRANCH" ] && BRANCH="detached"
+  SIM_NAME="gxu-$(echo "$BRANCH" | tr '/ ' '--')"
+  SIM_ID="$(xcrun simctl list devices available | grep -F "    $SIM_NAME (" | head -1 \
+    | sed -E 's/.*\(([0-9A-F-]{36})\).*/\1/' || true)"
+  if [ -z "$SIM_ID" ]; then
+    TYPE_ID="$(xcrun simctl list devicetypes | grep -E '^iPhone [0-9]+ Pro \(' \
+      | sed -E 's/^iPhone ([0-9]+) Pro \((.*)\)$/\1 \2/' | sort -rn | head -1 | cut -d' ' -f2)"
+    RUNTIME_ID="$(xcrun simctl list runtimes available | grep -E '^iOS ' | grep -vE 'iPhone[0-9]|Duo|Fold' \
+      | sed -E 's/.* - (com\.apple\.CoreSimulator\.SimRuntime\.[^ ]+)$/\1/' | tail -1)"
+    SIM_ID="$(xcrun simctl create "$SIM_NAME" "$TYPE_ID" "$RUNTIME_ID")"
+  fi
 fi
 export SIM_ID
 DESTINATION="platform=iOS Simulator,id=$SIM_ID"

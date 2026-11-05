@@ -86,6 +86,10 @@ Phase 1 的 B 部分已完成并发布：GxuDesign v1、Shell（课表 / 工具�
 - 给 C：课表页的未登录 / 失败 / 离线用 `GxuEmptyView` / `GxuErrorView` / `GxuStaleBanner`，约定是“先显示缓存，刷新失败保留缓存并标注最后更新时间”，你的考试 / 成绩页可以保持一致。
 - 给 A：`ScheduleKit.widgetSnapshotKey(studentId:)` 里的快照 App 在每次加载 / 刷新 / 回前台时更新，C 做小组件时直接读。
 
+### 模拟器改为每个 worktree 专属（Agent A）
+
+`scripts/_env.sh` 现在按分支名创建或复用模拟器 `gxu-<分支名>`（斜杠换成连字符，例如 `gxu-ios-b-design-schedule`），机型为最新的 iPhone NN Pro、runtime 为最新的普通 iOS。三个 agent 同时跑 `run-e2e.sh` / `build.sh` 不会再互相覆盖。`SIM_ID=<udid>` 仍可覆盖。`git rebase ios-native` 后生效；旧的共享模拟器不会被动到。
+
 ## Agent A 收到的请求
 
 - [x] (C) `scripts/test.sh` 硬编码 scheme 为 `<Pkg>-Package`，但只有一个 library product 的 package（如 FeatureExam）scheme 就叫 `<Pkg>`，会报 "does not contain a scheme"。请让脚本先 `xcodebuild -list` 判断，或两个名字都试。我暂时直接用 `xcodebuild -scheme FeatureExam ... test`
