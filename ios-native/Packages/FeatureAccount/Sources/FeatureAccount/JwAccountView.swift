@@ -27,17 +27,15 @@ public struct JwAccountView: View {
                     loginSection
                 }
             }
-            .navigationTitle(model.system == .jw ? "教务账号" : "统一认证账号")
+            .navigationTitle(model.title)
             .navigationBarTitleDisplayMode(.inline)
         }
 
         @ViewBuilder private var signedInSection: some View {
             Section {
-                LabeledContent(model.system == .jw ? "学号" : "账号", value: model.studentId ?? "")
+                LabeledContent(model.usernameLabel, value: model.studentId ?? "")
             } footer: {
-                Text(model.system == .jw
-                    ? "账号密码仅保存在本机钥匙串中，用于教务会话过期后自动重新登录。"
-                    : "账号密码仅保存在本机钥匙串中，用于登录物理实验平台、工程训练中心等需要统一认证的服务。")
+                Text(model.footer)
             }
             Section {
                 Button("退出登录", role: .destructive) { Task { await model.logout() } }
@@ -46,13 +44,15 @@ public struct JwAccountView: View {
 
         @ViewBuilder private var loginSection: some View {
             Section {
-                TextField(model.system == .jw ? "学号" : "统一认证账号", text: $model.username)
+                TextField(model.usernamePrompt, text: $model.username)
                     .textContentType(.username)
-                    .keyboardType(.numberPad)
+                    .keyboardType(model.system == .jw ? .numberPad : .asciiCapable)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
                     .focused($focus, equals: .username)
                     .submitLabel(.next)
                     .onSubmit { focus = .password }
-                SecureField(model.system == .jw ? "教务系统密码" : "统一认证密码", text: $model.password)
+                SecureField(model.passwordPrompt, text: $model.password)
                     .textContentType(.password)
                     .focused($focus, equals: .password)
                     .submitLabel(.go)

@@ -18,6 +18,24 @@ final class JwAccountModel {
         self.system = system
     }
 
+    var title: String {
+        switch system { case .jw: "教务账号"; case .oa: "OA 账号"; default: "统一认证账号" }
+    }
+    var usernamePrompt: String {
+        switch system { case .jw: "学号"; case .oa: "OA 账号"; default: "统一认证账号" }
+    }
+    var passwordPrompt: String {
+        switch system { case .jw: "教务系统密码"; case .oa: "OA 密码"; default: "统一认证密码" }
+    }
+    var usernameLabel: String { system == .jw ? "学号" : "账号" }
+    var footer: String {
+        switch system {
+        case .jw: "账号密码仅保存在本机钥匙串中，用于教务会话过期后自动重新登录。"
+        case .oa: "账号密码仅保存在本机钥匙串中，用于登录 OA 文件系统和问卷系统，登录过期后自动重新登录。"
+        default: "账号密码仅保存在本机钥匙串中，用于登录物理实验平台、工程训练中心等需要统一认证的服务。"
+        }
+    }
+
     var isSignedIn: Bool { accounts.states[system] != .noAccount }
     var studentId: String? { system == .jw ? accounts.studentId : accounts.savedUsername(system) }
     var canSubmit: Bool { !username.trimmingCharacters(in: .whitespaces).isEmpty && !password.isEmpty && !isWorking }

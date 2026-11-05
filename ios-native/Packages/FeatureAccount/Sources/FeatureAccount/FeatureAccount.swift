@@ -35,4 +35,24 @@ public enum AccountFeature {
     public static func makeWebView(url: URL, title: String? = nil, cookies: [HTTPCookie] = []) -> some View {
         WebViewScreen(url: url, title: title, cookies: cookies)
     }
+
+    /// 工具箱 → OA 文件（列表 / 搜索 / 详情 / 附件预览；右上角菜单里有「旧系统待阅文件」）
+    @MainActor
+    public static func makeOAFilesView() -> some View { OAFilesView() }
+
+    /// 设置 → OA 账号（OA 文件和问卷系统共用）
+    @MainActor
+    public static func makeOAAccountView() -> some View { JwAccountView(system: .oa) }
+
+    #if DEBUG
+    /// DEBUG 截图用：OA 文件列表（示例数据，不联网）
+    @MainActor
+    public static func makeOAFilesDemoView() -> some View { OAFilesView(demo: true) }
+
+    /// DEBUG 截图用：OA 文件详情（示例数据，不联网）
+    @MainActor
+    public static func makeOAFileDetailDemoView() -> some View {
+        OAFileDetailView(row: OAFilesModel.demo(services: .unconfigured).rows[0], demo: true)
+    }
+    #endif
 }

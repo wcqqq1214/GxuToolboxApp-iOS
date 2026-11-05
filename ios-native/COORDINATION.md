@@ -295,6 +295,14 @@ Phase 2 的 C 部分完成并已发布；`build.sh` 和全部 package 的 `test.
 
 截图（不入库）：浅色 `/Users/wcqqq1214/Project/gxu_ios_a/ios-native/.screens/ui-light-235321/`，深色 `/Users/wcqqq1214/Project/gxu_ios_a/ios-native/.screens/ui-dark-235720/`，legacy `/Users/wcqqq1214/Project/gxu_ios_a/ios-native/.screens/ui-light-legacy-000112/`；每个目录里有 `phase2-report.txt`（逐个入口的状态）。
 
+### OA 文件 / OA 账号 / 问卷系统（wjxt）已就绪（Agent A，Phase 3）
+
+- **OA 文件**：`AccountFeature.makeOAFilesView()`（列表 + 按类型筛选 + 标题搜索 + 分页 + 详情正文 + PDF / DOCX 附件 QuickLook 预览；右上角菜单里有「旧系统待阅文件」= wjxt）。**B：请把 `ToolboxCatalog` 的 `oaFiles` 一行换成 `{ AnyView(AccountFeature.makeOAFilesView()) }`**（`import FeatureAccount`）。没登录 OA 账号时页面自己显示引导，不需要你处理。
+- **OA 账号**：`AccountFeature.makeOAAccountView()`，**B：请在设置页账号区挂上"OA 账号"**，状态读 `services.accounts.states[.oa]`。OA 和问卷系统共用这个账号（RN 里也是同一个）。
+- 实现：`OASession`（actor，Bearer token 存 Keychain，401 时用 Keychain 账号重登一次再重试，合并并发重登，下载只允许 `https://*.gxu.edu.cn`）、`WjxtSession`（GB2312 解码，待阅文件解析）、`OAFilesAPI`（解码宽松，字段缺失不崩）。直连，不走后端；AuthSystem `.oa` 已接入 `AccountCenter`（`login/logout/ensureAuthenticated`）。
+- **真实验证：后续测试**。从这台机器访问 OA 返回 403 页面、wjxt 无响应（疑似只允许校内网络），而且没有 OA 账号；用 StubURLProtocol 单测覆盖了登录、登录失败、403 提示、401 重登重试、二次 401 → sessionExpired、解码和 wjxt 解析（含 GB2312）。403 时界面提示「OA 系统拒绝访问，可能需要连接校园网」。
+- DEBUG 自查：`-GxuScreen oaFiles|oaFilesDemo|oaDetailDemo|oaAccount`（`*Demo` 用示例数据，不联网）。
+
 ## Agent A 收到的请求
 
 - [x] (C) `scripts/test.sh` 硬编码 scheme 为 `<Pkg>-Package`，但只有一个 library product 的 package（如 FeatureExam）scheme 就叫 `<Pkg>`，会报 "does not contain a scheme"。请让脚本先 `xcodebuild -list` 判断，或两个名字都试。我暂时直接用 `xcodebuild -scheme FeatureExam ... test`
@@ -310,6 +318,7 @@ Phase 2 的 C 部分完成并已发布；`build.sh` 和全部 package 的 `test.
 
 ## Agent B 收到的请求
 
+- [ ] (A → B，Phase 3) ① 工具箱 `oaFiles` 一行接入 `AccountFeature.makeOAFilesView()`；② 设置页账号区挂上"OA 账号"：`NavigationLink { AccountFeature.makeOAAccountView() }`。用法见公告「OA 文件 / OA 账号 / 问卷系统（wjxt）已就绪」。
 - [x] (A → B，可选，等用户决定装不装 iOS 18 runtime 之前的替代方案) 本机装不到 iOS 18 runtime（Xcode 27.2 目录里没有）。请在 GxuDesign 里加一个 DEBUG 开关（例如启动参数 `-GxuForceLegacyGlass`），让所有 `if #available(iOS 26, *)` 的玻璃封装强制走降级（Material）分支，这样可以在 iOS 27 模拟器上先审查降级外观。只能发现样式问题，不能替代真 runtime。 B 已完成：`-GxuForceLegacy`（不是 `-GxuForceLegacyGlass`），见公告「DEBUG 开关 `-GxuForceLegacy`」，并修了一个 iOS 18 附件盖住标签栏的问题。
 - [x] (A → B，用户决定) 从 `ToolboxCatalog` 删除 `空教室`（`emptyClassroom`）一行，它不在附录 A 和 RN 的 `src` 里。 B 已完成：已删除。
 - [x] (A → B) 设置页账号区请再挂上"统一认证账号"：`NavigationLink { AccountFeature.makeUnifiedAccountView() }`；PEC / 工程训练中心用法见公告「CA 统一认证 / PEC / 工程训练中心已就绪」。 B 已完成：已挂。

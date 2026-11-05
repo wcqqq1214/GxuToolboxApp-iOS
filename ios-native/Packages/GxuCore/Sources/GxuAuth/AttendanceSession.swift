@@ -8,15 +8,17 @@ public protocol TokenStore: Sendable {
     func save(_ token: String?)
 }
 
-/// 复用 Keychain 凭据存储，把 token 放在独立的 service 下（账号字段固定为 "token"）。
+/// 复用 Keychain 凭据存储，把 token 放在独立的 service 下（账号字段固定为 "token"）。每个系统一个条目。
 public final class KeychainTokenStore: TokenStore {
     private let store: KeychainCredentialStore
-    public init(accessGroup: String? = GxuConfig.keychainAccessGroup) {
+    private let system: AuthSystem
+    public init(system: AuthSystem = .attendance, accessGroup: String? = GxuConfig.keychainAccessGroup) {
+        self.system = system
         store = KeychainCredentialStore(service: "com.gxutool.ios.tokens", accessGroup: accessGroup)
     }
-    public func load() -> String? { store.load(.attendance)?.password }
+    public func load() -> String? { store.load(system)?.password }
     public func save(_ token: String?) {
-        if let token { try? store.save(Credential(username: "token", password: token), for: .attendance) } else { store.delete(.attendance) }
+        if let token { try? store.save(Credential(username: "token", password: token), for: system) } else { store.delete(system) }
     }
 }
 

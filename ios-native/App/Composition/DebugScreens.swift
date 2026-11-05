@@ -4,7 +4,7 @@ import FeatureCourse
 import FeatureMisc
 import SwiftUI
 
-/// DEBUG：`-GxuScreen feedback|feedbackList|profile|attendance|unified|web` 直接打开 A 负责的页面（截图自查用）。
+/// DEBUG：`-GxuScreen feedback|feedbackList|profile|attendance|unified|oaFiles|oaFilesDemo|oaDetailDemo|oaAccount|web` 直接打开 A 负责的页面（截图自查用）。
 /// `web` 可再带 `-GxuWebURL <url>`。
 enum DebugScreens {
     static var requested: String? {
@@ -22,6 +22,10 @@ enum DebugScreens {
             case "profile": AccountFeature.makePersonalInfoView()
             case "attendance": AccountFeature.makeAttendanceAccountView()
             case "unified": AccountFeature.makeUnifiedAccountView()
+            case "oaFiles": AccountFeature.makeOAFilesView()
+            case "oaFilesDemo": AccountFeature.makeOAFilesDemoView()
+            case "oaDetailDemo": AccountFeature.makeOAFileDetailDemoView()
+            case "oaAccount": AccountFeature.makeOAAccountView()
             case let name where CourseDebugScreens.handles(name): CourseDebugScreens.view(for: name)
             case let name where MiscDebugScreens.handles(name): MiscDebugScreens.view(for: name)
             default:

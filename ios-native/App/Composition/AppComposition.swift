@@ -23,7 +23,10 @@ enum AppComposition {
         } catch {
             fatalError("数据库打开失败：\(error)")
         }
-        let accounts = AccountCenter(credentials: credentials, jw: jw, attendance: attendance, unified: UnifiedAuthSession(credentials: credentials))
+        let accounts = AccountCenter(credentials: credentials, jw: jw, attendance: attendance, unified: UnifiedAuthSession(credentials: credentials),
+            oa: OASession(credentials: credentials, tokens: KeychainTokenStore(system: .oa)),
+            wjxt: WjxtSession(credentials: credentials)
+        )
         let tracker = AnalyticsTracker(backend: backend)
         #if !DEBUG
         accounts.onLogin = { [accounts] system in

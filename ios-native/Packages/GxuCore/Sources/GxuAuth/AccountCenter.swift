@@ -13,15 +13,20 @@ public final class AccountCenter {
     @ObservationIgnored public let attendance: AttendanceSession?
     /// 统一认证（CA）会话，以及 PEC / 工程训练中心的 SSO 入口
     @ObservationIgnored public let unified: UnifiedAuthSession?
+    /// OA 文件系统会话；问卷系统（wjxt）与 OA 共用 `.oa` 账号
+    @ObservationIgnored public let oa: OASession?
+    @ObservationIgnored public let wjxt: WjxtSession?
     /// 登录成功后的回调（埋点等）；由组装处设置
     @ObservationIgnored public var onLogin: (@MainActor (AuthSystem) -> Void)?
 
     /// 教务（Cookie）和考勤（token）已接入；CA / OA 在后续步骤接入。
-    public init(credentials: any CredentialStore, jw: JwSessionManager, attendance: AttendanceSession? = nil, unified: UnifiedAuthSession? = nil) {
+    public init(credentials: any CredentialStore, jw: JwSessionManager, attendance: AttendanceSession? = nil, unified: UnifiedAuthSession? = nil, oa: OASession? = nil, wjxt: WjxtSession? = nil) {
         self.credentials = credentials
         self.jw = jw
         self.attendance = attendance
         self.unified = unified
+        self.oa = oa
+        self.wjxt = wjxt
         var states = Dictionary(uniqueKeysWithValues: AuthSystem.allCases.map { ($0, AuthState.noAccount) })
         if let credential = credentials.load(.jw) {
             studentId = credential.username
@@ -32,9 +37,16 @@ public final class AccountCenter {
         else if attendance != nil, credentials.load(.attendance) != nil { states[.attendance] = .signedOut }
         // CA 没有长期 token：有账号就乐观认为可用，服务登录时会用 Keychain 里的账号重新登录，失败再报错
         if unified != nil, credentials.load(.unified) != nil { states[.unified] = .authenticated }
+        // OA 同理：有账号就乐观认为可用，请求时按需登录
+        if oa != nil, credentials.load(.oa) != nil { states[.oa] = .authenticated }
         self.states = states
         attendance?.setObserver { [weak self] state in
             Task { @MainActor in self?.states[.attendance] = state }
+        }
+        if let oa {
+            Task { [weak self] in
+                await oa.setObserver { state in Task { @MainActor in self?.states[.oa] = state } }
+            }
         }
         Task { [weak self] in
             await jw.setObserver { state in
@@ -44,11 +56,13 @@ public final class AccountCenter {
     }
 
     /// 预览 / 测试用：直接指定状态
-    public init(credentials: any CredentialStore, jw: JwSessionManager, attendance: AttendanceSession? = nil, unified: UnifiedAuthSession? = nil, states: [AuthSystem: AuthState], studentId: String?) {
+    public init(credentials: any CredentialStore, jw: JwSessionManager, attendance: AttendanceSession? = nil, unified: UnifiedAuthSession? = nil, oa: OASession? = nil, wjxt: WjxtSession? = nil, states: [AuthSystem: AuthState], studentId: String?) {
         self.credentials = credentials
         self.jw = jw
         self.attendance = attendance
         self.unified = unified
+        self.oa = oa
+        self.wjxt = wjxt
         self.states = Dictionary(uniqueKeysWithValues: AuthSystem.allCases.map { ($0, states[$0] ?? .noAccount) })
         self.studentId = studentId
     }
@@ -61,6 +75,15 @@ public final class AccountCenter {
             try await unified.login(username: username, password: password)
             try credentials.save(Credential(username: username, password: password), for: .unified)
             states[.unified] = .authenticated
+            return
+        }
+        if system == .oa {
+            guard let oa else { throw GxuError.invalidData("OA 系统未配置") }
+            let username = username.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !username.isEmpty, !password.isEmpty else { throw GxuError.invalidData("请输入 OA 账号和密码") }
+            try await oa.login(username: username, password: password)
+            try credentials.save(Credential(username: username, password: password), for: .oa)
+            states[.oa] = .authenticated
             return
         }
         guard system == .jw else {
@@ -105,6 +128,7 @@ public final class AccountCenter {
         }
         if system == .attendance { attendance?.clear() }
         if system == .unified { await unified?.logout() }
+        if system == .oa { await oa?.clear() }
         credentials.delete(system)
         states[system] = .noAccount
     }
@@ -114,6 +138,10 @@ public final class AccountCenter {
         switch states[system] ?? .noAccount {
         case .authenticated: return
         case .noAccount: throw GxuError.notLoggedIn(system)
+        case .signedOut where system == .oa:
+            guard let oa else { throw GxuError.sessionExpired(.oa) }
+            try await oa.ensureToken()
+            states[.oa] = .authenticated
         case .signedOut where system == .unified:
             guard let unified else { throw GxuError.sessionExpired(.unified) }
             try await unified.renew()
