@@ -28,6 +28,8 @@ final class ScheduleViewModel {
     private(set) var isRefreshing = false
     /// 节假日 / 补班数据；已经叠加到 `index` 里
     private(set) var campusCalendar: CampusCalendar = .empty
+    /// 冲突组里用户选中显示哪一门：`ConflictGroup.key` → 课程 key
+    private(set) var choices: [String: String] = [:]
 
     var selectedWeek = 1
     var palette: CoursePalette = .macaron
@@ -125,6 +127,15 @@ final class ScheduleViewModel {
         }
     }
 
+    /// 冲突组里改成显示 `occurrence` 这一门，并写入本地
+    func choose(_ occurrence: CourseOccurrence, in group: ConflictGroup) async {
+        guard let services, let studentId, let term else { return }
+        let key = ScheduleExpander.selectionKey(occurrence.course)
+        choices[group.key] = key
+        publishWidgetSnapshot()
+        try? await makeRepository(services).setConflictChoice(key, groupKey: group.key, studentId: studentId, term: term)
+    }
+
     func select(term: AcademicTerm) async {
         guard let services, let studentId, term != self.term else { return }
         pinnedTerm = term
@@ -148,6 +159,7 @@ final class ScheduleViewModel {
         updatedAt = nil
         index = ScheduleIndex(occurrences: [])
         colors = [:]
+        choices = [:]
         refreshError = nil
         pinnedTerm = nil
         studentId = nil
@@ -168,6 +180,7 @@ final class ScheduleViewModel {
     private func applyTerm(repository: ScheduleRepository, studentId: String, useCache: Bool) async {
         let previous = term
         resolveTerm()
+        if let term { choices = await repository.conflictChoices(studentId: studentId, term: term) }
         guard useCache, let term, let cached = try? await repository.cachedSchedule(studentId: studentId, term: term) else {
             if schedule == nil { phase = .loading }
             return
@@ -201,7 +214,7 @@ final class ScheduleViewModel {
 
     private func publishWidgetSnapshot() {
         guard let services, let studentId else { return }
-        let snapshot = NextCourseCalculator.compute(schedule: schedule, term: termCalendar, campus: campusCalendar, now: .now)
+        let snapshot = NextCourseCalculator.compute(schedule: schedule, term: termCalendar, campus: campusCalendar, choices: choices, now: .now)
         services.shared.set(snapshot, for: ScheduleKit.widgetSnapshotKey(studentId: studentId))
     }
 }

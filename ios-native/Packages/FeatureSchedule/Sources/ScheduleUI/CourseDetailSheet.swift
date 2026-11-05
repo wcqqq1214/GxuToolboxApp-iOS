@@ -6,7 +6,13 @@ import SwiftUI
 struct CourseDetailSheet: View {
     let group: ConflictGroup
     let colors: [String: UInt32]
+    let selected: CourseOccurrence
+    let onChoose: (CourseOccurrence) -> Void
     @Environment(\.dismiss) private var dismiss
+    /// 点选后立刻反映在 sheet 里（外面的 `selected` 要等持久化后才变）
+    @State private var chosenID: String?
+
+    private var currentID: String { chosenID ?? selected.id }
 
     var body: some View {
         NavigationStack {
@@ -15,10 +21,18 @@ struct CourseDetailSheet: View {
                     Section {
                         Label("这个时段有 \(group.items.count) 门课冲突", systemImage: "exclamationmark.triangle")
                             .foregroundStyle(.orange)
+                    } footer: {
+                        Text("课表、首页和小组件里只显示选中的那一门。")
                     }
                 }
                 ForEach(group.items) { item in
-                    CourseSection(item: item, tint: CourseTint(hex: colors[item.course.courseName] ?? 0xC7CEEA))
+                    CourseSection(
+                        item: item, tint: CourseTint(hex: colors[item.course.courseName] ?? 0xC7CEEA),
+                        choice: group.isConflict ? (isSelected: item.id == currentID, choose: {
+                            chosenID = item.id
+                            onChoose(item)
+                        }) : nil
+                    )
                 }
             }
             .navigationTitle(group.isConflict ? "冲突课程" : group.items[0].course.courseName)
@@ -35,6 +49,7 @@ struct CourseDetailSheet: View {
 private struct CourseSection: View {
     let item: CourseOccurrence
     let tint: CourseTint
+    var choice: (isSelected: Bool, choose: () -> Void)?
     private var course: TheoryCourse { item.course }
 
     var body: some View {
@@ -53,6 +68,13 @@ private struct CourseSection: View {
             row("考核", course.examMethod)
             row("选课人数", course.enrollmentCount > 0 ? "\(course.enrollmentCount)" : "")
             row("QQ 群", course.qqGroup)
+            if let choice {
+                if choice.isSelected {
+                    Label("正在课表中显示", systemImage: "checkmark.circle.fill").foregroundStyle(.tint)
+                } else {
+                    Button("在课表中显示这门课", systemImage: "eye", action: choice.choose)
+                }
+            }
         }
     }
 

@@ -11,7 +11,7 @@ public struct CachedSchedule: Sendable, Equatable {
 /// 课表和学期开始日的“后端 + 本地缓存”。先读缓存，再 `refresh`；缓存按 studentId 隔离。
 public struct ScheduleRepository: Sendable {
     private let backend: any BackendAPI
-    private let database: AppDatabase
+    let database: AppDatabase
 
     public init(backend: any BackendAPI, database: AppDatabase) {
         self.backend = backend

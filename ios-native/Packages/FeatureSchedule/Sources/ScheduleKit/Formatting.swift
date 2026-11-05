@@ -60,3 +60,14 @@ public enum WeekdayName {
     public static func short(_ weekday: Int) -> String { ["一", "二", "三", "四", "五", "六", "日"][(weekday - 1 + 7) % 7] }
     public static func full(_ weekday: Int) -> String { "周" + short(weekday) }
 }
+
+extension CourseOccurrence {
+    /// "08:00–09:40"
+    public var timeRangeText: String {
+        guard let first = ClassPeriods.period(begin), let last = ClassPeriods.period(end) else { return "" }
+        return "\(first.startText)–\(last.endText)"
+    }
+
+    /// "第1-2节"
+    public var sectionText: String { begin == end ? "第\(begin)节" : "第\(begin)-\(end)节" }
+}

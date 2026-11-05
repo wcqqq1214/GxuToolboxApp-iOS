@@ -36,7 +36,10 @@ public struct ScheduleRootView: View {
             if phase == .active { Task { await model.refreshIfStale() } }
         }
         .sheet(item: $detail) { group in
-            CourseDetailSheet(group: group, colors: model.colors)
+            CourseDetailSheet(
+                group: group, colors: model.colors, selected: group.selected(choices: model.choices),
+                onChoose: { item in Task { await model.choose(item, in: group) } }
+            )
         }
     }
 

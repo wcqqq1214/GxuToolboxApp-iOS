@@ -14,6 +14,17 @@ public enum ScheduleKit {
                 t.primaryKey(["studentId", "year", "term"])
             }
         }
+        // 冲突课程：用户选中显示哪一门（带 studentId 和学期）
+        migrator.registerMigration("schedule.v1.createConflictChoice") { db in
+            try db.create(table: "schedule_conflict_choice") { t in
+                t.column("studentId", .text).notNull()
+                t.column("year", .integer).notNull()
+                t.column("term", .integer).notNull()
+                t.column("groupKey", .text).notNull()
+                t.column("choice", .text).notNull()
+                t.primaryKey(["studentId", "year", "term", "groupKey"])
+            }
+        }
         // 节假日和调课数据（data.json）是学校日历，整份 JSON 存一行
         migrator.registerMigration("schedule.v1.createCampusCalendar") { db in
             try db.create(table: "campus_calendar") { t in

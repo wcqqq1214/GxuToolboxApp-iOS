@@ -4,7 +4,8 @@
 - Phase 2 已完成：
   - 修复课表刷新把 CancellationError 显示成错误条（`Error.isCancellation`，有测试）
   - 节假日 / 调课（`CampusCalendarRepository`、`CalendarOverlay`）：data.json 获取 + GRDB 缓存 + 内置备份，叠加到课表（休息日移除、补班日显示被调课程并带“补”标记、假期整天块），小组件快照同步；用法见 COORDINATION「[B] 节假日 / 调课数据」。远程 data.json 目前没有 `holidays` 字段，需要在服务器补上
-  - 截图：`ios-native/.screens/holiday-week-{light,dark}.png`
+  - 首页「今天」标签 + 底部“下一件事”附件（课程 + ExamKit 的考试）；冲突课程选择持久化（`schedule.v1.createConflictChoice`）；设置页挂上统一认证 / 考勤账号入口
+  - 截图：`ios-native/.screens/holiday-week-{light,dark}.png`、`home-{light,dark}.png`
 - Phase 1 状态（保留）：已完成（待用户验收）
 - 已完成：
   - GxuDesign v1：`GxuTheme`（强调色 + 外观模式，持久化）、`GlassGroup` / `GlassButton` / `.gxuGlass()` / `.gxuGlassID` / `.gxuTabBarMinimizeOnScroll` / `.gxuTabAccessory`（iOS 18 降级 Material）、`ContentCard`、`GxuLoadingView` / `GxuEmptyView` / `GxuErrorView` / `GxuStaleBanner`、`CourseTint`（浅 / 深色对比度 ≥ 4.5:1，有测试）、`README.md`

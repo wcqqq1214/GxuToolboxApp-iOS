@@ -133,7 +133,7 @@ private struct WeekBody: View {
                 ForEach(1...7, id: \.self) { weekday in
                     let groups = ScheduleExpander.conflictGroups(model.index.items(inWeek: week, weekday: weekday))
                     ForEach(groups) { group in
-                        CourseBlock(group: group, colors: model.colors, rowHeight: rowHeight)
+                        CourseBlock(group: group, selected: group.selected(choices: model.choices), colors: model.colors, rowHeight: rowHeight)
                             .frame(width: columnWidth - 3, height: CGFloat(group.end - group.begin + 1) * rowHeight - 3)
                             .offset(
                                 x: WeekGridView.timeColumnWidth + CGFloat(weekday - 1) * columnWidth + 1.5,

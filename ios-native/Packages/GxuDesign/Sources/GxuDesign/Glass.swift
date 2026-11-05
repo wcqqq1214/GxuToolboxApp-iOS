@@ -27,10 +27,17 @@ public extension View {
         modifier(TabBarMinimizeModifier())
     }
 
-    /// 标签栏上方的常驻附件（例如“下一节课”）。iOS 18 降级为贴在底部的材质条。
-    func gxuTabAccessory<Accessory: View>(@ViewBuilder _ accessory: () -> Accessory) -> some View {
-        modifier(TabAccessoryModifier(accessory: accessory()))
+    /// 标签栏上方的常驻附件（例如“下一节课”）。`isEnabled` 为 false 时不显示（iOS 26.1+；26.0 和 18 降级为不放内容）。
+    /// 标签栏收起时（iOS 26 的 inline 位置）空间很窄，附件里用 `@Environment(\.gxuAccessoryCompact)` 判断并精简内容。
+    /// iOS 18 降级为贴在底部的材质条。
+    func gxuTabAccessory<Accessory: View>(isEnabled: Bool = true, @ViewBuilder _ accessory: () -> Accessory) -> some View {
+        modifier(TabAccessoryModifier(isEnabled: isEnabled, accessory: accessory()))
     }
+}
+
+extension EnvironmentValues {
+    /// 底部附件处于收起（inline）位置，只有很窄的空间
+    @Entry public var gxuAccessoryCompact: Bool = false
 }
 
 private struct GlassModifier<S: InsettableShape>: ViewModifier {
@@ -80,18 +87,33 @@ private struct TabBarMinimizeModifier: ViewModifier {
 }
 
 private struct TabAccessoryModifier<Accessory: View>: ViewModifier {
+    let isEnabled: Bool
     let accessory: Accessory
 
     func body(content: Content) -> some View {
-        if #available(iOS 26, *) {
-            content.tabViewBottomAccessory { accessory }
-        } else {
+        if #available(iOS 26.1, *) {
+            content.tabViewBottomAccessory(isEnabled: isEnabled) { AccessoryHost(content: accessory) }
+        } else if #available(iOS 26, *) {
+            content.tabViewBottomAccessory { AccessoryHost(content: isEnabled ? accessory : nil) }
+        } else if isEnabled {
             content.safeAreaInset(edge: .bottom, spacing: 0) {
                 accessory
                     .frame(maxWidth: .infinity)
                     .background(.bar)
             }
+        } else {
+            content
         }
+    }
+}
+
+@available(iOS 26, *)
+private struct AccessoryHost<Content: View>: View {
+    let content: Content?
+    @Environment(\.tabViewBottomAccessoryPlacement) private var placement
+
+    var body: some View {
+        if let content { content.environment(\.gxuAccessoryCompact, placement == .inline) }
     }
 }
 

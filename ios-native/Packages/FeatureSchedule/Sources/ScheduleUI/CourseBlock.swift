@@ -6,10 +6,12 @@ import SwiftUI
 /// 冲突组只显示第一门，右上角角标显示门数。
 struct CourseBlock: View {
     let group: ConflictGroup
+    /// 冲突组里用户选中显示的那一门
+    let selected: CourseOccurrence
     let colors: [String: UInt32]
     let rowHeight: CGFloat
 
-    private var course: TheoryCourse { group.items[0].course }
+    private var course: TheoryCourse { selected.course }
     private var rows: Int { group.end - group.begin + 1 }
     private var tint: CourseTint { CourseTint(hex: colors[course.courseName] ?? 0xC7CEEA) }
 
@@ -35,7 +37,7 @@ struct CourseBlock: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(tint.fill, in: RoundedRectangle(cornerRadius: GxuDesign.Radius.block, style: .continuous))
         .overlay(alignment: .topLeading) {
-            if group.items.contains(where: \.isMakeup) {
+            if selected.isMakeup {
                 Text("补")
                     .font(.system(size: 9, weight: .bold))
                     .foregroundStyle(tint.fill)
@@ -62,7 +64,7 @@ struct CourseBlock: View {
     private var accessibilityText: String {
         let place = course.venueName.isEmpty ? "" : "，\(course.venueName)"
         let conflict = group.isConflict ? "，另有 \(group.items.count - 1) 门课冲突" : ""
-        let makeup = group.items[0].isMakeup ? "，补班" : ""
-        return "\(course.courseName)\(place)，\(WeekdayName.full(group.items[0].weekday)) 第\(group.begin)到\(group.end)节\(makeup)\(conflict)"
+        let makeup = selected.isMakeup ? "，补班" : ""
+        return "\(course.courseName)\(place)，\(WeekdayName.full(selected.weekday)) 第\(group.begin)到\(group.end)节\(makeup)\(conflict)"
     }
 }

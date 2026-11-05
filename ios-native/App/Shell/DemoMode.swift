@@ -61,6 +61,7 @@ private struct DemoBackend: BackendAPI {
         switch path {
         case "/jw/profile/startDay": body = Self.startDays
         case "/jw/schedule/personal": body = Self.schedule
+        case "/jw/exam": body = Self.exams
         default: throw GxuError.network("演示模式不支持 \(path)")
         }
         return try JSONDecoder().decode(type, from: Data(#"{"data":\#(body)}"#.utf8))
@@ -86,6 +87,18 @@ private struct DemoBackend: BackendAPI {
         return """
         [{"year": \(year), "term": 1, "day": "\(f.string(from: current))", "week": 18, "is_current": true},
          {"year": \(year - 1), "term": 2, "day": "\(f.string(from: previous))", "week": 18, "is_current": false}]
+        """
+    }
+
+    /// 两场考试：明天和 5 天后（相对今天）
+    private static var exams: String {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        func day(_ offset: Int) -> String { f.string(from: Calendar.current.date(byAdding: .day, value: offset, to: .now)!) }
+        return """
+        [{"id": "e1", "course": "高等数学", "classroom": "西3-406", "time": "\(day(1))(09:00-11:00)", "type": "期末考试", "seat": "23"},
+         {"id": "e2", "course": "大学英语", "classroom": "西2-302", "time": "\(day(5))(14:30-16:30)", "type": "期末考试", "seat": "8"}]
         """
     }
 

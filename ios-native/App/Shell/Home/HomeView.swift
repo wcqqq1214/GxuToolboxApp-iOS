@@ -1,0 +1,296 @@
+import ExamKit
+import GxuAuth
+import GxuDesign
+import ScheduleKit
+import SwiftUI
+
+/// 首页：今天的课、下一节课、临近的考试、明天预览。用系统的分组列表，卡片内容不用玻璃。
+struct HomeView: View {
+    let model: HomeModel
+    let onRequestLogin: () -> Void
+    @Environment(\.services) private var services
+
+    var body: some View {
+        NavigationStack {
+            content
+                .navigationTitle("今天")
+                .navigationBarTitleDisplayMode(.large)
+        }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        switch model.phase {
+        case .needsLogin:
+            GxuEmptyView(
+                "还没有登录教务系统", systemImage: "person.crop.circle.badge.questionmark",
+                message: "登录后即可查看今天的课和考试", actionTitle: "去登录", action: onRequestLogin
+            )
+        case .loading:
+            GxuLoadingView("正在加载…")
+        case .unavailable(let message):
+            GxuErrorView(message) { Task { await model.load(services: services, minimumInterval: 0) } }
+        case .ready:
+            if let snapshot = model.snapshot {
+                TimelineView(.everyMinute) { context in
+                    HomeList(model: model, snapshot: snapshot, now: context.date)
+                }
+                .refreshable { await model.load(services: services, minimumInterval: 0) }
+            }
+        }
+    }
+}
+
+private struct HomeList: View {
+    let model: HomeModel
+    let snapshot: ScheduleSnapshot
+    let now: Date
+
+    private var plan: TodayPlan { snapshot.todayPlan(now: now) }
+
+    var body: some View {
+        List {
+            Section {
+                DateHeader(plan: plan, termCalendar: snapshot.termCalendar)
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets())
+            }
+
+            switch plan.phase {
+            case .beforeTerm(let days):
+                Section {
+                    StatusRow(systemImage: "calendar.badge.clock", title: "距开学还有 \(days) 天", subtitle: "开学后这里会显示每天的课程")
+                }
+            case .afterTerm:
+                Section {
+                    StatusRow(systemImage: "checkmark.seal", title: "本学期已结束", subtitle: "新学期的课表发布后会自动更新")
+                }
+            case .inTerm:
+                if let note = plan.note { Section { NoteRow(note: note) } }
+                if let event = HomeEvent.pick(plan: plan, exams: model.exams, now: now) {
+                    Section("接下来") { EventCard(event: event, now: now, colors: model.colors) }
+                }
+                Section(header: Text("今日课程"), footer: coursesFooter) {
+                    if plan.courses.isEmpty {
+                        StatusRow(
+                            systemImage: plan.note == nil ? "cup.and.saucer" : "sun.max",
+                            title: plan.note == nil ? "今天没有课" : "今天没有课",
+                            subtitle: nil
+                        )
+                    } else {
+                        ForEach(plan.courses) { item in
+                            CourseRow(item: item, status: plan.status(of: item, now: now), colors: model.colors)
+                        }
+                    }
+                }
+                if !plan.tomorrow.isEmpty {
+                    Section("明天") {
+                        ForEach(plan.tomorrow) { item in
+                            CourseRow(item: item, status: .upcoming, colors: model.colors)
+                        }
+                    }
+                }
+            }
+
+            if !model.exams.isEmpty {
+                Section("近期考试") {
+                    ForEach(model.exams) { ExamRow(item: $0, now: now) }
+                }
+            }
+        }
+        .listSectionSpacing(.compact)
+    }
+
+    @ViewBuilder
+    private var coursesFooter: some View {
+        if let updated = Optional(snapshot.updatedAt) {
+            Text("课表更新于 \(updated.formatted(.dateTime.month().day().hour().minute().locale(Locale(identifier: "zh_CN"))))")
+        }
+    }
+}
+
+// MARK: 各区块
+
+private struct DateHeader: View {
+    let plan: TodayPlan
+    let termCalendar: TermCalendar
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(plan.date.formatted(.dateTime.month(.wide).day().weekday(.wide).locale(Locale(identifier: "zh_CN"))))
+                .font(.title3.weight(.semibold))
+            if let week = plan.week {
+                Text("第 \(week) 周")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, GxuDesign.Spacing.s)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+private struct NoteRow: View {
+    let note: TodayPlan.DayNote
+
+    var body: some View {
+        switch note {
+        case .holiday(let name):
+            Label("今天放假 · \(name)", systemImage: "sun.max").foregroundStyle(.green)
+        case .rest:
+            Label("调休休息日，今天没有课", systemImage: "moon.zzz").foregroundStyle(.green)
+        case .makeup(let from):
+            Label(
+                "补班：今天按\(from.formatted(.dateTime.month().day().weekday(.wide).locale(Locale(identifier: "zh_CN"))))的课表上课",
+                systemImage: "arrow.triangle.swap"
+            ).foregroundStyle(.orange)
+        }
+    }
+}
+
+private struct StatusRow: View {
+    let systemImage: String
+    let title: String
+    let subtitle: String?
+
+    var body: some View {
+        Label {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                if let subtitle { Text(subtitle).font(.footnote).foregroundStyle(.secondary) }
+            }
+        } icon: {
+            Image(systemName: systemImage)
+        }
+        .foregroundStyle(.secondary)
+        .padding(.vertical, 4)
+    }
+}
+
+/// 正在上的课 / 下一节课 / 临近考试的大卡片
+private struct EventCard: View {
+    let event: HomeEvent
+    let now: Date
+    let colors: [String: UInt32]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: GxuDesign.Spacing.s) {
+            HStack {
+                Text(caption).font(.footnote.weight(.semibold)).foregroundStyle(event.isOngoing ? .green : .secondary)
+                Spacer()
+                Text(trailing).font(.footnote.monospacedDigit()).foregroundStyle(.secondary)
+            }
+            Text(title).font(.title3.weight(.semibold))
+            if let detail { Text(detail).font(.subheadline).foregroundStyle(.secondary) }
+            if case .course(let item, true, _) = event {
+                ProgressView(value: min(max(now.timeIntervalSince(item.startsAt) / item.endsAt.timeIntervalSince(item.startsAt), 0), 1))
+                    .tint(.green)
+            }
+        }
+        .padding(.vertical, GxuDesign.Spacing.xs)
+        .accessibilityElement(children: .combine)
+    }
+
+    private var caption: String {
+        switch event {
+        case .course(_, true, _): "正在上课"
+        case .course(_, false, true): "明天第一节课"
+        case .course: "下一节课"
+        case .exam(_, true): "考试进行中"
+        case .exam: "即将考试"
+        }
+    }
+
+    private var trailing: String {
+        switch event {
+        case .course(let item, true, _): RelativeTime.remaining(until: item.endsAt, now: now)
+        case .exam(_, true): ""
+        default: RelativeTime.untilStart(event.startsAt, now: now)
+        }
+    }
+
+    private var title: String {
+        switch event {
+        case .course(let item, _, _): item.course.courseName
+        case .exam(let item, _): item.exam.course
+        }
+    }
+
+    private var detail: String? {
+        switch event {
+        case .course(let item, _, _):
+            [item.sectionText, item.timeRangeText, item.course.venueName, item.course.teacher].filter { !$0.isEmpty }.joined(separator: " · ")
+        case .exam(let item, _):
+            [item.date.map { $0.formatted(.dateTime.month().day().locale(Locale(identifier: "zh_CN"))) + " " + RelativeTime.clock($0) } ?? "",
+             item.exam.classroom, item.exam.seat.isEmpty ? "" : "座位 \(item.exam.seat)"].filter { !$0.isEmpty }.joined(separator: " · ")
+        }
+    }
+}
+
+private struct CourseRow: View {
+    let item: CourseOccurrence
+    let status: TodayPlan.CourseStatus
+    let colors: [String: UInt32]
+
+    var body: some View {
+        HStack(spacing: GxuDesign.Spacing.m) {
+            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                .fill(CourseTint(hex: colors[item.course.courseName] ?? 0xC7CEEA).marker)
+                .frame(width: 5, height: 40)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(item.course.courseName).font(.body.weight(.medium))
+                    if item.isMakeup { Tag("补班", color: .orange) }
+                    if status == .ongoing { Tag("上课中", color: .green) }
+                }
+                Text([item.sectionText, item.timeRangeText, item.course.venueName].filter { !$0.isEmpty }.joined(separator: " · "))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+        }
+        .opacity(status == .finished ? 0.45 : 1)
+        .accessibilityElement(children: .combine)
+        .accessibilityValue(status == .finished ? "已结束" : status == .ongoing ? "进行中" : "")
+    }
+}
+
+private struct ExamRow: View {
+    let item: ExamItem
+    let now: Date
+
+    var body: some View {
+        HStack(spacing: GxuDesign.Spacing.m) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.exam.course).font(.body.weight(.medium))
+                Text(detail).font(.footnote).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+            if let countdown = item.countdownText(now: now) {
+                Text(countdown).font(.footnote.weight(.semibold)).foregroundStyle(.orange)
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private var detail: String {
+        let when = item.date.map { $0.formatted(.dateTime.month().day().weekday().locale(Locale(identifier: "zh_CN"))) + " " + RelativeTime.clock($0) } ?? item.exam.time
+        return [when, item.exam.classroom, item.exam.seat.isEmpty ? "" : "座位 \(item.exam.seat)"].filter { !$0.isEmpty }.joined(separator: " · ")
+    }
+}
+
+private struct Tag: View {
+    let text: String
+    let color: Color
+    init(_ text: String, color: Color) { (self.text, self.color) = (text, color) }
+
+    var body: some View {
+        Text(text)
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(color)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 1)
+            .background(color.opacity(0.15), in: Capsule())
+    }
+}

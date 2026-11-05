@@ -18,6 +18,16 @@ struct SettingsHomeView: View {
                     } label: {
                         AccountRow(status: accountStatus)
                     }
+                    NavigationLink {
+                        AccountFeature.makeUnifiedAccountView()
+                    } label: {
+                        accountLabel("统一认证账号", state: services.accounts.states[.unified])
+                    }
+                    NavigationLink {
+                        AccountFeature.makeAttendanceAccountView()
+                    } label: {
+                        accountLabel("考勤账号", state: services.accounts.states[.attendance])
+                    }
                 }
 
                 Section("外观") {
@@ -42,7 +52,17 @@ struct SettingsHomeView: View {
     }
 
     private var accountStatus: String {
-        switch services.accounts.states[.jw] ?? .noAccount {
+        Self.statusText(services.accounts.states[.jw])
+    }
+
+    private func accountLabel(_ title: LocalizedStringKey, state: AuthState?) -> some View {
+        LabeledContent(title) {
+            Text(Self.statusText(state)).foregroundStyle(.secondary)
+        }
+    }
+
+    private static func statusText(_ state: AuthState?) -> String {
+        switch state ?? .noAccount {
         case .noAccount: "未登录"
         case .signedOut: "已退出"
         case .authenticated: "已登录"

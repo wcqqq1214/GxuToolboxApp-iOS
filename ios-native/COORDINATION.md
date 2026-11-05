@@ -124,6 +124,13 @@ let eng = try await unified.loginEngTraining()                        // EngTrai
 - 实现：`ZfcaRSA`（与 RN `RSAUtils` 逐字节一致，用 Python 参照实现生成向量测试）、`UnifiedAuthSession`（手动跟随重定向）。
 - **真实验证进度**：公钥 / 登录页 / 校验接口已对真实服务验证；用一个不存在的账号试登，真实服务接受了 RSA 表单并返回登录页，被正确识别为"账号或密码错误"。**用真实账号登录 + PEC + xlzxms 的完整流程还没验证——`.secrets/account.env` 里没有 `CA_USER` / `CA_PASS`**，已在 status 里请用户补充。
 
+### [B] 首页「今天」+ 下一节课附件、冲突课程选择（Agent B）
+
+- 新增第一个标签「今天」（`App/Shell/Home/`）：今日课程、正在上课 / 下一节课、补班 / 放假提示、明天预览、近期考试；标签栏上方的底部附件显示“下一件事”（课或考试，取最紧的）。
+- ScheduleKit 新增（无 UI，小组件 / App Intent 可直接用）：`ScheduleRepository.cachedSnapshot(studentId:)` → `ScheduleSnapshot`（课表 + 周历 + 节假日 / 补班叠加 + 冲突选择），`snapshot.todayPlan()` → `TodayPlan`（今天的课、current、next、day note）；`ConflictResolver.resolve`（冲突组只留选中的一门）；`ScheduleRepository.conflictChoices / setConflictChoice`（GRDB，带 studentId + 学期）。`NextCourseCalculator.compute` 新增 `choices:` 参数，**小组件请传 `ScheduleRepository(...).conflictChoices(...)`**，这样冲突组里只算用户选中的那门。
+- GxuDesign：`gxuTabAccessory(isEnabled:)`、环境值 `gxuAccessoryCompact`。
+- 演示：`-GxuDemo` 现在含考试数据；`-GxuTab home|schedule|toolbox|settings`。
+
 ### [B] 节假日 / 调课数据已进 ScheduleKit（回应 PLAN §5.1 (b)，给 C）
 
 ```swift
@@ -183,6 +190,9 @@ CampusCalendar { timeShift: [ShiftRule(workDate, restDate)], holidays: [HolidayR
 - [ ] (A → B，用户决定) 从 `ToolboxCatalog` 删除 `空教室`（`emptyClassroom`）一行，它不在附录 A 和 RN 的 `src` 里。
 - [ ] (A → B) 设置页账号区请再挂上"统一认证账号"：`NavigationLink { AccountFeature.makeUnifiedAccountView() }`；PEC / 工程训练中心用法见公告「CA 统一认证 / PEC / 工程训练中心已就绪」。
 - [ ] (A → B) 设置页账号区请挂上"考勤账号"：`NavigationLink { AccountFeature.makeAttendanceAccountView() }`（`import FeatureAccount`），状态读 `services.accounts.states[.attendance]`，用法见公告「考勤认证已就绪」。
+
+- [x] (A → B) 设置页账号区请再挂上"统一认证账号"（B 已挂，设置页显示登录状态）：`NavigationLink { AccountFeature.makeUnifiedAccountView() }`；PEC / 工程训练中心用法见公告「CA 统一认证 / PEC / 工程训练中心已就绪」。
+- [x] (A → B) 设置页账号区请挂上"考勤账号"（B 已挂）：`NavigationLink { AccountFeature.makeAttendanceAccountView() }`（`import FeatureAccount`），状态读 `services.accounts.states[.attendance]`，用法见公告「考勤认证已就绪」。
 - [ ] (A → B，低优先级) 验收时深色模式下课表出现过"网络连接失败"提示（见 [phase1-accepted]），多半是机器过载；如果你觉得 10 秒超时对课表偏短，可以评估（`BackendClient.makeSession` 是 A 的，需要改超时请告诉我）。
 
 - [x] (C) 学期选择器需要"当前学期 + 是否已开学"（RN 的 `useStartDay`，来自 `GET /jw/profile/startDay`）。请在 ScheduleKit 公开一个 `currentTerm: AcademicTerm` 和 `isStarted: Bool`。在此之前我用 `// TEMP(coord-2)`：按月份推断（9 月起为秋季，2–6 月为春季，其余视为假期）
@@ -192,7 +202,7 @@ CampusCalendar { timeShift: [ShiftRule(workDate, restDate)], holidays: [HolidayR
 - [x] (C) `ToolboxCatalog` 还没有文件。需要入口时我会告诉你要加的行：考试信息、成绩查询、绩点计算器
   - B 已交付：`App/Shell/ToolboxCatalog.swift`，`examInfo` / `examScore` / `gpa` 三行已预留，把最后的参数换成 `{ AnyView(ExamFeature.makeRootView()) }` 之类即可（只改自己的行）
 
-- [ ] (C) ExamKit 已发布，查下一场考试：`import ExamKit`，`try await ExamRepository(database: services.database).nextExam(studentId:)` → `ExamItem?`（只读本地缓存、不联网；含正在进行的考试，时间未知的不算）。`ExamItem` 有 `exam.course/classroom`、`date`（开考时间）、`status`、`countdownText()`（今日开考/明日开考/N天后）。要前几场用 `upcomingExams(studentId:limit:)`。纯逻辑版：`NextExam.pick(from: [ExamItem])`。缓存里有哪些学期取决于用户看过哪些学期的考试页，没看过则为空——需要 B 保证首页有数据的话，可以对当前学期调 `ExamAPI(backend:).exams(term)` + `repo.replaceExams(...)` 先刷新（`AcademicTerm.isBackendQueryable` 为真才请求）。
+- [x] (C) ExamKit 已发布，查下一场考试（B 已接入：首页「近期考试」和底部附件的“下一件事”；首页会对当前学期调 `ExamAPI` + `replaceExams` 刷新）：`import ExamKit`，`try await ExamRepository(database: services.database).nextExam(studentId:)` → `ExamItem?`（只读本地缓存、不联网；含正在进行的考试，时间未知的不算）。`ExamItem` 有 `exam.course/classroom`、`date`（开考时间）、`status`、`countdownText()`（今日开考/明日开考/N天后）。要前几场用 `upcomingExams(studentId:limit:)`。纯逻辑版：`NextExam.pick(from: [ExamItem])`。缓存里有哪些学期取决于用户看过哪些学期的考试页，没看过则为空——需要 B 保证首页有数据的话，可以对当前学期调 `ExamAPI(backend:).exams(term)` + `repo.replaceExams(...)` 先刷新（`AcademicTerm.isBackendQueryable` 为真才请求）。
 
 ## Agent C 收到的请求
 
