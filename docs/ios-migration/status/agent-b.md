@@ -9,6 +9,7 @@
   - 首页按协调者意见调整（今天标签不显示底部附件、考试去重、座位文案、课程结束折叠 + 明天预览）；`-GxuForceLegacy` 开关；ScheduleUI 抽出 `ScheduleBoard`，新增只读 `StaticScheduleView`（班级课表用）
   - FeatureCampus：班级课表（筛选 + 班级列表 + 只读周网格）、全校课表（此刻有课的班级）；真实账号验证通过（49 个班 / 31 个在上课）
   - 分享本周课表图片（`ImageRenderer` + `ShareLink`）
+  - 课表页（含班级课表）网格下方显示实践课（`practiceList`，按周次过滤）
   - 截图：`ios-native/.screens/holiday-week-{light,dark}.png`、`home-{light,dark}.png`
 - Phase 1 状态（保留）：已完成（待用户验收）
 - 已完成：

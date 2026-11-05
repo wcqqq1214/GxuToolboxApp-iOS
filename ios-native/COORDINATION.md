@@ -228,7 +228,7 @@ Phase 2 的 B 部分全部完成并发布（构建通过；FeatureSchedule / Fea
 - 全校课表：`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/full-school-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/full-school-dark.png`
 - iOS 18 降级路径（`-GxuForceLegacy`）：`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/legacy-schedule-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/legacy-schedule-dark.png`
 
-已知限制：课表页不显示实践课（`practiceList`，RN 也只在单独列表里显示）；全校课表要逐班读取课表，班级多的学院需要等几十秒；`-GxuForceLegacy` 只能验证 GxuDesign 自己的封装，系统控件在 iOS 26 上仍是系统玻璃。
+已知限制：全校课表要逐班读取课表，班级多的学院需要等几十秒；`-GxuForceLegacy` 只能验证 GxuDesign 自己的封装，系统控件在 iOS 26 上仍是系统玻璃。
 
 ### [phase2-done] C（Agent C）
 
