@@ -34,6 +34,7 @@ final class ScheduleViewModel {
     @ObservationIgnored private var studentId: String?
     @ObservationIgnored private var startDays: [TermStartDay] = []
     @ObservationIgnored private var pinnedTerm: AcademicTerm?
+    @ObservationIgnored private var lastRefresh: Date?
 
     var weekCount: Int { max(termCalendar?.weekCount ?? 1, index.maxWeek, 1) }
     var currentWeek: Int { termCalendar?.clampedWeek(at: .now) ?? 1 }
@@ -77,9 +78,17 @@ final class ScheduleViewModel {
         await refresh()
     }
 
+    /// 回到前台时调用：距上次刷新不到 `minimumInterval` 秒就不再请求
+    func refreshIfStale(minimumInterval: TimeInterval = 30) async {
+        guard phase == .content else { return }
+        if let lastRefresh, Date.now.timeIntervalSince(lastRefresh) < minimumInterval { return }
+        await refresh()
+    }
+
     func refresh() async {
         guard let services, let studentId, !isRefreshing else { return }
         isRefreshing = true
+        lastRefresh = .now
         defer { isRefreshing = false }
         let repository = makeRepository(services)
         do {

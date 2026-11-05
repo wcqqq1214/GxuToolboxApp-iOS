@@ -4,23 +4,55 @@ import GxuAuth
 import GxuFoundation
 import GxuNetworking
 import GxuStorage
+import Synchronization
 
 /// 调试用演示数据：启动参数带 `-GxuDemo` 时，不连后端，用内置的假课表跑完整界面（截图自查用）。
 @MainActor
 enum DemoMode {
     static var isEnabled: Bool { ProcessInfo.processInfo.arguments.contains("-GxuDemo") }
+    /// `-GxuDemoOffline`：前两次请求（开学日 + 课表）成功，之后全部失败，用来看离线 / 刷新失败的状态
+    static var simulatesOffline: Bool { ProcessInfo.processInfo.arguments.contains("-GxuDemoOffline") }
 
     static let services: AppServices = {
         let client = BackendClient(session: BackendClient.makeSession(configuration: .ephemeral))
         let credentials = InMemoryCredentialStore([.jw: Credential(username: "2025000000", password: "demo")])
         let jw = JwSessionManager(credentials: credentials, transport: client)
         return AppServices(
-            backend: DemoBackend(),
+            backend: simulatesOffline ? OfflineAfterBackend(wrapped: DemoBackend(), allowedCalls: 2) : DemoBackend(),
             database: try! AppDatabase.inMemory(features: FeatureRegistry.migrations),
             shared: UserDefaultsSharedStore(suiteName: nil),
             accounts: AccountCenter(credentials: credentials, jw: jw, states: [.jw: .authenticated], studentId: "2025000000")
         )
     }()
+}
+
+private final class OfflineAfterBackend: BackendAPI {
+    private let wrapped: any BackendAPI
+    private let remaining: Mutex<Int>
+
+    init(wrapped: any BackendAPI, allowedCalls: Int) {
+        self.wrapped = wrapped
+        self.remaining = Mutex(allowedCalls)
+    }
+
+    private func check() throws {
+        let allowed = remaining.withLock { value -> Bool in
+            guard value > 0 else { return false }
+            value -= 1
+            return true
+        }
+        if !allowed { throw GxuError.network("") }
+    }
+
+    func get<T: Decodable & Sendable>(_ path: String, query: [String: String], auth: AuthSystem?, as type: T.Type) async throws -> T {
+        try check()
+        return try await wrapped.get(path, query: query, auth: auth, as: type)
+    }
+
+    func post<T: Decodable & Sendable, Body: Encodable & Sendable>(_ path: String, body: Body, auth: AuthSystem?, as type: T.Type) async throws -> T {
+        try check()
+        return try await wrapped.post(path, body: body, auth: auth, as: type)
+    }
 }
 
 private struct DemoBackend: BackendAPI {
@@ -35,7 +67,9 @@ private struct DemoBackend: BackendAPI {
     }
 
     func post<T: Decodable & Sendable, Body: Encodable & Sendable>(_ path: String, body: Body, auth: AuthSystem?, as type: T.Type) async throws -> T {
-        throw GxuError.network("演示模式不支持 \(path)")
+        guard path == "/jw/profile" else { throw GxuError.network("演示模式不支持 \(path)") }
+        let profile = #"{"data":{"student_id":"2025000000","name":"演示同学","college":"土木建筑工程学院","major":"土木工程","class_name":"土木251","grade":"2025","study_years":"4"}}"#
+        return try JSONDecoder().decode(type, from: Data(profile.utf8))
     }
 
     /// 今天落在第 6 周；再附一个已结束的上学期，用来试学期菜单

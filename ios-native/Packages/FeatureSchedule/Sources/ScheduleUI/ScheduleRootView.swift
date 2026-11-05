@@ -9,6 +9,7 @@ public struct ScheduleRootView: View {
     @Environment(\.services) private var services
     @State private var model = ScheduleViewModel()
     @State private var detail: ConflictGroup?
+    @Environment(\.scenePhase) private var scenePhase
     @Namespace private var glassNamespace
     private let onRequestLogin: @MainActor () -> Void
 
@@ -30,6 +31,9 @@ public struct ScheduleRootView: View {
         }
         .task(id: AccountKey(studentId: services.accounts.studentId, state: services.accounts.states[.jw])) {
             await model.load(services: services)
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { Task { await model.refreshIfStale() } }
         }
         .sheet(item: $detail) { group in
             CourseDetailSheet(group: group, colors: model.colors)

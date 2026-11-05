@@ -12,16 +12,30 @@ struct WeekGridView: View {
     static let rowHeight: CGFloat = 64
     static let headerHeight: CGFloat = 54
 
+    @State private var position = ScrollPosition(edge: .top)
+
     var body: some View {
         ScrollView {
             WeekBody(week: week, model: model, onSelect: onSelect)
                 .padding(.bottom, GxuDesign.Spacing.s)
         }
+        .scrollPosition($position)
+        .onAppear(perform: scrollToNow)
         .contentMargins(.bottom, 96, for: .scrollContent)   // 给浮动控件留位置
         .scrollIndicators(.hidden)
         .refreshable { await model.refresh() }
         // 网格是定高布局，限制字体放大范围避免文字溢出课程块
         .dynamicTypeSize(...DynamicTypeSize.xLarge)
+    }
+}
+
+extension WeekGridView {
+    /// 看本周时，直接滚到当前时间附近（像系统日历）。当前时间在前 3 节以内就停在顶部。
+    private func scrollToNow() {
+        guard let termCalendar = model.termCalendar, termCalendar.week(containing: .now) == week else { return }
+        let rows = ClassPeriods.position(at: .now, calendar: termCalendar.calendar)
+        guard rows > 3 else { return }
+        position.scrollTo(y: (rows - 3) * Self.rowHeight)
     }
 }
 

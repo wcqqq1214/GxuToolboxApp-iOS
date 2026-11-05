@@ -14,11 +14,9 @@ struct SettingsHomeView: View {
             List {
                 Section("账号") {
                     NavigationLink {
-                        AccountFeature.makeRootView().navigationTitle("教务账号")
+                        AccountFeature.makeRootView()
                     } label: {
-                        LabeledContent("教务账号") {
-                            Text(accountStatus).foregroundStyle(.secondary)
-                        }
+                        AccountRow(status: accountStatus)
                     }
                 }
 
@@ -66,6 +64,45 @@ struct SettingsHomeView: View {
         }
         .foregroundStyle(.secondary)
         .accessibilityElement(children: .combine)
+    }
+}
+
+/// 账号入口：已登录时在标题下显示 “学号 · 学院”。资料先读缓存，再后台更新；拿不到资料时只显示学号。
+private struct AccountRow: View {
+    let status: String
+    @Environment(\.services) private var services
+    @State private var profile: UserProfile?
+
+    private var studentId: String? { services.accounts.studentId }
+
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("教务账号")
+                if let summary {
+                    Text(summary).font(.footnote).foregroundStyle(.secondary)
+                }
+            }
+            Spacer(minLength: GxuDesign.Spacing.s)
+            Text(status).foregroundStyle(.secondary)
+        }
+        .accessibilityElement(children: .combine)
+        .task(id: studentId) { await loadProfile() }
+    }
+
+    private var summary: String? {
+        guard let studentId else { return nil }
+        let college = profile?.studentId == studentId ? profile?.college ?? "" : ""
+        return college.isEmpty ? studentId : "\(studentId) · \(college)"
+    }
+
+    private func loadProfile() async {
+        guard let studentId else {
+            profile = nil
+            return
+        }
+        profile = services.profiles.cached(studentId: studentId)
+        if let fresh = try? await services.profiles.profile(studentId: studentId, refresh: true) { profile = fresh }
     }
 }
 

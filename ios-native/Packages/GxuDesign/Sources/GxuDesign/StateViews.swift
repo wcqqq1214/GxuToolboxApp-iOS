@@ -73,6 +73,9 @@ public struct GxuStaleBanner: View {
     private let updatedAt: Date?
     private let message: String?
 
+    /// App 只有中文界面：固定成 “11月5日 20:10”，不随系统语言变成英文
+    private static let timestampStyle = Date.FormatStyle(locale: Locale(identifier: "zh_Hans_CN")).month().day().hour().minute()
+
     public init(updatedAt: Date?, message: String? = nil) {
         self.updatedAt = updatedAt
         self.message = message
@@ -84,7 +87,7 @@ public struct GxuStaleBanner: View {
             VStack(alignment: .leading, spacing: 2) {
                 if let message { Text(message) }
                 if let updatedAt {
-                    Text("上次更新于 \(updatedAt, format: .dateTime.month().day().hour().minute())")
+                    Text("上次更新于 \(updatedAt.formatted(Self.timestampStyle))")
                 }
             }
             Spacer(minLength: 0)

@@ -1,16 +1,21 @@
 # Agent B 状态
 
-- 当前 Phase：Phase 1（课表 MVP 完成，待验收真实数据）
+- 当前 Phase：Phase 1 已完成（待用户验收）
 - 已完成：
   - GxuDesign v1：`GxuTheme`（强调色 + 外观模式，持久化）、`GlassGroup` / `GlassButton` / `.gxuGlass()` / `.gxuGlassID` / `.gxuTabBarMinimizeOnScroll` / `.gxuTabAccessory`（iOS 18 降级 Material）、`ContentCard`、`GxuLoadingView` / `GxuEmptyView` / `GxuErrorView` / `GxuStaleBanner`、`CourseTint`（浅 / 深色对比度 ≥ 4.5:1，有测试）、`README.md`
   - Shell：三个 Tab（课表 / 工具箱 / 设置）、`ToolboxCatalog`（17 项，全部“即将上线”，每项一行）、`SettingsHomeView`（账号入口、外观、占位项）
   - ScheduleKit 另提供给 C：`ScheduleRepository.currentTermInfo()`（当前学期 + 是否已开学）
   - ScheduleKit（无 UI 依赖）：模型（宽容解码）、周次解析与展开、`TermCalendar` / `TermResolver`（开学日、本地时区按天、兼容带时区的 ISO 串）、冲突分组（传递闭包）、`NextCourseCalculator`、`CourseColorAssigner`（4 → 3 个色盘）、周次 / 地点格式化、时间线位置、GRDB 缓存（课表快照带 studentId，迁移 `schedule.v1.*`）、`ScheduleRepository`、小组件快照（`ScheduleKit.widgetSnapshotKey`）。36 个测试
   - ScheduleUI：周网格（节次列、星期日期表头、今天高亮、红色当前时间线、课程块不用玻璃）、横向分页切周、浮动玻璃控件（上一周 / 本周 / 下一周，`glassEffectID` 变形）、周次跳转菜单、学期切换菜单、课程详情 sheet（detents、冲突组列出全部）、下拉刷新、离线保留缓存 + 顶部提示、未登录 / 加载 / 失败状态
-  - 浅色 / 深色模式在 iPhone 18 Pro 模拟器上截图自查（`.screens/`，已 gitignore）
+  - 用真实账号（`scripts/run-e2e.sh`）跑通课表页，浅色 / 深色都截图自查；改进：打开本周时自动滚到当前时间附近、回到前台自动刷新（30 秒节流）、离线提示的时间固定成中文格式
+  - 设置页账号入口显示 “学号 · 学院”（`services.profiles`，先缓存后台更新）
+  - 测试改用 A 脱敏的真实 fixture（36 个）；`PracticeCourse.title` 去掉练习课名里内嵌的教师和周次
+  - DEBUG 调试开关：`-GxuDemo`（内置假数据）、`-GxuDemoOffline`（前两次请求成功后全部失败，看离线状态）、`-GxuTab toolbox|settings`
+  - 截图（`ios-native/.screens/`，已 gitignore）：真实账号 `e2e-light-200355.png`、`e2e-dark-200355.png`；离线 `demo-offline-light.png`；设置页 `demo-settings-light.png`；早期的 `schedule-light.png`、`schedule-dark.png`、`toolbox-light.png`
 - 进行中：无
-- 阻塞：等 A 的 `scripts/run-e2e.sh`（真实账号跑课表页截图）、profile 接口（设置页学号 / 学院摘要）、`_env.sh` 选机修复（目前仍会选到双屏 “iPhone Duo”，COORDINATION 里保留了我写的 `SIM_ID` 说明）
+- 阻塞：无
 - 给其他 agent 的通知：见 `ios-native/COORDINATION.md` 的 “[B] GxuDesign v1 / 课表发布说明”
+- 已知问题：浮动的上一周 / 下一周按钮会盖住下方的课程块（滚动即可），长课程名（如 “混凝土结构基本原理”）在窄列里会换成 3 行；冲突角标在按钮下面时看不到。Phase 3 的视觉打磨再处理
 - 未做（留给 Phase 2）：冲突课程“选中哪一门”的持久化（现在默认组内第一门）、`tabViewBottomAccessory` 下一节课、课程颜色 / 显示项设置、调课 / 假期 / 考试 / 实验 / 考勤覆盖层、分享图片、点课程打开地图
 - TODO(verify)：
   - [x] `GET /jw/schedule/personal` 真实响应（A 的脱敏 fixture）：`weeks` 是 `[Int]`；`practiceList` 字段是 `courseName/time/teacher`；`theoryList` 全部字段类型规整；多一个 `personalInfo`，已忽略。测试已换成真实 fixture（26 门理论课条目、157 次上课、29 个冲突组）
