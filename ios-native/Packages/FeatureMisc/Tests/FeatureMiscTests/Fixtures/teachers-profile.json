@@ -1,0 +1,53 @@
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "baseInfo": {
+      "supervisedDisciplines": [
+        {
+          "disciplineCategory": "理学",
+          "primaryDiscipline": "物理学",
+          "secondary": ""
+        },
+        {
+          "disciplineCategory": "理学",
+          "primaryDiscipline": "天文学",
+          "secondary": ""
+        }
+      ],
+      "name": "王测一",
+      "sex": "1",
+      "pic": "https://example.invalid/avatar/01.jpg",
+      "politicalAffiliation": "中共党员",
+      "title": "教授",
+      "highestEducation": "研究生",
+      "highestDegree": "博士",
+      "position": "",
+      "telephone": "",
+      "postalCode": "530004",
+      "email": "teacher01@example.invalid",
+      "qq": "",
+      "wechat": "",
+      "address": "示例路 1 号",
+      "employed": "1",
+      "supervisor": "博士后合作导师,博士研究生导师,硕士研究生导师",
+      "updatedAt": 1775180200000
+    },
+    "academicProfile": {
+      "employeeNumber": "90009999",
+      "biography": "示例简介；示例单位；示例研究方向。",
+      "coursesTaught": "示例课程1\n示例课程2\n示例课程3\n示例课程4\n示例课程5\n示例课程6",
+      "researchProjects": "",
+      "researchDirections": "示例researchDirections",
+      "achievements": {
+        "summary": "",
+        "papers": "示例papers",
+        "books": "",
+        "patents": ""
+      },
+      "honorsAndAwards": "",
+      "admissionsInformation": "示例admissionsInformation",
+      "academicAppointments": "示例学术兼职1\n示例学术兼职2"
+    }
+  }
+}

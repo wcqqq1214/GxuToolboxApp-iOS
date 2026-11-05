@@ -48,9 +48,9 @@ public struct EvaluationOverviewView: View {
             List {
                 if let error = model.error {
                     if model.tasks.isEmpty {
-                        GxuErrorView(error.userMessage) { Task { await model.load() } }.listRowBackground(Color.clear)
+                        GxuErrorView(EvaluationAPI.message(for: error)) { Task { await model.load() } }.listRowBackground(Color.clear)
                     } else {
-                        GxuStaleBanner(updatedAt: nil, message: error.userMessage).listRowBackground(Color.clear)
+                        GxuStaleBanner(updatedAt: nil, message: EvaluationAPI.message(for: error)).listRowBackground(Color.clear)
                     }
                 }
                 if model.tasks.isEmpty {

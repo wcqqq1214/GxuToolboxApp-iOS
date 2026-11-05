@@ -19,6 +19,6 @@ let package = Package(
         .testTarget(name: "FeatureMiscTests", dependencies: [
             "FeatureMisc",
             .product(name: "GxuTestSupport", package: "GxuCore"),
-        ]),
+        ], resources: [.copy("Fixtures")]),
     ]
 )

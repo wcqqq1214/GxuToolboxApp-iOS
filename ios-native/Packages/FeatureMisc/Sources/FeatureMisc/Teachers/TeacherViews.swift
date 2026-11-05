@@ -212,7 +212,7 @@ public struct TeacherDetailView: View {
                     Section {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(detail.base.name.isEmpty ? teacher.name : detail.base.name).font(.title2.bold())
-                            Text([teacher.unit, detail.base.title].filter { !$0.isEmpty }.joined(separator: " · "))
+                            Text([teacher.unit, detail.base.title, detail.base.position].filter { !$0.isEmpty }.joined(separator: " · "))
                                 .font(.subheadline).foregroundStyle(.secondary)
                         }
                     }

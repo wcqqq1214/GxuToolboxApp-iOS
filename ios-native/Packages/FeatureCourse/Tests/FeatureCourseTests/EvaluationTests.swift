@@ -35,6 +35,12 @@ private func decode<T: Decodable>(_ type: T.Type, _ json: String) throws -> T {
         #expect(try await EvaluationAPI(backend: mock).tasks().count == 1)
     }
 
+    @Test func missingBackendRouteGetsReadableMessage() {
+        let message = EvaluationAPI.message(for: .http(status: 404, message: "Cannot GET /jw/evaluation"))
+        #expect(message.contains("暂未开放"))
+        #expect(EvaluationAPI.message(for: .network("x")) == GxuError.network("x").userMessage)
+    }
+
     @Test func apiPropagatesSessionExpired() async {
         let mock = MockBackendAPI()
         mock.stub("GET /jw/evaluation", error: GxuError.sessionExpired(.jw))

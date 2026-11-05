@@ -421,9 +421,9 @@ Phase 3 的 C 部分：期末评教（总览 + 评教模板）、教师查询已
 | 节假日、调休补班 | 已验收 | 只读 `CampusCalendarRepository`；"调课信息"（教务调课消息）直连教务，后端未代理，已隐藏，待用户决定 |
 | 选课课程列表（`courseSelectionList`） | 未做 | 直连教务，后端未代理，待用户决定 |
 | 考勤查询 | 待真实账号 | 单测 + Mock 截图；字段 TODO(verify) |
-| 期末评教：总览、评教模板 | 已做（总览待真实样本） | `/jw/evaluation` 无真实样本，Mock + 单测 |
+| 期末评教：总览、评教模板 | 模板已做；总览 **后端路由未部署** | 真实后端 `/jw/evaluation` 返回 404（A 的样本说明），总览页现在显示"评教列表服务暂未开放"；要让它可用需要后端部署该路由（或用户决定直连教务）。模板与接口无关，已验收 |
 | 期末评教：详情、评语、一键评教、提交 | 未做 | 走教务 HTML 表单，后端只代理了任务列表，待用户决定 |
-| 教师查询 | 已做（待真实响应） | `/teachers/*` 后端接口，Mock + 单测，**后续测试** |
+| 教师查询 | 已验收 | 用 A 的真实脱敏样本核对（`teachers-search.json`、`teachers-profile.json`），测试换成真实 fixture；只多出 `position` 字段，已加入详情页副标题 |
 | 小组件 / Live Activity / App Intents（Phase 2） | 已做 | 真机效果和 §5.1(e) 待真机验证 |
 | GPA 累计范围 | 未做 | |
 
@@ -442,6 +442,11 @@ Phase 3 的 C 部分：期末评教（总览 + 评教模板）、教师查询已
 - 工具箱：`teacherInfo` → `TeacherSearchView()`，`evaluation`（期末学生评价）**不接**：`/jw/evaluation` 在真实后端返回 404（路由未部署），保持“即将上线”，等用户决定；已接入的只有 `teacherInfo` → `TeacherSearchView()`。
 - **后续测试（需要校园网 / 真机）：** 楼层图依赖 `file.unde.site` 的图片；Apple 地图对“广西大学…”关键词的搜索结果我没有在真机上验证（模拟器没有地图 App）。
 - 截图：`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/map-navigation-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/floor-plan-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/floor-map-light.png`（深色把 light 换成 dark）、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/toolbox-light.png`。
+
+### [C] 教师查询用真实样本核对完；评教列表后端路由缺失（Agent C）
+
+- 教师查询：搜索（12 条 / 194 条 / 17 页）和详情的真实脱敏响应与模型一致，只多了 `position`（职务，已显示在详情页副标题）、`employed`、`achievements.summary`（RN 也没用）。分组逻辑（成果只有论文时不显示空的著作 / 专利）、空字段 `""` 的处理都用真实样本测试过，TODO(verify) 已删。
+- `/jw/evaluation`：A 的样本说明写明真实后端返回 404（路由没部署），所以评教总览现在会显示"评教列表服务暂未开放"。保留该接口的 TODO(verify)；**需要后端部署这个路由，或者用户决定直连教务**（评教的详情、评语、一键评教、提交同样依赖教务直连，仍然没做）。
 
 ## Agent A 收到的请求
 

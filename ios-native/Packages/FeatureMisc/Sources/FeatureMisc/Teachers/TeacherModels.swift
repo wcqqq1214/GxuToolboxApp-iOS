@@ -3,7 +3,7 @@ import GxuFoundation
 import GxuNetworking
 
 // 教师信息：后端 `GET /teachers/search?q=&page=`、`GET /teachers/profile?name=&school=`（`{code, data, message}`，`getData` 解掉外层）。
-// TODO(verify): 没有校园网 / 真实响应，字段按 RN 的类型定义（teachersInfo/type/info.ts）写，解码都宽容；用 Mock 和单测验证，**后续测试**。
+// 已用真实脱敏响应核对（`Fixtures/sanitized/teachers-*.json`，测试见 `TeacherRealFixtureTests`）；真实响应里空字段是 "" 不是 null，解码对缺字段也宽容。
 
 public struct TeacherSummary: Decodable, Sendable, Hashable, Identifiable {
     public var id: String
@@ -58,18 +58,18 @@ public struct TeacherDetail: Decodable, Sendable, Hashable {
     }
 
     public struct Base: Decodable, Sendable, Hashable {
-        public var name = "", sex = "", pic = "", politicalAffiliation = "", title = "", highestEducation = "", highestDegree = ""
+        public var name = "", sex = "", pic = "", politicalAffiliation = "", title = "", position = "", highestEducation = "", highestDegree = ""
         public var telephone = "", postalCode = "", email = "", qq = "", wechat = "", address = "", supervisor = ""
         public var disciplines: [Discipline] = []
         private enum CodingKeys: String, CodingKey {
-            case name, sex, pic, politicalAffiliation, title, highestEducation, highestDegree, telephone, postalCode, email, qq, wechat, address, supervisor
+            case name, sex, pic, politicalAffiliation, title, position, highestEducation, highestDegree, telephone, postalCode, email, qq, wechat, address, supervisor
             case supervisedDisciplines
         }
         public init() {}
         public init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
             name = c.text(.name); sex = c.text(.sex); pic = c.text(.pic); politicalAffiliation = c.text(.politicalAffiliation)
-            title = c.text(.title); highestEducation = c.text(.highestEducation); highestDegree = c.text(.highestDegree)
+            title = c.text(.title); position = c.text(.position); highestEducation = c.text(.highestEducation); highestDegree = c.text(.highestDegree)
             telephone = c.text(.telephone); postalCode = c.text(.postalCode); email = c.text(.email); qq = c.text(.qq)
             wechat = c.text(.wechat); address = c.text(.address); supervisor = c.text(.supervisor)
             disciplines = (try? c.decodeIfPresent([Discipline].self, forKey: .supervisedDisciplines)) ?? []
