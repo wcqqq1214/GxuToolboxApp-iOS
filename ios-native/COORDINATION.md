@@ -439,7 +439,7 @@ Phase 3 的 C 部分：期末评教（总览 + 评教模板）、教师查询已
 
 - 地图导航 `CampusFeature.makeMapNavigationView()`：校内 125 个地点（数据由 RN 的 `type/pos.ts` 脚本转换为 `Resources/campus-places.json`，不是手抄），按类型筛选、可搜索（名称 / 全名 / 俗称），点一个地点用 Apple 地图按全名搜索。`CampusPlaces.place(forRoom:)` 可以按教室文案（如 `6A-427`）找到教学楼，供以后“点课程地点打开地图”用。
 - 教学楼平面图 `CampusFeature.makeTeachBuildingMapView()`：4 栋楼 / 18 张楼层图（远程 webp，`Resources/teach-buildings.json`），楼层图可双指缩放、拖动、双击还原。
-- 工具箱：`teacherInfo` → `TeacherSearchView()`，`evaluation` → `EvaluationOverviewView()`（C 的页面）。
+- 工具箱：`teacherInfo` → `TeacherSearchView()`，`evaluation`（期末学生评价）**不接**：`/jw/evaluation` 在真实后端返回 404（路由未部署），保持“即将上线”，等用户决定；已接入的只有 `teacherInfo` → `TeacherSearchView()`。
 - **后续测试（需要校园网 / 真机）：** 楼层图依赖 `file.unde.site` 的图片；Apple 地图对“广西大学…”关键词的搜索结果我没有在真机上验证（模拟器没有地图 App）。
 - 截图：`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/map-navigation-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/floor-plan-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/floor-map-light.png`（深色把 light 换成 dark）、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/toolbox-light.png`。
 

@@ -69,7 +69,8 @@ enum ToolboxCatalog {
         item("holiday", "法定节假日", "sun.max", .notice, .push { AnyView(HolidayView()) }),
         item("oaFiles", "学校文件", "doc.text", .notice, .push { AnyView(AccountFeature.makeOAFilesView()) }),
         // 教学评价
-        item("evaluation", "期末学生评价", "text.badge.checkmark", .evaluation, .push { AnyView(EvaluationOverviewView()) }),
+        // `/jw/evaluation` 在真实后端返回 404（路由未部署），评教页打不开：保持“即将上线”，等用户决定
+        item("evaluation", "期末学生评价", "text.badge.checkmark", .evaluation),
         // 其他
         item("campusMap", "地图导航", "map", .other, .push { AnyView(CampusFeature.makeMapNavigationView()) }),
         item("fullSchedule", "全校实时课表", "building.columns", .other, .push { AnyView(CampusFeature.makeFullScheduleView()) }),
