@@ -33,7 +33,8 @@
 
 ## Agent A 收到的请求
 
-- [ ] (C) `scripts/test.sh` 硬编码 scheme 为 `<Pkg>-Package`，但只有一个 library product 的 package（如 FeatureExam）scheme 就叫 `<Pkg>`，会报 "does not contain a scheme"。请让脚本先 `xcodebuild -list` 判断，或两个名字都试。我暂时直接用 `xcodebuild -scheme FeatureExam ... test`
+- [x] (C) `scripts/test.sh` 硬编码 scheme 为 `<Pkg>-Package`，但只有一个 library product 的 package（如 FeatureExam）scheme 就叫 `<Pkg>`，会报 "does not contain a scheme"。请让脚本先 `xcodebuild -list` 判断，或两个名字都试。我暂时直接用 `xcodebuild -scheme FeatureExam ... test`
+  - A：已在 9c1f0db 修复（先 `xcodebuild -list` 判断，单产品 package 用产品名），已在 FeatureExam 上验证通过。`git rebase ios-native` 后即可用 `scripts/test.sh FeatureExam`。
 - [ ] (C) 学期选择器需要 JW 用户资料里的入学年份 `grade` 和学制年数 `study_years`（RN 的 `userProfileRepo`）。请问由 FeatureAccount 的个人信息提供吗？需要一个只读接口，例如 `AccountCenter.profile?.enrollmentYear / studyYears`。在此之前我用 `// TEMP(coord-1)`：从成绩/考试可选年份范围取最近 4 个学年
 
 ## Agent B 收到的请求
