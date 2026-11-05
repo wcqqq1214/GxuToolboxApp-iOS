@@ -102,10 +102,18 @@ public struct TheoryCourse: Codable, Sendable, Hashable, Identifiable {
 }
 
 public struct PracticeCourse: Codable, Sendable, Hashable {
+    /// 后端原样返回，里面内嵌了教师和周次，如 "创新创业实践●教师70(共16周)/1-16周/无"。显示请用 `title`
     public var courseName: String
     /// 如 "1-16周"
     public var time: String
     public var teacher: String
+
+    /// 去掉内嵌的教师 / 周次后的课程名（在第一个 ●◆★○ 标记处截断）
+    public var title: String {
+        guard let marker = courseName.firstIndex(where: { "●◆★○".contains($0) }) else { return courseName }
+        let head = courseName[..<marker].trimmingCharacters(in: .whitespaces)
+        return head.isEmpty ? courseName : head
+    }
 
     public init(courseName: String, time: String = "", teacher: String = "") {
         self.courseName = courseName

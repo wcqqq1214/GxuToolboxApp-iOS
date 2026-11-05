@@ -21,6 +21,12 @@ struct ColorTests {
         #expect(custom["课3"] == 0x123456)
     }
 
+    @Test func realCoursesAllGetDistinctColors() throws {
+        let courses = try personalFixture().theoryList
+        let colors = CourseColorAssigner.assign(courses: courses)
+        #expect(colors.count == 9 && Set(colors.values).count == 9)
+    }
+
     @Test func manyCoursesStillColored() {
         let courses = (0..<40).map { course("课\($0)", weekday: 1, 1, 2) }   // 全部相邻且超过色盘
         let colors = CourseColorAssigner.assign(courses: courses)
@@ -45,14 +51,14 @@ struct RepositoryTests {
 
     @Test func refreshCachesPerStudent() async throws {
         let backend = MockBackendAPI()
-        backend.stub("GET /jw/schedule/personal", json: try loadFixture("personal", bundle: .module))
+        backend.stub("GET /jw/schedule/personal", json: try personalFixtureData())
         let repo = try makeRepository(backend)
 
         #expect(try await repo.cachedSchedule(studentId: "A", term: autumn) == nil)
         let fresh = try await repo.refreshSchedule(studentId: "A", term: autumn, now: Date(timeIntervalSince1970: 1000))
         let cached = try #require(try await repo.cachedSchedule(studentId: "A", term: autumn))
         #expect(cached == fresh)
-        #expect(cached.schedule.theoryList.count == 5)
+        #expect(cached.schedule.theoryList.count == 26)
         #expect(cached.updatedAt == Date(timeIntervalSince1970: 1000))
         // 其它账号、其它学期读不到
         #expect(try await repo.cachedSchedule(studentId: "B", term: autumn) == nil)
@@ -61,13 +67,13 @@ struct RepositoryTests {
 
     @Test func nullResponseKeepsOldCache() async throws {
         let backend = MockBackendAPI()
-        backend.stub("GET /jw/schedule/personal", json: try loadFixture("personal", bundle: .module))
+        backend.stub("GET /jw/schedule/personal", json: try personalFixtureData())
         let repo = try makeRepository(backend)
         try await repo.refreshSchedule(studentId: "A", term: autumn)
 
         backend.stub("GET /jw/schedule/personal", json: #"{"data": null}"#)
         await #expect(throws: GxuError.self) { try await repo.refreshSchedule(studentId: "A", term: autumn) }
-        #expect(try await repo.cachedSchedule(studentId: "A", term: autumn)?.schedule.theoryList.count == 5)
+        #expect(try await repo.cachedSchedule(studentId: "A", term: autumn)?.schedule.theoryList.count == 26)
 
         backend.stub("GET /jw/schedule/personal", error: .sessionExpired(.jw))
         await #expect(throws: GxuError.sessionExpired(.jw)) { try await repo.refreshSchedule(studentId: "A", term: autumn) }
@@ -121,5 +127,24 @@ struct RepositoryTests {
         let backend = MockBackendAPI()
         backend.stub("GET /jw/profile/startDay", error: .network("offline"))
         #expect(await (try makeRepository(backend)).currentTermInfo() == nil)
+    }
+
+    @Test func realStartDaysDecodeAndResolve() async throws {
+        let backend = MockBackendAPI()
+        backend.stub("GET /jw/profile/startDay", json: try startDayFixtureData())
+        let repo = try makeRepository(backend)
+        let terms = try await repo.refreshStartDays()
+        #expect(terms.count == 5)
+        #expect(terms.allSatisfy { !$0.isCurrent })   // 真实响应没有 is_current
+        #expect(terms[4] == TermStartDay(year: 2026, term: 1, day: "2026-09-07T00:00:00.000Z", week: 19))
+        // 学期之间的假期取下一个学期；学期内取当前学期
+        func current(_ day: String) -> AcademicTerm? { TermResolver.current(in: terms, now: at(day), calendar: shanghai)?.academicTerm }
+        #expect(current("2025-10-01") == AcademicTerm(year: 2025, term: 1))
+        #expect(current("2026-01-20") == AcademicTerm(year: 2025, term: 1))   // 第 20 周
+        #expect(current("2026-02-10") == AcademicTerm(year: 2025, term: 2))   // 寒假
+        #expect(current("2026-11-05") == AcademicTerm(year: 2026, term: 1))
+        let info = try #require(await repo.currentTermInfo(now: at("2026-11-05"), calendar: shanghai))
+        #expect(info.isStarted && !info.isEnded && info.calendar.weekCount == 19)
+        #expect(info.calendar.week(containing: at("2026-11-05")) == 9)
     }
 }

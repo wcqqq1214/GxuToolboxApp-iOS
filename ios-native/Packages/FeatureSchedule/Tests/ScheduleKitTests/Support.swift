@@ -19,14 +19,18 @@ func at(_ text: String) -> Date {
     return f.date(from: text)!
 }
 
-/// 2026-09-07 是周一，共 18 周
+/// 合成数据用的学期：2026-09-07 是周一，共 18 周
 let term = TermCalendar(startDate: at("2026-09-07"), weekCount: 18, calendar: shanghai)
+/// 真实 fixture 对应的学期（2025-2026 秋季，`/jw/profile/startDay` 里 2025 年第 1 学期）
+let realTerm = TermCalendar(startDate: at("2025-09-08"), weekCount: 20, calendar: shanghai)
 
-// TODO(verify): 手写 fixture（按适配器 Schedule 类型），等 capture-fixtures.sh 抓到真实数据后脱敏替换
+/// 真实接口响应，由 A 脱敏（Fixtures/sanitized/schedule-personal.json），含多余的 `personalInfo` 字段
+func personalFixtureData() throws -> Data { try loadFixture("schedule-personal", bundle: .module) }
+func startDayFixtureData() throws -> Data { try loadFixture("profile-startDay", bundle: .module) }
+
 func personalFixture() throws -> Schedule {
     struct Envelope: Decodable { let data: Schedule }
-    let data = try loadFixture("personal", bundle: .module)
-    return try JSONDecoder().decode(Envelope.self, from: data).data
+    return try JSONDecoder().decode(Envelope.self, from: personalFixtureData()).data
 }
 
 func course(
