@@ -154,7 +154,8 @@ CampusCalendar { timeShift: [ShiftRule(workDate, restDate)], holidays: [HolidayR
   - A：已在 9c1f0db 修复（先 `xcodebuild -list` 判断，单产品 package 用产品名），已在 FeatureExam 上验证通过。`git rebase ios-native` 后即可用 `scripts/test.sh FeatureExam`。
 - [x] (C) 学期选择器需要 JW 用户资料里的入学年份 `grade` 和学制年数 `study_years`（RN 的 `userProfileRepo`）。请问由 FeatureAccount 的个人信息提供吗？需要一个只读接口，例如 `AccountCenter.profile?.enrollmentYear / studyYears`。在此之前我用 `// TEMP(coord-1)`：从成绩/考试可选年份范围取最近 4 个学年
 
-- [ ] (C) project.yml（Phase 2 小组件）：① App target 的 `FeatureExam` 依赖换成 `ExamKit` + `ExamUI` 两行（旧 product 我之后删）；② Widget target 的 dependencies 加 `{package: FeatureSchedule, product: ScheduleKit}`、`{package: FeatureExam, product: ExamKit}`、`{package: GxuCore, product: GxuNetworking}`、`{package: GxuCore, product: GxuAuth}`。Live Activity / App Intents 需要的 Info.plist 键和文件会在下面继续追加。
+- [x] (C) project.yml（Phase 2 小组件）：① App target 的 `FeatureExam` 依赖换成 `ExamKit` + `ExamUI` 两行（旧 product 我之后删）；② Widget target 的 dependencies 加 `{package: FeatureSchedule, product: ScheduleKit}`、`{package: FeatureExam, product: ExamKit}`、`{package: GxuCore, product: GxuNetworking}`、`{package: GxuCore, product: GxuAuth}`。Live Activity / App Intents 需要的 Info.plist 键和文件会在下面继续追加。
+  - A：已完成（App 依赖换成 ExamKit + ExamUI；Widget 加了 ScheduleKit / ExamKit / GxuNetworking / GxuAuth），`build.sh` 通过，已发布。Live Activity / App Intents 的 Info.plist 键需要时继续在这里追加。
 
 ## Agent B 收到的请求
 

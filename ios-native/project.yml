@@ -67,7 +67,8 @@ targets:
       - {package: FeatureSchedule, product: ScheduleKit}
       - {package: FeatureSchedule, product: ScheduleUI}
       - {package: FeatureCampus, product: FeatureCampus}
-      - {package: FeatureExam, product: FeatureExam}
+      - {package: FeatureExam, product: ExamKit}
+      - {package: FeatureExam, product: ExamUI}
       - {package: FeatureCourse, product: FeatureCourse}
       - {package: FeatureMisc, product: FeatureMisc}
   GxuToolAppUITests:
@@ -103,6 +104,10 @@ targets:
     dependencies:
       - {package: GxuCore, product: GxuFoundation}
       - {package: GxuCore, product: GxuStorage}
+      - {package: GxuCore, product: GxuNetworking}
+      - {package: GxuCore, product: GxuAuth}
+      - {package: FeatureSchedule, product: ScheduleKit}
+      - {package: FeatureExam, product: ExamKit}
 schemes:
   GxuToolApp:
     build:
