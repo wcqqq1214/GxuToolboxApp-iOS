@@ -23,6 +23,8 @@ let package = Package(
             .product(name: "GxuStorage", package: "GxuCore"),
             .product(name: "GxuDesign", package: "GxuDesign"),
             .product(name: "ScheduleKit", package: "FeatureSchedule"),
+            .product(name: "ExamKit", package: "FeatureExam"),
+            .product(name: "ExamUI", package: "FeatureExam"),
         ]),
         .target(name: "ClassWidgetKit", dependencies: [
             .product(name: "GxuFoundation", package: "GxuCore"),
@@ -40,6 +42,10 @@ let package = Package(
             .product(name: "GxuStorage", package: "GxuCore"),
             .product(name: "ScheduleKit", package: "FeatureSchedule"),
             .product(name: "ExamKit", package: "FeatureExam"),
+        ]),
+        .testTarget(name: "FeatureCourseTests", dependencies: [
+            "FeatureCourse",
+            .product(name: "GxuTestSupport", package: "GxuCore"),
         ]),
         .testTarget(name: "ClassWidgetKitTests", dependencies: [
             "ClassWidgetKit",

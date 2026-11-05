@@ -109,9 +109,28 @@ private struct MessageView: View {
 /// 一节课的焦点展示（小组件左侧 / 小尺寸整体）
 private struct FocusView: View {
     var entry: ScheduleWidgetEntry
+
+    /// 上课中显示距下课，等待中显示距上课。用系统动态时间样式，不需要时间线刷新
+    private var relative: (date: Date, suffix: String)? {
+        if let current = entry.current { return (current.endsAt, "后下课") }
+        if entry.phase == .waiting, let first = entry.upcoming.first { return (first.startsAt, "后上课") }
+        return nil
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             StatusLabel(entry: entry)
+            if let relative {
+                Spacer(minLength: 2)
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(relative.date, style: .relative)
+                        .font(.title2.weight(.semibold)).monospacedDigit()
+                        .lineLimit(1).minimumScaleFactor(0.6)
+                        .environment(\.locale, Locale(identifier: "zh_CN"))   // 固定中文单位：25分钟
+                    Text(relative.suffix).font(.caption).foregroundStyle(.secondary)
+                }
+                .widgetAccentable()
+            }
             Spacer(minLength: 4)
             if let course = entry.focus {
                 Text(course.name).font(.headline).lineLimit(2).minimumScaleFactor(0.85)
@@ -138,14 +157,23 @@ private struct CourseRow: View {
             RoundedRectangle(cornerRadius: 2)
                 .fill(CourseTint(hex: course.markerHex).marker)
                 .frame(width: 3)
-                .widgetAccentable(highlighted)
             VStack(alignment: .leading, spacing: 0) {
                 Text(course.name).font(.subheadline.weight(highlighted ? .semibold : .regular)).lineLimit(1)
                 Text([showsDay ? dayPrefixed(course, relativeTo: date) : timeRange(course), course.room].filter { !$0.isEmpty }.joined(separator: " · "))
                     .font(.caption).foregroundStyle(.secondary).lineLimit(1)
             }
+            if highlighted {
+                Spacer(minLength: 4)
+                Text("上课中").font(.caption2.weight(.semibold)).foregroundStyle(.tint)
+            }
         }
+        .padding(highlighted ? 6 : 0)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            if highlighted {
+                RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.accentColor.opacity(0.14)).widgetAccentable()
+            }
+        }
     }
 }
 
@@ -196,6 +224,13 @@ private struct MediumView: View {
 private struct LargeView: View {
     var entry: ScheduleWidgetEntry
 
+    /// 固定中文格式，不随系统语言变化：11月5日 周四
+    static func dateText(_ date: Date) -> String {
+        let cal = Calendar.current
+        let c = cal.dateComponents([.month, .day], from: date)
+        return "\(c.month ?? 0)月\(c.day ?? 0)日 " + WeekdayName.full((cal.component(.weekday, from: date) + 5) % 7 + 1)
+    }
+
     private var today: [WidgetCourse] { [entry.current].compactMap { $0 } + entry.upcoming }
 
     var body: some View {
@@ -206,7 +241,7 @@ private struct LargeView: View {
                 HStack {
                     StatusLabel(entry: entry)
                     Spacer()
-                    Text(entry.date.formatted(.dateTime.month().day().weekday(.abbreviated).locale(Locale(identifier: "zh_CN"))))
+                    Text(Self.dateText(entry.date))
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 if today.isEmpty {
@@ -262,23 +297,22 @@ private struct InlineView: View {
 // MARK: 示例数据（占位 / 预览）
 
 public extension ScheduleWidgetEntry {
+    /// 占位 / 预览数据：时间相对"现在"，这样动态的相对时间文字看起来是对的
     static var sample: ScheduleWidgetEntry {
         let cal = Calendar.current
-        let day = cal.startOfDay(for: .now)
-        func course(_ name: String, _ room: String, _ h1: Int, _ m1: Int, _ h2: Int, _ m2: Int, dayOffset: Int = 0) -> WidgetCourse {
-            let d = cal.date(byAdding: .day, value: dayOffset, to: day)!
-            return WidgetCourse.make(
-                name: name, room: room,
-                startsAt: cal.date(bySettingHour: h1, minute: m1, second: 0, of: d)!,
-                endsAt: cal.date(bySettingHour: h2, minute: m2, second: 0, of: d)!
-            )
+        let now = Date.now
+        func course(_ name: String, _ room: String, from start: TimeInterval, minutes: Double = 100) -> WidgetCourse {
+            WidgetCourse.make(name: name, room: room, startsAt: now.addingTimeInterval(start), endsAt: now.addingTimeInterval(start + minutes * 60))
         }
-        let now = cal.date(bySettingHour: 10, minute: 20, second: 0, of: day)!
+        let tomorrow = cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: now))!
+        func tomorrowCourse(_ name: String, _ room: String, hour: Int) -> WidgetCourse {
+            WidgetCourse.make(name: name, room: room, startsAt: cal.date(bySettingHour: hour, minute: 0, second: 0, of: tomorrow)!, endsAt: cal.date(bySettingHour: hour + 1, minute: 40, second: 0, of: tomorrow)!)
+        }
         return ScheduleWidgetEntry(
             date: now, phase: .inClass,
-            current: course("高等数学", "西3-406", 10, 0, 11, 40),
-            upcoming: [course("大学物理", "东2-201", 14, 30, 16, 5), course("计算机网络", "西1-305", 16, 25, 18, 0)],
-            tomorrow: [course("英语", "东1-102", 8, 0, 9, 40, dayOffset: 1)],
+            current: course("高等数学", "西3-406", from: -25 * 60),
+            upcoming: [course("大学物理", "东2-201", from: 3 * 3600), course("计算机网络", "西1-305", from: 5 * 3600)],
+            tomorrow: [tomorrowCourse("英语", "东1-102", hour: 8)],
             hadClassesToday: true
         )
     }

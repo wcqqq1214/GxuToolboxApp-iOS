@@ -1,3 +1,4 @@
+import FeatureCourse
 import FeatureExam
 import SwiftUI
 
@@ -35,14 +36,14 @@ enum ToolboxCatalog {
         item("gpa", "GPA 计算", "function", .academic, { AnyView(GpaView()) }),
         item("selectedCourse", "已选课程", "books.vertical", .academic),
         item("electiveStrategy", "选课策略", "list.bullet.clipboard", .academic),
-        item("reschedulingNews", "调课通知", "arrow.left.arrow.right.circle", .academic),
+        item("reschedulingNews", "调休补班", "calendar.badge.clock", .academic, { AnyView(TimeShiftView()) }),
         item("evaluation", "教学评价", "text.bubble", .academic),
         // 校园
         item("classSchedule", "班级课表", "person.3", .campus),
         item("fullSchedule", "全校课表", "building.columns", .campus),
         item("campusMap", "校园地图", "map", .campus),
         item("practice", "实践课", "flask", .campus),
-        item("holiday", "节假日", "sun.max", .campus),
+        item("holiday", "节假日", "sun.max", .campus, { AnyView(HolidayView()) }),
         item("teacherInfo", "教师查询", "person.text.rectangle", .campus),
         // 服务
         item("attendance", "考勤查询", "person.badge.clock", .service),

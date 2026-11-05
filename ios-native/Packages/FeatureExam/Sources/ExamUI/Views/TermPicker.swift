@@ -31,10 +31,10 @@ struct TermMenu: View {
                 if allowsWholeYear { Text("全学年").tag(Int?.none) }
             }
         } label: {
-            Label {
-                Text(verbatim: "\(year)–\(year + 1) · \(termName)")
-            } icon: {
-                Image(systemName: "calendar")
+            // 工具栏里 Label 会被收成纯图标，看不到当前学期，所以用文字 + 箭头
+            HStack(spacing: 4) {
+                Text(verbatim: "\(year)–\(year + 1) \(termName)")
+                Image(systemName: "chevron.down").font(.caption2.weight(.semibold))
             }
         }
         .accessibilityLabel("选择学年和学期")

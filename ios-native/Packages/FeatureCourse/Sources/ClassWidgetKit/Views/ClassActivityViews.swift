@@ -48,8 +48,14 @@ public struct ClassCountdownText: View {
 public struct ClassProgressBar: View {
     var state: ClassActivityAttributes.ContentState
     var isStale: Bool
+    /// 仅设计自查：ImageRenderer 渲不了 `ProgressView(timerInterval:)`，截图时改用静态进度
+    var previewProgress: Double?
 
-    public init(state: ClassActivityAttributes.ContentState, isStale: Bool) { self.state = state; self.isStale = isStale }
+    public init(state: ClassActivityAttributes.ContentState, isStale: Bool, previewProgress: Double? = nil) {
+        self.state = state
+        self.isStale = isStale
+        self.previewProgress = previewProgress
+    }
 
     public var body: some View {
         let now = Date.now
@@ -57,8 +63,17 @@ public struct ClassProgressBar: View {
         case .before:
             Text("\(state.beginText) 开始").font(.caption).foregroundStyle(.secondary)
         case .during:
-            ProgressView(timerInterval: max(state.startsAt, min(now, state.endsAt))...state.endsAt, countsDown: false) { EmptyView() } currentValueLabel: { EmptyView() }
-                .tint(.accentColor)
+            if let previewProgress {
+                // ImageRenderer 连 ProgressView 本身都渲不出来（显示占位符），自查截图用手绘的静态条
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color.secondary.opacity(0.3))
+                    Capsule().fill(Color.accentColor).scaleEffect(x: previewProgress, anchor: .leading)
+                }
+                .frame(height: 4)
+            } else {
+                ProgressView(timerInterval: max(state.startsAt, min(now, state.endsAt))...state.endsAt, countsDown: false) { EmptyView() } currentValueLabel: { EmptyView() }
+                    .tint(.accentColor)
+            }
         case .ended:
             if let following = state.followingName { Text("接下来：\(following)").font(.caption).foregroundStyle(.secondary) }
         }
@@ -68,8 +83,13 @@ public struct ClassProgressBar: View {
 public struct LockScreenClassView: View {
     var state: ClassActivityAttributes.ContentState
     var isStale: Bool
+    var previewProgress: Double?
 
-    public init(state: ClassActivityAttributes.ContentState, isStale: Bool) { self.state = state; self.isStale = isStale }
+    public init(state: ClassActivityAttributes.ContentState, isStale: Bool, previewProgress: Double? = nil) {
+        self.state = state
+        self.isStale = isStale
+        self.previewProgress = previewProgress
+    }
 
     private static func hm(_ date: Date) -> String {
         let c = Calendar.current.dateComponents([.hour, .minute], from: date)
@@ -88,9 +108,9 @@ public struct LockScreenClassView: View {
             Text(state.name).font(.headline).lineLimit(1)
             Text(["\(state.beginText)–\(state.endText)", state.room, state.teacher].filter { !$0.isEmpty }.joined(separator: " · "))
                 .font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
-            ClassProgressBar(state: state, isStale: isStale)
+            ClassProgressBar(state: state, isStale: isStale, previewProgress: previewProgress)
             if let following = state.followingName, let at = state.followingStartsAt, ClassActivityText.phase(state, isStale: isStale) == .during {
-                Text("之后：\(following) \(Self.hm(at))")
+                Text("之后 \(Self.hm(at)) \(following)")
                     .font(.caption).foregroundStyle(.secondary).lineLimit(1)
             }
         }

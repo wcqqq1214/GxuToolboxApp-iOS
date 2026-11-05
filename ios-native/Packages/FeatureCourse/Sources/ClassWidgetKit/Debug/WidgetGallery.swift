@@ -87,7 +87,7 @@ enum WidgetGallery {
         let before = state(startOffset: 12 * 60)
         for scheme in [ColorScheme.light, .dark] {
             for (label, st, stale) in [("during", during, false), ("before", before, false)] {
-                let view = LockScreenClassView(state: st, isStale: stale)
+                let view = LockScreenClassView(state: st, isStale: stale, previewProgress: 0.25)
                     .frame(width: 364)
                     .background(scheme == .dark ? Color(white: 0.14) : Color(white: 0.96))
                     .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
@@ -147,7 +147,7 @@ enum WidgetGallery {
                 }
                 Text(["\(st.beginText)–\(st.endText)", st.room].filter { !$0.isEmpty }.joined(separator: " · "))
                     .font(.subheadline).foregroundStyle(.secondary)
-                ClassProgressBar(state: st, isStale: false)
+                ClassProgressBar(state: st, isStale: false, previewProgress: 0.25)
             }
             .padding(.horizontal, 22).padding(.top, 36).padding(.bottom, 14)
         }

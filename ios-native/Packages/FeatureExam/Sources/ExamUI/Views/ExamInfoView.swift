@@ -79,8 +79,8 @@ private struct ExamRow: View {
             }
             Label(timeText, systemImage: "clock")
             Label(item.exam.classroom.isEmpty ? "未知" : item.exam.classroom, systemImage: "building.2")
-            if item.status != .past {
-                Label(item.exam.seat.isEmpty ? "未知" : item.exam.seat, systemImage: "chair")
+            if item.status != .past, !item.exam.seat.isEmpty {
+                Label(item.exam.seat, systemImage: "chair")   // 教务已不提供座位号，没有就不占一行
             }
             Text(item.exam.type).font(.caption).foregroundStyle(.secondary)
         }

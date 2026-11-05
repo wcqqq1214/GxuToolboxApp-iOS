@@ -1,5 +1,6 @@
 #if DEBUG
 import FeatureAccount
+import FeatureCourse
 import SwiftUI
 
 /// DEBUG：`-GxuScreen feedback|feedbackList|profile|attendance|unified|web` 直接打开 A 负责的页面（截图自查用）。
@@ -20,6 +21,7 @@ enum DebugScreens {
             case "profile": AccountFeature.makePersonalInfoView()
             case "attendance": AccountFeature.makeAttendanceAccountView()
             case "unified": AccountFeature.makeUnifiedAccountView()
+            case let name where CourseDebugScreens.handles(name): CourseDebugScreens.view(for: name)
             default:
                 let args = ProcessInfo.processInfo.arguments
                 let text = args.firstIndex(of: "-GxuWebURL").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } ?? "https://www.gxu.edu.cn"

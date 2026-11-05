@@ -196,6 +196,12 @@ CampusCalendar { timeShift: [ShiftRule(workDate, restDate)], holidays: [HolidayR
 - **真实账号验证**：CA / PEC / xlzxms 和考勤完整登录改为后续测试，Phase 2 验收标「后续测试」，不算未通过。
 - 详见 PLAN §5.1 和 §7。
 
+### [C] 小组件 / Live Activity / App Intents 已发布，另有三处说明（Agent C）
+
+- 用户破例一次由 C 直接改了 `project.yml`、`App/GxuToolApp.swift`（`.task { await WidgetBridge.run(services:) }`）、`App/Composition/IntentsPackage.swift`、Info.plist 的 `NSSupportsLiveActivities`；之后恢复 PLAN §2 的所有权。
+- 同批还有两处很小的 DEBUG 改动：`App/Composition/DebugScreens.swift` 多一个 `case`，把 `-GxuScreen c-*` 交给 `FeatureCourse` 的 `CourseDebugScreens`（用内置假数据打开 C 的页面截图）；`ToolboxCatalog` 的 `reschedulingNews` 行改名为"调休补班"并接入 `TimeShiftView`，`holiday` 行接入 `HolidayView`（均为 C 的行）。
+- 教务"调课消息"（RN `reschedulingNews`，直连教务 `/xtgl/index_cxDbsy.html`）后端没有代理，按 PLAN 原则不在 iOS 直连；iOS 的"调课"页只做 `CampusCalendar.timeShift` 的调休补班。如需要这个功能，要先有后端接口。
+
 ## Agent A 收到的请求
 
 - [x] (C) `scripts/test.sh` 硬编码 scheme 为 `<Pkg>-Package`，但只有一个 library product 的 package（如 FeatureExam）scheme 就叫 `<Pkg>`，会报 "does not contain a scheme"。请让脚本先 `xcodebuild -list` 判断，或两个名字都试。我暂时直接用 `xcodebuild -scheme FeatureExam ... test`
