@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import ScheduleKit
 
@@ -17,5 +18,21 @@ struct CourseNavigationTests {
 
     @Test func emptyLocationHasNoTarget() {
         #expect(CourseNavigation.target(building: "", venue: "") == nil)
+    }
+}
+
+struct CourseLocationDisplayTests {
+    @Test func courseShowsOnlyTheRoomButNavigationKeepsTheBuilding() {
+        let course = TheoryCourse(building: "西二教", venueName: "西2-202", courseName: "高等数学", weeks: [1], weekday: 1)
+        #expect(course.locationText == "西2-202")
+        #expect(CourseNavigation.target(building: course.building, venue: course.venueName)?.room == "西二教西2-202")
+        let noRoom = TheoryCourse(building: "西二教", venueName: "", courseName: "高等数学", weeks: [1], weekday: 1)
+        #expect(noRoom.locationText == "西二教")
+    }
+
+    @Test func widgetCourseRoomUsesTheSameText() {
+        let course = TheoryCourse(building: "西三教", venueName: "西3-406", courseName: "高等数学", weeks: [1], weekday: 1)
+        let occurrence = CourseOccurrence(course: course, week: 1, date: at("2026-09-07"), startsAt: at("2026-09-07 08:00"), endsAt: at("2026-09-07 09:40"), weekday: 1, shiftedFrom: nil)
+        #expect(WidgetCourse(occurrence, calendar: shanghai).room == "西3-406")
     }
 }

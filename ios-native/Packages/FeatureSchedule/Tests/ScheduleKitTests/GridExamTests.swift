@@ -1,4 +1,5 @@
 import Foundation
+import GxuFoundation
 import Testing
 @testable import ScheduleKit
 
@@ -41,14 +42,17 @@ struct GridExamTests {
 }
 
 struct RelatedExamsTests {
-    private func exam(_ title: String, _ start: String, _ end: String) -> GridExam {
-        GridExam(id: title + start, title: title, start: at(start), end: at(end))
+    private let t1 = AcademicTerm(year: 2026, term: 1)
+    private let t0 = AcademicTerm(year: 2025, term: 2)
+
+    private func exam(_ title: String, _ start: String, _ end: String, term: AcademicTerm? = AcademicTerm(year: 2026, term: 1)) -> GridExam {
+        GridExam(id: title + start, title: title, start: at(start), end: at(end), term: term)
     }
 
     @Test func matchesByNameSortedByStart() {
         let exams = [exam("高等数学", "2026-12-20 09:00", "2026-12-20 11:00"), exam("大学英语", "2026-12-18 09:00", "2026-12-18 11:00"), exam("高等数学", "2026-11-10 09:00", "2026-11-10 11:00")]
-        #expect(RelatedExams.matching(courseName: " 高等数学", in: exams).map(\.start) == [at("2026-11-10 09:00"), at("2026-12-20 09:00")])
-        #expect(RelatedExams.matching(courseName: "", in: exams).isEmpty)
+        #expect(RelatedExams.matching(courseName: " 高等数学", in: exams, term: t1).map(\.start) == [at("2026-11-10 09:00"), at("2026-12-20 09:00")])
+        #expect(RelatedExams.matching(courseName: "", in: exams, term: t1).isEmpty)
     }
 
     @Test func badgeStates() {
@@ -56,5 +60,29 @@ struct RelatedExamsTests {
         #expect(RelatedExams.badge(for: e, now: at("2026-11-06 10:00"), calendar: shanghai) == "2 天后")
         #expect(RelatedExams.badge(for: e, now: at("2026-11-08 07:00"), calendar: shanghai) == "今天考试")
         #expect(RelatedExams.badge(for: e, now: at("2026-11-08 12:00"), calendar: shanghai) == "已结束")
+    }
+}
+
+extension RelatedExamsTests {
+    @Test func sameNamedCourseOnlyShowsTheViewedTerm() {
+        // 重修：往届（2025 学年第 2 学期）和当前学期各有一场“高等数学”，不能把旧考试列出来
+        let exams = [
+            exam("高等数学", "2026-06-20 09:00", "2026-06-20 11:00", term: t0),
+            exam("高等数学", "2026-12-20 09:00", "2026-12-20 11:00"),
+        ]
+        #expect(RelatedExams.matching(courseName: "高等数学", in: exams, term: t1).map(\.start) == [at("2026-12-20 09:00")])
+        #expect(RelatedExams.matching(courseName: "高等数学", in: exams, term: t0).map(\.start) == [at("2026-06-20 09:00")])
+    }
+
+    @Test func termWithoutRelatedExamsIsEmpty() {
+        let exams = [exam("高等数学", "2026-06-20 09:00", "2026-06-20 11:00", term: t0)]
+        #expect(RelatedExams.matching(courseName: "高等数学", in: exams, term: t1).isEmpty)   // 界面据此隐藏这一组
+    }
+
+    @Test func examsWithoutSourceTermAreNotGuessedByDate() {
+        // 日期落在当前学期里，但没有来源学期信息：不匹配
+        let exams = [exam("高等数学", "2026-12-20 09:00", "2026-12-20 11:00", term: nil)]
+        #expect(RelatedExams.matching(courseName: "高等数学", in: exams, term: t1).isEmpty)
+        #expect(RelatedExams.matching(courseName: "高等数学", in: exams, term: nil).isEmpty)
     }
 }

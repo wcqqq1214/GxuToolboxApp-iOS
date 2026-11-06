@@ -27,8 +27,19 @@ private extension Array {
 }
 
 public enum LocationFormatter {
-    /// 楼号 + 教室。体育学院的课只保留“北 / 西 / 东”及之后的部分（如 “体育学院西体育馆” → “西体育馆”）。
+    /// 界面上显示的地点（课程详情、课程块、首页、附件、分享图、小组件都用它）：只显示教室 `venueName`（如 “西2-202”“6A-307”），
+    /// 不再拼楼名；教室为空才显示楼名。体育学院的课保留原规则：只保留“北 / 西 / 东”及之后的部分（“体育学院西体育馆” → “西体育馆”）。
     public static func display(building: String, venue: String) -> String {
+        let room = venue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let hall = building.trimmingCharacters(in: .whitespacesAndNewlines)
+        if room.isEmpty { return hall }
+        if (hall + room).contains("体育学院") { return fullText(building: hall, venue: room) }
+        return room
+    }
+
+    /// 完整的楼名 + 教室（“西三教西3-406”）。**只用于导航 / 地图匹配**：教学楼的匹配规则按完整文案写，不能因为显示改短而失效。
+    /// 体育学院的课同样只保留“北 / 西 / 东”及之后的部分。
+    public static func fullText(building: String, venue: String) -> String {
         let full = building + venue
         guard full.contains("体育学院"), let index = full.firstIndex(where: { "北西东".contains($0) }) else { return full }
         return String(full[index...])
@@ -82,7 +93,7 @@ public enum CourseNavigation {
     }
 
     public static func target(building: String, venue: String) -> Target? {
-        let room = LocationFormatter.display(building: building, venue: venue)
+        let room = LocationFormatter.fullText(building: building, venue: venue)
         guard !room.isEmpty else { return nil }
         return Target(room: room, mapKeyword: (building + venue).contains("体育学院") ? sportsKeyword(room) : nil)
     }

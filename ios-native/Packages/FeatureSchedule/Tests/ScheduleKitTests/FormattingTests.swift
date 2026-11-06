@@ -14,8 +14,16 @@ struct FormattingTests {
     }
 
     @Test func formatsLocations() {
-        #expect(LocationFormatter.display(building: "西三教", venue: "西3-406") == "西三教西3-406")
+        // 只显示教室，不拼楼名；教室为空才显示楼名
+        #expect(LocationFormatter.display(building: "西三教", venue: "西3-406") == "西3-406")
+        #expect(LocationFormatter.display(building: "第六教学楼A区", venue: "6A-307") == "6A-307")
+        #expect(LocationFormatter.display(building: "西二教", venue: " 西2-202 ") == "西2-202")
+        #expect(LocationFormatter.display(building: "西三教", venue: "") == "西三教")
+        #expect(LocationFormatter.display(building: "", venue: "") == "")
+        // 导航 / 地图匹配用的完整文案仍然带楼名
+        #expect(LocationFormatter.fullText(building: "西三教", venue: "西3-406") == "西三教西3-406")
         #expect(LocationFormatter.display(building: "体育学院", venue: "西体育馆") == "西体育馆")
+        #expect(LocationFormatter.display(building: "", venue: "体育学院西体育馆") == "西体育馆")
         #expect(LocationFormatter.display(building: "体育学院", venue: "北篮球场") == "北篮球场")
         #expect(LocationFormatter.display(building: "体育学院", venue: "操场") == "体育学院操场")   // 无方位字时原样
         #expect(LocationFormatter.blockText(venue: "西3-406", singleLine: false) == "西3\n406")

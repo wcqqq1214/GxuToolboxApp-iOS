@@ -101,10 +101,11 @@ extension RootView {
     private var layersProvider: ScheduleExtraLayersProvider {
         let services = resolvedServices
         return { studentId, term in
-            let items = (try? await ExamRepository(database: services.database).allExams(studentId: studentId)) ?? []
+            // 只取正在查看的学期（缓存时记录的来源学期）：同名课程往届的考试不能出现在这个学期的课表和相关考试里
+            let items = ((try? await ExamRepository(database: services.database).exams(studentId: studentId, term: term)) ?? []).map { ExamItem($0) }
             let exams = items.compactMap { item -> GridExam? in
                 guard let start = item.date, let end = Self.examEnd(item.exam.time, start: start) else { return nil }
-                return GridExam(id: item.id, title: item.exam.course, location: item.exam.classroom, seat: item.exam.seatText, start: start, end: end)
+                return GridExam(id: item.id, title: item.exam.course, location: item.exam.classroom, seat: item.exam.seatText, start: start, end: end, term: term)
             }
             let overrides = await PhyExpOverrides.cached(database: services.database, studentId: studentId)
             #if DEBUG

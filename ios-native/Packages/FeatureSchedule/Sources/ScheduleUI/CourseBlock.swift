@@ -24,8 +24,8 @@ struct CourseBlock: View {
             Text(course.courseName)
                 .font(.caption.weight(.semibold))
                 .lineLimit(rows >= 2 ? 3 : 2)
-            if showVenue, !course.venueName.isEmpty {
-                Text(LocationFormatter.blockText(venue: course.venueName, singleLine: rows < 2))
+            if showVenue, !course.locationText.isEmpty {
+                Text(LocationFormatter.blockText(venue: course.locationText, singleLine: rows < 2))
                     .lineLimit(rows >= 2 ? 2 : 1)
             }
             if showTeacher, rows >= 2, !course.teacher.isEmpty {
@@ -70,7 +70,7 @@ struct CourseBlock: View {
     }
 
     private var accessibilityText: String {
-        let place = course.venueName.isEmpty ? "" : "，\(course.venueName)"
+        let place = course.locationText.isEmpty ? "" : "，\(course.locationText)"
         let conflict = group.isConflict ? "，另有 \(group.items.count - 1) 门课冲突" : ""
         let makeup = selected.isMakeup ? "，补班" : ""
         let attend = attendance.map { "，\($0.label)" } ?? ""

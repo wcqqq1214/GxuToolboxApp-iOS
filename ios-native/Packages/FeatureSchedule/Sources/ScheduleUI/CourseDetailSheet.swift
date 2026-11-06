@@ -1,4 +1,5 @@
 import GxuDesign
+import GxuFoundation
 import ScheduleKit
 import SwiftUI
 
@@ -8,6 +9,8 @@ struct CourseDetailSheet: View {
     let colors: [String: UInt32]
     let selected: CourseOccurrence
     var exams: [GridExam] = []
+    /// 课表正在查看的学期，相关考试只显示这个学期的
+    var term: AcademicTerm?
     var attendance: AttendanceIndex?
     let onChoose: (CourseOccurrence) -> Void
     let onEditActivity: (String?) -> Void
@@ -37,7 +40,7 @@ struct CourseDetailSheet: View {
                             onChoose(item)
                         }) : nil,
                         fields: preferences.value.courseDetail.filter(\.isShown),
-                        exams: item.course.isCustom ? [] : RelatedExams.matching(courseName: item.course.courseName, in: exams),
+                        exams: item.course.isCustom ? [] : RelatedExams.matching(courseName: item.course.courseName, in: exams, term: term),
                         attendance: attendance?.status(for: item),
                         onEditActivity: onEditActivity
                     )
@@ -85,7 +88,7 @@ private struct CourseSection: View {
                 // 实验课只有这几项有意义；备注放在“考核”字段里（见 `CustomActivity.course`）
                 row("时间", "\(WeekdayName.full(item.weekday)) 第\(course.begin)-\(course.end)节  \(timeText)")
                 row("周次", WeekFormatter.describe(course.weeks))
-                row("地点", course.venueName)
+                row("地点", course.locationText)
                 row("教师", course.teacher)
                 row("备注", course.examMethod)
                 Button("编辑实验课", systemImage: "pencil") { onEditActivity(course.customID) }
@@ -127,7 +130,7 @@ private struct CourseSection: View {
         switch field {
         case "time": "\(WeekdayName.full(item.weekday)) 第\(course.begin)-\(course.end)节  \(timeText)"
         case "weeks": WeekFormatter.describe(course.weeks)
-        case "venue": LocationFormatter.display(building: course.building, venue: course.venueName)
+        case "venue": course.locationText
         case "teacher": course.teacher
         case "credits": course.credits
         case "category": course.courseCategory

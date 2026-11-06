@@ -27,7 +27,7 @@ public struct WidgetCourse: Codable, Sendable, Hashable, Identifiable {
         endTime = ClassPeriods.period(course.end)?.endText ?? ""
         index = course.sectionRange
         teacher = course.teacher
-        room = course.venueName
+        room = course.locationText
         date = Self.dateKey(occurrence.date, calendar: calendar)
         startsAt = occurrence.startsAt
         endsAt = occurrence.endsAt

@@ -60,7 +60,7 @@ struct NextEventAccessory: View {
         switch event {
         // 右侧已经写了具体时刻时（“明天 09:00”），左侧不再重复时间
         case .course(let item, _, _):
-            [RelativeTime.showsClock(in: trailing(event, now: now)) ? "" : item.timeRangeText, item.course.venueName]
+            [RelativeTime.showsClock(in: trailing(event, now: now)) ? "" : item.timeRangeText, item.course.locationText]
                 .filter { !$0.isEmpty }.joined(separator: " · ")
         case .exam(let item, _):
             [item.exam.classroom, item.exam.seatText].filter { !$0.isEmpty }.joined(separator: " · ")

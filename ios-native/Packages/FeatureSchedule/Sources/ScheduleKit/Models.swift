@@ -49,6 +49,9 @@ public struct TheoryCourse: Codable, Sendable, Hashable, Identifiable {
     public var id: String { "\(customID ?? "")|\(courseName)|\(weekday)|\(sectionRange)|\(venueName)|\(teacher)" }
     public var isCustom: Bool { customID != nil }
 
+    /// 界面显示的地点：教室 `venueName`，为空才用楼名（见 `LocationFormatter.display`）
+    public var locationText: String { LocationFormatter.display(building: building, venue: venueName) }
+
     /// 数据可用：星期、节次都在合法范围内
     public var isValid: Bool {
         (1...7).contains(weekday) && (1...ClassPeriods.count).contains(begin) && (begin...ClassPeriods.count).contains(end)

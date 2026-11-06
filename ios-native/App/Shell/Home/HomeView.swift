@@ -257,7 +257,7 @@ private struct EventCard: View {
         switch event {
         // 右上角如果已经写了具体时刻（“明天 08:00”），这里就不再写时间；同一张卡片里同一个信息只出现一次
         case .course(let item, _, _):
-            [item.sectionText, RelativeTime.showsClock(in: trailing) ? "" : item.timeRangeText, item.course.venueName, item.course.teacher]
+            [item.sectionText, RelativeTime.showsClock(in: trailing) ? "" : item.timeRangeText, item.course.locationText, item.course.teacher]
                 .filter { !$0.isEmpty }.joined(separator: " · ")
         case .exam(let item, _):
             [item.exam.classroom, item.exam.seatText, item.exam.type].filter { !$0.isEmpty }.joined(separator: " · ")
@@ -282,7 +282,7 @@ private struct CourseRow: View {
                     if item.isMakeup { Tag("补班", color: .orange) }
                     if status == .ongoing { Tag("上课中", color: .green) }
                 }
-                Text([item.sectionText, item.timeRangeText, item.course.venueName].filter { !$0.isEmpty }.joined(separator: " · "))
+                Text([item.sectionText, item.timeRangeText, item.course.locationText].filter { !$0.isEmpty }.joined(separator: " · "))
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }

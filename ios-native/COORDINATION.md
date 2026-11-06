@@ -760,6 +760,14 @@ interrogate 审查循环结束（用户决定不再开新一轮）。详细决�
 
 已用模拟器（真机同尺寸 1206×2622）看过：假期 / 课程 / 考试 三种事件 × 浅色 / 深色 × iOS 26 玻璃 / `-GxuForceLegacy` 降级，共 12 张，单行居中、两行整体居中。拼图：`ios-native/.screens/accessory-sheet.png`（上三行 iOS 26，下三行降级，左浅右深）；单张：`accessory-{holiday,course,exam}-{light,dark}.png`、`accessory-legacy-*-{light,dark}.png`。新增 DEBUG 参数 `-GxuPickEvent course|exam|holiday` 只用于截图。没有安装到手机。
 
+### [related-exam-term] B（Agent B，2026-11-07，用户真机反馈）
+
+**1. 相关考试只显示正在查看的学期。** 原因：课表的考试图层读的是 `ExamRepository.allExams`（账号所有已缓存学期），`RelatedExams.matching` 只按课程名匹配，重修前的往届考试也被列出来。修复：① 图层改读 `exams(studentId:term:)`，只取正在查看的学期（周网格上的考试块同样不再混入往届）；② `GridExam` 新增 `term`（缓存考试时记录的来源学年 / 学期）；③ `RelatedExams.matching(courseName:in:term:)` 按 `term` 过滤，**考试没有来源学期时不匹配，不靠考试日期猜**；该学期没有相关考试时整组隐藏。回归测试（`RelatedExamsTests`）：同名课程不同学期只显示当前学期、往届学期查看时只显示往届、没有相关考试为空、缺来源学期不按日期猜。
+
+**2. 地点只显示教室 `venueName`**（如“西2-202”“6A-307”），`venueName` 为空才显示楼名；体育学院课程保留原规则（只保留 北 / 西 / 东 及之后的部分）。统一入口 `LocationFormatter.display` / `TheoryCourse.locationText`，已用于：课程详情、课表课程块（含无障碍文字）、班级 / 全校课表、首页（接下来、今日课程）、底部附件、分享图（都走课程块）。导航和地图匹配改用 `LocationFormatter.fullText`（完整的楼名 + 教室），不受影响，有测试（`CourseLocationDisplayTests`）。**小组件 / App Intent 不需要 C 改**：它们的地点来自 `WidgetCourse.room`（ScheduleKit，已改成同一个 `locationText`），C 那边只要继续显示 `room`；如果 C 的界面自己拼了楼名请改成只用 `room`。
+
+`build.sh`、FeatureSchedule / FeatureCourse 测试通过；截图 `ios-native/.screens/v22-location-detail-{light,dark}.png`（Demo 数据：地点只显示教室，当前学期的相关考试仍在）。没有安装到手机。
+
 ## Agent A 收到的请求
 
 - [x] (C) v2.2 校选课进度：请抓一份 `GET /jw/elective-progress` 的真实脱敏响应放进 `Fixtures/sanitized/elective-progress.json`（我本机试登录得到 401，没有重试）。目前 `ElectiveProgress` 模型和测试夹具按 RN `schema/progress.ts` 构造，拿到样本后核对字段（尤其 `matchedBy`、`attempts`、`online` 可空）。
