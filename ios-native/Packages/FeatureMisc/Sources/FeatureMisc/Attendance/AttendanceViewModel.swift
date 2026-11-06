@@ -95,6 +95,7 @@ final class AttendanceViewModel {
             let loadedRecords = try await api.records(year: selection.year, term: selection.term)
             guard version == loadVersion else { return }   // 期间换了学期或又发起了加载：旧响应作废
             records = loadedRecords
+            AttendanceRecordCache.save(services, loadedRecords, year: selection.year, term: selection.term)
             if mode == .schedule {
                 guard let userId = services.accounts.attendance?.loginInfo?.userId else { throw GxuError.sessionExpired(.attendance) }
                 let loaded = try await api.schedule(year: selection.year, term: selection.term, week: week, userId: userId)

@@ -31,7 +31,7 @@ public enum AttendanceState: Int, Sendable, Hashable {
 }
 
 /// 一条考勤记录（`/attendance/v2/personal` 的 `items` 一项）
-public struct AttendanceRecord: Decodable, Sendable, Hashable, Identifiable {
+public struct AttendanceRecord: Codable, Sendable, Hashable, Identifiable {
     public var date: String
     public var courseName: String
     public var roomName: String
@@ -67,6 +67,18 @@ public struct AttendanceRecord: Decodable, Sendable, Hashable, Identifiable {
         let label = c.lenientText(.periodLabel)
         periodRange = c.lenientText(.periodRange)
         periodText = label.isEmpty ? periodRange : label
+    }
+
+    /// 写缓存用：键和解码一致（`periodLabel` 存展示文案）
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(date, forKey: .date)
+        try c.encode(courseName, forKey: .courseName)
+        try c.encode(roomName, forKey: .roomName)
+        try c.encodeIfPresent(statusCode, forKey: .statusCode)
+        try c.encode(statusName, forKey: .statusName)
+        try c.encode(periodText, forKey: .periodLabel)
+        try c.encode(periodRange, forKey: .periodRange)
     }
 
     /// 迟到或缺勤（RN：statusCode 2 或 4）
@@ -218,7 +230,7 @@ public struct AttendanceAPI: Sendable {
     public init(backend: any BackendAPI) { self.backend = backend }
 
     /// 一次取整个学期的记录（RN 同样 `pageSize = 500`、`day DESC`），不分页
-    func records(year: Int, term: Int) async throws -> [AttendanceRecord] {
+    public func records(year: Int, term: Int) async throws -> [AttendanceRecord] {
         let page = try await backend.getData(
             "/attendance/v2/personal",
             query: ["calendarId": String(AttendanceCalendarID.id(year: year, term: term)), "pageSize": "500", "orderBy": "day DESC"],
