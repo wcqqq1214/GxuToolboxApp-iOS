@@ -26,11 +26,28 @@ public struct JwAccountView: View {
                 } else {
                     loginSection
                 }
+                if model.system == .jw { undergraduateTip }
             }
             .navigationTitle(model.title)
             .navigationBarTitleDisplayMode(.inline)
             .task { model.prefillUsernameIfNeeded() }
             .onChange(of: model.needsRelogin) { model.prefillUsernameIfNeeded() }
+        }
+
+        /// RN v2.2 教务账号页的提示（`1172edb0`），文案原样。
+        private var undergraduateTip: some View {
+            Section {
+                Label {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("全校本科生均可用")
+                        Text("研究生还请移步至GXU研课表(gxu.app)")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                } icon: {
+                    Image(systemName: "graduationcap")
+                }
+            }
         }
 
         @ViewBuilder private var signedInSection: some View {
