@@ -53,7 +53,7 @@ enum ToolboxCatalog {
 
     static let items: [ToolboxItem] = [
         // 信息查询
-        item("schedule", "课表", "calendar", .info, .tab(.schedule)),
+        item("schedule", "个人课表", "calendar", .info, .tab(.schedule)),
         item("classSchedule", "班级课表", "person.3", .info, .push { AnyView(CampusFeature.makeClassScheduleView()) }),
         item("exportSchedule", "导出课表", "square.and.arrow.up", .info, .push { AnyView(ScheduleFeature.makeExportView()) }),
         item("examInfo", "考试考场", "building.2", .info, .push { AnyView(ExamInfoView()) }),
@@ -61,6 +61,7 @@ enum ToolboxCatalog {
         item("attendance", "考勤信息", "person.badge.clock", .info, .push { AnyView(AttendanceView()) }),
         item("electiveStrategy", "校选课查漏", "checklist", .info, .push { AnyView(ElectiveStrategyView()) }),
         item("teacherInfo", "教师信息查询", "person.text.rectangle", .info, .push { AnyView(TeacherSearchView()) }),
+        item("emptyClassroom", "空闲教室", "calendar.badge.clock", .info),
         // 实践课
         item("phyExp", "物理实验课", "atom", .practice, .push { AnyView(CampusFeature.makePhyExpView()) }),
         item("engTraining", "金工实训", "wrench.and.screwdriver", .practice, .push { AnyView(CampusFeature.makeEngTrainingView()) }),
