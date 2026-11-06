@@ -50,7 +50,11 @@ public final class AccountCenter {
         }
         Task { [weak self] in
             await jw.setObserver { state in
-                Task { @MainActor in self?.states[.jw] = state }
+                Task { @MainActor in
+                    // 已经退出（没有 studentId）后，迟到的会话状态通知不能把状态改回来
+                    guard let self, self.studentId != nil else { return }
+                    self.states[.jw] = state
+                }
             }
         }
     }
@@ -83,6 +87,7 @@ public final class AccountCenter {
             guard !username.isEmpty, !password.isEmpty else { throw GxuError.invalidData("请输入 OA 账号和密码") }
             try await oa.login(username: username, password: password)
             try credentials.save(Credential(username: username, password: password), for: .oa)
+            await wjxt?.clear()   // 换账号时不能留着上一个账号的问卷系统会话
             states[.oa] = .authenticated
             return
         }
@@ -128,7 +133,10 @@ public final class AccountCenter {
         }
         if system == .attendance { attendance?.clear() }
         if system == .unified { await unified?.logout() }
-        if system == .oa { await oa?.clear() }
+        if system == .oa {
+            await oa?.clear()
+            await wjxt?.clear()
+        }
         credentials.delete(system)
         states[system] = .noAccount
     }

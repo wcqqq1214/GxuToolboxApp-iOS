@@ -79,12 +79,17 @@ public final class ErrorLog: @unchecked Sendable {
 
     public static func redact(_ text: String) -> String {
         var result = text
+        // 顺序重要：先处理成对的 JSON、Bearer / Token，再处理 key=value / key: value，最后遮数字
+        let secretKey = #"[A-Za-z_]*(?:password|passwd|pwd|secret|token)"#     // 含 accessToken / access_token / refreshToken
         let rules: [(String, String)] = [
-            (#"\?[^\s"'<>]*"#, "?…"),                                                  // URL 查询参数
-            (#"(?i)\b(Bearer|Token)\s+[A-Za-z0-9._\-]+"#, "$1 ***"),                    // 必须先于下面的 key 规则，否则 "Authorization: Bearer xxx" 只会遮住 "Bearer"
-            (#"(?i)\b(password|passwd|pwd|token|authorization|secret|cookie)\b\s*[=:]\s*[^\s,;&"']+"#, "$1=***"),
+            (#"\?[^\s"'<>]*"#, "?…"),                                                           // URL 查询参数
+            (#"(?i)("[A-Za-z_]*(?:password|passwd|pwd|secret|token|authorization|cookie)[A-Za-z_]*"\s*:\s*)"[^"]*""#, #"$1"***""#),   // JSON 里的密钥字段
+            (#"(?i)\b(Bearer|Token)\s+[A-Za-z0-9._\-]+"#, "$1 ***"),                              // 必须先于下面的 key 规则
+            (#"(?i)\b(?:set-)?cookie\b["']?\s*[=:：]\s*[^\n]*"#, "Cookie=***"),                  // Cookie 头：整行都是值（含分号分隔的多个 Cookie）
+            (#"(?i)(\#(secretKey)|authorization|密码|口令|令牌)\s*[:：]\s*[^\n]*"#, "$1=***"),      // 「password: xxx」「密码：xxx」：值可能带空格，遮到行尾
+            (#"(?i)(\#(secretKey)|密码|口令)\s*=\s*[^\s&"']+"#, "$1=***"),                      // 「password=xxx」：遮到空白 / & / 引号
             (#"(?i)\bJSESSIONID=[^\s;,]+"#, "JSESSIONID=***"),
-            (#"\d{8,}"#, "‹数字›"),                                                     // 学号、身份证、手机号
+            (#"\d(?:[ -]?\d){7,}"#, "‹数字›"),                                                     // 学号、身份证、手机号（含 138-0013-8000 这种带分隔符的）
         ]
         for (pattern, template) in rules {
             result = result.replacingOccurrences(of: pattern, with: template, options: .regularExpression)

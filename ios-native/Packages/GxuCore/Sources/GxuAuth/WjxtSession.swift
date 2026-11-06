@@ -27,6 +27,11 @@ public actor WjxtSession {
     /// 当前会话的 Cookie，传给 WebView 容器
     public nonisolated func sessionCookies() -> [HTTPCookie] { cookies.cookies(for: Self.base) ?? [] }
 
+    /// 清掉本会话的 Cookie（退出 OA 账号或换账号时调用）
+    public func clear() {
+        for cookie in cookies.cookies ?? [] { cookies.deleteCookie(cookie) }
+    }
+
     public func login(username: String, password: String) async throws {
         var request = URLRequest(url: Self.base)
         request.httpMethod = "POST"

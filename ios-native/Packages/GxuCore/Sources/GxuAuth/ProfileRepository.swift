@@ -26,7 +26,10 @@ public struct UserProfile: Codable, Sendable, Equatable {
     }
 
     /// 在校期间的学年起始年，例如 2022 入学、学制 4 → [2022, 2023, 2024, 2025]
-    public var academicYears: [Int] { Array(enrollmentYear..<(enrollmentYear + max(studyYears, 1))) }
+    public var academicYears: [Int] {
+        // 后端返回什么数都不能崩：学制限制在 1…12，年份用溢出安全的加法
+        (0..<min(max(studyYears, 1), 12)).map { enrollmentYear &+ $0 }
+    }
 }
 
 private struct ProfileBody: Encodable, Sendable { let isFull: Bool }
@@ -76,6 +79,9 @@ public struct ProfileRepository: Sendable {
         guard dto.student_id == studentId else { throw GxuError.invalidData("账号已切换，请重试") }
         guard let year = dto.grade.value, let years = dto.study_years.value else {
             throw GxuError.invalidData("用户资料缺少入学年份或学制")
+        }
+        guard (1900...2200).contains(year), (1...12).contains(years) else {
+            throw GxuError.invalidData("用户资料中的入学年份或学制异常")
         }
         let profile = UserProfile(
             studentId: studentId, name: dto.name ?? "", college: dto.college ?? "", major: dto.major ?? "",

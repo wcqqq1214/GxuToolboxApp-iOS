@@ -73,7 +73,7 @@ public actor OASession {
     /// JSON 请求，返回响应里 `result` 的 JSON 数据（OA 统一响应 `{code, message, result}`，`code != 200` 抛错）
     public func json(_ method: String, path: String, query: [String: String] = [:], body: Data? = nil) async throws -> Data {
         guard var components = URLComponents(string: Self.apiBase + path) else { throw GxuError.invalidData("无效的请求地址") }
-        if !query.isEmpty { components.queryItems = query.sorted { $0.key < $1.key }.map { URLQueryItem(name: $0.key, value: $0.value) } }
+        if !query.isEmpty { components.percentEncodedQuery = QueryString.encode(query) }
         var request = URLRequest(url: components.url!)
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -89,18 +89,50 @@ public actor OASession {
         return try JSONSerialization.data(withJSONObject: object["result"] ?? NSNull(), options: [.fragmentsAllowed])
     }
 
-    /// 下载文件（PDF / DOCX 附件）到临时目录，供 QuickLook 预览
-    public func download(_ url: URL) async throws -> URL {
-        guard url.scheme == "https", url.host?.hasSuffix("gxu.edu.cn") == true else { throw GxuError.invalidData("不支持的文件地址") }
+    /// 下载文件（PDF / DOCX 附件）到临时目录，供 QuickLook 预览。
+    /// 只允许 `https://gxu.edu.cn` 及其子域；只有发往 `oa.gxu.edu.cn` 的请求才带 Bearer token。
+    /// 文件名会被清洗（不能逃出临时目录），没有扩展名时按 Content-Type / `preferredExtension` 补上，QuickLook 靠扩展名选预览类型。
+    public func download(_ url: URL, preferredExtension: String? = nil) async throws -> URL {
+        guard url.scheme == "https", Self.isSchoolHost(url.host) else { throw GxuError.invalidData("不支持的文件地址") }
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
-        let (data, _) = try await send(request)
-        let name = url.lastPathComponent.isEmpty ? "file" : url.lastPathComponent
+        let (data, response) = try await send(request)
+        let name = Self.safeFileName(for: url, contentType: response.value(forHTTPHeaderField: "Content-Type"), preferredExtension: preferredExtension)
+        // 每次下载一个独立目录，同名文件不会互相覆盖
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("oa-preview", isDirectory: true)
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let target = dir.appendingPathComponent(name)
         try data.write(to: target, options: .atomic)
         return target
+    }
+
+    static let oaHost = "oa.gxu.edu.cn"
+
+    /// `gxu.edu.cn` 本身或真正的子域（`evilgxu.edu.cn` 不算）
+    static func isSchoolHost(_ host: String?) -> Bool {
+        guard let host = host?.lowercased() else { return false }
+        return host == "gxu.edu.cn" || host.hasSuffix(".gxu.edu.cn")
+    }
+
+    static func safeFileName(for url: URL, contentType: String?, preferredExtension: String?) -> String {
+        let allowed = Set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-")
+        var base = url.lastPathComponent.replacingOccurrences(of: "\\", with: "/")
+        base = String(base.split(separator: "/").last ?? "")
+        base = String(base.map { allowed.contains($0) || ($0.unicodeScalars.first.map { $0.value >= 0x4E00 && $0.value <= 0x9FFF } ?? false) ? $0 : "_" })
+        while base.hasPrefix(".") { base.removeFirst() }
+        base = base.replacingOccurrences(of: "..", with: "_")
+        if base.count > 80 { base = String(base.prefix(80)) }
+        if base.isEmpty { base = "file" }
+        let known: Set<String> = ["pdf", "docx", "doc"]
+        let current = (base as NSString).pathExtension.lowercased()
+        guard !known.contains(current) else { return base }
+        let type = (contentType ?? "").lowercased()
+        let ext: String? = type.contains("pdf") ? "pdf"
+            : type.contains("wordprocessingml") ? "docx"
+            : type.contains("msword") ? "doc"
+            : preferredExtension.flatMap { known.contains($0.lowercased()) ? $0.lowercased() : nil }
+        return ext.map { "\(base).\($0)" } ?? base
     }
 
     // MARK: Internals
@@ -121,7 +153,8 @@ public actor OASession {
 
     private func authorized(_ request: URLRequest) -> URLRequest {
         var request = request
-        if let token = tokens.load() { request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
+        // 只给 OA 自己的域名带 token，别的校内域名（例如附件放在别处）不带
+        if request.url?.host?.lowercased() == Self.oaHost, let token = tokens.load() { request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
         return request
     }
 

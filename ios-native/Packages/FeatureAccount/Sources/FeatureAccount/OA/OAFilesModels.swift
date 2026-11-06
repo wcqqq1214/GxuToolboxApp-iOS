@@ -14,6 +14,8 @@ final class OAFilesModel {
     var keyword = ""
 
     private var page = 1
+    /// 每次 reload 加一：慢的旧请求回来时发现代数变了就丢弃，避免覆盖新筛选 / 新搜索的结果，也避免页码被旧请求推进
+    private var generation = 0
     private let services: AppServices
 
     init(services: AppServices) {
@@ -37,6 +39,7 @@ final class OAFilesModel {
 
     func reload() async {
         guard hasAccount, let oa = services.accounts.oa else { error = .notLoggedIn(.oa); return }
+        generation += 1
         page = 1
         await load(OAFilesAPI(session: oa), reset: true)
     }
@@ -47,10 +50,12 @@ final class OAFilesModel {
     }
 
     private func load(_ api: OAFilesAPI, reset: Bool) async {
+        let mine = generation
         isLoading = true
-        defer { isLoading = false }
+        defer { if mine == generation { isLoading = false } }
         do {
             let result = try await api.list(page: page, typeId: typeId, keyword: keyword)
+            guard mine == generation else { return }   // 已经有更新的 reload，这个结果作废
             rows = reset ? result.rows : rows + result.rows.filter { new in !rows.contains { $0.id == new.id } }
             hasMore = result.hasNext
             page += 1
@@ -58,9 +63,11 @@ final class OAFilesModel {
         } catch is CancellationError {
             return
         } catch let error as GxuError {
+            guard mine == generation else { return }
             if reset { rows = [] }
             self.error = error
         } catch {
+            guard mine == generation else { return }
             self.error = .network("加载失败")
         }
     }
@@ -112,13 +119,13 @@ final class OAFileDetailModel {
     }
 
     /// 下载 PDF / DOCX 到临时目录并交给 QuickLook
-    func preview(_ url: URL) async {
+    func preview(_ url: URL, preferredExtension: String?) async {
         guard let oa = services.accounts.oa, !isPreparingPreview else { return }
         isPreparingPreview = true
         previewError = nil
         defer { isPreparingPreview = false }
         do {
-            previewURL = try await OAFilesAPI(session: oa).localFile(for: url)
+            previewURL = try await OAFilesAPI(session: oa).localFile(for: url, preferredExtension: preferredExtension)
         } catch is CancellationError {
             return
         } catch let error as GxuError {

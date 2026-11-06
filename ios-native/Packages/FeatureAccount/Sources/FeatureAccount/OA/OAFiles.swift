@@ -71,8 +71,8 @@ public struct OAFilesAPI: Sendable {
         return try Self.parseDetail(data)
     }
 
-    public func localFile(for url: URL) async throws -> URL {
-        try await session.download(url)
+    public func localFile(for url: URL, preferredExtension: String? = nil) async throws -> URL {
+        try await session.download(url, preferredExtension: preferredExtension)
     }
 
     // MARK: 解析（纯函数，便于测试）

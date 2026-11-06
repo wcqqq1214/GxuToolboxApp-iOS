@@ -130,8 +130,8 @@ struct OAFileDetailView: View {
             .toolbar {
                 if let detail = model.detail, detail.pdfURL != nil || detail.docxURL != nil {
                     Menu {
-                        if let url = detail.pdfURL { Button("预览 PDF", systemImage: "doc.richtext") { Task { await model.preview(url) } } }
-                        if let url = detail.docxURL { Button("预览 DOCX", systemImage: "doc.text") { Task { await model.preview(url) } } }
+                        if let url = detail.pdfURL { Button("预览 PDF", systemImage: "doc.richtext") { Task { await model.preview(url, preferredExtension: "pdf") } } }
+                        if let url = detail.docxURL { Button("预览 DOCX", systemImage: "doc.text") { Task { await model.preview(url, preferredExtension: "docx") } } }
                     } label: {
                         if model.isPreparingPreview { ProgressView() } else { Label("预览附件", systemImage: "paperclip") }
                     }

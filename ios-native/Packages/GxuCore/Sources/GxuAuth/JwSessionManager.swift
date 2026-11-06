@@ -16,6 +16,8 @@ public actor JwSessionManager: SessionRenewer {
     private let transport: BackendClient
     nonisolated private let cookies: HTTPCookieStorage
     private var pending: Task<Void, Error>?
+    /// 每次 `logout()` 加一。登录请求发出时记下它，回来时发现变了说明用户已经退出，丢弃这次登录（不写 Cookie、不通知已登录）
+    private var epoch = 0
     private var observer: (@Sendable (AuthState) -> Void)?
 
     /// - Parameter transport: 不带 renewer 的后端客户端，避免登录请求自己触发重新登录
@@ -36,7 +38,9 @@ public actor JwSessionManager: SessionRenewer {
 
     public func login(username: String, password: String) async throws {
         clearSession()
+        let startEpoch = epoch
         let (data, response) = try await transport.rawPost("/jw/login", body: JwLoginBody(username: username, password: password))
+        guard startEpoch == epoch else { throw CancellationError() }   // 登录期间用户退出了
         guard (200..<300).contains(response.statusCode) else {
             throw GxuError.http(status: response.statusCode, message: Self.message(in: data))
         }
@@ -70,13 +74,18 @@ public actor JwSessionManager: SessionRenewer {
         }
         pending = task
         defer { pending = nil }
-        do { try await task.value } catch {
+        do { try await task.value } catch is CancellationError {
+            throw CancellationError()   // 退出登录导致的取消，不是"会话失效"
+        } catch {
             observer?(.signedOut)
             throw error
         }
     }
 
     public func logout() {
+        epoch += 1
+        pending?.cancel()
+        pending = nil
         clearSession()
     }
 

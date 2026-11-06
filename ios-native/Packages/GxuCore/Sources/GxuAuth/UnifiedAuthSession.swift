@@ -137,7 +137,7 @@ public actor UnifiedAuthSession {
         guard let execution = Self.execution(in: page.data) else { throw GxuError.invalidData("统一认证登录页异常") }
 
         var components = URLComponents(string: "\(Self.caBase)/login")!
-        components.queryItems = [URLQueryItem(name: "service", value: service ?? "")]
+        components.percentEncodedQuery = QueryString.encode(["service": service ?? ""])   // 和 RN 的 encodeURIComponent 一致
         var post = URLRequest(url: components.url!)
         post.httpMethod = "POST"
         post.setValue("application/x-www-form-urlencoded; charset=UTF-8", forHTTPHeaderField: "Content-Type")

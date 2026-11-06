@@ -74,6 +74,76 @@ struct OASessionTests {
         await #expect(throws: GxuError.invalidData("不支持的文件地址")) { _ = try await session.download(URL(string: "http://oa.gxu.edu.cn/a.pdf")!) }
     }
 
+    /// 回归：旧实现用 hasSuffix("gxu.edu.cn")，`evilgxu.edu.cn` 会通过并收到 Bearer token
+    @Test func downloadRejectsLookalikeHostAndNeverSendsToken() async {
+        let hit = Mutex(false)
+        StubURLProtocol.register(host: "evilgxu.edu.cn") { request in hit.withLock { $0 = true }; return reply(request, "%PDF") }
+        let (session, _) = make(tokens: InMemoryTokenStore("SECRET"))
+        await #expect(throws: GxuError.invalidData("不支持的文件地址")) { _ = try await session.download(URL(string: "https://evilgxu.edu.cn/a.pdf")!) }
+        #expect(!hit.withLock { $0 })
+    }
+
+    @Test func bearerTokenOnlyGoesToTheOAHost() async throws {
+        let seen = Mutex<[String: String]>([:])
+        for host in ["oa.gxu.edu.cn", "static.gxu.edu.cn"] {
+            StubURLProtocol.register(host: host) { request in
+                seen.withLock { $0[host] = request.value(forHTTPHeaderField: "Authorization") ?? "none" }
+                return reply(request, "%PDF")
+            }
+        }
+        let (session, _) = make(tokens: InMemoryTokenStore("SECRET"))
+        _ = try await session.download(URL(string: "https://oa.gxu.edu.cn/f/1.pdf")!)
+        _ = try await session.download(URL(string: "https://static.gxu.edu.cn/f/2.pdf")!)
+        #expect(seen.withLock { $0 } == ["oa.gxu.edu.cn": "Bearer SECRET", "static.gxu.edu.cn": "none"])
+    }
+
+    /// 回归：旧实现直接用 lastPathComponent，`..%2F..%2Fx.pdf` 能写出临时目录；没有扩展名时 QuickLook 无法预览
+    @Test func downloadKeepsFilesInsideItsDirectoryAndAddsExtension() async throws {
+        StubURLProtocol.register(host: "oa.gxu.edu.cn") { request in
+            let type = request.url!.path.contains("word") ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document" : "application/octet-stream"
+            return (HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": type])!, Data("x".utf8))
+        }
+        let (session, _) = make(tokens: InMemoryTokenStore("T"))
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("oa-preview").standardizedFileURL.path
+        let traversal = try await session.download(URL(string: "https://oa.gxu.edu.cn/x/..%2F..%2F..%2Fescaped.pdf")!)
+        #expect(traversal.standardizedFileURL.path.hasPrefix(root + "/"))
+        #expect(traversal.pathExtension == "pdf")
+        let noExt = try await session.download(URL(string: "https://oa.gxu.edu.cn/api/gxuoa/download?id=7")!, preferredExtension: "pdf")
+        #expect(noExt.pathExtension == "pdf")
+        let byType = try await session.download(URL(string: "https://oa.gxu.edu.cn/word/download")!)
+        #expect(byType.pathExtension == "docx")
+        let a = try await session.download(URL(string: "https://oa.gxu.edu.cn/a/same.pdf")!)
+        let b = try await session.download(URL(string: "https://oa.gxu.edu.cn/b/same.pdf")!)
+        #expect(a != b)   // 同名文件各自一个目录，不会互相覆盖
+    }
+
+    @Test func safeFileNameNeverEscapesAndPrefersKnownExtensions() {
+        func name(_ url: String, type: String? = nil, ext: String? = nil) -> String {
+            OASession.safeFileName(for: URL(string: url)!, contentType: type, preferredExtension: ext)
+        }
+        #expect(name("https://oa.gxu.edu.cn/a/..%2F..%2Fetc%2Fpasswd") == "passwd")
+        #expect(!name("https://oa.gxu.edu.cn/a/....%2F....%2Fx.pdf").contains("/"))
+        #expect(!name("https://oa.gxu.edu.cn/a/....%2F....%2Fx.pdf").contains(".."))
+        #expect(name("https://oa.gxu.edu.cn/a/通知 正文.pdf") == "通知_正文.pdf")
+        #expect(name("https://oa.gxu.edu.cn/a/") == "a")
+        #expect(name("https://oa.gxu.edu.cn/", ext: "docx") == "file.docx")
+        #expect(name("https://oa.gxu.edu.cn/a/x", type: "application/pdf", ext: "docx") == "x.pdf")   // Content-Type 优先
+        #expect(name("https://oa.gxu.edu.cn/a/x.exe", ext: "exe") == "x.exe")                             // 不认识的扩展名不乱补
+    }
+
+    /// 回归：换 OA 账号时不能留着上一个账号的问卷系统会话（放在这个串行套件里，因为它用固定域名 oa.gxu.edu.cn）
+    @MainActor
+    @Test func switchingOAAccountDropsThePreviousWjxtSession() async throws {
+        StubURLProtocol.register(host: "oa.gxu.edu.cn") { reply($0, loginOK) }
+        let creds = InMemoryCredentialStore()
+        let wjxt = WjxtSession(credentials: creds, configuration: StubURLProtocol.makeConfiguration())
+        wjxt.cookies.setCookie(HTTPCookie(properties: [.name: "ASP.NET_SessionId", .value: "SESS1", .domain: "wjxt.gxu.edu.cn", .path: "/"])!)
+        let oa = OASession(credentials: creds, tokens: InMemoryTokenStore(), configuration: StubURLProtocol.makeConfiguration())
+        let center = AccountCenter(credentials: creds, jw: JwSessionManager(credentials: creds, transport: BackendClientForTests.make()), oa: oa, wjxt: wjxt)
+        try await center.login(.oa, username: "new-account", password: "pw")
+        #expect(wjxt.sessionCookies().isEmpty)
+    }
+
     @MainActor
     @Test func accountCenterLoginAndLogoutOA() async throws {
         StubURLProtocol.register(host: "oa.gxu.edu.cn") { reply($0, loginOK) }

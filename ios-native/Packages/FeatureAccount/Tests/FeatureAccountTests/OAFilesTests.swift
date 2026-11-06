@@ -1,6 +1,65 @@
 import Foundation
+import GxuAuth
+import GxuFoundation
+import GxuNetworking
+import GxuStorage
+import GxuTestSupport
 import Testing
 @testable import FeatureAccount
+
+/// 按请求顺序返回不同内容的 OA 假服务；第 1 个请求故意慢，用来复现「旧请求后到达」
+private final class SlowFirstProtocol: URLProtocol, @unchecked Sendable {
+    nonisolated(unsafe) static var calls = 0
+    nonisolated(unsafe) static var bodies: [String] = []
+    static let lock = NSLock()
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        var body = Data()
+        if let stream = request.httpBodyStream {
+            stream.open(); var buffer = [UInt8](repeating: 0, count: 4096)
+            while stream.hasBytesAvailable { let n = stream.read(&buffer, maxLength: 4096); if n <= 0 { break }; body.append(buffer, count: n) }
+            stream.close()
+        }
+        Self.lock.lock(); Self.calls += 1; let n = Self.calls; Self.bodies.append(String(decoding: body, as: UTF8.self)); Self.lock.unlock()
+        let payload = #"{"code":200,"result":{"items":[{"id":\#(n),"fileName":"call\#(n)"}],"hasNextPage":true}}"#
+        DispatchQueue.global().asyncAfter(deadline: .now() + (n == 1 ? 0.4 : 0)) {
+            let response = HTTPURLResponse(url: self.request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            self.client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            self.client?.urlProtocol(self, didLoad: Data(payload.utf8))
+            self.client?.urlProtocolDidFinishLoading(self)
+        }
+    }
+    override func stopLoading() {}
+}
+
+@Suite(.serialized) @MainActor
+struct OAFilesModelRaceTests {
+    private func services() -> AppServices {
+        SlowFirstProtocol.calls = 0; SlowFirstProtocol.bodies = []
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [SlowFirstProtocol.self]
+        let store = InMemoryCredentialStore([.jw: Credential(username: "1", password: "p")])
+        let jw = JwSessionManager(credentials: store, transport: BackendClient(session: BackendClient.makeSession(configuration: .ephemeral)))
+        let oa = OASession(credentials: store, tokens: InMemoryTokenStore("tok"), configuration: configuration)
+        let accounts = AccountCenter(credentials: store, jw: jw, oa: oa, states: [.jw: .authenticated, .oa: .authenticated], studentId: "1")
+        return AppServices(backend: MockBackendAPI(), database: try! AppDatabase.inMemory(features: []), shared: InMemorySharedStore(), accounts: accounts)
+    }
+
+    /// 回归：切换文件类型时，慢的旧请求不能覆盖新结果，也不能把页码推进（否则「加载更多」会跳过第 2 页）
+    @Test func staleReloadIsDiscardedAndPaginationStaysConsistent() async throws {
+        let model = OAFilesModel(services: services())
+        model.typeId = 102
+        let first = Task { await model.reload() }
+        try await Task.sleep(for: .milliseconds(100))
+        model.typeId = 103
+        let second = Task { await model.reload() }
+        await first.value; await second.value
+        #expect(model.rows.map(\.title) == ["call2"])
+        await model.loadMoreIfNeeded(current: model.rows.last!)
+        #expect(SlowFirstProtocol.bodies.last?.contains("\"page\":2") == true)
+    }
+}
 
 struct OAFilesParsingTests {
     @Test func parsesListPage() throws {

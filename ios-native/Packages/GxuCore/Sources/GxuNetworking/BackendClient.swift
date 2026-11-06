@@ -71,9 +71,7 @@ public final class BackendClient: BackendAPI {
         guard var components = URLComponents(url: baseURL.appending(path: path), resolvingAgainstBaseURL: false) else {
             throw GxuError.invalidData("无效的请求地址")
         }
-        if !query.isEmpty {
-            components.queryItems = query.sorted { $0.key < $1.key }.map { URLQueryItem(name: $0.key, value: $0.value) }
-        }
+        if !query.isEmpty { components.percentEncodedQuery = QueryString.encode(query) }
         guard let url = components.url else { throw GxuError.invalidData("无效的请求地址") }
         var request = URLRequest(url: url)
         request.httpMethod = method
