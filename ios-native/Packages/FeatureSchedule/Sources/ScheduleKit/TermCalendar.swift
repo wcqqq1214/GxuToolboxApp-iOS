@@ -6,7 +6,10 @@ public struct TermCalendar: Sendable, Equatable {
     public let weekCount: Int
     public let calendar: Calendar
 
+    /// 学期 / 开学日 / 节假日都是公历日期（`YYYY-MM-DD`）。设备日历设成佛历、日本历、农历等时，
+    /// `DateComponents(year:month:day:)` 的年份是那个历法的年份，开学日会算到错误的公元年，所以这里一律换成同时区的公历。
     public init(startDate: Date, weekCount: Int, calendar: Calendar = .current) {
+        let calendar = calendar.gregorianEquivalent
         self.calendar = calendar
         self.startDate = calendar.startOfDay(for: startDate)
         self.weekCount = max(weekCount, 1)
@@ -22,6 +25,7 @@ public struct TermCalendar: Sendable, Equatable {
     ///   否则在西半球时区会差一天；
     /// - 其它带时间的串（如 `2026-09-06T16:00:00.000Z` 是东八区周一零点）先转成瞬间，再换算成日历时区的日期。
     static func parseDay(_ text: String, calendar: Calendar) -> Date? {
+        let calendar = calendar.gregorianEquivalent
         let text = text.trimmingCharacters(in: .whitespaces)
         if text.count > 10, text.contains("T"), !isUTCMidnight(text) {
             let formatter = ISO8601DateFormatter()
@@ -74,7 +78,21 @@ public enum TermResolver {
     public static func current(in terms: [TermStartDay], now: Date, calendar: Calendar = .current) -> TermStartDay? {
         let sorted = terms.compactMap { term in TermCalendar(term, calendar: calendar).map { (term, $0) } }
             .sorted { $0.1.startDate < $1.1.startDate }
-        let today = calendar.startOfDay(for: now)
+        let today = calendar.gregorianEquivalent.startOfDay(for: now)
         return (sorted.first { today < $0.1.endDate } ?? sorted.last)?.0
+    }
+}
+
+extension Calendar {
+    /// 同时区、同一周起始日设置的公历。已经是公历就原样返回。
+    /// （ExamKit 里有同名的 public 扩展；这里是 internal，ScheduleKit 不依赖 ExamKit，两边互不冲突。）
+    var gregorianEquivalent: Calendar {
+        if identifier == .gregorian { return self }
+        var gregorian = Calendar(identifier: .gregorian)
+        gregorian.timeZone = timeZone
+        gregorian.locale = locale
+        gregorian.firstWeekday = firstWeekday
+        gregorian.minimumDaysInFirstWeek = minimumDaysInFirstWeek
+        return gregorian
     }
 }

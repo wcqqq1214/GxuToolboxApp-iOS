@@ -522,6 +522,17 @@ interrogate 审查循环结束（用户决定不再开新一轮）。详细决�
   - 第 3 轮 B 的 UI 渲染 / Dynamic Type / 无障碍：没有结果，标"后续测试"。
 - **最后的 build / test**：`build.sh` 通过；FeatureExam、FeatureCourse、FeatureMisc 的测试全部通过。
 
+
+### [review-final] B（Agent B，pstack interrogate 审查循环收尾）
+
+- **范围：** GxuDesign、FeatureSchedule（ScheduleKit + ScheduleUI）、FeatureCampus、App/Shell。
+- **轮数：** 第 1 轮（3 个对抗 subagent）12 条、第 2 轮（2 个）3 条，**共 15 条验证后的发现，全部已修并加回归测试**（含 `ScheduleUITests` 新测试 target 和 `ReviewRegressionTests` / `ReviewRound2Tests` / `RefreshThrottleTests`）。第 3 轮的两个对抗 subagent 被会话限额中断，**没有任何结果**，所以**没有做到“一整轮无发现”，这不是 `review-clean`**。
+- **收尾修复：** 响应 C 的请求，`TermCalendar` 等在非公历设备日历下统一按公历计算（见上面已勾选的请求）。
+- **未解决项：** 第 3 轮未完成，因此以下方向没有被对抗审查过：`HomeModel` 的账号切换重叠（`load`/`reload` 在 await 后写入 `exams` / `snapshot`，没有像 `ScheduleViewModel` 那样的 generation 校验——**怀疑存在同类问题但未证实**）、`ClassScheduleModel` 的 `reloadTask` 取消后仍可能写入旧结果（未证实）、设置页字段全部隐藏 / 改名为空的显示、`CampusCalendarFile` 的更多畸形 payload。建议下一轮从这几项开始。
+- **后续测试（需要真实账号 / 校园网 / 真机）：** PEC 与工程训练中心真实响应字段、Apple 地图搜索效果、Dynamic Type 大字号目测、真实 iOS 18 runtime。
+- **RN / 后端缺口（只记录，不绕过）：** `调课信息`、`选课课程列表` 后端未代理保持隐藏；`期末学生评价` 的 `GET /jw/evaluation` 返回 404，入口保持“即将上线”；`GET /feedback/{userId}` 返回 401，“我的反馈”保持隐藏；实验课没有叠加到课表（RN 会把“大学物理实验”按日期替换成具体实验，等 PEC 真实响应验证后再做）。
+- **最后一次 build/test：** `build.sh` 通过；FeatureSchedule、FeatureCampus、GxuDesign 测试通过（见发布提交）。
+
 ## Agent A 收到的请求
 
 - [x] (C) `scripts/test.sh` 硬编码 scheme 为 `<Pkg>-Package`，但只有一个 library product 的 package（如 FeatureExam）scheme 就叫 `<Pkg>`，会报 "does not contain a scheme"。请让脚本先 `xcodebuild -list` 判断，或两个名字都试。我暂时直接用 `xcodebuild -scheme FeatureExam ... test`
@@ -558,7 +569,7 @@ interrogate 审查循环结束（用户决定不再开新一轮）。详细决�
 
 - [x] (C) ExamKit 已发布，查下一场考试（B 已接入：首页「近期考试」和底部附件的“下一件事”；首页会对当前学期调 `ExamAPI` + `replaceExams` 刷新）：`import ExamKit`，`try await ExamRepository(database: services.database).nextExam(studentId:)` → `ExamItem?`（只读本地缓存、不联网；含正在进行的考试，时间未知的不算）。`ExamItem` 有 `exam.course/classroom`、`date`（开考时间）、`status`、`countdownText()`（今日开考/明日开考/N天后）。要前几场用 `upcomingExams(studentId:limit:)`。纯逻辑版：`NextExam.pick(from: [ExamItem])`。缓存里有哪些学期取决于用户看过哪些学期的考试页，没看过则为空——需要 B 保证首页有数据的话，可以对当前学期调 `ExamAPI(backend:).exams(term)` + `repo.replaceExams(...)` 先刷新（`AcademicTerm.isBackendQueryable` 为真才请求）。
 
-- [ ] (C → B，审查) `ScheduleKit` 的 `TermCalendar.parseDay` / `date(week:weekday:)` / 周次计算依赖调用方传入的 `Calendar`（默认 `.current`）。设备日历设成佛历 / 日本历 / 农历时，`calendar.date(from: DateComponents(year:month:day:))` 的年份是该历法的年份，开学日会算到错误的公元年。C 在 ExamKit 加了 `Calendar.gregorianEquivalent`（同时区的公历），B 可以在 `TermCalendar.init` 里 `calendar.gregorianEquivalent` 后再用（ScheduleKit 不依赖 ExamKit，可以拷一份小扩展）。已在 C 的 `NonGregorianCalendarTests` 里用 5 种日历复现过同类问题。
+- [x] (C → B，审查，B 已完成：`TermCalendar` 的初始化、`parseDay`、`TermResolver`、小组件日期 key 一律换成同时区公历 `Calendar.gregorianEquivalent`（ScheduleKit 内部扩展，不依赖 ExamKit）；回归测试 `NonGregorianCalendarTests`（佛历 / 日本历 / 伊斯兰历 / 民国历 / 希伯来历，去掉修复时全部失败）) `ScheduleKit` 的 `TermCalendar.parseDay` / `date(week:weekday:)` / 周次计算依赖调用方传入的 `Calendar`（默认 `.current`）。设备日历设成佛历 / 日本历 / 农历时，`calendar.date(from: DateComponents(year:month:day:))` 的年份是该历法的年份，开学日会算到错误的公元年。C 在 ExamKit 加了 `Calendar.gregorianEquivalent`（同时区的公历），B 可以在 `TermCalendar.init` 里 `calendar.gregorianEquivalent` 后再用（ScheduleKit 不依赖 ExamKit，可以拷一份小扩展）。已在 C 的 `NonGregorianCalendarTests` 里用 5 种日历复现过同类问题。
 
 ## Agent C 收到的请求
 

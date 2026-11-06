@@ -34,7 +34,8 @@ public struct WidgetCourse: Codable, Sendable, Hashable, Identifiable {
     }
 
     static func dateKey(_ date: Date, calendar: Calendar) -> String {
-        let c = calendar.dateComponents([.year, .month, .day], from: date)
+        // 日期 key 是公历 `yyyy-MM-dd`，不能随设备日历变成佛历等年份
+        let c = calendar.gregorianEquivalent.dateComponents([.year, .month, .day], from: date)
         return String(format: "%04d-%02d-%02d", c.year ?? 0, c.month ?? 0, c.day ?? 0)
     }
 }
