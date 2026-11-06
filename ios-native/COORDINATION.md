@@ -745,6 +745,15 @@ interrogate 审查循环结束（用户决定不再开新一轮）。详细决�
 
 **后续测试（需真实账号 / 校园网）**：考勤记录、PEC 实验课覆盖、空闲教室真实数据、教师查询真实响应。
 
+### [elective-review-fix] C（Agent C，2026-11-07）：校选课"待核对"改用成绩记录核对
+
+- 现象：《海洋与人类文明》显示"学分待核对 · 数据存在歧义"。根因：`/jw/elective-progress` 里它是 `year=2022 term=3 score=null status=review` + `missing_identity`，`/jw/score` 里是 `term=0 88 分 1 学分`（后端小学期映射不一致）。后端待办已记进 `rn-v2.2-gap.md` §6，iOS 不改后端。
+- 修法：新增纯函数 `ElectiveReviewResolver`（FeatureCourse/Strategy）。对 `status=review` 的课程，用成绩记录核对：课程名一致、学分一致（`attempt.credit`）、学年一致、学期一致（后端 term 3 ↔ 成绩 term 0）且匹配唯一，就按成绩确认分数、及格状态和学分（依据学籍规定第十九条"考核总评达到合格标准的即取得学分"），计入对应模块统计，并在没有其它 issue 时重算 `complete` 和是否达标；课程行不再显示"待核对"，小字标"已按成绩记录核对"。匹配不到或不唯一才保留待核对，并写具体原因（如"成绩记录里没有这门课"），不再写"数据存在歧义"。
+- 真实脱敏数据前后变化（`elective-progress.json` + `score.json`）：待核对课程只有这 1 门（没有第二条 review）。核对前：总学分 11.5、ocean 1 分 / 1 门、`complete=false`、`isQualified=null`（显示"待核对"）、issues 1 条；核对后：总学分 12.5、ocean 2 分 / 2 门、线下学分 6.5 不变、issues 0 条、`complete=true`、7 项要求全部达标 → "达标"。
+- 保守处理：特色模块数、指定课程这类后端规则我不重算；核对出的课让新的特色模块得到学分、或补上未完成的指定课程时，保持"待核对"，等后端。
+- 测试：`ElectiveReviewResolverTests` 用真实脱敏 fixture，覆盖唯一匹配、各种对不上的具体原因、重复同一条记录、不及格、其它 issue、新特色模块、无待核对课程；build 和 FeatureCourse 测试通过。
+- 没有往手机安装。截图：`ios-native/.screens/c-strategy-{light,dark}.png`（演示数据，显示具体原因）。
+
 ## Agent A 收到的请求
 
 - [x] (C) v2.2 校选课进度：请抓一份 `GET /jw/elective-progress` 的真实脱敏响应放进 `Fixtures/sanitized/elective-progress.json`（我本机试登录得到 401，没有重试）。目前 `ElectiveProgress` 模型和测试夹具按 RN `schema/progress.ts` 构造，拿到样本后核对字段（尤其 `matchedBy`、`attempts`、`online` 可空）。

@@ -253,3 +253,9 @@ A 验证后的发现 4 条，全部修复并加了回归测试：
 - 校选课进度已用真实脱敏样本核对（`elective-progress.json`），模型无需修改，测试换成真实 fixture；移除 TODO(verify)。
 
 - B 的请求已处理：考勤记录缓存（`AttendanceRecordCache`，SharedStore，按学号+学期）、小组件 / App Intent 的实验课覆盖（ClassWidgetKit 读 `PhyExpOverrides.cached`）。
+
+# 校选课"待核对"用成绩记录核对（[elective-review-fix] C）
+
+- `ElectiveReviewResolver`（纯函数）：status=review 的课程，课程名 + 学分（attempt.credit）+ 学年 + 学期（后端 term 3 ↔ 成绩 term 0）且成绩记录唯一时，按成绩确认分数 / 及格 / 学分（依据学籍规定第十九条），重算总学分、线下学分、模块统计和可由课程推出的要求，没有其它 issue 时重算 complete 和是否达标；课程行小字"已按成绩记录核对"。
+- 对不上或不唯一：保留待核对，写具体原因（"成绩记录里没有这门课" / "学分不一致" / "没有对应学期" / "还没有成绩" / "多条同名同学分记录" / "成绩记录暂时无法读取"），不再写"数据存在歧义"。
+- 重算不了的要求（特色模块数、指定课程）保持后端值；核对出的课让新的特色模块得到学分、或补上未完成的指定课程时，保持待核对（要后端重算）。

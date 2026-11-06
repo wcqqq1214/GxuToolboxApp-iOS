@@ -1,3 +1,4 @@
+import ExamKit
 import GxuAuth
 import GxuDesign
 import GxuFoundation
@@ -7,7 +8,11 @@ import SwiftUI
 /// 校选课修读进度：先显示本地缓存，再后台刷新；刷新失败保留上次结果并提示；账号切换、新的刷新会让旧请求作废。
 @MainActor @Observable
 final class ElectiveProgressModel {
+    /// 后端结果；有待核对课程时已用本地成绩记录核对过（`ElectiveReviewResolver`）
     private(set) var data: ElectiveProgress?
+    private(set) var confirmed: [String: String] = [:]
+    private(set) var unresolved: [String: String] = [:]
+    private var raw: ElectiveProgress?
     private(set) var isCached = false
     private(set) var isLoading = false
     private(set) var error: String?
@@ -16,14 +21,22 @@ final class ElectiveProgressModel {
 
     init(services: AppServices) { self.services = services }
 
+    private func show(_ progress: ElectiveProgress?, scores: [Score]?) {
+        raw = progress
+        guard let progress else { data = nil; confirmed = [:]; unresolved = [:]; return }
+        let r = ElectiveReviewResolver.resolve(progress, scores: scores)
+        data = r.progress; confirmed = r.confirmed; unresolved = r.unresolved
+    }
+
     func load() async {
         generation += 1
         let version = generation
         guard let studentId = services.accounts.studentId?.trimmingCharacters(in: .whitespaces), !studentId.isEmpty else {
             data = nil; error = "未找到当前教务账号，请先登录"; return
         }
-        if data?.studentId != studentId {
-            data = ElectiveProgressCache.load(services.shared, studentId: studentId)
+        let examRepo = ExamRepository(database: services.database)
+        if raw?.studentId != studentId {
+            show(ElectiveProgressCache.load(services.shared, studentId: studentId), scores: try? await examRepo.allScores(studentId: studentId))
             isCached = data != nil
         }
         error = nil
@@ -33,7 +46,12 @@ final class ElectiveProgressModel {
             let result = try await ElectiveProgressAPI(backend: services.backend).fetch(studentId: studentId)
             guard version == generation else { return }
             try? ElectiveProgressCache.save(services.shared, result, studentId: studentId)
-            data = result
+            // 成绩记录用来核对"待核对"的课程：先刷新一次全部成绩（失败用本地缓存），都不可用就保留待核对
+            if result.courses.contains(where: { $0.status == .review }), let scores = try? await ScoreAPI(backend: services.backend).allScores() {
+                try? await examRepo.replaceAllScores(scores, studentId: studentId)
+            }
+            guard version == generation else { return }
+            show(result, scores: try? await examRepo.allScores(studentId: studentId))
             isCached = false
         } catch is CancellationError {
         } catch {
@@ -107,8 +125,9 @@ public struct ElectiveStrategyView: View {
             if !data.issues.isEmpty {
                 Section("待核对课程") {
                     ForEach(Array(data.issues.enumerated()), id: \.offset) { _, issue in
-                        let name = data.courses.first { $0.courseId == issue.courseId }?.courseName ?? "课程记录"
-                        Text("\(name)：\(issue.message)").foregroundStyle(.orange)
+                        let course = data.courses.first { $0.courseId == issue.courseId }
+                        // 有具体原因就用具体原因，不用后端的笼统说明
+                        Text("\(course?.courseName ?? "课程记录")：\(course.flatMap { model.unresolved[$0.id] } ?? issue.message)").foregroundStyle(.orange)
                     }
                 }
             }
@@ -121,7 +140,7 @@ public struct ElectiveStrategyView: View {
             }
             Section {
                 if data.courses.isEmpty { Text("暂无通识选修课记录").foregroundStyle(.secondary) }
-                ForEach(data.courses) { CourseRow(course: $0) }
+                ForEach(data.courses) { CourseRow(course: $0, note: model.confirmed[$0.id]) }
             } header: {
                 Text("课程成绩 · \(data.courses.count) 门")
             }
@@ -139,6 +158,7 @@ public struct ElectiveStrategyView: View {
 
 private struct CourseRow: View {
     let course: ElectiveProgress.Course
+    let note: String?
 
     private var statusText: String {
         let label = ElectiveProgressDisplay.statusLabel(course.status)
@@ -160,6 +180,7 @@ private struct CourseRow: View {
                   course.counted ? "已计入 \(ElectiveStrategy.number(course.countedCredits)) 学分" : (course.excludedReason ?? "暂未计入学分")]
                 .joined(separator: " · "))
                 .font(.caption).foregroundStyle(.secondary)
+            if let note { Text(note).font(.caption).foregroundStyle(.secondary) }
             if !course.teachers.isEmpty { Text("教师：" + course.teachers.joined(separator: "、")).font(.caption).foregroundStyle(.secondary) }
             if !course.locations.isEmpty { Text("地点：" + course.locations.joined(separator: "、")).font(.caption).foregroundStyle(.secondary) }
         }

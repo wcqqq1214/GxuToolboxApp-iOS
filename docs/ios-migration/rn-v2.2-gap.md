@@ -65,6 +65,10 @@
 | `src/features/widget`（4 行，`widgetScheduleData.ts`） | 随课表考试数据类型调整 | C 对照 |
 | 绩点（`examScore`） | v2.2 没有变化 | 保持 `[gpa-retake]` 的规则 |
 
+## 6. 后端待办（iOS 不绕过，只记录）
+
+- **`/jw/elective-progress` 小学期学期映射与 `/jw/score` 不一致**：同一门《海洋与人类文明》在 elective-progress 的 `attempts` 里是 `year=2022, term=3, score=null, status=review`，`issues` 有 `missing_identity`（"课程标识或学年学期缺失"），而 `/jw/score` 里是 `term=0, score=88, credit=1`。后端应把小学期统一映射（score 的 0 ↔ progress 的 3）并按成绩匹配，这样就不会出现 `review`。iOS 端临时按"课程名 + 学分（attempt.credit）+ 学年 + 学期（3↔0）且唯一"用成绩记录核对（`ElectiveReviewResolver`），后端修好后这段会自然不再触发。（2026-11-07，C）
+
 ## 4. 与 iOS 无关 / 不做
 CI 与 OTA 流水线（`.gitlab-ci.yml`、`scripts/`、`plan/`、`docs/` 里的发布文档）、RN 的 `drizzle/` 迁移与 `test.ts`、`TestPage`、`un-ui` 组件库改动、`react-native` 依赖锁文件。
 
