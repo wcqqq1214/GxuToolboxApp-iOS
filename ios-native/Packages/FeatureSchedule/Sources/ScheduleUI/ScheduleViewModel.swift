@@ -40,6 +40,8 @@ final class ScheduleViewModel {
     @ObservationIgnored var layersProvider: ScheduleExtraLayersProvider?
     /// 实验课等对教师 / 地点的覆盖
     private(set) var overrides: [OccurrenceOverride] = []
+    private(set) var attendance: AttendanceIndex?
+    private var attendanceMarks: [AttendanceMark] = []
 
     var selectedWeek = 1
     var palette: CoursePalette = .macaron
@@ -205,6 +207,7 @@ final class ScheduleViewModel {
         guard gen == generation else { return }
         exams = layers.exams
         overrides = layers.overrides
+        attendanceMarks = layers.attendance
         rebuildIndex()
     }
 
@@ -291,6 +294,8 @@ final class ScheduleViewModel {
         activities = []
         exams = []
         overrides = []
+        attendanceMarks = []
+        attendance = nil
         refreshError = nil
         pinnedTerm = nil
         studentId = nil
@@ -349,13 +354,14 @@ final class ScheduleViewModel {
         // 先按日期覆盖实验课的教师 / 地点，再叠加假期 / 补课（补课复制出来的课带着覆盖后的教师和地点）
         let base = OccurrenceOverrides.apply(overrides, to: ScheduleExpander.occurrences(of: schedule, in: termCalendar))
         let overlaid = CalendarOverlay.apply(to: base, calendar: campusCalendar, term: termCalendar)
+        attendance = attendanceMarks.isEmpty ? nil : AttendanceIndex(attendanceMarks, calendar: termCalendar.calendar)
         index = ScheduleIndex(occurrences: overlaid.occurrences, dayBlocks: overlaid.dayBlocks, examBlocks: ExamPlacement.blocks(for: exams, term: termCalendar))
         publishWidgetSnapshot()
     }
 
     private func publishWidgetSnapshot() {
         guard let services, let studentId else { return }
-        let snapshot = NextCourseCalculator.compute(schedule: mergedSchedule, term: termCalendar, campus: campusCalendar, choices: choices, now: .now)
+        let snapshot = NextCourseCalculator.compute(schedule: mergedSchedule, term: termCalendar, campus: campusCalendar, choices: choices, overrides: overrides, now: .now)
         services.shared.set(snapshot, for: ScheduleKit.widgetSnapshotKey(studentId: studentId))
     }
 }

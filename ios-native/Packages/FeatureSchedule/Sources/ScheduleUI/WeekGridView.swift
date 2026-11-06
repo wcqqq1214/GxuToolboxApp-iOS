@@ -166,7 +166,8 @@ struct WeekBody: View {
                         let laneWidth = columnWidth / CGFloat(placed.count)
                         CourseBlock(
                             group: group, selected: group.selected(choices: model.choices), colors: model.colors, rowHeight: rowHeight,
-                            showVenue: preferences.value.showVenueInBlock, showTeacher: preferences.value.showTeacherInBlock
+                            showVenue: preferences.value.showVenueInBlock, showTeacher: preferences.value.showTeacherInBlock,
+                            attendance: model.attendance?.status(for: group.selected(choices: model.choices))
                         )
                             .frame(width: laneWidth - 3, height: CGFloat(rows.count) * rowHeight - 3)
                             .offset(

@@ -106,6 +106,9 @@ extension RootView {
                 return GridExam(id: item.id, title: item.exam.course, location: item.exam.classroom, seat: item.exam.seatText, start: start, end: end)
             }
             let overrides = await PhyExpOverrides.cached(database: services.database, studentId: studentId)
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("-GxuDemo") { return ScheduleExtraLayers(exams: exams, overrides: overrides, attendance: DemoMode.attendanceMarks()) }
+            #endif
             return ScheduleExtraLayers(exams: exams, overrides: overrides)
         }
     }

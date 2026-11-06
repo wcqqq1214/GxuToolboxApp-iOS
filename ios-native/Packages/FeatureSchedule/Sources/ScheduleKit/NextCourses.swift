@@ -81,10 +81,10 @@ public enum NextCourseCalculator {
         )
     }
 
-    public static func compute(schedule: Schedule?, term: TermCalendar?, campus: CampusCalendar = .empty, choices: [String: String] = [:], now: Date) -> NextCourses {
+    public static func compute(schedule: Schedule?, term: TermCalendar?, campus: CampusCalendar = .empty, choices: [String: String] = [:], overrides: [OccurrenceOverride] = [], now: Date) -> NextCourses {
         guard let schedule else { return .empty(.missingSchedule, now: now) }
         guard let term else { return .empty(.missingStartDay, now: now) }
-        let overlaid = CalendarOverlay.apply(to: ScheduleExpander.occurrences(of: schedule, in: term), calendar: campus, term: term).occurrences
+        let overlaid = CalendarOverlay.apply(to: OccurrenceOverrides.apply(overrides, to: ScheduleExpander.occurrences(of: schedule, in: term)), calendar: campus, term: term).occurrences
         let occurrences = ConflictResolver.resolve(overlaid, choices: choices)
         return compute(occurrences: occurrences, now: now, calendar: term.calendar)
     }

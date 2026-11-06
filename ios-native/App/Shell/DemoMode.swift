@@ -4,11 +4,13 @@ import GxuAuth
 import GxuFoundation
 import GxuNetworking
 import GxuStorage
+import ScheduleKit
 import Synchronization
 
 /// 调试用演示数据：启动参数带 `-GxuDemo` 时，不连后端，用内置的假课表跑完整界面（截图自查用）。
 @MainActor
 enum DemoMode {
+    nonisolated static func attendanceMarks(now: Date = .now) -> [AttendanceMark] { DemoBackend.attendanceMarks(now: now) }
     static var isEnabled: Bool { ProcessInfo.processInfo.arguments.contains("-GxuDemo") }
     /// `-GxuDemoOffline`：前两次请求（开学日 + 课表）成功，之后全部失败，用来看离线 / 刷新失败的状态
     static var simulatesOffline: Bool { ProcessInfo.processInfo.arguments.contains("-GxuDemoOffline") }
@@ -88,6 +90,23 @@ private struct DemoBackend: BackendAPI {
         [{"year": \(year), "term": 1, "day": "\(f.string(from: current))", "week": 18, "is_current": true},
          {"year": \(year - 1), "term": 2, "day": "\(f.string(from: previous))", "week": 18, "is_current": false}]
         """
+    }
+
+    /// 演示用考勤标记：高等数学 / 大学英语最近三周每次上课，状态轮流是 正常 / 迟到 / 缺勤，今天之后是未开始
+    nonisolated static func attendanceMarks(now: Date = .now) -> [AttendanceMark] {
+        let calendar = Calendar.current
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        let slots: [(weekday: Int, periods: String)] = [(2, "1,2"), (3, "1,2"), (4, "3,4")]   // Calendar 的星期：2 = 周一
+        var marks: [AttendanceMark] = []
+        for offset in -21...7 {
+            guard let date = calendar.date(byAdding: .day, value: offset, to: now),
+                  let slot = slots.first(where: { $0.weekday == calendar.component(.weekday, from: date) }) else { continue }
+            let past = date < calendar.startOfDay(for: now)
+            marks.append(AttendanceMark(date: f.string(from: date), periodRange: slot.periods, statusCode: past ? [1, 2, 4][marks.count % 3] : 5))
+        }
+        return marks
     }
 
     /// 两场考试：明天和 5 天后（相对今天）

@@ -12,6 +12,7 @@ struct CourseBlock: View {
     let rowHeight: CGFloat
     var showVenue = true
     var showTeacher = true
+    var attendance: AttendanceStatus?
 
     private var course: TheoryCourse { selected.course }
     private var rows: Int { PeriodRows.rows(begin: group.begin, end: group.end).count }
@@ -50,6 +51,9 @@ struct CourseBlock: View {
                     .offset(x: -3, y: -3)
             }
         }
+        .overlay(alignment: .bottomTrailing) {
+            if let attendance { AttendanceBadge(status: attendance, tint: tint) }
+        }
         .overlay(alignment: .topTrailing) {
             if group.isConflict {
                 Text("\(group.items.count)")
@@ -69,6 +73,31 @@ struct CourseBlock: View {
         let place = course.venueName.isEmpty ? "" : "，\(course.venueName)"
         let conflict = group.isConflict ? "，另有 \(group.items.count - 1) 门课冲突" : ""
         let makeup = selected.isMakeup ? "，补班" : ""
-        return "\(course.courseName)\(place)，\(WeekdayName.full(selected.weekday)) 第\(group.begin)到\(group.end)节\(makeup)\(conflict)"
+        let attend = attendance.map { "，\($0.label)" } ?? ""
+        return "\(course.courseName)\(place)，\(WeekdayName.full(selected.weekday)) 第\(group.begin)到\(group.end)节\(makeup)\(attend)\(conflict)"
+    }
+}
+
+
+/// 考勤状态小图标：形状区分状态（不只靠颜色），放在课程块右下角
+struct AttendanceBadge: View {
+    let status: AttendanceStatus
+    let tint: CourseTint
+
+    var body: some View {
+        Image(systemName: symbol)
+            .font(.caption2.weight(.bold))
+            .foregroundStyle(tint.text.opacity(status == .notStarted || status == .noNeed ? 0.6 : 1))
+            .padding(2)
+    }
+
+    private var symbol: String {
+        switch status {
+        case .normal: "checkmark.circle.fill"
+        case .late: "clock.fill"
+        case .absent: "xmark.circle.fill"
+        case .notStarted: "circle"
+        case .noNeed: "minus.circle"
+        }
     }
 }

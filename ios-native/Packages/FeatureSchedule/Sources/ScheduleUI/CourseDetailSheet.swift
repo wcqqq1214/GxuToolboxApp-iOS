@@ -8,6 +8,7 @@ struct CourseDetailSheet: View {
     let colors: [String: UInt32]
     let selected: CourseOccurrence
     var exams: [GridExam] = []
+    var attendance: AttendanceIndex?
     let onChoose: (CourseOccurrence) -> Void
     let onEditActivity: (String?) -> Void
     @Environment(SchedulePreferencesStore.self) private var preferences
@@ -37,6 +38,7 @@ struct CourseDetailSheet: View {
                         }) : nil,
                         fields: preferences.value.courseDetail.filter(\.isShown),
                         exams: item.course.isCustom ? [] : RelatedExams.matching(courseName: item.course.courseName, in: exams),
+                        attendance: attendance?.status(for: item),
                         onEditActivity: onEditActivity
                     )
                 }
@@ -47,8 +49,15 @@ struct CourseDetailSheet: View {
                 ToolbarItem(placement: .confirmationAction) { Button("完成") { dismiss() } }
             }
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents(Self.detents)
         .presentationDragIndicator(.visible)
+    }
+
+    private static var detents: Set<PresentationDetent> {
+        #if DEBUG
+        if CommandLine.arguments.contains("-GxuSheetLarge") { return [.large] }   // 截图自查：直接看到整张详情
+        #endif
+        return [.medium, .large]
     }
 }
 
@@ -58,6 +67,7 @@ private struct CourseSection: View {
     var choice: (isSelected: Bool, choose: () -> Void)?
     let fields: [DetailFieldSetting]
     var exams: [GridExam] = []
+    var attendance: AttendanceStatus?
     let onEditActivity: (String?) -> Void
     @Environment(\.scheduleMapURL) private var mapURL
     @Environment(\.openURL) private var openURL
@@ -77,6 +87,7 @@ private struct CourseSection: View {
                 row("备注", course.examMethod)
                 Button("编辑日程", systemImage: "pencil") { onEditActivity(course.customID) }
             } else {
+                if let attendance { row("考勤", attendance.label) }
                 ForEach(fields) { field in
                     row(field.label, value(of: field.id))
                     if field.id == "venue", let url = navigationURL {

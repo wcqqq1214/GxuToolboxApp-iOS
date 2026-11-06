@@ -7,10 +7,13 @@ import SwiftUI
 public struct ScheduleExtraLayers: Sendable {
     public var exams: [GridExam]
     public var overrides: [OccurrenceOverride]
+    /// 考勤记录（FeatureMisc），在课程块上标出这节课的考勤状态
+    public var attendance: [AttendanceMark]
 
-    public init(exams: [GridExam] = [], overrides: [OccurrenceOverride] = []) {
+    public init(exams: [GridExam] = [], overrides: [OccurrenceOverride] = [], attendance: [AttendanceMark] = []) {
         self.exams = exams
         self.overrides = overrides
+        self.attendance = attendance
     }
 }
 
