@@ -596,6 +596,24 @@ interrogate 审查循环结束（用户决定不再开新一轮）。详细决�
 
 **C：** `AuthState.signedOut` 的含义变了（现在只有「服务器明确拒绝 / 考勤 token 失效」才会出现），你的 `AttendanceViewModel` 里 `.signedOut?` 仍然对应「登录已过期」，不用改。有账号但会话缺失现在是 `.authenticated`。
 
+### [user-fixes-1] C（Agent C，用户真机试用后的修改）
+
+**1. 绩点计算器：汇总范围（已发布，e16a50a8）**
+- 默认显示**全部学期**的总绩点，无论是否从成绩页 f(x) 进入都不沿用成绩页选的学期；页内切到"某学年的全学年"（秋 + 春）或单个学期只在本页生效。成绩页、考试页的选择器没变（"全部学期"选项只有绩点页传了 `isAll` 才出现）。
+- 全部学期**一次不带 year / term 的 `GET /jw/score`** 取全部历史，不逐学年循环；`replaceAllScores` 按 (学年, 学期) 切片写缓存，按学号隔离。**小学期（`term = 0`）计入**（用户决定），分组标题写"20xx–20xx 小学期"。公式没改（`GpaCalculator`），`score == nil` 照旧跳过。
+- 失败：有缓存保留缓存并显示提示条，没有缓存时整页报错且**不显示数字**（不会出现 0.000）；账号数据按学号隔离。汇总页按学期分组（组标题只写一次学期，行内不重复）。
+- 测试（真实脱敏成绩 100 条，期望值由独立的 Python 实现算出）：全部学期 GPA 1.397758 / WAM 52.912556，去掉小学期那门变 1.386937 / 52.754505；2023 学年（秋 + 春 12 门）1.306452 / 54.645161；分组顺序；一次请求；失败保留缓存；未登录。新增 `ExamUITests` 目标。
+
+**2. 教师查询：对照 RN 重做（已发布，ac37d83b）**
+- **头像**：RN 直接用后端的 `picUrl || 默认图`，没有拼接前缀、没有特殊请求头。只读请求核实：真实 `picUrl` 是 `http://prof.gxu.edu.cn/teacher-info/user-images/…`——**明文 http，真机上 ATS 会拦掉**（A 已移除 ATS 例外）；同一路径的 `https://` 返回 200 `image/jpeg`，不需要 Referer。所以 gxu.edu.cn 的 http 地址升级成 https（别的站点不擅自改）；之前搜索结果行根本没画头像，已补上。没有头像 / 加载失败时用姓名第一个字占位（RN 用的是一张通用默认图，按用户要求改成姓名占位）。
+- **领导**：RN 是每行三位的照片卡片，点击展开职务和分工（RN 里没有进详情的入口）。iOS 保留三列卡片，**点击进入详情**（用户要求），查询方式和 RN 的搜索→详情一致：`GET /teachers/profile?name=<姓名>&school=校领导`（只读核实：搜索领导姓名时后端返回的 `unit` 就是"校领导"，profile 能查到）。领导在教师库里的资料很少（只有姓名、性别、职称、工号、更新时间），这就是"很多空字段"的来源；详情页顶部另外显示领导自己的职务与分工，查不到时也不当错误。
+- **空字段**：RN 把空值写成"暂无信息 / 未知姓名 / 无职称信息 / 工号未知…"。iOS 没有值的行和分组整行不显示，头部的职称、工号、性别、政治面貌、职务、通讯地址、更新时间同样只显示有值的；"取得的主要成果"那个空标题去掉，论文 / 著作 / 专利有才显示。另：RN 的"更新于"用 `hh`（12 小时制），iOS 用 24 小时制。
+- 测试：字段映射（真实脱敏搜索 / 详情样本）、空值隐藏、稀疏的领导资料、头像地址升级、领导跳转参数（16 位领导都用"校领导"，头像都是 https）、`TeacherHeader`。
+
+**截图**（`ios-native/.screens/`，不提交，带返回键的推入方式，内置数据）：`c-gpa-{light,dark}.png`（全部学期）、`c-teachers-{light,dark}.png`（领导）、`c-teachers-results-{light,dark}.png`（搜索结果，含头像加载和姓名占位）、`c-teacher-detail-{light,dark}.png`、`c-teacher-leader-{light,dark}.png`（稀疏的领导详情）。
+
+**真机**：手机离线，我的一次 `run-device.sh --personal` 前置检查没通过；随后协调者通知 A 已安装包含 ac37d83b 的版本，所以我没有再往手机安装，也没有真机截图。真机效果（头像能不能显示、领导能不能点进去、全部学期总绩点）**等用户反馈**。
+
 ## Agent A 收到的请求
 
 - [x] (C) `scripts/test.sh` 硬编码 scheme 为 `<Pkg>-Package`，但只有一个 library product 的 package（如 FeatureExam）scheme 就叫 `<Pkg>`，会报 "does not contain a scheme"。请让脚本先 `xcodebuild -list` 判断，或两个名字都试。我暂时直接用 `xcodebuild -scheme FeatureExam ... test`
