@@ -6,13 +6,12 @@ import SwiftUI
 
 public struct GpaView: View {
     @Environment(\.services) private var services
-    private let initial: ScoreViewModel.Query?
 
-    public init() { initial = nil }
-    init(initial: ScoreViewModel.Query) { self.initial = initial }
+    /// 默认显示全部学期的总绩点（无论从哪里进入，都不沿用成绩页选的学期）；在本页切换学年 / 学期只在本页生效
+    public init() {}
 
     public var body: some View {
-        Content(services: services, initial: initial)
+        Content(services: services)
     }
 
     private struct Content: View {
@@ -20,8 +19,26 @@ public struct GpaView: View {
         @State private var showsWam = false
         @State private var showsMethod = false
 
-        init(services: AppServices, initial: ScoreViewModel.Query?) {
-            _model = State(initialValue: ScoreViewModel(services: services, query: initial))
+        init(services: AppServices) {
+            _model = State(initialValue: ScoreViewModel(services: services, query: .all))
+        }
+
+        /// 全部学期、某学年的全学年：按学期分组；单个学期：平铺
+        private var grouped: Bool { model.query.isAll || model.query.term == nil }
+
+        private var summaryTitle: String {
+            let metric = showsWam ? "加权平均成绩" : "平均学分绩点"
+            return model.query.isAll ? "全部学期 · \(metric)" : metric
+        }
+
+        /// 第一个分组的标题行右侧标出两列的含义
+        private func header(_ title: String) -> some View {
+            HStack {
+                Text(title)
+                Spacer()
+                Text("绩点").frame(width: 56)
+                Text("学分").frame(width: 40, alignment: .trailing)
+            }
         }
 
         var body: some View {
@@ -30,9 +47,10 @@ public struct GpaView: View {
                 Section {
                     TermMenu(
                         years: model.years,
-                        year: Binding(get: { model.query.year }, set: { model.query.year = $0 }),
-                        term: Binding(get: { model.query.term }, set: { model.query.term = $0 }),
-                        allowsWholeYear: true
+                        year: Binding(get: { model.query.year }, set: { model.query.year = $0; model.query.isAll = false }),
+                        term: Binding(get: { model.query.term }, set: { model.query.term = $0; model.query.isAll = false }),
+                        allowsWholeYear: true,
+                        isAll: Binding(get: { model.query.isAll }, set: { model.query.isAll = $0 })
                     )
                 }
                 if model.error != nil {
@@ -42,10 +60,12 @@ public struct GpaView: View {
                     
                     .listRowBackground(Color.clear)
                 }
+                // 请求失败又没有缓存时不显示数字（0.000 会被当成真的绩点）
+                if !(model.error != nil && model.scores.isEmpty) {
                 Section {
                     VStack(spacing: 4) {
-                        Text(showsWam ? "加权平均成绩" : "平均学分绩点").font(.footnote).foregroundStyle(.secondary)
-                        Text(showsWam ? String(format: "%.2f", result.wam) : String(format: "%.3f", result.gpa))
+                        Text(summaryTitle).font(.footnote).foregroundStyle(.secondary)
+                        Text(model.scores.isEmpty ? "—" : (showsWam ? String(format: "%.2f", result.wam) : String(format: "%.3f", result.gpa)))
                             .font(.system(size: 40, weight: .bold, design: .rounded))
                             .contentTransition(.numericText())
                     }
@@ -58,23 +78,22 @@ public struct GpaView: View {
                     .pickerStyle(.segmented)
                     .listRowSeparator(.hidden)
                 }
+                }
                 if !model.scores.isEmpty {
-                    Section {
-                        ForEach(model.scores) { s in
-                            HStack {
-                                Text(s.courseName)
-                                Spacer()
-                                Text(GpaCalculator.pointText(for: s.score)).bold().frame(width: 56)
-                                Text(s.credit.map { String(format: "%.1f", $0) } ?? "—")
-                                    .foregroundStyle(.secondary).frame(width: 40, alignment: .trailing)
+                    if grouped {
+                        // 汇总范围课程多：按学期分组，每门课属于哪个学期一目了然，行内不再重复学期
+                        ForEach(Array(ScoreGroup.group(model.scores).enumerated()), id: \.element.id) { index, group in
+                            Section {
+                                ForEach(group.scores) { ScoreLine(score: $0) }
+                            } header: {
+                                if index == 0 { header(group.title) } else { Text(group.title) }
                             }
                         }
-                    } header: {
-                        HStack {
-                            Text("课程")
-                            Spacer()
-                            Text("绩点").frame(width: 56)
-                            Text("学分").frame(width: 40, alignment: .trailing)
+                    } else {
+                        Section {
+                            ForEach(model.scores) { ScoreLine(score: $0) }
+                        } header: {
+                            header("课程")
                         }
                     }
                 }
@@ -89,6 +108,20 @@ public struct GpaView: View {
             .task { await model.resolveInitialTerm() }
             .task(id: LoadKey(value: model.query, ready: model.isReady)) { await model.load() }
             .refreshable { await model.load() }
+        }
+    }
+}
+
+private struct ScoreLine: View {
+    let score: Score
+
+    var body: some View {
+        HStack {
+            Text(score.courseName)
+            Spacer()
+            Text(GpaCalculator.pointText(for: score.score)).bold().frame(width: 56)
+            Text(score.credit.map { String(format: "%.1f", $0) } ?? "—")
+                .foregroundStyle(.secondary).frame(width: 40, alignment: .trailing)
         }
     }
 }

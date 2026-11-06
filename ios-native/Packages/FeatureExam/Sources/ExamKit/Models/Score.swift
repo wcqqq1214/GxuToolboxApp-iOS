@@ -90,3 +90,23 @@ public struct UsualScoreItem: Codable, Hashable, Sendable {
 
     public var hasRatio: Bool { ratio != "N/A" }
 }
+
+/// 成绩按学期分组（绩点计算器的"全学年 / 全部学期"汇总用）。学年、学期降序：同学年里小学期（term 0，发生在春季之后）最前，其次春、秋
+public struct ScoreGroup: Equatable, Identifiable, Sendable {
+    public var year: Int
+    public var term: Int
+    public var scores: [Score]
+    public var id: String { "\(year)-\(term)" }
+
+    public var title: String {
+        "\(year)–\(year + 1) " + (term == 1 ? "秋季" : term == 2 ? "春季" : "小学期")
+    }
+
+    private var order: Int { year * 10 + (term == 0 ? 3 : term) }
+
+    public static func group(_ scores: [Score]) -> [ScoreGroup] {
+        Dictionary(grouping: scores) { "\($0.year)-\($0.term)" }
+            .values.map { ScoreGroup(year: $0[0].year, term: $0[0].term, scores: $0) }
+            .sorted { $0.order > $1.order }
+    }
+}

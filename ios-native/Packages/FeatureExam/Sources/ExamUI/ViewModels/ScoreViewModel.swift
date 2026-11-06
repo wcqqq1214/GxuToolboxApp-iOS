@@ -16,6 +16,10 @@ final class ScoreViewModel {
     struct Query: Hashable {
         var year: Int
         var term: Int?
+        /// 全部学期（累计，含小学期 `term == 0`）。为 true 时 `year` / `term` 不参与查询
+        var isAll = false
+
+        static var all: Query { Query(year: TermOptions.academicYear(), term: nil, isAll: true) }
     }
 
     var query: Query
@@ -73,6 +77,24 @@ final class ScoreViewModel {
 
         await showCached(studentId: studentId, query: query)
 
+        if query.isAll {
+            // 全部学期：后端不带 year / term 一次返回全部历史成绩，不逐学年循环请求
+            do {
+                let remote = try await api.allScores()
+                guard !Task.isCancelled, self.query == query else { return }
+                try await repo.replaceAllScores(remote, studentId: studentId)
+            } catch is CancellationError {
+                return
+            } catch {
+                guard self.query == query else { return }
+                self.error = asGxuError(error)   // 有缓存时界面保留缓存并提示，没有缓存才整页报错
+            }
+            guard self.query == query else { return }
+            await showCached(studentId: studentId, query: query)
+            pending = []
+            return
+        }
+
         let terms = query.term.map { [$0] } ?? [1, 2]
         var failures: [GxuError] = []
         var succeeded = 0
@@ -96,7 +118,7 @@ final class ScoreViewModel {
     }
 
     private func loadPending(studentId: String, query: Query) async {
-        guard let pendingSource, let term = query.term else {
+        guard let pendingSource, !query.isAll, let term = query.term else {
             pending = []
             return
         }
@@ -107,11 +129,18 @@ final class ScoreViewModel {
     }
 
     private func showCached(studentId: String, query: Query) async {
-        let cached = (try? await repo.scores(studentId: studentId, year: query.year, term: query.term)) ?? []
-        let synced = try? await repo.lastSyncedAt(studentId: studentId, year: query.year, term: query.term)
+        let cached: [Score]
+        let synced: Date?
+        if query.isAll {
+            cached = (try? await repo.allScores(studentId: studentId)) ?? []
+            synced = (try? await repo.allLastSyncedAt(studentId: studentId)) ?? nil
+        } else {
+            cached = (try? await repo.scores(studentId: studentId, year: query.year, term: query.term)) ?? []
+            synced = (try? await repo.lastSyncedAt(studentId: studentId, year: query.year, term: query.term)) ?? nil
+        }
         guard !Task.isCancelled, self.query == query else { return }
         scores = cached
-        lastSyncedAt = synced ?? nil
+        lastSyncedAt = synced
     }
 
     /// 展开一行时调用：内存 → 本地缓存 → 远端

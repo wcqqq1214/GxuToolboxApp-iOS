@@ -76,7 +76,7 @@ public struct ScoreView: View {
             .gxuHidesTabChrome()
             .toolbar {
                 NavigationLink {
-                    GpaView(initial: model.query)
+                    GpaView()
                 } label: {
                     Label("绩点计算器", systemImage: "function")
                 }

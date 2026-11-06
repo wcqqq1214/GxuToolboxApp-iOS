@@ -77,3 +77,49 @@ import Testing
         #expect(items.isEmpty)
     }
 }
+
+/// 绩点计算器的"全部学期 / 全学年"汇总：用真实脱敏成绩（100 条，含 1 条 `term = 0` 的小学期），
+/// 期望值由另一份独立的 Python 实现按 RN 的 useGpa 公式算出。
+@Suite struct GpaAggregateFixtureTests {
+    private func scores() throws -> [Score] {
+        struct Page: Decodable { var items: [Score] }
+        struct Envelope: Decodable { var data: Page }
+        let url = try #require(Bundle.module.url(forResource: "score", withExtension: "json", subdirectory: "Fixtures"))
+        return try JSONDecoder().decode(Envelope.self, from: Data(contentsOf: url)).data.items
+    }
+
+    @Test func allTermsIncludingSummerTerm() throws {
+        let all = try scores()
+        #expect(all.count == 100 && all.filter { $0.term == 0 }.count == 1)
+        let r = GpaCalculator.calculate(all)
+        #expect(abs(r.gpa - 1.397758) < 1e-5 && abs(r.wam - 52.912556) < 1e-5)
+        // 小学期那门（88 分，1 学分）计入汇总：去掉它结果不同
+        let without = GpaCalculator.calculate(all.filter { $0.term != 0 })
+        #expect(abs(without.gpa - 1.386937) < 1e-5 && abs(without.wam - 52.754505) < 1e-5)
+    }
+
+    @Test func wholeAcademicYearIsAutumnPlusSpring() throws {
+        let year2023 = try scores().filter { $0.year == 2023 && ($0.term == 1 || $0.term == 2) }
+        let r = GpaCalculator.calculate(year2023)
+        #expect(year2023.count == 12)
+        #expect(abs(r.gpa - 1.306452) < 1e-5 && abs(r.wam - 54.645161) < 1e-5)
+    }
+
+    @Test func groupsAreOrderedAndTitled() throws {
+        let groups = ScoreGroup.group(try scores())
+        #expect(groups.map(\.id) == ["2025-2", "2025-1", "2024-2", "2024-1", "2023-2", "2023-1", "2022-0", "2022-2", "2022-1"])
+        #expect(groups.map { $0.scores.count } == [10, 14, 17, 18, 1, 11, 1, 12, 16])
+        #expect(groups.first { $0.term == 0 }?.title == "2022–2023 小学期")
+        #expect(groups[0].title == "2025–2026 春季" && groups[1].title == "2025–2026 秋季")
+        #expect(groups.reduce(0) { $0 + $1.scores.count } == 100)
+    }
+
+    @Test func nilScoresAreSkippedInAggregate() {
+        let list = [Score(id: "1", year: 2025, term: 1, courseName: "a", credit: 2, score: 90),
+                    Score(id: "2", year: 2025, term: 1, courseName: "b", credit: 5, score: nil),
+                    Score(id: "3", year: 2025, term: 0, courseName: "c", credit: 1, score: 60)]
+        let r = GpaCalculator.calculate(list)
+        #expect(abs(r.gpa - (4.0 * 2 + 1.0 * 1) / 3) < 1e-9)
+        #expect(abs(r.wam - (180 + 60) / 3) < 1e-9)
+    }
+}

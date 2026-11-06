@@ -147,6 +147,12 @@ public struct ExamRepository: Sendable {
         }
     }
 
+    public func allLastSyncedAt(studentId: String) async throws -> Date? {
+        try await database.writer.read { db in
+            try ScoreRecord.filter(Column("studentId") == studentId).select(max(Column("updatedAt")), as: Date?.self).fetchOne(db) ?? nil
+        }
+    }
+
     /// 全部历史刷新：按 (year, term) 切片分别替换（每个切片内同样删除不在响应里的行）。
     /// 响应里完全没出现的学期不动。
     public func replaceAllScores(_ scores: [Score], studentId: String, now: Date = .now) async throws {

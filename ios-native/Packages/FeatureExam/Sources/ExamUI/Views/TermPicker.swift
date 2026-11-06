@@ -10,6 +10,8 @@ struct TermMenu: View {
     @Binding var year: Int
     @Binding var term: Int?
     var allowsWholeYear = false
+    /// 提供时多一个"全部学期"选项（绩点计算器用）；成绩页、考试页不传，选择器不变
+    var isAll: Binding<Bool>?
 
     private var termName: String {
         switch term {
@@ -22,6 +24,13 @@ struct TermMenu: View {
     var body: some View {
         LabeledContent("学期") {
             Menu {
+                if let isAll {
+                    Picker("范围", selection: isAll) {
+                        Text("全部学期").tag(true)
+                        Text("按学年 / 学期").tag(false)
+                    }
+                    Divider()
+                }
                 Picker("学年", selection: $year) {
                     ForEach(years.contains(year) ? years : (years + [year]).sorted(), id: \.self) {
                         Text(verbatim: "\($0)–\($0 + 1) 学年").tag($0)
@@ -34,7 +43,7 @@ struct TermMenu: View {
                 }
             } label: {
                 HStack(spacing: 4) {
-                    Text(verbatim: "\(year)–\(year + 1) \(termName)")
+                    Text(isAll?.wrappedValue == true ? "全部学期" : "\(year)–\(year + 1) \(termName)")
                     Image(systemName: "chevron.up.chevron.down").font(.caption2.weight(.semibold))
                 }
             }
