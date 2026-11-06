@@ -5,21 +5,12 @@ import path from "node:path";
 import {execFileSync} from "node:child_process";
 import {fileURLToPath} from "node:url";
 import {putObject} from "./cos.mjs";
-import {hasGitLabApi, gitLabRequest} from "./gitlab.mjs";
+import {gitLabRequest, hasGitLabApi} from "./gitlab.mjs";
 import {createOrUpdateOtaRelease, otaReleaseTag} from "./gitlab-release.mjs";
+import {checkOtaChanges} from "./ota-changes.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const MAX_DESC_LENGTH = 4000;
-const BLOCKED_PATH_PATTERNS = [
-    /^android\//,
-    /^ios\//,
-    /^package\.json$/,
-    /^pnpm-lock\.yaml$/,
-    /^yarn\.lock$/,
-    /^package-lock\.json$/,
-    /^src\/pictures\//,
-    /\.(png|jpe?g|gif|webp|ttf|otf)$/i,
-];
 
 const args = parseArgs(process.argv.slice(2));
 
@@ -230,23 +221,13 @@ function checkChangedFiles() {
     }
     const base = args.base ?? process.env.CI_MERGE_REQUEST_DIFF_BASE_SHA ?? process.env.CI_COMMIT_BEFORE_SHA;
     if (!base || /^0+$/.test(base)) {
-        console.warn("[OTA] 没有可用的 diff 基线，跳过原生/依赖/图片变更检查");
-        return;
+        throw new Error("缺少有效的 APK diff 基线，请提供 --base，不能自动跳过原生兼容检查。");
     }
 
-    let changed;
     try {
-        changed = git(["diff", "--name-only", base, "HEAD"]).split(/\r?\n/).filter(Boolean);
+        checkOtaChanges({root: ROOT, base, git});
     } catch (error) {
-        console.warn(`[OTA] 无法计算 diff（${base}），跳过检查: ${error.message}`);
-        return;
-    }
-
-    const blocked = changed.filter(file => BLOCKED_PATH_PATTERNS.some(pattern => pattern.test(file)));
-    if (blocked.length) {
-        throw new Error(
-            `OTA 只能包含 JS 变更，以下文件必须走整包发布:\n${blocked.map(file => `  - ${file}`).join("\n")}`,
-        );
+        throw new Error(`OTA 基线检查失败（${base}）: ${error.message}`);
     }
 }
 

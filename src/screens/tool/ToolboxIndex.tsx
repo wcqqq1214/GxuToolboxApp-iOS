@@ -173,12 +173,12 @@ export function ToolboxIndex() {
                     type: "navigation",
                     navigation: "PositionListScreen",
                 },
-                {
-                    label: "测试页",
-                    icon: <Icon name="database-eye" size={iconSize} />,
-                    type: "navigation",
-                    navigation: "TestPage",
-                },
+                // {
+                //     label: "测试页",
+                //     icon: <Icon name="database-eye" size={iconSize} />,
+                //     type: "navigation",
+                //     navigation: "TestPage",
+                // },
                 {
                     label: "全校实时课表",
                     icon: <Icon name="calendar-search" size={iconSize} />,

@@ -6,6 +6,8 @@ variables:
     GIT_DEPTH: "0"
     PNPM_STORE_DIR: "$CI_PROJECT_DIR/.pnpm-store"
     NPM_CONFIG_USERCONFIG: "$CI_PROJECT_DIR/.ci-npmrc"
+    # 2.2.0 正式代码基线，发布新 APK 后同步更新。
+    OTA_RELEASE_BASE_SHA: "a4a06769b6e6fa03771bcc65a5760149704fc060"
 
 workflow:
     rules:
@@ -48,7 +50,7 @@ verify_ota:
     rules:
         - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "ota"'
     script:
-        - node scripts/ci/publish-ota.mjs --channel release --dry-run --base "$CI_MERGE_REQUEST_DIFF_BASE_SHA"
+        - node scripts/ci/publish-ota.mjs --channel release --dry-run --base "$OTA_RELEASE_BASE_SHA"
 
 # 合并后发布。首次验证先保留 when: manual，确认无误后删除该行即自动发布。
 publish_beta_ota:
@@ -77,4 +79,4 @@ publish_ota:
         - test -n "$COS_SECRET_ID" || (echo "缺少 COS_SECRET_ID" && exit 1)
         - test -n "$COS_SECRET_KEY" || (echo "缺少 COS_SECRET_KEY" && exit 1)
         - test -n "$CI_JOB_TOKEN$GITLAB_API_TOKEN" || (echo "缺少 GitLab API 凭证，无法创建 Release" && exit 1)
-        - node scripts/ci/publish-ota.mjs --channel release --create-release
+        - node scripts/ci/publish-ota.mjs --channel release --base "$OTA_RELEASE_BASE_SHA" --create-release

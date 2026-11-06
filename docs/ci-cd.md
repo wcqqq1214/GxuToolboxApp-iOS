@@ -2,9 +2,10 @@
 
 ## 当前状态
 
-- `beta-ota` 从 `beta` 拉出，用于验证 OTA 发布链路。
-- `origin/beta` 当前的 `package.json` 版本是 `2.2.0`，不带 `beta`，客户端会判定为 release 通道。`beta-ota` 上已恢复为 `2.2.0 beta`（`package.json` 和 `android/app/build.gradle`）。
-- 这个修复应尽快合回 `beta`，否则后续从 `beta` 切出的 OTA 分支都会走错通道。
+- 当前代码面向正式版 `2.2.0 / 20200`，`package.json` 和 Android 版本名统一为 `2.2.0`。
+- 正式版 OTA 的比较基线由 `OTA_RELEASE_BASE_SHA` 固定，当前取 `v2.1` 的提交 `a4a06769b6e6fa03771bcc65a5760149704fc060`
+  。发布新 APK 后应同步更新。
+- `beta-ota` 继续用于 beta 通道，待发布代码的版本名应包含 `beta`。
 - 目前只启用 OTA；`ota` / `apk` / `beta-apk` 的 job 已预留，分支创建后自动生效。
 - 发布 job 目前是 `when: manual`。验证通过后删掉这一行即可自动发布，并自动创建/更新 GitLab Release。
 
@@ -35,7 +36,11 @@ main ──切出──> vX.X ──<── feature/fix
 
 - `package.json.version` 与目标通道一致（含 `beta` 才是 beta 通道）。
 - `version.json` 中必须已存在同 `versionCode` 的 APK 条目，且 `ori.official` 非空。
-- diff 中不能出现 `android/`、`ios/`、`package.json`、`pnpm-lock.yaml`、`src/pictures/`、图片或字体文件。
+- 比较 APK 基线与工作区，原生代码、图片、字体及原生依赖变化需要整包发布。
+- 允许同一 App 版本添加或移除 `beta` 后缀，以及已审阅的两个 adapters 入口更新。当前仅审阅 `@gxutool/adapters` 与
+  `gxu-tool-adapters` 对应的 `1.1.1` 包，其依赖仅限 `cheerio` 和 `zod`。
+- `package.json` 的其他字段、锁文件的其他依赖解析结果、Gradle 的其他内容仍须与基线一致。锁文件中的弃用提示可以变化。
+- 基线缺失或不可读取时停止发布。
 - 新 OTA 的 `versionCode` 必须大于同版本下已有 OTA。
 - bundle 内容相同（`sha256`）时复用已有 OTA 条目，不重复追加。
 
@@ -77,17 +82,17 @@ main ──切出──> vX.X ──<── feature/fix
 pnpm i --frozen-lockfile
 
 # 只构建和校验，不上传
-node scripts/ci/publish-ota.mjs --channel beta --dry-run
+node scripts/ci/publish-ota.mjs --channel release --dry-run --base a4a06769b6e6fa03771bcc65a5760149704fc060
 
 # 真正上传并创建 Release（CI 外还需提供 CI_API_V4_URL、CI_PROJECT_ID、GITLAB_API_TOKEN）
 COS_BUCKET=xxx-1250000000 \
 COS_REGION=ap-guangzhou \
 COS_SECRET_ID=... \
 COS_SECRET_KEY=... \
-node scripts/ci/publish-ota.mjs --channel beta --create-release
+node scripts/ci/publish-ota.mjs --channel release --base a4a06769b6e6fa03771bcc65a5760149704fc060 --create-release
 ```
 
-首次 bootstrap 如果 `package.json` 的版本标识修复还在 diff 里，需要加 `--skip-diff-check`；CI 里对应设置 `OTA_SKIP_DIFF_CHECK=1`。bootstrap 阶段可以直接 push 到 `beta-ota`，验证通过后开启分支保护走 MR。正常发布不要跳过检查。
+同版本的通道标识修复由兼容检查自动识别。正常发布应提供有效 APK 基线并保持检查开启。
 
 ## 常见问题
 
