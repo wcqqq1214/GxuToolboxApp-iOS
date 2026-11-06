@@ -626,7 +626,7 @@ interrogate 审查循环结束（用户决定不再开新一轮）。详细决�
 
 ### [auth-state-fix] 更正（Agent A，2026-11-06）：401 不一定是账号密码错误
 
-协调者发现后端 `POST /jw/login` 在上游故障时也会返回 **HTTP 401 + `无法获取初始登录cookie`**，这是后端 / 教务上游故障，不是账号密码问题。我之前把登录接口的**任何** 401 都当成「服务器明确拒绝账号密码」，会让这种故障把账号错误地变成「需要重新登录」。已更正：**只有服务端的话明确指向账号 / 密码错误**（`账号或密码错误，登录失败`、`用户名或密码错误`、`密码不正确`、`账号不存在` 等，见 `JwSessionManager.isCredentialRejectionMessage`）才进入「需要重新登录」；其他 401（含 `无法获取初始登录cookie`、空文案、`登录态过期` 等）按**服务暂时不可用**处理：登录状态不变，文案如实提示「教务登录服务暂时不可用：<原话>。这不是账号密码的问题，请稍后再试。」，并写进诊断日志。已加回归测试（启动静默续期和手动登录两条路径都覆盖）。没有为了复现反复登录。
+协调者发现后端 `POST /jw/login` 在上游故障时也会返回 **HTTP 401 + `无法获取初始登录cookie`**，这是（协调者后来实测：Python 默认 UA 会触发这个 401，换 curl 的 UA 就成功，真实原因不确定，「上游故障」不能下结论）不是明确的账号密码错误。我之前把登录接口的**任何** 401 都当成「服务器明确拒绝账号密码」，会让这种故障把账号错误地变成「需要重新登录」。已更正：**只有服务端的话明确指向账号 / 密码错误**（`账号或密码错误，登录失败`、`用户名或密码错误`、`密码不正确`、`账号不存在` 等，见 `JwSessionManager.isCredentialRejectionMessage`）才进入「需要重新登录」；其他 401（含 `无法获取初始登录cookie`、空文案、`登录态过期` 等）按**服务暂时不可用**处理：登录状态不变，文案如实提示「教务登录服务暂时不可用：<原话>。这不是账号密码的问题，请稍后再试。」，并写进诊断日志。已加回归测试（启动静默续期和手动登录两条路径都覆盖）。没有为了复现反复登录。
 
 ### [gpa-retake] C（Agent C，绩点：多次修读同一门课只计一次、取最高成绩）
 
@@ -744,3 +744,4 @@ interrogate 审查循环结束（用户决定不再开新一轮）。详细决�
 - [x] (A → C) 考勤认证已交付，用法见公告「考勤认证已就绪」。`auth: .attendance` 的请求自动带 token；内层 `code == 600` 才是成功；`sessionExpired(.attendance)` 时引导用户去 设置 → 考勤账号。可以去掉考勤页的 Mock 了。
   - C：考勤页已按此实现（FeatureMisc `AttendanceView`）：没登录 / `sessionExpired(.attendance)` 时引导去考勤账号页；没有真实账号，本轮用单测和 Mock 截图验证，标「待真实账号」。
 - [ ] (A → C，考勤 v2 认证已交付，RN v2.2 `43f2ef10`) `AttendanceSession` 已迁到 `GET /attendance/v2/captcha`（`imageUrl`/`challengeToken`/`text`，`text` 自动填入验证码框）和 `POST /attendance/v2/login`（返回 `token`/`calendarId`/`userId`，`ticket` = `challengeToken`）。`AttendanceLoginInfo` 现在是 `userId` + `calendarId?`（`userNo`/`userName`/`currentWeek` 仍是可选的旧字段，v2 不再返回，界面不要依赖）。**数据接口要你按 v2 对齐：** RN 用 `GET /attendance/v2/personal`（`calendarId = 2*学年 + 学期 - 4033`，`pageSize=500`，`orderBy="day DESC"`，响应 `{data: RecordPage}`）和 `GET /attendance/v2/schedule`（`calendarId`、`currentWeek`、`userId`），请求头仍是 `Authorization: Token`；v1 的 `/attendance/index-data`、`personal-data`、`schedule` 已不再被 RN 调用。`RecordPage` / `Schedule` 的类型在 RN 的私有包 `@gxutool/adapters/attendance`，这里读不到；也没有考勤账号可以抓取真实响应 → 解码写宽容，标「后续测试」。
+- [x] (C → A) 抓 `GET /jw/elective-progress` 的真实响应并脱敏。A：已发布 `Fixtures/sanitized/elective-progress.json`（`studentId` 假值 `2200000001`，课程 / 教学班 ID、教师已替换；字段说明见 `Fixtures/sanitized/README.md`）。用已有的真实抓取脱敏，没有新增请求。**更正：** 上面 [auth-state-fix] 更正里说的「后端 / 教务上游故障」不能下结论——协调者实测 Python 默认 User-Agent 会让 `POST /jw/login` 返回 401「无法获取初始登录cookie」，换成 curl 的 UA 就成功，真实原因不确定（C 的 401 很可能也是这个）。App 的处理保留，抓取方法已写进 `capture-fixtures.sh` 和 PLAN §4.4。

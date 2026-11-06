@@ -182,6 +182,40 @@ if (RAW / "teachers_search.json").exists():
                 ach[key] = "示例" + key
         (OUT / "teachers-profile.json").write_text(json.dumps(prof, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
+# ---- 校选课进度（/jw/elective-progress）：studentId、课程 / 教学班 ID、教师姓名替换，其余（学分、课程名、规则）保持原样 ----
+if (RAW / "elective_progress.json").exists():
+    ep = load("elective_progress.json")
+    d = ep.get("data") or {}
+    real_sid = d.get("studentId")
+    if real_sid:
+        sensitive_scalars.add(real_sid)
+        d["studentId"] = FAKE_ID
+    teacher_alias = {}
+
+    def alias_teacher(name):
+        if name not in teacher_alias:
+            teacher_alias[name] = f"测试教师{len(teacher_alias) + 1}"
+            teacher_leak_needles.add(name)
+        return teacher_alias[name]
+
+    def walk_ep(x):
+        if isinstance(x, dict):
+            for k, v in list(x.items()):
+                if k in ("courseId", "classId") and isinstance(v, str):
+                    x[k] = fake_hex(v)
+                elif k == "classIds" and isinstance(v, list):
+                    x[k] = [fake_hex(i) for i in v]
+                elif k == "teachers" and isinstance(v, list):
+                    x[k] = [alias_teacher(t) for t in v]
+                else:
+                    walk_ep(v)
+        elif isinstance(x, list):
+            for i in x:
+                walk_ep(i)
+
+    walk_ep(d)
+    (OUT / "elective-progress.json").write_text(json.dumps(ep, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
 # 手写的错误响应（后端真实格式，不含个人信息）
 (OUT / "jw-login-failure.json").write_text(
     json.dumps({"code": 401, "message": "账号或密码错误，登录失败", "data": None}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

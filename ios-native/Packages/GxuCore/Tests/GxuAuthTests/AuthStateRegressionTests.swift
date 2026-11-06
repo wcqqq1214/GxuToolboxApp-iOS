@@ -75,7 +75,7 @@ struct AuthStateRegressionTests {
         await #expect(throws: GxuError.sessionExpired(.jw)) { try await center.ensureAuthenticated(.jw) }   // 不再自动重试
     }
 
-    /// 回归：后端 / 教务上游故障也会返回 401（例如「无法获取初始登录cookie」），那不是账号密码的问题，不能变成「需要重新登录」
+    /// 回归：后端也会返回 401（例如「无法获取初始登录cookie」），那不是账号密码的问题，不能变成「需要重新登录」
     @Test func upstreamFailureReturning401DoesNotChangeTheStateAndIsNotBlamedOnThePassword() async throws {
         let host = "as-\(UUID().uuidString).test"
         let hits = serve(host) { respond($0, status: 401, #"{"code":401,"message":"无法获取初始登录cookie","data":null}"#) }

@@ -189,6 +189,7 @@ brew install xcodegen
 - 用户把测试账号放到 `ios-native/.secrets/account.env`（已 gitignore，内容是 `JW_USER=...`、`JW_PASS=...`）。
 - A 提供 `scripts/capture-fixtures.sh`：登录后端，把各接口的原始响应保存到 `ios-native/Fixtures/raw/`（已 gitignore）。
 - 脱敏后的共享数据由 A 用 `scripts/sanitize-fixtures.py` 生成，放在 `ios-native/Fixtures/sanitized/`（含 README，说明各文件对应的接口和参数），可直接提交。各 feature 的所有者按需把其中的文件复制到自己 package 的 `Tests/.../Fixtures/` 里；需要 A 没覆盖的接口，写到 COORDINATION 的 A 小节。
+- **抓取注意 User-Agent（2026-11-06 协调者实测）：** 后端 `POST /jw/login` 用 Python 默认 User-Agent（`Python-urllib/…`）会返回 HTTP 401「无法获取初始登录cookie」，换成 curl 的 UA 就登录成功。脚本里请求后端一律带 `User-Agent: curl/8.7.1`（`capture-fixtures.sh` 用 curl 本来就是）。**真实原因不确定**（可能是 WAF / 上游按 UA 拦截），只确认了换 UA 后成功；此前说的「后端 / 教务上游故障」不能下结论。App 对这类 401 的处理保留：不是明确的账号密码错误就不改登录状态。
 - 拿不到真实数据时，根据 RN 的 TS 类型和 Zod schema 手写 fixture，并标注 TODO(verify)。
 - **测试和调试代码不能使用真实账号数据**：学号、姓名、身份证、手机号、邮箱、教师信息等一律用明显的假值（例如学号 `2200000000`、身份证 `450000200001010019`、手机 `13800138000`、邮箱 `x@example.invalid`）。测试要验证脱敏 / 解析时，也用假值构造输入。真实账号只允许放在 `.secrets/`（已 gitignore）。提交前用 `git grep` 检查有没有把真实值带进来。
 

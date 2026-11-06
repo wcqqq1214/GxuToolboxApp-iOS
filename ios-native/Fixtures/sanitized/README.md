@@ -18,6 +18,7 @@
 | `selected-courses-term.json` | `GET /jw/selected-courses` | `year=2025&term=1` | 同上，只含该学期（17 门） |
 | `teachers-search.json` | `GET /teachers/search` | `q=王&page=1`（无需登录） | `data = {pages, total, list: [{id, name, picUrl, unit}]}`（第 1 页 12 条，共 194 条 / 17 页）。教师姓名换成「王测一…」、`id` 换成同长度假值、`picUrl` 换成 `example.invalid` |
 | `teachers-profile.json` | `GET /teachers/profile` | `name=<搜索结果第一条的姓名>&school=<该条的 unit>`（无需登录） | `data = {baseInfo, academicProfile}`。姓名、头像、电话、邮箱、QQ、微信、地址、工号已替换；个人简介、主讲课程、学术兼职、研究方向、成果等自由文本换成同结构的示例文字（多行字段保持行数）；职称、学历、导师类别、研究生学科等不指向个人的字段保持原样。真实响应里空字段是 `""` 不是 null |
+| `elective-progress.json` | `GET /jw/elective-progress` | 无参数 | `data = {studentId, computedAt, grade, ruleId, ruleVersion, ruleName, complete, stats{totalCredits, offlineCredits, modules{lead, entrepreneurship, art, asean, ethnic, ocean:{credits, courseCount}}}, requirements[{key,label,actual,required,operator,unit,passed}], remainingRequired, courses[{courseId, courseName, classIds, locations, teachers, modules, online, credit, score, status, counted, countedCredits, excludedReason, attempts[…]}], issues[{code,courseId,classId,message}], isQualified}`。`studentId` 已换成假值（RN 要求它等于当前账号）；课程 / 教学班 ID 换成同长度假十六进制，教师换成「测试教师N」；`passed` / `isQualified` 在此账号为 `null`；学分、课程名、规则保持原样。这个账号的 `issues` 里有一条 `missing_identity` |
 | `jw-login-success.json` | `POST /jw/login` | 正确账号 | **HTTP 201**，响应头带 `Set-Cookie: JSESSIONID, route`（头未保存） |
 | `jw-login-failure.json` | `POST /jw/login` | 错误密码 | HTTP 401，手写 |
 | `session-expired.json` | 任意需登录接口 | Cookie 无效 | HTTP 401，手写 |

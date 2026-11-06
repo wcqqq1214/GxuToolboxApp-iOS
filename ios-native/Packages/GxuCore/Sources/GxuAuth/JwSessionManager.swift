@@ -62,7 +62,7 @@ public actor JwSessionManager: SessionRenewer {
         guard (200..<300).contains(response.statusCode) else {
             let message = Self.message(in: data)
             // 只有服务器**明确说账号或密码不对**才算拒绝（实测：401 `账号或密码错误，登录失败`）。
-            // 同样是 401，后端 / 教务上游故障也会这么返回（例如 `无法获取初始登录cookie`），那不是账号密码的问题：
+            // 同样是 401，后端也会这么返回（例如 `无法获取初始登录cookie`；协调者实测 Python 默认 UA 会触发，原因不确定），那不是账号密码的问题：
             // 按服务暂时不可用处理，不改变登录状态；其他状态码（5xx、403 等）同样不算
             if response.statusCode == 401, Self.isCredentialRejectionMessage(message) {
                 throw GxuError.credentialsRejected(.jw, message ?? "")
