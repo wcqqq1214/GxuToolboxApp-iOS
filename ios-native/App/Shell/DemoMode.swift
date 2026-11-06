@@ -64,6 +64,7 @@ private struct DemoBackend: BackendAPI {
         case "/jw/profile/startDay": body = Self.startDays
         case "/jw/schedule/personal": body = Self.schedule
         case "/jw/exam": body = Self.exams
+        case "/teachers/search": body = #"{"list": [{"id": "t1", "name": "教师甲", "unit": "数学与信息科学学院", "picUrl": ""}], "pages": 1, "total": 1}"#
         default: throw GxuError.network("演示模式不支持 \(path)")
         }
         return try JSONDecoder().decode(type, from: Data(#"{"data":\#(body)}"#.utf8))

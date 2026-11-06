@@ -64,6 +64,7 @@ struct RootView: View {
         .gxuTheme(theme)
         .environment(preferences)
         .environment(\.scheduleMapURL, Self.mapURL)
+        .environment(\.scheduleTeacherSupport, TeacherLookup.support(services: resolvedServices))
         .task {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(30))

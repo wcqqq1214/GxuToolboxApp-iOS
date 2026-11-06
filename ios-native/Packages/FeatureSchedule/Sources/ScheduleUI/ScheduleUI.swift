@@ -48,3 +48,34 @@ public extension EnvironmentValues {
         set { self[ScheduleMapURLKey.self] = newValue }
     }
 }
+
+/// 课程详情“任课教师”卡片（RN `CourseDetailSheet`）：头像 + 姓名 + 单位 + “查看详情”。
+/// 教师数据在 FeatureMisc（会依赖本 package），所以由 Shell 注入；没有注入时卡片不显示，教师仍作为普通一行展示。
+public struct ScheduleTeacherSupport: Sendable {
+    public struct Info: Sendable, Equatable {
+        public var unit: String
+        public var avatarURL: URL?
+        public init(unit: String = "", avatarURL: URL? = nil) { (self.unit, self.avatarURL) = (unit, avatarURL) }
+    }
+
+    /// 按教师姓名查（RN `useLookup`），取第一条；查不到返回 nil（卡片仍显示姓名和默认头像）
+    public var lookup: @Sendable (String) async -> Info?
+    /// “查看详情”进入的页面（教师查询）
+    public var destination: @MainActor @Sendable (String) -> AnyView
+
+    public init(lookup: @escaping @Sendable (String) async -> Info?, destination: @escaping @MainActor @Sendable (String) -> AnyView) {
+        self.lookup = lookup
+        self.destination = destination
+    }
+}
+
+private struct ScheduleTeacherSupportKey: EnvironmentKey {
+    static let defaultValue: ScheduleTeacherSupport? = nil
+}
+
+public extension EnvironmentValues {
+    var scheduleTeacherSupport: ScheduleTeacherSupport? {
+        get { self[ScheduleTeacherSupportKey.self] }
+        set { self[ScheduleTeacherSupportKey.self] = newValue }
+    }
+}

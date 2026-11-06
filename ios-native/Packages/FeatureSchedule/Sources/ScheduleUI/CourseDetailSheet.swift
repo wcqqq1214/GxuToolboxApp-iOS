@@ -70,6 +70,7 @@ private struct CourseSection: View {
     var attendance: AttendanceStatus?
     let onEditActivity: (String?) -> Void
     @Environment(\.scheduleMapURL) private var mapURL
+    @Environment(\.scheduleTeacherSupport) private var teacherSupport
     @Environment(\.openURL) private var openURL
     private var course: TheoryCourse { item.course }
 
@@ -90,8 +91,14 @@ private struct CourseSection: View {
                 Button("编辑实验课", systemImage: "pencil") { onEditActivity(course.customID) }
             } else {
                 if let attendance { row("考勤", attendance.label) }
+                if let teacherSupport, !course.teacher.isEmpty {
+                    TeacherCard(name: course.teacher, support: teacherSupport)
+                }
                 ForEach(fields) { field in
-                    row(field.label, value(of: field.id))
+                    // 教师卡片已经写了教师，同一张卡片里同一信息只出现一次
+                    if !(field.id == "teacher" && teacherSupport != nil && !course.teacher.isEmpty) {
+                        row(field.label, value(of: field.id))
+                    }
                     if field.id == "venue", let url = navigationURL {
                         Button("导航到这里", systemImage: "location.fill") { openURL(url) }
                     }
@@ -180,5 +187,41 @@ private struct RelatedExamRow: View {
             if !detail.isEmpty { Text(detail).font(.footnote).foregroundStyle(.secondary) }
         }
         .accessibilityElement(children: .combine)
+    }
+}
+
+
+/// 任课教师卡片：头像、姓名、单位、查看详情（进入教师查询）
+private struct TeacherCard: View {
+    let name: String
+    let support: ScheduleTeacherSupport
+    @State private var info: ScheduleTeacherSupport.Info?
+
+    var body: some View {
+        NavigationLink {
+            support.destination(name)
+        } label: {
+            HStack(spacing: GxuDesign.Spacing.m) {
+                ZStack {
+                    Color.accentColor.opacity(0.15)
+                    Text(String(name.prefix(1))).font(.title3.weight(.semibold)).foregroundStyle(Color.accentColor)
+                    if let url = info?.avatarURL {
+                        AsyncImage(url: url) { phase in
+                            if let image = phase.image { image.resizable().scaledToFill() }
+                        }
+                    }
+                }
+                .frame(width: 56, height: 56)
+                .clipShape(Circle())
+                .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(name).font(.headline)
+                    if let unit = info?.unit, !unit.isEmpty { Text(unit).font(.footnote).foregroundStyle(.secondary) }
+                    Text("查看详情").font(.footnote).foregroundStyle(.tint)
+                }
+            }
+        }
+        .accessibilityHint("查看教师详情")
+        .task(id: name) { info = await support.lookup(name) }
     }
 }
