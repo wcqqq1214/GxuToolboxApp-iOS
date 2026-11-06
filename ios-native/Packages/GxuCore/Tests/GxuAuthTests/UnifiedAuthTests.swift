@@ -1,5 +1,6 @@
 import Foundation
 import GxuFoundation
+import GxuNetworking
 import GxuTestSupport
 import Synchronization
 import Testing
@@ -71,7 +72,7 @@ struct UnifiedAuthTests {
             return reply(request, page)
         }
         let session = makeSession()
-        await #expect(throws: GxuError.invalidData("统一认证提示：用户名或密码错误")) { try await session.loginPEC() }
+        await #expect(throws: GxuError.credentialsRejected(.unified, "统一认证提示：用户名或密码错误")) { try await session.loginPEC() }
         reason.withLock { $0 = "" }
         do { try await session.loginPEC(); Issue.record("应该失败") } catch {
             let message = (error as? GxuError)?.userMessage ?? ""
@@ -186,5 +187,44 @@ struct UnifiedAuthTests {
         #expect(UnifiedAuthSession.pageErrorMessage(in: html) == "用户名或密码错误")
         #expect(UnifiedAuthSession.pageErrorMessage(in: Data("<p id=\"errormsg\">\n\t</p>".utf8)) == "")
         #expect(UnifiedAuthSession.pageErrorMessage(in: Data("<html/>".utf8)) == "")
+    }
+
+    /// 统一认证：服务端明确拒绝 → 需要重新登录；403 / 5xx / 网络错误 / 验证码要求不改变状态
+    @MainActor
+    @Test func unifiedStateFollowsOnlyExplicitRejections() async {
+        func center() -> (AccountCenter, UnifiedAuthSession) {
+            let creds = InMemoryCredentialStore([.unified: Credential(username: "2025001", password: "pw")])
+            let unified = UnifiedAuthSession(credentials: creds, configuration: StubURLProtocol.makeConfiguration())
+            let client = BackendClient(session: BackendClient.makeSession(configuration: StubURLProtocol.makeConfiguration()))
+            return (AccountCenter(credentials: creds, jw: JwSessionManager(credentials: creds, transport: client), unified: unified), unified)
+        }
+        func settle() async { try? await Task.sleep(for: .milliseconds(300)) }
+
+        StubURLProtocol.register(host: "ca.gxu.edu.cn") { request in
+            request.url!.path.hasSuffix("getPubKey") ? reply(request, pubKey) : reply(request, status: 403, "<html/>")
+        }
+        let (blocked, blockedSession) = center()
+        _ = try? await blockedSession.loginPEC()
+        await settle()
+        #expect(blocked.states[.unified] == .authenticated)
+
+        registerCAFlow(kaptcha: "true")
+        let (captcha, captchaSession) = center()
+        _ = try? await captchaSession.loginPEC()
+        await settle()
+        #expect(captcha.states[.unified] == .authenticated)
+
+        StubURLProtocol.register(host: "ca.gxu.edu.cn") { request in
+            let path = request.url!.path
+            if path.hasSuffix("getPubKey") { return reply(request, pubKey) }
+            if path.hasSuffix("getKaptchaStatus") { return reply(request, "false") }
+            let page = loginPage.replacingOccurrences(of: "</form>", with: "<p class=\"error text-left\" id=\"errormsg\">用户名或密码错误</p></form>")
+            return reply(request, page)
+        }
+        let (rejected, rejectedSession) = center()
+        _ = try? await rejectedSession.loginPEC()
+        await settle()
+        #expect(rejected.states[.unified] == .signedOut)
+        #expect(rejected.states[.unified]?.displayText == "需要重新登录")
     }
 }

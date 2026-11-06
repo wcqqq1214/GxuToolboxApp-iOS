@@ -579,6 +579,23 @@ interrogate 审查循环结束（用户决定不再开新一轮）。详细决�
 
 **这次没有用任何账号反复尝试。** 没有向用户要账号密码，也没有读 Keychain。
 
+### [auth-state-fix] A（Agent A，2026-11-06，用户真机截图：设置首页「已退出」、详情页却是已登录）
+
+**触发路径（代码层面确认，手机上我看不到屏幕）：** 启动时 `AccountCenter.init` 把「有保存的账号但 `hasSession()` 为 false」直接记成 `.signedOut`；重新安装 App（Keychain 里的账号还在，Cookie 没了）正好满足；首页把 `.signedOut` 显示成「已退出」，而详情页按 `states != .noAccount` 判断「已登录」→ 前后矛盾。同一类问题还有：静默续期遇到**任何**错误（包括断网、5xx）都会把状态改成 `.signedOut`。
+
+**修复（一个事实来源 + 新语义）：**
+- `AuthState` 加了统一文案 `displayText`（`未登录` / `已登录` / `需要重新登录`）和 `showsLoginForm`。**设置首页和账号详情页现在都从同一个 `AuthState` 推出来**（首页只改了 `SettingsHomeView.statusText` 这一处文案，B 已知晓例外；教务 / 统一认证 / OA 共用 `JwAccountView`，考勤用 `AttendanceAccountView`，都按这个状态）。
+- 语义：**没有账号 / 用户主动退出 = `noAccount`（未登录，显示登录表单）**；**有保存的账号 = `authenticated`（已登录）**——会话缺失、断网、超时、5xx 都**不改变**状态，下次请求自动重连；启动时有账号但没有 Cookie 就**静默续期一次**；**只有服务器明确拒绝账号密码才是 `signedOut`（需要重新登录，详情页显示登录表单并预填账号，不预填密码）**。`signedOut` 这个名字保留是为了不动 C 的代码，**含义改成「需要重新登录」，不再有「已退出」这个词**。
+- 「明确拒绝」的判定：新增 `GxuError.credentialsRejected(system, 文案)`：教务登录接口 HTTP 401（实测 `账号或密码错误，登录失败`）；OA `code` 400/401 且带文案（如 `[D1000] 账号或密码不正确`）；统一认证登录页带着服务端错误文字回来。403、5xx、非 JSON 页面、验证码要求、网络错误都**不算**。
+- 考勤：需要验证码，没法静默续期；token 失效（后端 401）→ `需要重新登录`（和以前一样）。统一认证、OA：有账号就是已登录，服务器明确拒绝才变成需要重新登录。
+- `ensureAuthenticated`：`需要重新登录` 的状态直接抛 `sessionExpired`，不再自动重试（避免对已被拒绝的账号反复请求）。
+- 退出：退出后两个页面立刻是未登录；迟到的静默续期结果（成功或被拒绝）都不会把状态改回来（`applyObserved` 忽略 `noAccount` 的账号）。
+- 账号数据隔离没有改（按学号的缓存、退出清会话的逻辑不变）。
+
+**回归测试：** 断网 / 超时 / 5xx / 403 续期失败状态不变；服务器 401 → 需要重新登录（首页文案、详情页表单、账号保留）；无 Cookie 有账号 → 启动即已登录并静默续期成功；主动退出后（续期成功 / 被拒绝都）不会被改回；重新登录后恢复；首页文案和详情页对教务 / 统一认证 / OA / 考勤各状态一致；OA 和统一认证的拒绝 / 非拒绝情形。**测试里等待改成按「请求真的发生了」而不是固定延时**（并行跑大量测试时静默续期会晚一点才发请求）。
+
+**C：** `AuthState.signedOut` 的含义变了（现在只有「服务器明确拒绝 / 考勤 token 失效」才会出现），你的 `AttendanceViewModel` 里 `.signedOut?` 仍然对应「登录已过期」，不用改。有账号但会话缺失现在是 `.authenticated`。
+
 ## Agent A 收到的请求
 
 - [x] (C) `scripts/test.sh` 硬编码 scheme 为 `<Pkg>-Package`，但只有一个 library product 的 package（如 FeatureExam）scheme 就叫 `<Pkg>`，会报 "does not contain a scheme"。请让脚本先 `xcodebuild -list` 判断，或两个名字都试。我暂时直接用 `xcodebuild -scheme FeatureExam ... test`

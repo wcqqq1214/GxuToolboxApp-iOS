@@ -28,35 +28,50 @@ public final class AccountCenter {
         self.oa = oa
         self.wjxt = wjxt
         var states = Dictionary(uniqueKeysWithValues: AuthSystem.allCases.map { ($0, AuthState.noAccount) })
+        var needsSilentRenew = false
         if let credential = credentials.load(.jw) {
             studentId = credential.username
-            // 有 Cookie 就先乐观认为已登录；真正过期时由 BackendClient 自动重登
-            states[.jw] = jw.hasSession() ? .authenticated : .signedOut
+            // 有保存的账号就是「已登录」：会话 Cookie 缺失（例如重装后）不算退出，也不打扰用户。
+            // 启动时没有 Cookie 就静默续期一次（见下）；之后过期由 BackendClient 自动重登
+            states[.jw] = .authenticated
+            needsSilentRenew = !jw.hasSession()
         }
+        // 考勤：有 token = 已登录；账号还在但 token 没了（401 清掉的）= 需要重新登录（要输验证码，没法静默续期）
         if attendance?.hasToken == true { states[.attendance] = .authenticated }
         else if attendance != nil, credentials.load(.attendance) != nil { states[.attendance] = .signedOut }
-        // CA 没有长期 token：有账号就乐观认为可用，服务登录时会用 Keychain 里的账号重新登录，失败再报错
+        // CA 没有长期 token：有账号就是「已登录」，服务登录时会用 Keychain 里的账号重新登录；服务器明确拒绝时才变成需要重新登录
         if unified != nil, credentials.load(.unified) != nil { states[.unified] = .authenticated }
-        // OA 同理：有账号就乐观认为可用，请求时按需登录
+        // OA 同理：有账号就是「已登录」，请求时按需登录
         if oa != nil, credentials.load(.oa) != nil { states[.oa] = .authenticated }
         self.states = states
         attendance?.setObserver { [weak self] state in
-            Task { @MainActor in self?.states[.attendance] = state }
+            Task { @MainActor in self?.applyObserved(.attendance, state) }
         }
         if let oa {
             Task { [weak self] in
-                await oa.setObserver { state in Task { @MainActor in self?.states[.oa] = state } }
+                await oa.setObserver { state in Task { @MainActor in self?.applyObserved(.oa, state) } }
+            }
+        }
+        if let unified {
+            Task { [weak self] in
+                await unified.setObserver { state in Task { @MainActor in self?.applyObserved(.unified, state) } }
             }
         }
         Task { [weak self] in
             await jw.setObserver { state in
-                Task { @MainActor in
-                    // 已经退出（没有 studentId）后，迟到的会话状态通知不能把状态改回来
-                    guard let self, self.studentId != nil else { return }
-                    self.states[.jw] = state
-                }
+                Task { @MainActor in self?.applyObserved(.jw, state) }
             }
+            // 启动时有账号但没有会话：静默续期一次。成功 → 观察者置为已登录；服务器明确拒绝 → 需要重新登录；
+            // 断网、超时、5xx 等其他错误什么都不改（状态保持已登录，下次请求自动重连）
+            if needsSilentRenew { try? await jw.renew(.jw) }
         }
+    }
+
+    /// 会话层的状态通知。已经退出（`noAccount`）的账号不能被迟到的通知改回来
+    private func applyObserved(_ system: AuthSystem, _ state: AuthState) {
+        guard states[system] != .noAccount else { return }
+        if system == .jw, studentId == nil { return }
+        states[system] = state
     }
 
     /// 预览 / 测试用：直接指定状态
@@ -141,23 +156,12 @@ public final class AccountCenter {
         states[system] = .noAccount
     }
 
-    /// 失败时抛 `GxuError`
+    /// 失败时抛 `GxuError`。「需要重新登录」（服务器明确拒绝过账号密码 / 考勤 token 失效）不再自动重试，直接让用户去重新登录。
     public func ensureAuthenticated(_ system: AuthSystem) async throws {
         switch states[system] ?? .noAccount {
         case .authenticated: return
         case .noAccount: throw GxuError.notLoggedIn(system)
-        case .signedOut where system == .oa:
-            guard let oa else { throw GxuError.sessionExpired(.oa) }
-            try await oa.ensureToken()
-            states[.oa] = .authenticated
-        case .signedOut where system == .unified:
-            guard let unified else { throw GxuError.sessionExpired(.unified) }
-            try await unified.renew()
-            states[.unified] = .authenticated
-        case .signedOut:
-            guard system == .jw else { throw GxuError.sessionExpired(system) }   // 考勤等需要用户交互（验证码）
-            try await jw.renew(.jw)
-            states[.jw] = .authenticated
+        case .signedOut: throw GxuError.sessionExpired(system)
         }
     }
 }

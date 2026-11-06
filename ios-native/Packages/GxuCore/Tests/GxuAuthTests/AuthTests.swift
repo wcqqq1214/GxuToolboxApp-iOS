@@ -94,14 +94,18 @@ struct AuthTests {
         await #expect(throws: GxuError.notLoggedIn(.jw)) { try await center.ensureAuthenticated(.jw) }
     }
 
-    @Test func signedOutAccountReloginsFromStoredCredential() async throws {
+    /// 有保存的账号但没有会话 Cookie（例如重装后）：状态是「已登录」，启动时静默续期一次（不再显示「已退出」）
+    @Test func accountWithoutCookieStartsAuthenticatedAndRenewsSilently() async throws {
         let host = makeHost()
         stubLogin(host: host)
         let store = InMemoryCredentialStore([.jw: Credential(username: "9", password: "p")])
-        let (center, _, _) = makeCenter(host: host, store: store)
-        #expect(center.states[.jw] == .signedOut)
-        try await center.ensureAuthenticated(.jw)
+        let (center, jw, _) = makeCenter(host: host, store: store)
+        #expect(center.states[.jw] == .authenticated)          // 立即就是已登录，不是「已退出」
+        #expect(center.states[.jw]?.displayText == "已登录")
+        for _ in 0..<50 where !jw.hasSession() { try await Task.sleep(for: .milliseconds(50)) }
+        #expect(jw.hasSession())                                // 静默续期拿到了会话
         #expect(center.states[.jw] == .authenticated)
+        try await center.ensureAuthenticated(.jw)
     }
 
     @Test func concurrentRenewalsShareOneLogin() async throws {

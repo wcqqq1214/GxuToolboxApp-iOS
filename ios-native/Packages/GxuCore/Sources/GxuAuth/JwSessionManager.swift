@@ -2,7 +2,25 @@ import Foundation
 import GxuFoundation
 import GxuNetworking
 
+/// 账号状态。**首页和详情页都只看这一个值**，文案统一用 `displayText`。
+/// - `noAccount`：没有保存的账号（从没登录，或用户主动退出）→「未登录」，详情页显示登录表单
+/// - `authenticated`：有保存的账号。会话缺失（例如重装后 Cookie 没了）或网络失败都**不改变**状态，下次请求自动重连 →「已登录」
+/// - `signedOut`：服务器**明确拒绝**了保存的账号密码（或考勤 token 失效，需要重新输验证码）→「需要重新登录」，详情页显示登录表单并预填账号。
+///   （名字沿用旧的，含义是「需要重新登录」，不是用户主动退出——主动退出是 `noAccount`。）
 public enum AuthState: Sendable, Equatable { case noAccount, signedOut, authenticated }
+
+extension AuthState {
+    public var displayText: String {
+        switch self {
+        case .noAccount: "未登录"
+        case .authenticated: "已登录"
+        case .signedOut: "需要重新登录"
+        }
+    }
+
+    /// 详情页是否显示登录表单（未登录、需要重新登录）；否则显示已登录内容（含退出按钮）
+    public var showsLoginForm: Bool { self != .authenticated }
+}
 
 private struct JwLoginBody: Encodable, Sendable {
     let username: String
@@ -42,7 +60,10 @@ public actor JwSessionManager: SessionRenewer {
         let (data, response) = try await transport.rawPost("/jw/login", body: JwLoginBody(username: username, password: password))
         guard startEpoch == epoch else { throw CancellationError() }   // 登录期间用户退出了
         guard (200..<300).contains(response.statusCode) else {
-            throw GxuError.http(status: response.statusCode, message: Self.message(in: data))
+            let message = Self.message(in: data)
+            // 登录接口返回 401 = 服务器明确说账号或密码不对（实测：401 `账号或密码错误，登录失败`）；其他状态码（5xx、403 等）不是
+            if response.statusCode == 401 { throw GxuError.credentialsRejected(.jw, message ?? "") }
+            throw GxuError.http(status: response.statusCode, message: message)
         }
         let headers = response.allHeaderFields.reduce(into: [String: String]()) { result, pair in
             if let key = pair.key as? String, let value = pair.value as? String { result[key] = value }
@@ -77,7 +98,8 @@ public actor JwSessionManager: SessionRenewer {
         do { try await task.value } catch is CancellationError {
             throw CancellationError()   // 退出登录导致的取消，不是"会话失效"
         } catch {
-            observer?(.signedOut)
+            // 只有服务器明确拒绝账号密码才算「需要重新登录」；断网、超时、5xx 等不改变状态，下次请求会再自动重连
+            if let error = error as? GxuError, error.isCredentialRejection { observer?(.signedOut) }
             throw error
         }
     }

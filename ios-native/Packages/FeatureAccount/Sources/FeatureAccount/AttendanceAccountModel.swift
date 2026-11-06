@@ -20,7 +20,8 @@ final class AttendanceAccountModel {
         self.accounts = accounts
     }
 
-    var isSignedIn: Bool { accounts.states[.attendance] == .authenticated }
+    /// 和设置首页同一个判断（`AuthState`）
+    var isSignedIn: Bool { !(accounts.states[.attendance] ?? .noAccount).showsLoginForm }
     var needsRelogin: Bool { accounts.states[.attendance] == .signedOut }
     var displayName: String? {
         guard let info = accounts.attendance?.loginInfo else { return nil }
@@ -29,6 +30,11 @@ final class AttendanceAccountModel {
     var canSubmit: Bool {
         !username.trimmingCharacters(in: .whitespaces).isEmpty && !password.isEmpty
             && !captchaCode.trimmingCharacters(in: .whitespaces).isEmpty && !isWorking
+    }
+
+    /// 需要重新登录时预填保存的账号
+    func prefillUsernameIfNeeded() {
+        if needsRelogin, username.isEmpty, let saved = accounts.savedUsername(.attendance) { username = saved }
     }
 
     func loadCaptcha() async {

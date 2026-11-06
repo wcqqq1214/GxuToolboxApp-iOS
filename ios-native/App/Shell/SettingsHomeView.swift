@@ -81,12 +81,9 @@ struct SettingsHomeView: View {
         }
     }
 
+    /// 首页和账号详情页用同一个状态，文案统一来自 `AuthState.displayText`（未登录 / 已登录 / 需要重新登录）
     private static func statusText(_ state: AuthState?) -> String {
-        switch state ?? .noAccount {
-        case .noAccount: "未登录"
-        case .signedOut: "已退出"
-        case .authenticated: "已登录"
-        }
+        (state ?? .noAccount).displayText
     }
 
     private var appVersion: String {

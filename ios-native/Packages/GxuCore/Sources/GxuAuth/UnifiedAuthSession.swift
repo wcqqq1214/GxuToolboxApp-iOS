@@ -28,6 +28,7 @@ public actor UnifiedAuthSession {
     private let session: URLSession
     private let cookies: HTTPCookieStorage
     private var pending: Task<Void, Error>?
+    private var observer: (@Sendable (AuthState) -> Void)?
 
     /// - Parameter configuration: 测试里可传入带 `URLProtocol` 的配置
     public init(credentials: any CredentialStore, configuration: URLSessionConfiguration = .ephemeral) {
@@ -37,6 +38,8 @@ public actor UnifiedAuthSession {
         self.session = URLSession(configuration: configuration, delegate: NoRedirect(), delegateQueue: nil)
         self.cookies = configuration.httpCookieStorage ?? HTTPCookieStorage.shared
     }
+
+    public func setObserver(_ observer: (@Sendable (AuthState) -> Void)?) { self.observer = observer }
 
     // MARK: 登录
 
@@ -168,8 +171,11 @@ public actor UnifiedAuthSession {
         try Self.ensureReachable(result, step: "提交登录")
         if Self.isLoginPage(result.data) {
             Self.log("提交登录", result, note: "又回到了登录页")
-            throw Self.loginPageError(result.data)
+            let error = Self.loginPageError(result.data)
+            if error.isCredentialRejection { observer?(.signedOut) }   // 服务端明确拒绝：需要重新登录
+            throw error
         }
+        observer?(.authenticated)
         return result
     }
 
@@ -258,9 +264,9 @@ public actor UnifiedAuthSession {
             return .invalidData("统一认证要求输入验证码（\(message)）。请先在浏览器登录一次，或稍后再试。")
         }
         if message.contains("锁定") || message.contains("冻结") || message.contains("停用") || message.contains("禁用") {
-            return .invalidData("统一认证提示：\(message)。")
+            return .credentialsRejected(.unified, "统一认证提示：\(message)。")
         }
-        if !message.isEmpty { return .invalidData("统一认证提示：\(message)") }
+        if !message.isEmpty { return .credentialsRejected(.unified, "统一认证提示：\(message)") }
         return .invalidData("统一认证没有登录成功，登录页也没有说明原因（可能需要验证码，或服务暂时异常）。详情见「设置 → 诊断日志」。")
     }
 

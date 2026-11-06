@@ -71,6 +71,15 @@ public enum GxuError: Error, Sendable, Equatable {
     case http(status: Int, message: String?)
     case decoding(String)
     case invalidData(String)
+    /// 服务器**明确拒绝**了账号 / 密码（例如教务登录 401「账号或密码错误」、OA 的 `[D1000] 账号或密码不正确`）。
+    /// 只有这一种失败才会把账号状态变成「需要重新登录」；网络错误、超时、5xx 都不算。`String` 是给用户看的文案（服务端的原话）。
+    case credentialsRejected(AuthSystem, String)
+
+    /// 是不是服务器明确拒绝了账号密码
+    public var isCredentialRejection: Bool {
+        if case .credentialsRejected = self { return true }
+        return false
+    }
 
     /// 给 UI 显示的中文文案
     public var userMessage: String {
@@ -87,6 +96,8 @@ public enum GxuError: Error, Sendable, Equatable {
             "数据解析失败，请稍后重试"
         case .invalidData(let message):
             message.isEmpty ? "数据异常" : message
+        case .credentialsRejected(let system, let message):
+            message.isEmpty ? "\(system.displayName)的账号或密码被服务器拒绝，请重新登录" : message
         }
     }
 }

@@ -88,3 +88,7 @@
 - 统一认证：`testToken()` 不跟随重定向是根因（登录成功后校验接口第一跳 302，被判成失败）；已改为跟随跳转链并加回归测试；验证码状态接口 `getKaptchaStatus` 返回 true 时不再提交；失败文案按原因分类，只有服务端明确说账号密码有问题才这么说；诊断日志写步骤 / 状态码 / 最终主机路径。**教训：** 之前的单测没有覆盖 `login(username:password:)` → `testToken()` 这条路径，stub 也没模拟 302 链，所以漏了；`RN 的 testToken 在 RN 里靠 XHR 自动跟随重定向` 这个隐含前提当时没有写进测试。
 - OA：请求格式和 RN 一致（只有 `Content-Type: application/json`），没改；按 403 / 非 JSON / `code != 200` / 缺 token / 其他状态码分别给文案并写诊断日志；服务端明确拒绝时转述它的 `message`。
 - 没有证据的不改：没有用任何真实账号尝试，没有读 Keychain 里的密码。
+
+## 账号状态矛盾修复 [auth-state-fix]（A，2026-11-06）
+- 根因：启动时「有账号但没 Cookie」被记成 `.signedOut`（首页显示「已退出」），详情页按 `!= .noAccount` 判断已登录；静默续期任何错误都会改状态。修复和语义见 COORDINATION `[auth-state-fix] A`。
+- 没有在手机屏幕上确认具体触发路径（看不到手机屏幕），按代码推断为「重装后 Cookie 丢失」；修复后该路径的行为由单测覆盖。

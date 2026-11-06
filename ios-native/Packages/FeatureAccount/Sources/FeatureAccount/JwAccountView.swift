@@ -29,6 +29,8 @@ public struct JwAccountView: View {
             }
             .navigationTitle(model.title)
             .navigationBarTitleDisplayMode(.inline)
+            .task { model.prefillUsernameIfNeeded() }
+            .onChange(of: model.needsRelogin) { model.prefillUsernameIfNeeded() }
         }
 
         @ViewBuilder private var signedInSection: some View {
@@ -57,6 +59,8 @@ public struct JwAccountView: View {
                     .focused($focus, equals: .password)
                     .submitLabel(.go)
                     .onSubmit { Task { await model.submit() } }
+            } header: {
+                if model.needsRelogin { Text("需要重新登录：服务器拒绝了保存的账号或密码") }
             } footer: {
                 if let message = model.errorMessage {
                     Text(message).foregroundStyle(.red)

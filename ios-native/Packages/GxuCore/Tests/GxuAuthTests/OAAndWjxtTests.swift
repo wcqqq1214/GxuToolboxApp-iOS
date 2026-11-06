@@ -28,7 +28,7 @@ struct OASessionTests {
     @Test func loginFailureSurfacesServerMessage() async {
         StubURLProtocol.register(host: "oa.gxu.edu.cn") { reply($0, #"{"code":401,"message":"账号或密码错误","result":null}"#) }
         let (session, tokens) = make()
-        await #expect(throws: GxuError.invalidData("账号或密码错误")) { try await session.login(username: "u", password: "bad") }
+        await #expect(throws: GxuError.credentialsRejected(.oa, "账号或密码错误")) { try await session.login(username: "u", password: "bad") }
         #expect(tokens.load() == nil)
     }
 
@@ -36,7 +36,7 @@ struct OASessionTests {
     @Test func serverRejectionIsRelayedAndEmptyMessageStaysNeutral() async {
         StubURLProtocol.register(host: "oa.gxu.edu.cn") { reply($0, #"{"code":400,"type":"error","message":"[D1000] 账号或密码不正确","result":null}"#) }
         let (session, _) = make()
-        await #expect(throws: GxuError.invalidData("[D1000] 账号或密码不正确")) { try await session.login(username: "u", password: "p") }
+        await #expect(throws: GxuError.credentialsRejected(.oa, "[D1000] 账号或密码不正确")) { try await session.login(username: "u", password: "p") }
         StubURLProtocol.register(host: "oa.gxu.edu.cn") { reply($0, #"{"code":500,"type":"error","message":"","result":null}"#) }
         do { try await session.login(username: "u", password: "p"); Issue.record("应该失败") } catch {
             let message = (error as? GxuError)?.userMessage ?? ""
@@ -92,6 +92,41 @@ struct OASessionTests {
         }
         let (session, _) = make(tokens: InMemoryTokenStore("OLD"))
         await #expect(throws: GxuError.sessionExpired(.oa)) { _ = try await session.json("GET", path: "/x") }
+    }
+
+    /// OA：服务器明确拒绝 → 需要重新登录；网络错误 / 非 JSON / 5xx 不改变状态
+    @MainActor
+    @Test func oaStateFollowsOnlyExplicitRejections() async throws {
+        func center(_ handler: @escaping @Sendable (URLRequest) throws -> (HTTPURLResponse, Data)) -> (AccountCenter, OASession) {
+            StubURLProtocol.register(host: "oa.gxu.edu.cn", handler: handler)
+            let creds = InMemoryCredentialStore([.oa: Credential(username: "u", password: "p")])
+            let oa = OASession(credentials: creds, tokens: InMemoryTokenStore(), configuration: StubURLProtocol.makeConfiguration())
+            return (AccountCenter(credentials: creds, jw: JwSessionManager(credentials: creds, transport: BackendClientForTests.make()), oa: oa), oa)
+        }
+        func settle() async { try? await Task.sleep(for: .milliseconds(300)) }
+
+        for (name, handler) in [
+            ("网络错误", { @Sendable (_: URLRequest) throws -> (HTTPURLResponse, Data) in throw URLError(.notConnectedToInternet) }),
+            ("5xx", { @Sendable r in reply(r, status: 503, "unavailable") }),
+            ("403", { @Sendable r in reply(r, status: 403, "<html/>") }),
+            ("非 JSON", { @Sendable r in reply(r, "<html>waf</html>") }),
+            ("服务端别的错误 code", { @Sendable r in reply(r, #"{"code":500,"message":"服务异常","result":null}"#) }),
+        ] as [(String, @Sendable (URLRequest) throws -> (HTTPURLResponse, Data))] {
+            let (center, oa) = center(handler)
+            #expect(center.states[.oa] == .authenticated)
+            _ = try? await oa.ensureToken()
+            await settle()
+            #expect(center.states[.oa] == .authenticated, "OA \(name) 不该改变登录状态")
+        }
+
+        let (rejected, oa) = center { reply($0, #"{"code":400,"type":"error","message":"[D1000] 账号或密码不正确","result":null}"#) }
+        _ = try? await oa.ensureToken()
+        await settle()
+        #expect(rejected.states[.oa] == .signedOut)
+        #expect(rejected.states[.oa]?.displayText == "需要重新登录")
+        await #expect(throws: GxuError.sessionExpired(.oa)) { try await rejected.ensureAuthenticated(.oa) }
+        await rejected.logout(.oa)
+        #expect(rejected.states[.oa] == .noAccount)
     }
 
     @Test func noCredentialThrowsNotLoggedIn() async {

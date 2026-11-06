@@ -26,7 +26,10 @@ public struct AttendanceAccountView: View {
             }
             .navigationTitle("考勤账号")
             .navigationBarTitleDisplayMode(.inline)
-            .task { if !model.isSignedIn { await model.loadCaptcha() } }
+            .task {
+                model.prefillUsernameIfNeeded()
+                if !model.isSignedIn { await model.loadCaptcha() }
+            }
         }
 
         @ViewBuilder private var signedInSection: some View {

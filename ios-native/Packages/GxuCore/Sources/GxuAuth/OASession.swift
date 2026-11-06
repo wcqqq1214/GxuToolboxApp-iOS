@@ -43,6 +43,8 @@ public actor OASession {
             // 服务端明确拒绝：直接用它给出的文案（例如「[D1000] 账号或密码不正确」）；没有文案就不要替它说是密码错了
             let message = (object["message"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             ErrorLog.shared.record("auth", "OA 登录被服务端拒绝（code \(code.map(String.init) ?? "?")，type \((object["type"] as? String) ?? "?")）")
+            // code 400 / 401 且带文案（例如 `[D1000] 账号或密码不正确`）= 服务端明确拒绝账号密码；其他 code 是服务端的别的问题
+            if (code == 400 || code == 401), !message.isEmpty { throw GxuError.credentialsRejected(.oa, message) }
             throw GxuError.invalidData(message.isEmpty ? "OA 登录失败，服务器没有给出原因（code \(code.map(String.init) ?? "?")）。" : message)
         }
         guard let result = object["result"] as? [String: Any], let token = result["accessToken"] as? String, !token.isEmpty else {
@@ -154,7 +156,8 @@ public actor OASession {
         pending = task
         defer { pending = nil }
         do { try await task.value } catch {
-            observer?(.signedOut)
+            // 只有服务器明确拒绝账号密码才算「需要重新登录」；网络错误、非 JSON 页面、5xx 不改变状态
+            if let error = error as? GxuError, error.isCredentialRejection { observer?(.signedOut) }
             throw error
         }
     }
