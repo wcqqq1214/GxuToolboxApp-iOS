@@ -44,6 +44,7 @@ final class AttendanceAccountModel {
         do {
             let captcha = try await accounts.attendanceCaptcha()
             ticket = captcha.ticket
+            if let text = captcha.text, !text.isEmpty { captchaCode = text }   // v2 后端随验证码返回文字，RN 同样自动填充
             captchaImage = captcha.imageData.flatMap(UIImage.init(data:))
             if captchaImage == nil { errorMessage = "验证码图片无法显示，请点击刷新" }
         } catch is CancellationError {

@@ -11,8 +11,7 @@ private func json(_ request: URLRequest, status: Int = 200, _ body: String) -> (
 }
 
 private let loginOK = """
-{"code":200,"message":"success","data":{"code":600,"msg":"ok","data":{"token":"tok-1","currentWeek":9,
-"userInfo":{"userId":42,"userNo":"2025001","userName":"测试"}}}}
+{"code":200,"message":"success","data":{"token":"tok-1","calendarId":2053,"userId":42}}
 """
 
 @MainActor
@@ -35,10 +34,11 @@ private func make(host: String, tokens: InMemoryTokenStore = InMemoryTokenStore(
 struct AttendanceTests {
     @Test func captchaDecodesDataURL() async throws {
         let host = "att-\(UUID().uuidString).test"
-        StubURLProtocol.register(host: host) { json($0, #"{"code":200,"data":{"image":"data:image/jpeg;base64,AAEC","ticket":"t1"}}"#) }
+        StubURLProtocol.register(host: host) { json($0, #"{"code":200,"data":{"imageUrl":"data:image/jpeg;base64,AAEC","challengeToken":"t1","text":"ab12"}}"#) }
         let (center, _, _, _, _) = make(host: host)
         let captcha = try await center.attendanceCaptcha()
         #expect(captcha.ticket == "t1")
+        #expect(captcha.text == "ab12")
         #expect(captcha.imageData == Data([0, 1, 2]))
     }
 
@@ -59,16 +59,16 @@ struct AttendanceTests {
         #expect(center.states[.attendance] == .authenticated)
         #expect(tokens.load() == "tok-1")
         #expect(creds.load(.attendance) == Credential(username: "2025001", password: "pw"))
-        #expect(attendance.loginInfo?.userId == 42)
+        #expect(attendance.loginInfo?.userId == 42 && attendance.loginInfo?.calendarId == 2053)
         let body = seen.withLock { $0 } ?? ""
         #expect(body.contains("\"ticket\":\"t1\"") && body.contains("\"captchaCode\":\"abcd\""))
     }
 
     @Test func wrongCaptchaSurfacesServerMessageAndStoresNothing() async {
         let host = "att-\(UUID().uuidString).test"
-        StubURLProtocol.register(host: host) { json($0, #"{"code":200,"data":{"code":500,"msg":"验证码错误","data":null}}"#) }
+        StubURLProtocol.register(host: host) { json($0, status: 400, #"{"code":400,"message":"验证码错误","data":null}"#) }
         let (center, _, _, creds, tokens) = make(host: host)
-        await #expect(throws: GxuError.invalidData("验证码错误")) {
+        await #expect(throws: GxuError.http(status: 400, message: "验证码错误")) {
             try await center.loginAttendance(username: "1", password: "2", captcha: "x", ticket: nil)
         }
         #expect(tokens.load() == nil)
