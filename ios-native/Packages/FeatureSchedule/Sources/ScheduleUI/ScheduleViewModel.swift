@@ -101,10 +101,18 @@ final class ScheduleViewModel {
         if studentId != self.studentId { reset() }
         self.studentId = studentId
 
+        // 加载过程中账号可能又换了（`.task(id:)` 只会取消，不会打断已经在 await 的代码）：
+        // 每次 await 之后核对 generation，旧账号的数据不能写进新账号的界面和小组件快照
+        let gen = generation
         let repository = makeRepository(services)
-        startDays = (try? await repository.cachedStartDays()) ?? []
-        campusCalendar = await CampusCalendarRepository(database: services.database).current()
-        await applyTerm(repository: repository, studentId: studentId, useCache: true)
+        let cachedDays = (try? await repository.cachedStartDays()) ?? []
+        guard gen == generation else { return }
+        startDays = cachedDays
+        let campus = await CampusCalendarRepository(database: services.database).current()
+        guard gen == generation else { return }
+        campusCalendar = campus
+        await applyTerm(repository: repository, studentId: studentId, generation: gen, useCache: true)
+        guard gen == generation else { return }
         await refresh()
     }
 
@@ -160,6 +168,14 @@ final class ScheduleViewModel {
             let previous = term
             resolveTerm()
             guard let term else { throw GxuError.invalidData("暂时无法获取学期信息") }
+            // 学期在刷新中滚动到了新学期：这个学期的日程和冲突选择也要换成新学期的
+            if previous != term {
+                let newChoices = await repository.conflictChoices(studentId: studentId, term: term)
+                let newActivities = await repository.customActivities(studentId: studentId, term: term)
+                guard gen == generation else { return }
+                choices = newChoices
+                activities = newActivities
+            }
             let fresh = try await repository.refreshSchedule(studentId: studentId, term: term)
             guard gen == generation else { return }
             apply(fresh, resetWeek: previous != term)
@@ -228,7 +244,7 @@ final class ScheduleViewModel {
         pinnedTerm = term
         schedule = nil
         phase = .loading
-        await applyTerm(repository: makeRepository(services), studentId: studentId, useCache: true)
+        await applyTerm(repository: makeRepository(services), studentId: studentId, generation: generation, useCache: true)
         await refresh()
     }
 
@@ -266,14 +282,20 @@ final class ScheduleViewModel {
         }
     }
 
-    private func applyTerm(repository: ScheduleRepository, studentId: String, useCache: Bool) async {
+    private func applyTerm(repository: ScheduleRepository, studentId: String, generation gen: Int, useCache: Bool) async {
         let previous = term
         resolveTerm()
         if let term {
-            choices = await repository.conflictChoices(studentId: studentId, term: term)
-            activities = await repository.customActivities(studentId: studentId, term: term)
+            let newChoices = await repository.conflictChoices(studentId: studentId, term: term)
+            let newActivities = await repository.customActivities(studentId: studentId, term: term)
+            guard gen == generation else { return }
+            choices = newChoices
+            activities = newActivities
         }
-        guard useCache, let term, let cached = try? await repository.cachedSchedule(studentId: studentId, term: term) else {
+        let cachedSchedule: CachedSchedule?
+        if let term { cachedSchedule = try? await repository.cachedSchedule(studentId: studentId, term: term) } else { cachedSchedule = nil }
+        guard gen == generation else { return }
+        guard useCache, let term, let cached = cachedSchedule else {
             if schedule == nil { phase = .loading }
             return
         }
