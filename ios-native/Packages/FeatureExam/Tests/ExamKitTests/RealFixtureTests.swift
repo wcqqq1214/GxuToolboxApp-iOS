@@ -123,3 +123,128 @@ import Testing
         #expect(abs(r.wam - (180 + 60) / 3) < 1e-9)
     }
 }
+
+/// 多次修读同一门课只计一次、取最高成绩（《广西大学普通本科学生课程修读、考核及成绩管理办法（2019年修订）》第三十八条（二））：
+/// 用真实脱敏成绩（100 条，10 门课有多条记录）。期望值由另一份独立的 Python 实现按规则算出。
+@Suite struct RetakeRuleFixtureTests {
+    private func scores() throws -> [Score] {
+        struct Page: Decodable { var items: [Score] }
+        struct Envelope: Decodable { var data: Page }
+        let url = try #require(Bundle.module.url(forResource: "score", withExtension: "json", subdirectory: "Fixtures"))
+        return try JSONDecoder().decode(Envelope.self, from: Data(contentsOf: url)).data.items
+    }
+
+    private func counted(_ name: String, in r: RetakeResolution) -> [Double?] {
+        r.counted.filter { $0.courseName == name }.map(\.score)
+    }
+
+    @Test func allTermsBeforeAndAfter() throws {
+        let all = try scores()
+        let before = GpaCalculator.calculate(all)
+        #expect(abs(before.gpa - 1.397758) < 1e-5 && abs(before.wam - 52.912556) < 1e-5)   // 算法改变前：每条记录都计
+        let r = RetakeRule.resolve(all)
+        #expect(r.counted.count == 79 && r.overridden.count == 21 && r.retakeIDs.count == 10)
+        let after = GpaCalculator.calculate(r.counted)
+        #expect(abs(after.gpa - 2.037255) < 1e-5 && abs(after.wam - 69.679739) < 1e-5)      // 算法改变后：每门课取最高、只计一次
+        #expect(Set(r.counted.map(\.id)).union(r.overridden.map(\.id)).count == 100)
+    }
+
+    @Test func eachCourseKeepsItsHighestScore() throws {
+        let r = RetakeRule.resolve(try scores())
+        #expect(counted("材料力学", in: r) == [61])                 // 42, 0, 0, 0, 61
+        #expect(counted("土力学", in: r) == [62])                   // 53, 0, 0, 62
+        #expect(counted("混凝土结构基本原理", in: r) == [42])       // 30, 0, 26, 42：一直没过，取最高 42
+        #expect(counted("岩体力学", in: r) == [47])                 // 47, 0, 0：取最高 47（不是最后一次的 0）
+        #expect(counted("中国近现代史纲要", in: r) == [72])         // 0, 72
+        #expect(counted("高等数学A(上)", in: r) == [72])            // 51, 72
+        #expect(counted("基础工程", in: r) == [60] && counted("钢结构基本原理", in: r) == [60] && counted("地下结构设计原理", in: r) == [60])
+        #expect(counted("结构力学（一）", in: r) == [33])           // 0, 33
+        // 每门有多次修读的课恰好一条标"重修"
+        let marked = r.counted.filter { r.retakeIDs.contains($0.id) }
+        #expect(Set(marked.map(\.courseName)).count == 10 && marked.count == 10)
+        // 每门课（课程名 + 学分）只出现一次
+        #expect(Set(r.counted.map { "\($0.courseName)|\($0.credit ?? -1)" }).count == r.counted.count)
+    }
+
+    @Test func rangesMergeOnlyInsideTheirOwnRecords() throws {
+        let all = try scores()
+        func year(_ y: Int) -> [Score] { all.filter { $0.year == y && ($0.term == 1 || $0.term == 2) } }
+        let expected: [(Int, Int, Int, Int, Double, Double)] = [
+            (2025, 24, 18, 6, 1.691, 62.91), (2024, 35, 32, 3, 1.371795, 54.051282),
+            (2023, 12, 11, 1, 1.528302, 63.924528), (2022, 28, 27, 1, 1.992233, 70.019417),
+        ]
+        for (y, total, kept, marks, gpa, wam) in expected {
+            let r = RetakeRule.resolve(year(y))
+            #expect(year(y).count == total && r.counted.count == kept && r.retakeIDs.count == marks, "\(y)")
+            let g = GpaCalculator.calculate(r.counted)
+            #expect(abs(g.gpa - gpa) < 1e-5 && abs(g.wam - wam) < 1e-5, "\(y)")
+        }
+    }
+
+    @Test func singleTermIsUntouched() throws {
+        let t = try scores().filter { $0.year == 2025 && $0.term == 1 }
+        let r = RetakeRule.resolve(t)
+        #expect(r.counted == t && r.overridden.isEmpty && r.retakeIDs.isEmpty)
+        #expect(GpaCalculator.calculate(r.counted) == GpaCalculator.calculate(t))
+    }
+}
+
+@Suite struct RetakeRuleEdgeCaseTests {
+    private func s(_ id: String, _ name: String, _ credit: Double?, _ score: Double?, y: Int = 2025, t: Int = 1, at: String = "") -> Score {
+        Score(id: id, year: y, term: t, courseName: name, credit: credit, score: score, uploadAt: at)
+    }
+
+    @Test func samePassingCourseIsCountedOnceWithHighestScore() {
+        // 官方规定同一门课只计一次：同名都及格的也一样
+        let list = [s("1", "体育", 1, 80, y: 2023), s("2", "体育", 1, 90, y: 2024), s("3", "体育", 1, 70, y: 2025)]
+        let r = RetakeRule.resolve(list)
+        #expect(r.counted.map(\.id) == ["2"] && r.overridden.count == 2 && r.retakeIDs == ["2"])
+    }
+
+    @Test func differentCreditsAreDifferentCourses() {
+        let r = RetakeRule.resolve([s("1", "高数", 4, 40, y: 2023), s("2", "高数", 5, 90, y: 2024)])
+        #expect(r.counted.count == 2 && r.overridden.isEmpty && r.retakeIDs.isEmpty)
+    }
+
+    @Test func highestWinsWhateverTheOrder() {
+        // 及格后又考砸：保留最高的及格成绩；不及格后补上：保留补上的
+        #expect(RetakeRule.resolve([s("1", "A", 2, 70, y: 2023), s("2", "A", 2, 30, y: 2024)]).counted.map(\.id) == ["1"])
+        #expect(RetakeRule.resolve([s("1", "A", 2, 70, y: 2023), s("2", "A", 2, 30, y: 2024), s("3", "A", 2, 80, y: 2025)]).counted.map(\.id) == ["3"])
+        #expect(RetakeRule.resolve([s("1", "A", 2, 30, y: 2023), s("2", "A", 2, 20, y: 2024)]).counted.map(\.id) == ["1"])   // 一直没过：最高的 30
+    }
+
+    @Test func tieTakesTheNewest() {
+        // 小学期（term 0）在同学年春季之后
+        let r = RetakeRule.resolve([s("spring", "C", 2, 65, y: 2025, t: 2), s("sum", "C", 2, 65, y: 2025, t: 0)])
+        #expect(r.counted.map(\.id) == ["sum"])
+        // 同学期按 upload_at；upload_at 为空的排在最前
+        let r2 = RetakeRule.resolve([s("blank", "E", 2, 70, at: ""), s("late", "E", 2, 70, at: "2026-01-20 10:00:00"), s("early", "E", 2, 70, at: "2026-01-10 10:00:00")])
+        #expect(r2.counted.map(\.id) == ["late"])
+        // 学年、学期优先于 upload_at
+        let r3 = RetakeRule.resolve([s("new", "F", 2, 70, y: 2026, t: 1, at: ""), s("old", "F", 2, 70, y: 2025, t: 2, at: "2099-01-01 00:00:00")])
+        #expect(r3.counted.map(\.id) == ["new"])
+    }
+
+    @Test func recordsWithoutScoreDoNotCompete() {
+        let r = RetakeRule.resolve([s("1", "G", 3, 30, y: 2024), s("2", "G", 3, nil, y: 2025)])
+        #expect(r.counted.map(\.id) == ["1"])                        // 重修还没出分：参与比较的只有 30 分那条
+        let none = RetakeRule.resolve([s("1", "H", 3, nil), s("2", "H", 3, nil, y: 2026)])
+        #expect(none.counted.count == 2)                              // 一条成绩都没有：都留着（计算时被跳过）
+    }
+
+    @Test func emptyAndSingleInputs() {
+        #expect(RetakeRule.resolve([]) == RetakeResolution(counted: [], overridden: [], retakeIDs: []))
+        let one = [s("1", "I", 2, 10)]
+        #expect(RetakeRule.resolve(one).counted == one && RetakeRule.resolve(one).retakeIDs.isEmpty)
+    }
+
+    @Test func formulaAndDenominatorUnchanged() {
+        // 公式不变：不及格课程的学分仍计入分母。每门名字不同 → 不触发合并
+        let list = [s("1", "a", 3, 90), s("2", "b", 2, 75), s("3", "c", 1, 59), s("4", "d", 2, 60)]
+        let r = GpaCalculator.calculate(RetakeRule.resolve(list).counted)
+        #expect(abs(r.gpa - 2.375) < 1e-9 && abs(r.wam - 74.875) < 1e-9)
+        // 同一门课 40 分和 70 分：只计 70，分母只含它一次的学分（3）
+        let twice = GpaCalculator.calculate(RetakeRule.resolve([s("1", "x", 3, 40, y: 2024), s("2", "x", 3, 70, y: 2025)]).counted)
+        #expect(abs(twice.gpa - 2.0) < 1e-9 && abs(twice.wam - 70) < 1e-9)
+    }
+}

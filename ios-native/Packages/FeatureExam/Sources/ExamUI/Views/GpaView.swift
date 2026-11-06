@@ -80,18 +80,19 @@ public struct GpaView: View {
                 }
                 }
                 if !model.scores.isEmpty {
+                    let resolution = model.resolved   // 被重修覆盖的旧记录不再列出，覆盖它的那条标"重修"
                     if grouped {
                         // 汇总范围课程多：按学期分组，每门课属于哪个学期一目了然，行内不再重复学期
-                        ForEach(Array(ScoreGroup.group(model.scores).enumerated()), id: \.element.id) { index, group in
+                        ForEach(Array(ScoreGroup.group(resolution.counted).enumerated()), id: \.element.id) { index, group in
                             Section {
-                                ForEach(group.scores) { ScoreLine(score: $0) }
+                                ForEach(group.scores) { ScoreLine(score: $0, isRetake: resolution.retakeIDs.contains($0.id)) }
                             } header: {
                                 if index == 0 { header(group.title) } else { Text(group.title) }
                             }
                         }
                     } else {
                         Section {
-                            ForEach(model.scores) { ScoreLine(score: $0) }
+                            ForEach(resolution.counted) { ScoreLine(score: $0, isRetake: resolution.retakeIDs.contains($0.id)) }
                         } header: {
                             header("课程")
                         }
@@ -114,10 +115,14 @@ public struct GpaView: View {
 
 private struct ScoreLine: View {
     let score: Score
+    var isRetake = false
 
     var body: some View {
         HStack {
-            Text(score.courseName)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(score.courseName)
+                if isRetake { Text("重修").font(.caption).foregroundStyle(.secondary) }
+            }
             Spacer()
             Text(GpaCalculator.pointText(for: score.score)).bold().frame(width: 56)
             Text(score.credit.map { String(format: "%.1f", $0) } ?? "—")
@@ -132,8 +137,12 @@ private struct GpaMethodSheet: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                Text(GpaMethodText.full)
-                    .padding()
+                VStack(alignment: .leading, spacing: 16) {
+                    Text(GpaMethodText.full)
+                    Divider()
+                    Text(GpaMethodText.retakeNote)
+                }
+                .padding()
             }
             .navigationTitle("计算方法")
             .navigationBarTitleDisplayMode(.inline)
@@ -144,6 +153,16 @@ private struct GpaMethodSheet: View {
 }
 
 enum GpaMethodText {
+    /// 工具箱自己的算法说明（不是学校文件的原文）
+    static let retakeNote = """
+    重复修读同一门课的处理（工具箱的算法）：
+
+    依据《广西大学普通本科学生课程修读、考核及成绩管理办法（2019年修订）》第三十八条（二）：学生多次修读同一门课程获得的多个有效成绩，可按最高成绩列入毕业审核、计入毕业成绩档案，相应的课程、学分、成绩只能计算一次。
+
+    官方条文针对毕业成绩档案；工具箱把它用于当前选择的全部范围：同一门课（课程名和学分都相同）在范围内只计算一次，取最高成绩，分数相同取最新的一次，及格与否都一样。看"全部学期"或某学年的"全学年"时按范围内的成绩合并，看单个学期时只算该学期的成绩。有多次修读的课程在列表里显示实际计入的成绩并标注"重修"。公式不变，不及格课程的学分仍计入分母。成绩查询页仍显示全部原始记录。官方结果以教务处为准。
+    """
+
+
     static let full = """
     文本来源：《广西大学普通本科学生课程修读、考核及成绩管理办法（2019年修订）》
 

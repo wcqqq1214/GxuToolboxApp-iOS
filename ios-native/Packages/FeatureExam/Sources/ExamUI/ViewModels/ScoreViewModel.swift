@@ -163,5 +163,8 @@ final class ScoreViewModel {
         }
     }
 
-    var gpa: GpaResult { GpaCalculator.calculate(scores) }
+    /// 绩点页用：按重修规则合并后实际计入的成绩（成绩查询页仍显示 `scores` 里的全部原始记录）
+    var resolved: RetakeResolution { RetakeRule.resolve(scores) }
+
+    var gpa: GpaResult { GpaCalculator.calculate(resolved.counted) }
 }
