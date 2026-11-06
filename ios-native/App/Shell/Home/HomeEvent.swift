@@ -27,6 +27,17 @@ enum HomeEvent: Equatable {
     /// 正在进行的优先；否则取开始时间更早的。考试比下一节课更早开始才会盖过课程（课程排在前一天不会被远期考试抢占）。
     static func pick(snapshot: ScheduleSnapshot, exams: [ExamItem], now: Date) -> HomeEvent? {
         let holiday = NextHoliday.next(dayBlocks: snapshot.dayBlocks, term: snapshot.termCalendar, now: now)
+        #if DEBUG
+        // 截图自查：`-GxuPickEvent course|exam|holiday` 只取这一类事件
+        let args = ProcessInfo.processInfo.arguments
+        if let i = args.firstIndex(of: "-GxuPickEvent"), i + 1 < args.count {
+            switch args[i + 1] {
+            case "holiday": return holiday.map(HomeEvent.holiday)
+            case "exam": return exams.first { ($0.date ?? .distantPast) > now }.map { .exam($0, isOngoing: false) }
+            default: return pick(plan: snapshot.todayPlan(now: now), exams: [], holiday: nil, now: now)
+            }
+        }
+        #endif
         return pick(plan: snapshot.todayPlan(now: now), exams: exams, holiday: holiday, now: now)
     }
 

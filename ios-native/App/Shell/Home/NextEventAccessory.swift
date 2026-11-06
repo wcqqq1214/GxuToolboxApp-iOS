@@ -24,11 +24,13 @@ struct NextEventAccessory: View {
 
     @ViewBuilder
     private func row(_ event: HomeEvent, now: Date) -> some View {
-        HStack(spacing: GxuDesign.Spacing.m) {
+        let subtitle = compact ? "" : detail(event, now: now)
+        HStack(alignment: .center, spacing: GxuDesign.Spacing.m) {
             Image(systemName: icon(event)).foregroundStyle(.tint)
             VStack(alignment: .leading, spacing: 0) {
                 Text(title(event)).font(.subheadline.weight(.semibold)).lineLimit(1)
-                if !compact { Text(detail(event, now: now)).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
+                // 没有副标题时不留空行（空 Text 也会占一行高度，会把标题顶到上面）
+                if !subtitle.isEmpty { Text(subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
             }
             Spacer(minLength: GxuDesign.Spacing.s)
             Text(trailing(event, now: now))

@@ -754,6 +754,12 @@ interrogate 审查循环结束（用户决定不再开新一轮）。详细决�
 - 测试：`ElectiveReviewResolverTests` 用真实脱敏 fixture，覆盖唯一匹配、各种对不上的具体原因、重复同一条记录、不及格、其它 issue、新特色模块、无待核对课程；build 和 FeatureCourse 测试通过。
 - 没有往手机安装。截图：`ios-native/.screens/c-strategy-{light,dark}.png`（演示数据，显示具体原因）。
 
+### [accessory-fix] B（Agent B，2026-11-07，用户真机反馈）
+
+课表页底部附件只有一行（如“下个假期 · 运动会 … 今天”）时标题偏上。**原因**：没有副标题时仍放了一个空的 `Text`，空 Text 也占一行高度，标题被顶到上面。**修复**（`App/Shell/Home/NextEventAccessory.swift`）：副标题为空（假期、精简模式）时不再放这一行；有副标题时两行作为整体居中（HStack 垂直居中）。中途试过给内容加 `maxHeight: .infinity`，iOS 18 降级路径里附件会撑满整屏，已撤掉，最终只改了空副标题这一处。
+
+已用模拟器（真机同尺寸 1206×2622）看过：假期 / 课程 / 考试 三种事件 × 浅色 / 深色 × iOS 26 玻璃 / `-GxuForceLegacy` 降级，共 12 张，单行居中、两行整体居中。拼图：`ios-native/.screens/accessory-sheet.png`（上三行 iOS 26，下三行降级，左浅右深）；单张：`accessory-{holiday,course,exam}-{light,dark}.png`、`accessory-legacy-*-{light,dark}.png`。新增 DEBUG 参数 `-GxuPickEvent course|exam|holiday` 只用于截图。没有安装到手机。
+
 ## Agent A 收到的请求
 
 - [x] (C) v2.2 校选课进度：请抓一份 `GET /jw/elective-progress` 的真实脱敏响应放进 `Fixtures/sanitized/elective-progress.json`（我本机试登录得到 401，没有重试）。目前 `ElectiveProgress` 模型和测试夹具按 RN `schema/progress.ts` 构造，拿到样本后核对字段（尤其 `matchedBy`、`attempts`、`online` 可空）。
