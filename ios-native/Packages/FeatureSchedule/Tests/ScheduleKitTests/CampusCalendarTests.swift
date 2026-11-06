@@ -161,3 +161,42 @@ private actor Counter {
     private var value = 0
     func next() -> Int { value += 1; return value }
 }
+
+struct NextHolidayTests {
+    // 中秋 9-25…9-27（周五到周日），国庆 10-01…10-07
+    private func blocks() -> [DayBlock] {
+        let campus = CampusCalendar(
+            timeShift: [ShiftRule(workDate: "2026-09-20", restDate: "2026-09-28")],
+            holidays: [HolidayRange(title: "中秋节", from: "2026-09-25", to: "2026-09-27"), HolidayRange(title: "国庆节", from: "2026-10-01", to: "2026-10-07")]
+        )
+        return CalendarOverlay.apply(to: [], calendar: campus, term: term).dayBlocks
+    }
+
+    @Test func picksFirstHolidayDayAfterNow() throws {
+        let next = try #require(NextHoliday.next(dayBlocks: blocks(), term: term, now: at("2026-09-16 09:00")))
+        #expect(next.title == "中秋节" && next.date == at("2026-09-25") && next.startsAt == at("2026-09-25 08:00"))
+        #expect(next.dayText(now: at("2026-09-16 09:00"), calendar: shanghai) == "9 天后")
+    }
+
+    @Test func insideMultiDayHolidayPointsToNextDay() throws {
+        // 9-25 早上八点之后，今天的假期日已经开始，下一个是 9-26
+        let next = try #require(NextHoliday.next(dayBlocks: blocks(), term: term, now: at("2026-09-25 09:00")))
+        #expect(next.date == at("2026-09-26"))
+        #expect(next.dayText(now: at("2026-09-25 09:00"), calendar: shanghai) == "明天")
+    }
+
+    @Test func beforeEightOnHolidayItIsToday() throws {
+        let next = try #require(NextHoliday.next(dayBlocks: blocks(), term: term, now: at("2026-09-25 07:00")))
+        #expect(next.dayText(now: at("2026-09-25 07:00"), calendar: shanghai) == "今天")
+    }
+
+    @Test func restDaysAreNotHolidays() {
+        // 9-28 是调休休息日，不算“下个假期”
+        let next = NextHoliday.next(dayBlocks: blocks(), term: term, now: at("2026-09-27 09:00"))
+        #expect(next?.title == "国庆节")
+    }
+
+    @Test func noneAfterLastHoliday() {
+        #expect(NextHoliday.next(dayBlocks: blocks(), term: term, now: at("2026-10-08 09:00")) == nil)
+    }
+}

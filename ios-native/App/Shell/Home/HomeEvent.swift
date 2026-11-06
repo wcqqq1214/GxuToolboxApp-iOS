@@ -6,34 +6,48 @@ import ScheduleKit
 enum HomeEvent: Equatable {
     case course(CourseOccurrence, isOngoing: Bool, isTomorrow: Bool)
     case exam(ExamItem, isOngoing: Bool)
+    /// RN `NextEventBanner`：假期图层的每一天也是一个事件（“下个假期”）
+    case holiday(NextHoliday)
 
     var startsAt: Date {
         switch self {
         case .course(let item, _, _): item.startsAt
         case .exam(let item, _): item.date ?? .distantFuture
+        case .holiday(let holiday): holiday.startsAt
         }
     }
 
     var isOngoing: Bool {
         switch self {
         case .course(_, let ongoing, _), .exam(_, let ongoing): ongoing
+        case .holiday: false
         }
     }
 
     /// 正在进行的优先；否则取开始时间更早的。考试比下一节课更早开始才会盖过课程（课程排在前一天不会被远期考试抢占）。
-    static func pick(plan: TodayPlan, exams: [ExamItem], now: Date) -> HomeEvent? {
+    static func pick(snapshot: ScheduleSnapshot, exams: [ExamItem], now: Date) -> HomeEvent? {
+        let holiday = NextHoliday.next(dayBlocks: snapshot.dayBlocks, term: snapshot.termCalendar, now: now)
+        return pick(plan: snapshot.todayPlan(now: now), exams: exams, holiday: holiday, now: now)
+    }
+
+    static func pick(plan: TodayPlan, exams: [ExamItem], holiday: NextHoliday? = nil, now: Date) -> HomeEvent? {
         let ongoingExam = exams.first { ($0.date ?? .distantFuture) <= now }
         if let ongoingExam { return .exam(ongoingExam, isOngoing: true) }
         if let current = plan.current { return .course(current, isOngoing: true, isTomorrow: false) }
 
         let course = plan.next.map { HomeEvent.course($0, isOngoing: false, isTomorrow: plan.nextIsTomorrow) }
         let exam = exams.first { ($0.date ?? .distantPast) > now }.map { HomeEvent.exam($0, isOngoing: false) }
+        let base: HomeEvent?
         switch (course, exam) {
-        case let (course?, exam?): return exam.startsAt < course.startsAt ? exam : course
-        case let (course?, nil): return course
-        case let (nil, exam?): return exam.startsAt.timeIntervalSince(now) < 24 * 3600 ? exam : nil
-        case (nil, nil): return nil
+        case let (course?, exam?): base = exam.startsAt < course.startsAt ? exam : course
+        case let (course?, nil): base = course
+        case let (nil, exam?): base = exam.startsAt.timeIntervalSince(now) < 24 * 3600 ? exam : nil
+        case (nil, nil): base = nil
         }
+        // 假期和别的事件比开始时间，同一时刻假期在前（RN 假期图层在最底层，稳定排序）
+        guard let holiday else { return base }
+        guard let base else { return .holiday(holiday) }
+        return holiday.startsAt <= base.startsAt ? .holiday(holiday) : base
     }
 }
 

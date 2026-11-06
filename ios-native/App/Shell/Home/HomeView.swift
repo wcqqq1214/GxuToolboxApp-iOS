@@ -47,7 +47,7 @@ private struct HomeList: View {
     let now: Date
 
     private var plan: TodayPlan { snapshot.todayPlan(now: now) }
-    private var event: HomeEvent? { HomeEvent.pick(plan: plan, exams: model.exams, now: now) }
+    private var event: HomeEvent? { HomeEvent.pick(snapshot: snapshot, exams: model.exams, now: now) }
     /// “接下来”卡片只在学期内显示（学期结束 / 未开学时不显示），所以只有真的显示了才从“近期考试”里去重，
     /// 否则这场考试在首页上就哪里都看不到
     private var shownEvent: HomeEvent? { plan.phase == .inTerm ? event : nil }
@@ -230,6 +230,7 @@ private struct EventCard: View {
         case .course: "下一节课"
         case .exam(_, true): "考试进行中"
         case .exam: "即将考试"
+        case .holiday: "下个假期"
         }
     }
 
@@ -238,6 +239,7 @@ private struct EventCard: View {
         switch event {
         case .course(let item, true, _): RelativeTime.remaining(until: item.endsAt, now: now)
         case .exam(_, true): ""
+        case .holiday(let holiday): holiday.dayText(now: now, calendar: .current)
         default: RelativeTime.untilStart(event.startsAt, now: now)
         }
     }
@@ -246,6 +248,7 @@ private struct EventCard: View {
         switch event {
         case .course(let item, _, _): item.course.courseName
         case .exam(let item, _): item.exam.course
+        case .holiday(let holiday): holiday.title
         }
     }
 
@@ -257,6 +260,7 @@ private struct EventCard: View {
                 .filter { !$0.isEmpty }.joined(separator: " · ")
         case .exam(let item, _):
             [item.exam.classroom, item.exam.seatText, item.exam.type].filter { !$0.isEmpty }.joined(separator: " · ")
+        case .holiday: nil
         }
     }
 }

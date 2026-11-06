@@ -13,7 +13,7 @@ struct NextEventAccessory: View {
         TimelineView(.everyMinute) { context in
             let now = context.date
             if let snapshot = model.snapshot,
-               let event = HomeEvent.pick(plan: snapshot.todayPlan(now: now), exams: model.exams, now: now) {
+               let event = HomeEvent.pick(snapshot: snapshot, exams: model.exams, now: now) {
                 row(event, now: now)
             }
         }
@@ -42,6 +42,7 @@ struct NextEventAccessory: View {
         switch event {
         case .course: event.isOngoing ? "book.fill" : "book"
         case .exam: "pencil.and.list.clipboard"
+        case .holiday: "sun.max"
         }
     }
 
@@ -49,6 +50,7 @@ struct NextEventAccessory: View {
         switch event {
         case .course(let item, _, _): item.course.courseName
         case .exam(let item, _): "考试 · \(item.exam.course)"
+        case .holiday(let holiday): "下个假期 · \(holiday.title)"
         }
     }
 
@@ -60,6 +62,7 @@ struct NextEventAccessory: View {
                 .filter { !$0.isEmpty }.joined(separator: " · ")
         case .exam(let item, _):
             [item.exam.classroom, item.exam.seatText].filter { !$0.isEmpty }.joined(separator: " · ")
+        case .holiday: ""
         }
     }
 
@@ -67,6 +70,7 @@ struct NextEventAccessory: View {
         switch event {
         case .course(let item, true, _): RelativeTime.remaining(until: item.endsAt, now: now)
         case .exam: event.isOngoing ? "进行中" : RelativeTime.untilStart(event.startsAt, now: now)
+        case .holiday(let holiday): holiday.dayText(now: now, calendar: .current)
         case .course: RelativeTime.untilStart(event.startsAt, now: now)
         }
     }

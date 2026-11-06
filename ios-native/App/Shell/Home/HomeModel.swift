@@ -30,7 +30,7 @@ final class HomeModel {
     /// 现在有没有“下一件事”（附件栏要不要显示）
     func hasNextEvent(now: Date = .now) -> Bool {
         guard let snapshot else { return false }
-        return HomeEvent.pick(plan: snapshot.todayPlan(now: now), exams: exams, now: now) != nil
+        return HomeEvent.pick(snapshot: snapshot, exams: exams, now: now) != nil
     }
 
     /// 只读本地缓存，切回首页时调用（便宜）
