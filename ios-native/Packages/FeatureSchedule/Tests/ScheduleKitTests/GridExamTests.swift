@@ -39,3 +39,22 @@ struct GridExamTests {
         #expect(index.examBlocks(inWeek: 3, weekday: 3).isEmpty)
     }
 }
+
+struct RelatedExamsTests {
+    private func exam(_ title: String, _ start: String, _ end: String) -> GridExam {
+        GridExam(id: title + start, title: title, start: at(start), end: at(end))
+    }
+
+    @Test func matchesByNameSortedByStart() {
+        let exams = [exam("高等数学", "2026-12-20 09:00", "2026-12-20 11:00"), exam("大学英语", "2026-12-18 09:00", "2026-12-18 11:00"), exam("高等数学", "2026-11-10 09:00", "2026-11-10 11:00")]
+        #expect(RelatedExams.matching(courseName: " 高等数学", in: exams).map(\.start) == [at("2026-11-10 09:00"), at("2026-12-20 09:00")])
+        #expect(RelatedExams.matching(courseName: "", in: exams).isEmpty)
+    }
+
+    @Test func badgeStates() {
+        let e = exam("高等数学", "2026-11-08 09:00", "2026-11-08 11:00")
+        #expect(RelatedExams.badge(for: e, now: at("2026-11-06 10:00"), calendar: shanghai) == "2 天后")
+        #expect(RelatedExams.badge(for: e, now: at("2026-11-08 07:00"), calendar: shanghai) == "今天考试")
+        #expect(RelatedExams.badge(for: e, now: at("2026-11-08 12:00"), calendar: shanghai) == "已结束")
+    }
+}

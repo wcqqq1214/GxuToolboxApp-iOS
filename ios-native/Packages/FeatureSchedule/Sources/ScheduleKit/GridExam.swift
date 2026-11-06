@@ -60,3 +60,19 @@ public enum ExamPlacement {
         .sorted { ($0.week, $0.weekday, $0.begin, $0.id) < ($1.week, $1.weekday, $1.begin, $1.id) }
     }
 }
+
+/// 课程详情里的“相关考试”：按课程名匹配，按开考时间排序，并给出 RN `CourseExamCard` 的状态角标
+public enum RelatedExams {
+    public static func matching(courseName: String, in exams: [GridExam]) -> [GridExam] {
+        let name = courseName.trimmingCharacters(in: .whitespaces)
+        guard !name.isEmpty else { return [] }
+        return exams.filter { $0.title.trimmingCharacters(in: .whitespaces) == name }.sorted { $0.start < $1.start }
+    }
+
+    /// 已结束 / 今天考试 / N 天后
+    public static func badge(for exam: GridExam, now: Date, calendar: Calendar = .current) -> String {
+        if exam.end <= now { return "已结束" }
+        let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: now), to: calendar.startOfDay(for: exam.start)).day ?? 0
+        return days <= 0 ? "今天考试" : "\(days) 天后"
+    }
+}

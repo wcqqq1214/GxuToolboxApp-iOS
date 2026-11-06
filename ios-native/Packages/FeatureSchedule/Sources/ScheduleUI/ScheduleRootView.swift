@@ -61,7 +61,7 @@ public struct ScheduleRootView: View {
         }
         .sheet(item: $detail) { group in
             CourseDetailSheet(
-                group: group, colors: model.colors, selected: group.selected(choices: model.choices),
+                group: group, colors: model.colors, selected: group.selected(choices: model.choices), exams: model.exams,
                 onChoose: { item in Task { await model.choose(item, in: group) } },
                 onEditActivity: { id in
                     detail = nil

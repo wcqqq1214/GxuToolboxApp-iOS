@@ -7,6 +7,7 @@ struct CourseDetailSheet: View {
     let group: ConflictGroup
     let colors: [String: UInt32]
     let selected: CourseOccurrence
+    var exams: [GridExam] = []
     let onChoose: (CourseOccurrence) -> Void
     let onEditActivity: (String?) -> Void
     @Environment(SchedulePreferencesStore.self) private var preferences
@@ -35,6 +36,7 @@ struct CourseDetailSheet: View {
                             onChoose(item)
                         }) : nil,
                         fields: preferences.value.courseDetail.filter(\.isShown),
+                        exams: item.course.isCustom ? [] : RelatedExams.matching(courseName: item.course.courseName, in: exams),
                         onEditActivity: onEditActivity
                     )
                 }
@@ -55,6 +57,7 @@ private struct CourseSection: View {
     let tint: CourseTint
     var choice: (isSelected: Bool, choose: () -> Void)?
     let fields: [DetailFieldSetting]
+    var exams: [GridExam] = []
     let onEditActivity: (String?) -> Void
     private var course: TheoryCourse { item.course }
 
@@ -80,6 +83,11 @@ private struct CourseSection: View {
                 } else {
                     Button("在课表中显示这门课", systemImage: "eye", action: choice.choose)
                 }
+            }
+        }
+        if !exams.isEmpty {
+            Section("相关考试") {
+                ForEach(exams) { exam in RelatedExamRow(exam: exam) }
             }
         }
     }
@@ -125,5 +133,28 @@ private struct CourseSection: View {
                 Text(value).multilineTextAlignment(.trailing).textSelection(.enabled)
             }
         }
+    }
+}
+
+
+private struct RelatedExamRow: View {
+    let exam: GridExam
+
+    var body: some View {
+        let badge = RelatedExams.badge(for: exam, now: .now)
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(exam.start.formatted(.dateTime.month().day().weekday(.abbreviated).locale(Locale(identifier: "zh_CN"))))
+                    .font(.subheadline.weight(.semibold))
+                Spacer()
+                Text(badge).font(.caption.weight(.medium))
+                    .foregroundStyle(badge == "已结束" ? Color.secondary : Color.orange)
+            }
+            Text("\(exam.start.formatted(.dateTime.hour().minute()))–\(exam.end.formatted(.dateTime.hour().minute()))")
+                .font(.footnote).foregroundStyle(.secondary)
+            let detail = [exam.location, exam.seat].filter { !$0.isEmpty }.joined(separator: " · ")
+            if !detail.isEmpty { Text(detail).font(.footnote).foregroundStyle(.secondary) }
+        }
+        .accessibilityElement(children: .combine)
     }
 }
