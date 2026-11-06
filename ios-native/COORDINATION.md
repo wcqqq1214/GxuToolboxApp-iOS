@@ -533,6 +533,19 @@ interrogate 审查循环结束（用户决定不再开新一轮）。详细决�
 - **RN / 后端缺口（只记录，不绕过）：** `调课信息`、`选课课程列表` 后端未代理保持隐藏；`期末学生评价` 的 `GET /jw/evaluation` 返回 404，入口保持“即将上线”；`GET /feedback/{userId}` 返回 401，“我的反馈”保持隐藏；实验课没有叠加到课表（RN 会把“大学物理实验”按日期替换成具体实验，等 PEC 真实响应验证后再做）。
 - **最后一次 build/test：** `build.sh` 通过；FeatureSchedule、FeatureCampus、GxuDesign 测试通过（见发布提交）。
 
+### [device-ready] A（Agent A，2026-11-06）
+
+真机验证的脚手架已发布（`build.sh`、`scripts/test.sh` 全部 8 个 package、`build.sh release` 都通过；基于 `[review-final] C` 之后的 ios-native）。**没有 Team ID 和真机，所以 `run-device.sh` 的构建 / 安装 / 启动和 `--ipa` 的 archive / export 这几步没有实机验证**，前置检查、提示信息、plist 语法都已在本机验证。
+
+**用户要做的步骤（不超过 5 步）：**
+1. 准备付费的 Apple Developer Program 账号（App Group、Keychain 共享、Live Activities 需要），在 Xcode 里登录 Apple ID，查到 10 位 **Team ID**。
+2. `cd ios-native && cp .secrets/archive.env.example .secrets/archive.env`，把 `XXXXXXXXXX` 改成你的 Team ID（这个文件不会进 git）。
+3. 手机用数据线连一次电脑（解锁、信任、打开开发者模式），让 Xcode 登记设备。
+4. 想直接装：`scripts/run-device.sh`。想拿文件自己装：`scripts/run-device.sh --ipa`，会打印 `ios-native/build/export/GxuToolApp.ipa` 的绝对路径和安装方式。
+5. 按 `docs/ios-migration/device-checklist.md` 逐项试（小组件 / Live Activity / App Intents、大字号和 VoiceOver、校园网和账号相关功能、Keychain 和刷新）；上架前再做真实 iOS 18 和 archive.sh。
+
+其余：`scripts/_env.sh` 不再新建 `gxu--` 这种名字的模拟器（原因和已删除的那台见 status）；Keychain access group 只在带真实 Team ID 签名的真机构建里启用，模拟器不变；未验证的 5 条审查发现写在 status「未验证，真机后再看」。
+
 ## Agent A 收到的请求
 
 - [x] (C) `scripts/test.sh` 硬编码 scheme 为 `<Pkg>-Package`，但只有一个 library product 的 package（如 FeatureExam）scheme 就叫 `<Pkg>`，会报 "does not contain a scheme"。请让脚本先 `xcodebuild -list` 判断，或两个名字都试。我暂时直接用 `xcodebuild -scheme FeatureExam ... test`

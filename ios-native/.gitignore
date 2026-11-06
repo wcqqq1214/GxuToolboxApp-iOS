@@ -6,7 +6,8 @@ DerivedData/
 xcuserdata/
 
 # 本地数据，不入库
-.secrets/
+.secrets/*
+!.secrets/*.example
 Fixtures/raw/
 .screens/
 

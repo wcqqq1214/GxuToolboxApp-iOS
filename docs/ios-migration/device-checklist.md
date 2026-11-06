@@ -13,7 +13,13 @@
 | 能在手机上连校园网（或校园 VPN） | CA、PEC、金工实训、OA、wjxt 只有校内网络才能访问 |
 | 账号 | 统一认证 `CA_USER` / `CA_PASS`；OA 账号（与问卷系统共用）；考勤系统账号；教务测试账号（已有）。放进 `ios-native/.secrets/account.env`（不入库）；真机上由用户自己在 App 里登录，脚本不会传递密码 |
 
-运行：`cd ios-native && scripts/run-device.sh`（只有一台真机时自动选择；多台用 `--device <名称或UDID>`）。首次运行 Xcode 会自动注册 App ID、App Group `group.com.gxutool.ios`，这需要账号有权限。
+**Team ID 怎么填：** `cd ios-native && cp .secrets/archive.env.example .secrets/archive.env`，把里面的 `XXXXXXXXXX` 改成你的 Team ID 就行（`.secrets/archive.env` 不会进 git；模板 `archive.env.example` 可以提交）。
+
+**两种装法：**
+- 手机连着电脑：`cd ios-native && scripts/run-device.sh`（只有一台真机时自动选择；多台用 `--device <名称或UDID>`）。
+- 想自己拿文件装：`scripts/run-device.sh --ipa`，导出 `ios-native/build/export/GxuToolApp.ipa`，结束时会打印绝对路径和安装方式（Xcode 的 Devices and Simulators 窗口 / Apple Configurator / `devicectl`）。**手机必须是 development 描述文件里登记过 UDID 的设备**：先用数据线连一次电脑让 Xcode 自动登记，或在 developer.apple.com → Devices 里手动加 UDID。
+
+首次运行 Xcode 会自动注册 App ID、App Group `group.com.gxutool.ios`，这需要账号有权限。Bundle ID 目前固定为 `com.gxutool.ios`，如果提示已被别的团队占用，要先让开发者把它改成可配置的。
 
 ## 1. 小组件、Live Activity、App Intents（PLAN §5.1 (e)）
 
