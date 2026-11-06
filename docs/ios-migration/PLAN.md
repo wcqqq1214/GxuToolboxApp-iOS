@@ -190,6 +190,7 @@ brew install xcodegen
 - A 提供 `scripts/capture-fixtures.sh`：登录后端，把各接口的原始响应保存到 `ios-native/Fixtures/raw/`（已 gitignore）。
 - 脱敏后的共享数据由 A 用 `scripts/sanitize-fixtures.py` 生成，放在 `ios-native/Fixtures/sanitized/`（含 README，说明各文件对应的接口和参数），可直接提交。各 feature 的所有者按需把其中的文件复制到自己 package 的 `Tests/.../Fixtures/` 里；需要 A 没覆盖的接口，写到 COORDINATION 的 A 小节。
 - 拿不到真实数据时，根据 RN 的 TS 类型和 Zod schema 手写 fixture，并标注 TODO(verify)。
+- **测试和调试代码不能使用真实账号数据**：学号、姓名、身份证、手机号、邮箱、教师信息等一律用明显的假值（例如学号 `2200000000`、身份证 `450000200001010019`、手机 `13800138000`、邮箱 `x@example.invalid`）。测试要验证脱敏 / 解析时，也用假值构造输入。真实账号只允许放在 `.secrets/`（已 gitignore）。提交前用 `git grep` 检查有没有把真实值带进来。
 
 ## 5. 分阶段计划
 
