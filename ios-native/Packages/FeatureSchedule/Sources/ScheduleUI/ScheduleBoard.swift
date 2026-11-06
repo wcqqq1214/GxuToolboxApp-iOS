@@ -7,6 +7,7 @@ import SwiftUI
 struct ScheduleBoard: View {
     let model: ScheduleViewModel
     let onSelect: (ConflictGroup) -> Void
+    var onSelectExam: (GridExam) -> Void = { _ in }
     @Environment(\.gxuAccessoryHeight) private var accessoryHeight
 
     var body: some View {
@@ -23,7 +24,7 @@ struct ScheduleBoard: View {
         ScrollView(.horizontal) {
             LazyHStack(spacing: 0) {
                 ForEach(1...model.weekCount, id: \.self) { week in
-                    WeekGridView(week: week, model: model, onSelect: onSelect)
+                    WeekGridView(week: week, model: model, onSelect: onSelect, onSelectExam: onSelectExam)
                         .containerRelativeFrame(.horizontal)
                         .id(week)
                 }

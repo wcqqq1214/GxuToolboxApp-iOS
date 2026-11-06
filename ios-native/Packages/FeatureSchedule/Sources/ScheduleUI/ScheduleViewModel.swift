@@ -34,6 +34,12 @@ final class ScheduleViewModel {
     private(set) var choices: [String: String] = [:]
     /// 用户自己添加的日程（已并入 `index`）
     private(set) var activities: [CustomActivity] = []
+    /// 考试图层（由 Shell 注入的提供者读取，已画进 `index`）
+    private(set) var exams: [GridExam] = []
+    /// 读取某账号某学期的考试；没有提供者就不显示考试图层
+    @ObservationIgnored var layersProvider: ScheduleExtraLayersProvider?
+    /// 实验课等对教师 / 地点的覆盖
+    private(set) var overrides: [OccurrenceOverride] = []
 
     var selectedWeek = 1
     var palette: CoursePalette = .macaron
@@ -113,6 +119,8 @@ final class ScheduleViewModel {
         campusCalendar = campus
         await applyTerm(repository: repository, studentId: studentId, generation: gen, useCache: true)
         guard gen == generation else { return }
+        await reloadExams(generation: gen)
+        guard gen == generation else { return }
         await refresh()
     }
 
@@ -180,6 +188,7 @@ final class ScheduleViewModel {
             guard gen == generation else { return }
             apply(fresh, resetWeek: previous != term)
             refreshError = nil
+            await reloadExams(generation: gen)
         } catch {
             // 取消不是故障：保持现有状态，不显示错误条
             if error.isCancellation || Task.isCancelled || gen != generation { return }
@@ -188,6 +197,19 @@ final class ScheduleViewModel {
             if schedule == nil { phase = .failed(gxu.userMessage) }
         }
     }
+
+    /// 读取这个学期的考试并刷新考试图层。账号 / 学期在读取过程中变了就丢弃结果
+    func reloadExams(generation gen: Int) async {
+        guard let layersProvider, let studentId, let term else { return }
+        let layers = await layersProvider(studentId, term)
+        guard gen == generation else { return }
+        exams = layers.exams
+        overrides = layers.overrides
+        rebuildIndex()
+    }
+
+    /// 课表页出现 / 回前台时重读考试图层（首页或考试页可能刚刚刷新过本地缓存）
+    func refreshExamLayer() async { await reloadExams(generation: generation) }
 
     /// 新增或修改自定义日程，立即反映到课表和小组件快照
     func save(_ activity: CustomActivity) async {
@@ -244,7 +266,9 @@ final class ScheduleViewModel {
         pinnedTerm = term
         schedule = nil
         phase = .loading
-        await applyTerm(repository: makeRepository(services), studentId: studentId, generation: generation, useCache: true)
+        let gen = generation
+        await applyTerm(repository: makeRepository(services), studentId: studentId, generation: gen, useCache: true)
+        await reloadExams(generation: gen)
         await refresh()
     }
 
@@ -265,6 +289,8 @@ final class ScheduleViewModel {
         colors = [:]
         choices = [:]
         activities = []
+        exams = []
+        overrides = []
         refreshError = nil
         pinnedTerm = nil
         studentId = nil
@@ -320,9 +346,10 @@ final class ScheduleViewModel {
     /// 课表 + 节假日 / 补班 → 周视图用的索引
     private func rebuildIndex() {
         guard let schedule = mergedSchedule, let termCalendar else { return }
-        let base = ScheduleExpander.occurrences(of: schedule, in: termCalendar)
+        // 先按日期覆盖实验课的教师 / 地点，再叠加假期 / 补课（补课复制出来的课带着覆盖后的教师和地点）
+        let base = OccurrenceOverrides.apply(overrides, to: ScheduleExpander.occurrences(of: schedule, in: termCalendar))
         let overlaid = CalendarOverlay.apply(to: base, calendar: campusCalendar, term: termCalendar)
-        index = ScheduleIndex(occurrences: overlaid.occurrences, dayBlocks: overlaid.dayBlocks)
+        index = ScheduleIndex(occurrences: overlaid.occurrences, dayBlocks: overlaid.dayBlocks, examBlocks: ExamPlacement.blocks(for: exams, term: termCalendar))
         publishWidgetSnapshot()
     }
 

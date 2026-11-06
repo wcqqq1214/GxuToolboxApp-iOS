@@ -14,10 +14,13 @@ public struct ScheduleRootView: View {
     @State private var showShare = false
     @Environment(SchedulePreferencesStore.self) private var preferences
     @Environment(\.scenePhase) private var scenePhase
+    @State private var examDetail: GridExam?
     private let onRequestLogin: @MainActor () -> Void
+    private let layers: ScheduleExtraLayersProvider?
 
-    public init(onRequestLogin: @escaping @MainActor () -> Void = {}) {
+    public init(onRequestLogin: @escaping @MainActor () -> Void = {}, layers: ScheduleExtraLayersProvider? = nil) {
         self.onRequestLogin = onRequestLogin
+        self.layers = layers
     }
 
     /// 账号变化时重新加载
@@ -33,12 +36,22 @@ public struct ScheduleRootView: View {
                 .toolbar { toolbar }
         }
         .task(id: AccountKey(studentId: services.accounts.studentId, state: services.accounts.states[.jw])) {
+            model.layersProvider = layers
             await model.load(services: services)
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { Task { await model.refreshIfStale() } }
+            if phase == .active { Task { await model.refreshIfStale(); await model.refreshExamLayer() } }
         }
-        .onAppear { model.palette = preferences.value.palette }
+        .onAppear {
+            model.palette = preferences.value.palette
+            Task { await model.refreshExamLayer() }
+        }
+        // 首页 / 考试页可能和课表同时在加载并写入考试缓存：课表内容就绪几秒后再读一次考试图层
+        .task(id: model.phase) {
+            guard model.phase == .content else { return }
+            try? await Task.sleep(for: .seconds(3))
+            if !Task.isCancelled { await model.refreshExamLayer() }
+        }
         #if DEBUG
         .task(id: model.phase) { await debugPresentSheet() }
         #endif
@@ -63,6 +76,7 @@ public struct ScheduleRootView: View {
                 onDelete: request.isNew ? nil : { Task { await model.delete(request.activity) } }
             )
         }
+        .sheet(item: $examDetail) { exam in ExamDetailSheet(exam: exam) }
         .sheet(isPresented: $showShare) {
             ShareScheduleSheet(model: model, week: model.selectedWeek, preferences: preferences)
         }
@@ -89,7 +103,7 @@ public struct ScheduleRootView: View {
         case .failed(let message):
             GxuErrorView(message) { Task { await model.refresh() } }
         case .content:
-            ScheduleBoard(model: model) { detail = $0 }
+            ScheduleBoard(model: model, onSelect: { detail = $0 }, onSelectExam: { examDetail = $0 })
                 .safeAreaInset(edge: .top, spacing: 0) {
                     if model.refreshError != nil {
                         GxuStaleBanner(updatedAt: model.updatedAt, message: model.refreshError?.userMessage)

@@ -708,6 +708,19 @@ interrogate 审查循环结束（用户决定不再开新一轮）。详细决�
 - **同时修了一个 iOS 26 的问题：** 二级页面隐藏标签栏时，底部“下一件事”附件并不会跟着隐藏（之前截图里“已隐藏”是因为当时恰好没有下一件事）。现在工具箱用 `NavigationStack(path:)`，有二级页面时由 RootView 关闭附件。
 - 截图（浅色 + 深色）：`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/empty-time-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/empty-room-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/empty-picker-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/empty-cache-light.png`；对照 `/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/phyexp-check-light.png`（附件已在二级页面隐藏）。
 
+
+### [v22] B：课表对齐 RN v2.2（第一批，Agent B）
+
+- **补课日保留当天原有项目**（RN `showPreShiftItems`）：补课日被调过来的课和原有的课并排显示，两组各自独立成冲突组（逻辑层 `ConflictResolver` 也按“日期 + 是否补课”分域，今天 / 下一节课 / 小组件都不会因此漏课）。**这是对我之前“补班日当天原有的课移除”的修正。**
+- **考试图层**（RN `useTimelineLayers` 的第 3 层）：考试画进周网格，红色描边 + “考试”标记，点开看时间 / 考场 / 座位；考试固定在日历日期上，不随调课移动；节次换算按 RN `normalizeExam`（第一个下课晚于开考的节次 → 最后一个上课早于结束的节次）；和课程重叠时并排（`LaneLayout`）。ScheduleUI 不能依赖 ExamKit（包循环），所以由 Shell 注入 `ScheduleExtraLayersProvider`（读 ExamKit 本地缓存），课表页出现 / 回前台 / 内容就绪 3 秒后重读。
+- **实验课覆盖**（RN `buildCourseItems`）：课程名含“物理实验”的课，按上课日期用 PEC 缓存里的实验课覆盖**教师和地点**（课程名不变）；补课复制出来的课带着覆盖后的值。只做在课表页；首页 / 小组件走 `ScheduleSnapshot`，**暂未应用覆盖**（PEC 表在 FeatureCampus 的迁移里，ScheduleKit 读不到），列为后续。
+- **v2.2 里 commit 标题写“实验课”的几个提交**（教学周与节次编辑面板、本地存储）实际是“自定义事件”（`custom_events`）：iOS 已有（自定义日程：教学周范围、星期、节次、颜色，按学号 + 学期存 GRDB）。
+- **`getWeekOfDate` 口径**：和 iOS 的 `TermCalendar.week(containing:)` 一致（`floor(天数 / 7) + 1`，按天归一），已移植 RN 的用例做回归。
+- **9-10 节合并行核对结果：** RN 默认（行高 > 40）是 13 行、每行 `节次 + 上课 + 下课`，**不合并**；只有紧凑模式 / 画布导出才两两合并成 `N - M`（`1 - 2`、…、`9 - 10`、`13`）。按协调者指示保留“只合并 9-10”的设计，文字改成 RN 的 `9 - 10` 写法。
+- **假期里的课：** RN v2.2 在假期里（非调休休息日）**不移除**课程，只在底层画全天横幅（`563b1ff6` 把标签前移避免被课程盖住）。iOS 保持“假期里的课移除”——假期上课会误导用户。如果协调者 / 用户要求严格对齐 RN，说一声，改一行。
+- **未做：** 考勤图层（课程块上的考勤状态，需要 C 的考勤数据按 `week-day-begin-end` 挂载）、课表底栏考试信息卡（iOS 已有首页“下一件事”和底部附件）、课程详情栏的逐项对照。
+- 截图：`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/schedule-exam-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/schedule-exam-dark.png`。
+
 ## Agent A 收到的请求
 
 - [x] (C) v2.2 校选课进度：请抓一份 `GET /jw/elective-progress` 的真实脱敏响应放进 `Fixtures/sanitized/elective-progress.json`（我本机试登录得到 401，没有重试）。目前 `ElectiveProgress` 模型和测试夹具按 RN `schema/progress.ts` 构造，拿到样本后核对字段（尤其 `matchedBy`、`attempts`、`online` 可空）。

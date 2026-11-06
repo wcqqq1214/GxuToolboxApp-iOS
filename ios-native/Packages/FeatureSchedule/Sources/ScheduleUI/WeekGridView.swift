@@ -7,6 +7,7 @@ struct WeekGridView: View {
     let week: Int
     let model: ScheduleViewModel
     let onSelect: (ConflictGroup) -> Void
+    var onSelectExam: (GridExam) -> Void = { _ in }
 
     static let timeColumnWidth: CGFloat = 40
     static let rowHeight: CGFloat = 64
@@ -18,7 +19,7 @@ struct WeekGridView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
-                WeekBody(week: week, model: model, onSelect: onSelect)
+                WeekBody(week: week, model: model, onSelect: onSelect, onSelectExam: onSelectExam)
                 PracticeSection(courses: model.practiceCourses(inWeek: week))
             }
             .padding(.bottom, GxuDesign.Spacing.s)
@@ -126,6 +127,7 @@ struct WeekBody: View {
     let week: Int
     let model: ScheduleViewModel
     let onSelect: (ConflictGroup) -> Void
+    var onSelectExam: (GridExam) -> Void = { _ in }
     @Environment(SchedulePreferencesStore.self) private var preferences
 
     private let rowHeight = WeekGridView.rowHeight
@@ -152,10 +154,16 @@ struct WeekBody: View {
                     // 补课日被调过来的课和原有的课是两个独立的冲突组（RN v2.2），重叠时由 GroupLane 并排显示
                     let dayItems = model.index.items(inWeek: week, weekday: weekday)
                     let groups = ScheduleExpander.conflictGroups(dayItems.filter { !$0.isMakeup }) + ScheduleExpander.conflictGroups(dayItems.filter(\.isMakeup))
-                    ForEach(GroupLane.layout(groups)) { placed in
-                        let group = placed.group
+                    let exams = model.index.examBlocks(inWeek: week, weekday: weekday)
+                    // 课程组和考试块在同一天里重叠时并排（各自独立的图层，不互相吞并）
+                    let lanes = LaneLayout.assign(
+                        groups.map { (id: $0.id, rows: PeriodRows.rows(begin: $0.begin, end: $0.end)) }
+                            + exams.map { (id: "exam-\($0.id)", rows: PeriodRows.rows(begin: $0.begin, end: $0.end)) }
+                    )
+                    ForEach(groups) { group in
                         let rows = PeriodRows.rows(begin: group.begin, end: group.end)
-                        let laneWidth = columnWidth / CGFloat(placed.laneCount)
+                        let placed = lanes[group.id] ?? (lane: 0, count: 1)
+                        let laneWidth = columnWidth / CGFloat(placed.count)
                         CourseBlock(
                             group: group, selected: group.selected(choices: model.choices), colors: model.colors, rowHeight: rowHeight,
                             showVenue: preferences.value.showVenueInBlock, showTeacher: preferences.value.showTeacherInBlock
@@ -166,6 +174,18 @@ struct WeekBody: View {
                                 y: CGFloat(rows.lowerBound - 1) * rowHeight + 1.5
                             )
                             .onTapGesture { onSelect(group) }
+                    }
+                    ForEach(exams) { block in
+                        let rows = PeriodRows.rows(begin: block.begin, end: block.end)
+                        let placed = lanes["exam-\(block.id)"] ?? (lane: 0, count: 1)
+                        let laneWidth = columnWidth / CGFloat(placed.count)
+                        ExamBlockView(block: block, rows: rows.count)
+                            .frame(width: laneWidth - 3, height: CGFloat(rows.count) * rowHeight - 3)
+                            .offset(
+                                x: WeekGridView.timeColumnWidth + CGFloat(weekday - 1) * columnWidth + CGFloat(placed.lane) * laneWidth + 1.5,
+                                y: CGFloat(rows.lowerBound - 1) * rowHeight + 1.5
+                            )
+                            .onTapGesture { onSelectExam(block.exam) }
                     }
                 }
 
@@ -188,7 +208,10 @@ private struct TimeColumn: View {
                     Rectangle().fill(Color(.separator).opacity(0.5)).frame(height: 0.5)
                     // 节次 + 上课 + 下课时间（和 RN 的 TimeSchedule 一致）
                     VStack(spacing: 0) {
-                        Text(period.label).font(.footnote.weight(.semibold))
+                        Text(period.label)
+                            .font(.footnote.weight(.semibold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
                         Text(period.startText)
                         Text(period.endText)
                     }
@@ -252,41 +275,32 @@ private struct NowLine: View {
     }
 }
 
-/// 一个冲突组在网格里的位置。显示行相同或相交的几组（例如只占第 9 节和只占第 10 节的两门课，它们在“9-10”这一行里重叠）
-/// 并排分栏显示，不重叠、不丢失。
-struct PlacedGroup: Identifiable {
-    let group: ConflictGroup
-    let lane: Int
-    let laneCount: Int
-    var id: String { group.id }
-}
-
-enum GroupLane {
-    static func layout(_ groups: [ConflictGroup]) -> [PlacedGroup] {
-        let sorted = groups.sorted { ($0.begin, $0.end, $0.id) < ($1.begin, $1.end, $1.id) }
-        var result: [PlacedGroup] = []
-        var cluster: [(group: ConflictGroup, lane: Int)] = []
+/// 同一天里显示行相同或相交的块并排分栏，不重叠、不丢失。输入是 (id, 占用的显示行)，输出每个 id 的栏号和该簇的总栏数。
+enum LaneLayout {
+    static func assign(_ items: [(id: String, rows: ClosedRange<Int>)]) -> [String: (lane: Int, count: Int)] {
+        let sorted = items.sorted { ($0.rows.lowerBound, $0.rows.upperBound, $0.id) < ($1.rows.lowerBound, $1.rows.upperBound, $1.id) }
+        var result: [String: (lane: Int, count: Int)] = [:]
+        var cluster: [(id: String, lane: Int)] = []
         var laneEnds: [Int] = []
         var clusterEnd = 0
 
         func flush() {
             let count = max(laneEnds.count, 1)
-            result += cluster.map { PlacedGroup(group: $0.group, lane: $0.lane, laneCount: count) }
+            for item in cluster { result[item.id] = (item.lane, count) }
             cluster = []
             laneEnds = []
         }
 
-        for group in sorted {
-            let rows = PeriodRows.rows(begin: group.begin, end: group.end)
-            if !cluster.isEmpty, rows.lowerBound > clusterEnd { flush() }
-            if let lane = laneEnds.firstIndex(where: { $0 < rows.lowerBound }) {
-                laneEnds[lane] = rows.upperBound
-                cluster.append((group, lane))
+        for item in sorted {
+            if !cluster.isEmpty, item.rows.lowerBound > clusterEnd { flush() }
+            if let lane = laneEnds.firstIndex(where: { $0 < item.rows.lowerBound }) {
+                laneEnds[lane] = item.rows.upperBound
+                cluster.append((item.id, lane))
             } else {
-                laneEnds.append(rows.upperBound)
-                cluster.append((group, laneEnds.count - 1))
+                laneEnds.append(item.rows.upperBound)
+                cluster.append((item.id, laneEnds.count - 1))
             }
-            clusterEnd = cluster.count == 1 ? rows.upperBound : max(clusterEnd, rows.upperBound)
+            clusterEnd = cluster.count == 1 ? item.rows.upperBound : max(clusterEnd, item.rows.upperBound)
         }
         flush()
         return result

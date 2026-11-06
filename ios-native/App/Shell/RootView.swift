@@ -1,5 +1,8 @@
+import ExamKit
 import FeatureAccount
+import FeatureCampus
 import GxuAuth
+import GxuFoundation
 import GxuDesign
 import GxuStorage
 import ScheduleKit
@@ -45,7 +48,7 @@ struct RootView: View {
                 HomeView(model: home, onRequestLogin: { selection = .settings }).gxuAccessoryInset()
             }
             Tab("课表", systemImage: "calendar", value: AppTab.schedule) {
-                ScheduleFeature.makeRootView(onRequestLogin: { selection = .settings }).gxuAccessoryInset()
+                ScheduleFeature.makeRootView(onRequestLogin: { selection = .settings }, layers: layersProvider).gxuAccessoryInset()
             }
             Tab("工具箱", systemImage: "square.grid.2x2", value: AppTab.toolbox) {
                 ToolboxView(onSelectTab: { selection = $0 }, isPushed: $toolboxPushed).gxuAccessoryInset()
@@ -81,6 +84,31 @@ struct RootView: View {
 }
 
 extension RootView {
+    /// 课表上的额外图层：考试（读 ExamKit 本地缓存里这个学期的考试）和实验课对教师 / 地点的覆盖（读 PEC 本地缓存）。
+    /// 都只读本地缓存、不联网；联网刷新由首页 / 各自的页面负责。
+    private var layersProvider: ScheduleExtraLayersProvider {
+        let services = resolvedServices
+        return { studentId, term in
+            let items = (try? await ExamRepository(database: services.database).allExams(studentId: studentId)) ?? []
+            let exams = items.compactMap { item -> GridExam? in
+                guard let start = item.date, let end = Self.examEnd(item.exam.time, start: start) else { return nil }
+                return GridExam(id: item.id, title: item.exam.course, location: item.exam.classroom, seat: item.exam.seatText, start: start, end: end)
+            }
+            let labs = await PhyExpRepository(database: services.database, client: NoPECClient()).cached(studentId: studentId)
+            let overrides = labs.compactMap { lab -> OccurrenceOverride? in
+                guard let date = lab.date() else { return nil }
+                return OccurrenceOverride(date: date, courseNameContains: "物理实验", teacher: lab.teacher, venue: lab.place)
+            }
+            return ScheduleExtraLayers(exams: exams, overrides: overrides)
+        }
+    }
+
+    /// 考试时间串 “2026-01-23(09:00-11:00)” 里的结束时刻
+    private static func examEnd(_ time: String, start: Date) -> Date? {
+        guard let match = time.firstMatch(of: /\((\d{2}):(\d{2})-(\d{2}):(\d{2})\)/), let h = Int(match.3), let m = Int(match.4) else { return nil }
+        return Calendar.current.date(bySettingHour: h, minute: m, second: 0, of: start)
+    }
+
     /// 偏好存在 App Group 的 KV 里（小组件也能读）；演示模式用标准 UserDefaults，避免污染真实数据
     static func makeSharedStore() -> any SharedStore {
         #if DEBUG
@@ -105,3 +133,8 @@ extension RootView {
 }
 
 #Preview { RootView() }
+
+/// 只读缓存时不会联网的 PEC 客户端占位（`PhyExpRepository.cached` 不会用到它）
+private struct NoPECClient: PECClient {
+    func ruleManage() async throws -> Data { throw GxuError.notLoggedIn(.unified) }
+}

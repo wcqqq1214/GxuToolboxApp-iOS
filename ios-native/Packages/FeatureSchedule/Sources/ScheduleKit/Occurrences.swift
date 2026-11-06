@@ -92,15 +92,22 @@ public struct ScheduleIndex: Sendable {
     public let occurrences: [CourseOccurrence]
     /// 假期 / 调休休息的整天块
     public let dayBlocks: [DayBlock]
+    /// 考试图层
+    public let examBlocks: [ExamBlock]
     private let byWeek: [Int: [CourseOccurrence]]
     private let blocksByWeek: [Int: [DayBlock]]
+    private let examsByWeek: [Int: [ExamBlock]]
 
-    public init(occurrences: [CourseOccurrence], dayBlocks: [DayBlock] = []) {
+    public init(occurrences: [CourseOccurrence], dayBlocks: [DayBlock] = [], examBlocks: [ExamBlock] = []) {
         self.occurrences = occurrences
         self.dayBlocks = dayBlocks
+        self.examBlocks = examBlocks
         self.byWeek = Dictionary(grouping: occurrences, by: \.week)
         self.blocksByWeek = Dictionary(grouping: dayBlocks, by: \.week)
+        self.examsByWeek = Dictionary(grouping: examBlocks, by: \.week)
     }
+
+    public func examBlocks(inWeek week: Int, weekday: Int) -> [ExamBlock] { (examsByWeek[week] ?? []).filter { $0.weekday == weekday } }
 
     public func dayBlocks(inWeek week: Int) -> [DayBlock] { blocksByWeek[week] ?? [] }
 
