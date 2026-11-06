@@ -92,6 +92,10 @@ public enum CampusFeature {
     @MainActor
     public static func makeTeachBuildingMapView() -> some View { TeachBuildingListView() }
 
+    /// 工具箱 → 空闲教室
+    @MainActor
+    public static func makeEmptyClassroomView() -> some View { EmptyClassroomView() }
+
     @MainActor
     public static func makeRootView() -> some View { makeClassScheduleView() }
 }

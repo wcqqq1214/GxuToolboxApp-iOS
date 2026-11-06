@@ -5,10 +5,12 @@ import SwiftUI
 struct ToolboxView: View {
     /// 切换标签页（“课表”入口用）
     let onSelectTab: (AppTab) -> Void
+    /// 有二级页面被推入时为 true。iOS 26 的底部附件不会跟着标签栏一起隐藏，要由外层据此明确关闭
+    @Binding var isPushed: Bool
     @State private var query = ""
+    @State private var path = NavigationPath()
     #if DEBUG
     /// 截图自查：`-GxuOpen <工具箱项 id>` 直接打开对应页面
-    @State private var debugOpen = ToolboxView.debugItem != nil
     private static var debugItem: ToolboxItem? {
         let args = ProcessInfo.processInfo.arguments
         guard let i = args.firstIndex(of: "-GxuOpen"), i + 1 < args.count else { return nil }
@@ -21,7 +23,7 @@ struct ToolboxView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: GxuDesign.Spacing.xl, pinnedViews: []) {
                     ForEach(ToolboxItem.Section.allCases) { section in
@@ -46,12 +48,18 @@ struct ToolboxView: View {
             .background(Color(.systemGroupedBackground))
             .navigationTitle("工具箱")
             .searchable(text: $query, prompt: "搜索功能")
-            #if DEBUG
-            .navigationDestination(isPresented: $debugOpen) {
-                if let item = Self.debugItem, let view = item.pushedView { view.navigationTitle(item.title).gxuHidesTabChrome() }
+            .navigationDestination(for: String.self) { id in
+                if let item = ToolboxCatalog.items.first(where: { $0.id == id }), let view = item.pushedView {
+                    view.navigationTitle(item.title).gxuHidesTabChrome()
+                }
             }
-            #endif
         }
+        .onChange(of: path.count) { _, count in isPushed = count > 0 }
+        #if DEBUG
+        .task {
+            if let item = Self.debugItem, path.isEmpty { path.append(item.id) }
+        }
+        #endif
     }
 }
 
@@ -61,8 +69,8 @@ private struct ToolboxCell: View {
 
     var body: some View {
         switch item.action {
-        case .push(let destination):
-            NavigationLink { destination().navigationTitle(item.title).gxuHidesTabChrome() } label: { cell }
+        case .push:
+            NavigationLink(value: item.id) { cell }
                 .buttonStyle(.plain)
         case .tab(let tab):
             Button { onSelectTab(tab) } label: { cell }

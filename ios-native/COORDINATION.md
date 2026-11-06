@@ -698,6 +698,16 @@ interrogate 审查循环结束（用户决定不再开新一轮）。详细决�
 
 截图（`ios-native/.screens/`，未提交）：`c-strategy-light.png`、`c-strategy-dark.png`、`c-gpa-light.png`、`c-gpa-dark.png`、考勤 `c-attendance-*.png`。
 
+
+### [v22] B：空闲教室（对齐 RN v2.2 `src/features/emptyClassroom`）已上线（Agent B）
+
+- 工具箱「空闲教室」→ `CampusFeature.makeEmptyClassroomView()`；工具箱“课表”改名“个人课表”。后端路由 `GET /jw/emptyClassroom`（`weekDay` / `weekList` / `timeList` / `year` / `term` / `pageNum` / `pageSize`，只接受逻辑学期 1 / 2），**路由是否真实存在由 A 的 `[gap-v22]` 确认，我还没有对真实后端验证（后续测试）**。
+- 功能：按时间查询（已缓存的周 / 日期、节次范围、楼栋筛选、指定教室、关键词、默认 / 空闲时间排序、分页、时段高亮的节次色条）、按教室查看一周的空闲时段、教室选择（楼栋 → 楼层 → 教室逐级下钻，全库搜索按“楼栋 · 楼层”分区，楼层从教室名推断）、缓存管理（1–20 周状态、缓存一周 = 7 天 × 13 节次并发请求、可取消并保留已缓存的天、60 秒冷却、删除 / 清空、占用估算）、选择持久化。
+- 本地库是全校公共数据（`empty_room` / `empty_day` / `empty_slot` / `empty_snapshot`，没有 studentId）。分页按 RN：优先 `totalCount`，其次 `totalPage`，都没有用短页判断；数据没取全抛错，不静默缓存被截断的数据；网络错误 / 5xx 重试 2 次；教务登录失效由后端客户端自动重新登录一次。
+- 测试：RN 的 floor / freeRuns / timeQuery / pagination / cacheRunner 用例都移植为单测，加上本地库查询 / 分页 / 排序 / 替换某天 / 删除；未做的：RN 的 `EMPTY_CLASSROOM_NEED_SHIFT`（补课日重映射，RN 里也是 false）。
+- **同时修了一个 iOS 26 的问题：** 二级页面隐藏标签栏时，底部“下一件事”附件并不会跟着隐藏（之前截图里“已隐藏”是因为当时恰好没有下一件事）。现在工具箱用 `NavigationStack(path:)`，有二级页面时由 RootView 关闭附件。
+- 截图（浅色 + 深色）：`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/empty-time-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/empty-room-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/empty-picker-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/empty-cache-light.png`；对照 `/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/phyexp-check-light.png`（附件已在二级页面隐藏）。
+
 ## Agent A 收到的请求
 
 - [ ] (C) v2.2 校选课进度：请抓一份 `GET /jw/elective-progress` 的真实脱敏响应放进 `Fixtures/sanitized/elective-progress.json`（我本机试登录得到 401，没有重试）。目前 `ElectiveProgress` 模型和测试夹具按 RN `schema/progress.ts` 构造，拿到样本后核对字段（尤其 `matchedBy`、`attempts`、`online` 可空）。

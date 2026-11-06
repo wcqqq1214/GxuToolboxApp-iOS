@@ -17,6 +17,8 @@ struct RootView: View {
     @State private var home = HomeModel()
     /// 每分钟更新一次，让“有没有下一件事”随时间变化（附件栏据此显示 / 隐藏）
     @State private var clock = Date.now
+    /// 工具箱里有二级页面时，底部附件要关掉（它不会跟着标签栏一起隐藏）
+    @State private var toolboxPushed = false
     @State private var preferences = SchedulePreferencesStore(shared: RootView.makeSharedStore())
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.services) private var services
@@ -46,7 +48,7 @@ struct RootView: View {
                 ScheduleFeature.makeRootView(onRequestLogin: { selection = .settings }).gxuAccessoryInset()
             }
             Tab("工具箱", systemImage: "square.grid.2x2", value: AppTab.toolbox) {
-                ToolboxView(onSelectTab: { selection = $0 }).gxuAccessoryInset()
+                ToolboxView(onSelectTab: { selection = $0 }, isPushed: $toolboxPushed).gxuAccessoryInset()
             }
             Tab("设置", systemImage: "gearshape", value: AppTab.settings) {
                 SettingsHomeView().gxuAccessoryInset()
@@ -55,7 +57,7 @@ struct RootView: View {
         .gxuTabBarMinimizeOnScroll()
         // 附件只在“课表”和“工具箱”首页出现：“今天”本身就是下一件事，设置页的列表不该被盖住；没有下一件事时直接隐藏；
         // 工具箱的二级页面隐藏标签栏时附件也一起收起
-        .gxuTabAccessory(isEnabled: home.phase == .ready && (selection == .schedule || selection == .toolbox) && home.hasNextEvent(now: clock)) { NextEventAccessory(model: home) }
+        .gxuTabAccessory(isEnabled: home.phase == .ready && (selection == .schedule || (selection == .toolbox && !toolboxPushed)) && home.hasNextEvent(now: clock)) { NextEventAccessory(model: home) }
         .gxuTheme(theme)
         .environment(preferences)
         .task {

@@ -243,3 +243,7 @@ ScheduleKit（无 UI 依赖）：
 **收尾（响应 C 的审查请求）：** `TermCalendar` 等在非公历设备日历下统一按公历计算，回归测试 `NonGregorianCalendarTests`（去掉修复时 4 个测试全部失败）。
 
 **自己做的判断：** ① 冲突选择 key 的格式变化会让旧选择失效，但这是发布前的数据，选择最小改动而不是写迁移；② 遇到“把错误行为写进去”的旧测试（`nextRefreshAt`、冲突 key 格式），改成断言正确语义并在提交说明里写明原因，不是删除或弱化；③ App 目标没有测试 target，Shell 层的逻辑修复（`HomeModel` 节流、`HomeView` 去重）把可测试的部分抽到 ScheduleKit（`RefreshThrottle`）并加测试，其余靠代码审查 + 构建；④ 新发现的缺口（只有 RN / 后端项）见 `[review-final]`。
+
+## v2.2 对齐进度（Agent B）
+- 已完成：工具箱（个人课表、空闲教室）、空闲教室全部功能（见 COORDINATION `[v22] B`）。
+- 待做：`src/features/courseSchedule` 的变化（大课表接入实验课 / 假期 / 考勤图层、跨数据源重叠块并排、课表底栏考试信息卡、课程信息栏、按账号和学期隔离、开学日期同步缓存、日程编辑修复、补课日保留当天项目、假期 NextEvent）；第 9、10 节合并行文字与 v2.2 的核对。

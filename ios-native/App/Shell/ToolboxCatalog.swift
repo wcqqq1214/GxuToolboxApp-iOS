@@ -61,7 +61,7 @@ enum ToolboxCatalog {
         item("attendance", "考勤信息", "person.badge.clock", .info, .push { AnyView(AttendanceView()) }),
         item("electiveStrategy", "校选课查漏", "checklist", .info, .push { AnyView(ElectiveStrategyView()) }),
         item("teacherInfo", "教师信息查询", "person.text.rectangle", .info, .push { AnyView(TeacherSearchView()) }),
-        item("emptyClassroom", "空闲教室", "calendar.badge.clock", .info),
+        item("emptyClassroom", "空闲教室", "calendar.badge.clock", .info, .push { AnyView(CampusFeature.makeEmptyClassroomView()) }),
         // 实践课
         item("phyExp", "物理实验课", "atom", .practice, .push { AnyView(CampusFeature.makePhyExpView()) }),
         item("engTraining", "金工实训", "wrench.and.screwdriver", .practice, .push { AnyView(CampusFeature.makeEngTrainingView()) }),
