@@ -71,7 +71,8 @@ public struct ScheduleRootView: View {
         }
         .sheet(item: $editor) { request in
             ActivityEditorSheet(
-                activity: request.activity, isNew: request.isNew, weekCount: model.weekCount, palette: preferences.value.palette,
+                activity: request.activity, isNew: request.isNew, weekCount: model.weekCount,
+                termTitle: model.term.map { "\($0.year) 学年第 \($0.term) 学期" } ?? "", palette: preferences.value.palette,
                 onSave: { activity in Task { await model.save(activity) } },
                 onDelete: request.isNew ? nil : { Task { await model.delete(request.activity) } }
             )
@@ -121,14 +122,14 @@ public struct ScheduleRootView: View {
         ToolbarItem(placement: .topBarLeading) {
             if model.phase == .content {
                 Menu {
-                    Button("添加日程", systemImage: "plus") { addActivity() }
-                    Button("我的日程", systemImage: "list.bullet") { showActivityList = true }
+                    Button("添加实验课", systemImage: "plus") { addActivity() }
+                    Button("我的实验课", systemImage: "list.bullet") { showActivityList = true }
                     Divider()
                     Button("分享本周课表", systemImage: "square.and.arrow.up") { showShare = true }
                 } label: {
                     Image(systemName: "plus.circle")
                 }
-                .accessibilityLabel("日程")
+                .accessibilityLabel("实验课")
             }
         }
         ToolbarItem(placement: .topBarTrailing) {
@@ -151,8 +152,8 @@ public struct ScheduleRootView: View {
         switch args[i + 1] {
         case "add": addActivity()
         case "list":
-            await model.save(CustomActivity(name: "社团例会", note: "活动室", weekday: 3, begin: 9, end: 10, weekFrom: 1, weekTo: 12, colorHex: 0xB3E5FC))
-            await model.save(CustomActivity(name: "英语角", weekday: 5, begin: 11, end: 12, weekFrom: 3, weekTo: 3, colorHex: 0xFFE0B2))
+            await model.save(CustomActivity(name: "光学实验", note: "带预习报告", location: "理科楼 301", teacher: "教师甲", weekday: 3, begin: 9, end: 10, weeks: [1, 2, 3, 4, 6, 8, 10], colorHex: 0xB3E5FC))
+            await model.save(CustomActivity(name: "电学实验", weekday: 5, begin: 11, end: 12, weeks: [3], colorHex: 0xFFE0B2))
             showActivityList = true
         case "share": showShare = true
         case "detail":

@@ -2,75 +2,124 @@ import GxuDesign
 import ScheduleKit
 import SwiftUI
 
-/// 新增 / 编辑自定义日程。用系统 Form；保存按钮在没填名字时不可用。
+/// 新增 / 编辑实验课（RN `CustomEventsSheet` 的表单）：名称、教学周（文本，如 1-8,10,12）、星期、开始 / 结束节次、地点、教师、备注。
+/// 草稿只在点“保存”时校验并提交；校验信息写在表单里。
 struct ActivityEditorSheet: View {
     @State var activity: CustomActivity
     let isNew: Bool
     let weekCount: Int
+    let termTitle: String
     let palette: CoursePalette
     let onSave: (CustomActivity) -> Void
     let onDelete: (() -> Void)?
     @Environment(\.dismiss) private var dismiss
+    @State private var weeksText: String
+    @State private var message: String?
+    @State private var confirmDelete = false
+
+    init(
+        activity: CustomActivity, isNew: Bool, weekCount: Int, termTitle: String, palette: CoursePalette,
+        onSave: @escaping (CustomActivity) -> Void, onDelete: (() -> Void)?
+    ) {
+        _activity = State(initialValue: activity)
+        _weeksText = State(initialValue: activity.weeksInputText)
+        self.isNew = isNew
+        self.weekCount = weekCount
+        self.termTitle = termTitle
+        self.palette = palette
+        self.onSave = onSave
+        self.onDelete = onDelete
+    }
 
     var body: some View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("名称（必填）", text: $activity.name)
-                    TextField("备注（可选）", text: $activity.note, axis: .vertical)
-                        .lineLimit(1...4)
+                    TextField("实验课名称（必填）", text: $activity.name)
+                } footer: {
+                    Text(termTitle)
                 }
 
-                Section("时间") {
+                Section {
+                    LabeledContent("教学周") {
+                        TextField("教学周", text: $weeksText, prompt: Text("例如 1-8,10,12"))
+                            .multilineTextAlignment(.trailing)
+                            .keyboardType(.numbersAndPunctuation)
+                            .autocorrectionDisabled()
+                    }
                     Picker("星期", selection: $activity.weekday) {
                         ForEach(1...7, id: \.self) { Text(WeekdayName.full($0)).tag($0) }
                     }
-                    Picker("开始", selection: beginBinding) {
+                    Picker("开始节次", selection: beginBinding) {
                         ForEach(ClassPeriods.all, id: \.number) { Text("第 \($0.number) 节  \($0.startText)").tag($0.number) }
                     }
-                    Picker("结束", selection: endBinding) {
+                    Picker("结束节次", selection: endBinding) {
                         ForEach(ClassPeriods.all.filter { $0.number >= activity.begin }, id: \.number) {
                             Text("第 \($0.number) 节  \($0.endText)").tag($0.number)
                         }
                     }
-                    Picker("从", selection: weekFromBinding) {
-                        ForEach(1...weekCount, id: \.self) { Text("第 \($0) 周").tag($0) }
-                    }
-                    Picker("到", selection: $activity.weekTo) {
-                        ForEach(activity.weekFrom...max(weekCount, activity.weekFrom), id: \.self) { Text("第 \($0) 周").tag($0) }
-                    }
+                } header: {
+                    Text("时间")
+                } footer: {
+                    if !isNew { Text("修改会应用到此实验课的所有教学周。") }
+                }
+
+                Section {
+                    TextField("地点（选填）", text: $activity.location)
+                    TextField("教师（选填）", text: $activity.teacher)
+                    TextField("备注（选填）", text: $activity.note, axis: .vertical)
+                        .lineLimit(1...4)
                 }
 
                 Section("颜色") {
                     ColorSwatches(selected: $activity.colorHex, colors: palette.colors)
                 }
 
-                if let onDelete {
+                if let message {
+                    Section { Text(message).foregroundStyle(.red) }
+                }
+
+                if onDelete != nil {
                     Section {
-                        Button("删除日程", role: .destructive) {
-                            onDelete()
-                            dismiss()
-                        }
+                        Button("删除实验课", role: .destructive) { confirmDelete = true }
                     }
                 }
             }
-            .navigationTitle(isNew ? "添加日程" : "编辑日程")
+            .navigationTitle(isNew ? "添加实验课" : "编辑实验课")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("保存") {
-                        onSave(activity)
-                        dismiss()
-                    }
-                    .disabled(!activity.isValid)
+                ToolbarItem(placement: .confirmationAction) { Button("保存", action: submit) }
+            }
+            .confirmationDialog("删除实验课", isPresented: $confirmDelete, titleVisibility: .visible) {
+                Button("删除", role: .destructive) {
+                    onDelete?()
+                    dismiss()
                 }
+            } message: {
+                Text("确定删除“\(activity.name)”及其所有重复安排？")
             }
         }
         .presentationDetents([.large])
     }
 
-    // 开始晚于结束时把结束顺延；起始周晚于结束周时把结束周顺延
+    private func submit() {
+        message = nil
+        do {
+            activity.weeks = try TeachingWeeks.parse(weeksText, weekCount: weekCount)
+        } catch {
+            message = error.localizedDescription
+            return
+        }
+        if let problem = activity.validationMessage {
+            message = problem
+            return
+        }
+        onSave(activity)
+        dismiss()
+    }
+
+    // 开始晚于结束时把结束顺延
     private var beginBinding: Binding<Int> {
         Binding(get: { activity.begin }, set: {
             activity.begin = $0
@@ -79,12 +128,6 @@ struct ActivityEditorSheet: View {
     }
     private var endBinding: Binding<Int> {
         Binding(get: { max(activity.end, activity.begin) }, set: { activity.end = $0 })
-    }
-    private var weekFromBinding: Binding<Int> {
-        Binding(get: { activity.weekFrom }, set: {
-            activity.weekFrom = $0
-            activity.weekTo = max(activity.weekTo, $0)
-        })
     }
 }
 
@@ -115,7 +158,7 @@ private struct ColorSwatches: View {
     }
 }
 
-/// 日程管理：列表、点击编辑、左滑删除、右上角添加
+/// 我的实验课：列表、点击编辑、左滑删除、右上角添加
 struct ActivityListSheet: View {
     let activities: [CustomActivity]
     let onAdd: () -> Void
@@ -127,7 +170,7 @@ struct ActivityListSheet: View {
         NavigationStack {
             Group {
                 if activities.isEmpty {
-                    GxuEmptyView("还没有自己的日程", systemImage: "calendar.badge.plus", message: "添加社团活动、自习等，会和课程一起显示在课表里", actionTitle: "添加日程", action: onAdd)
+                    GxuEmptyView("还没有实验课", systemImage: "flask", message: "添加实验课的教学周、星期和节次，会和课程一起显示在课表里", actionTitle: "添加实验课", action: onAdd)
                 } else {
                     List {
                         ForEach(activities) { activity in
@@ -137,10 +180,12 @@ struct ActivityListSheet: View {
                                         .fill(CourseTint(hex: activity.colorHex).marker)
                                         .frame(width: 5, height: 36)
                                     VStack(alignment: .leading, spacing: 2) {
-                                        Text(activity.name).foregroundStyle(.primary)
+                                        Text(activity.name).foregroundStyle(Color.primary)
                                         Text("\(activity.weekText) · \(WeekdayName.full(activity.weekday)) 第\(activity.begin)-\(activity.end)节")
                                             .font(.footnote)
                                             .foregroundStyle(Color.secondary)
+                                        let extra = [activity.location, activity.teacher, activity.note].filter { !$0.isEmpty }.joined(separator: " · ")
+                                        if !extra.isEmpty { Text(extra).font(.footnote).foregroundStyle(Color.secondary).lineLimit(1) }
                                     }
                                 }
                             }
@@ -149,7 +194,7 @@ struct ActivityListSheet: View {
                     }
                 }
             }
-            .navigationTitle("我的日程")
+            .navigationTitle("我的实验课")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("完成") { dismiss() } }

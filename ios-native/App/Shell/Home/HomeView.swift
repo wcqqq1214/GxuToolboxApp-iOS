@@ -225,7 +225,8 @@ private struct EventCard: View {
 
     private var caption: String {
         switch event {
-        case .course(_, true, _): "正在上课"
+        case .course(let item, true, _): item.course.isCustom ? "正在上实验课" : "正在上课"
+        case .course(let item, false, _) where item.course.isCustom: "下节实验课"
         case .course(_, false, true): "明天第一节课"
         case .course: "下一节课"
         case .exam(_, true): "考试进行中"

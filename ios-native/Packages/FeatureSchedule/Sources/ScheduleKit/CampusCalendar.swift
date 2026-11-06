@@ -221,7 +221,8 @@ public enum CalendarOverlay {
         var result = occurrences.filter { item in
             // 补课日保留当天原有的课（RN v2.2 `showPreShiftItems`）：被调过来的课和原有的课并排显示，不互相替换；
             // 假期只是一层底部横幅（RN `useTimelineLayers` 的假期图层 `needShift: false`），课程照常保留；只有调休休息日的课会被移走
-            !restDates.contains(item.date)
+            // RN 的实验课图层 needShift 为真但没有 showPreShiftItems：补课日当天原有的实验课不显示
+            !restDates.contains(item.date) && !(item.course.isCustom && workDates.contains(item.date))
         }
         for rule in rules {
             for source in occurrences where source.date == rule.rest {
