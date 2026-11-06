@@ -37,6 +37,7 @@ final class TeacherSearchModel {
         version += 1
         let mine = version
         active = key; results = []; total = 0; page = 1; pages = 0; searchError = nil; moreError = nil
+        isLoadingMore = false   // 正在翻页的请求已被这次搜索作废，它的 defer 不会再清这个标志
         isSearching = true
         defer { if version == mine { isSearching = false } }
         do {
@@ -69,7 +70,7 @@ final class TeacherSearchModel {
 
     func retryMore() async { moreError = nil; await loadMore() }
 
-    func reset() { version += 1; keyword = ""; active = ""; results = []; total = 0; page = 1; pages = 0; searchError = nil; moreError = nil; isSearching = false }
+    func reset() { version += 1; isLoadingMore = false; keyword = ""; active = ""; results = []; total = 0; page = 1; pages = 0; searchError = nil; moreError = nil; isSearching = false }
 }
 
 public struct TeacherSearchView: View {

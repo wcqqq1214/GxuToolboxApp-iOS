@@ -34,6 +34,10 @@ public enum WidgetBridge {
         let snapshot = await SnapshotProvider.compute(studentId: studentId, database: services.database, now: now)
         services.shared.set(snapshot, for: ScheduleKit.widgetSnapshotKey(studentId: studentId))
         services.shared.set(studentId, for: WidgetShared.activeStudentIdKey)
+        // 最后一节课结束后刷新时 `today` 为空，另记一笔"今天有过课"，小组件才能写"今天的课已上完"
+        var had = !snapshot.today.isEmpty
+        if !had { had = await SnapshotProvider.hadClasses(on: now, studentId: studentId, database: services.database) }
+        services.shared.set(had ? Calendar.current.startOfDay(for: now) : nil, for: WidgetShared.hadClassesDayKey)
         WidgetCenter.shared.reloadAllTimelines()
         await ClassActivityController.shared.sync(snapshot: snapshot, now: now)
     }
@@ -42,6 +46,8 @@ public enum WidgetBridge {
 public enum WidgetShared {
     /// 小组件扩展不依赖 Keychain 就能知道该读哪个学号的快照
     public static let activeStudentIdKey = SharedKey<String>("widget.activeStudentId")
+    /// 刷新快照时发现"这一天有过课"，值是那天的 00:00（只对那一天有效）
+    public static let hadClassesDayKey = SharedKey<Date>("widget.hadClassesDay")
 
     /// 读当前账号的快照；没有账号或没有快照返回 nil
     public static func currentSnapshot(store: any SharedStore) -> NextCourses? {

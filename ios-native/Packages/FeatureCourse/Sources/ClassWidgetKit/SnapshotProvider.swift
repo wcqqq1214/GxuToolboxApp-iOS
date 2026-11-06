@@ -21,6 +21,13 @@ public enum SnapshotProvider {
     }
 }
 
+extension SnapshotProvider {
+    /// `day` 这天本来有没有课（含已结束的），读本地缓存，出错按"没有"
+    public static func hadClasses(on day: Date, studentId: String, database: AppDatabase, calendar: Calendar = .current) async -> Bool {
+        ((try? await ScheduleQuery.courses(on: day, studentId: studentId, database: database, calendar: calendar)) ?? []).isEmpty == false
+    }
+}
+
 /// 只读缓存时用：任何网络请求都失败
 struct UnavailableBackend: BackendAPI {
     func get<T: Decodable & Sendable>(_ path: String, query: [String: String], auth: AuthSystem?, as type: T.Type) async throws -> T {

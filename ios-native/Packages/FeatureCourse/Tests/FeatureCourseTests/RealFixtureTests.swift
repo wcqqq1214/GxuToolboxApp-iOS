@@ -2,6 +2,7 @@ import ExamKit
 import Foundation
 import GxuFoundation
 import GxuStorage
+import ScheduleKit
 import Testing
 @testable import FeatureCourse
 
@@ -166,5 +167,37 @@ private func passedNames(adding extra: [String] = []) throws -> Set<String> {
             let rows = ElectiveStrategies.strategy(forGrade: g).rows(s)
             #expect(rows.first { $0.id == "ent" }?.value == "2 / 2")
         }
+    }
+}
+
+@Suite struct HostileInputTests {
+    private func decode(_ json: String) throws -> SelectedCourse { try JSONDecoder().decode(SelectedCourse.self, from: Data(json.utf8)) }
+
+    @Test func hugeYearOrTermDoesNotTrapAndIsRejectedOnWrite() async throws {
+        let c = try decode(#"{"classId":"a","courseName":"x","credit":1,"year":1e30,"term":-1e30}"#)
+        #expect(c.year == 0 && c.term == 0)
+        let repo = SelectedCourseRepository(database: try AppDatabase.inMemory(features: [CourseFeature.migrations]))
+        await #expect(throws: GxuError.self) { try await repo.replaceAll([c], studentId: "s1") }
+        #expect(try await repo.list(studentId: "s1", scope: .all).isEmpty)
+    }
+
+    @Test func duplicateClassIdKeepsLastLikeRN() async throws {
+        let repo = SelectedCourseRepository(database: try AppDatabase.inMemory(features: [CourseFeature.migrations]))
+        func item(_ name: String) -> SelectedCourse { SelectedCourse(classId: "k", courseName: name, credit: 1, year: 2025, term: 1) }
+        try await repo.replaceAll([item("OLD"), item("NEW")], studentId: "s1")
+        #expect(try await repo.list(studentId: "s1", scope: .all).map(\.courseName) == ["NEW"])
+    }
+
+    @Test func invalidCalendarDatesAreNotInvented() {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "Asia/Shanghai")!
+        #expect(DayText.parse("2026-02-30", calendar: cal) == nil)
+        #expect(DayText.parse("2026-13-01", calendar: cal) == nil)
+        #expect(DayText.parse("2026-00-10", calendar: cal) == nil)
+        #expect(DayText.parse("2026-02-28", calendar: cal) != nil)
+        // 非法日期的假期条目被丢弃，不会变成别的日子
+        let campus = CampusCalendar(timeShift: [], holidays: [HolidayRange(title: "坏", from: "2026-02-30", to: "2026-03-02")])
+        let p = HolidayPresentation.build(campus, now: .now, calendar: cal)
+        #expect(p.current.isEmpty && p.past.isEmpty)
     }
 }

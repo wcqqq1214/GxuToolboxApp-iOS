@@ -175,3 +175,28 @@ private func snapshot(now: String, today: [WidgetCourse], tomorrow: [WidgetCours
         #expect(ScheduleQuery.courses(on: at("2026-11-10 12:00"), schedule: schedule, term: term).isEmpty)
     }
 }
+
+@Suite struct HadClassesTodayTests {
+    private func snapshotAfterLastClass() -> NextCourses {
+        let term = TermCalendar(startDate: at("2026-11-02 00:00"), weekCount: 20, calendar: cal)
+        let schedule = Schedule(theoryList: [TheoryCourse(sectionRange: "1-2", begin: 1, end: 2, courseName: "高数", weeks: [1], weekday: 4)])
+        // 11:00 刷新：08:00–09:40 的课已经结束，快照的 today 为空
+        return NextCourseCalculator.compute(schedule: schedule, term: term, now: at("2026-11-05 11:00"))
+    }
+
+    @Test func withoutHintFinishedDayLooksEmpty() {
+        let e = ScheduleTimeline.entry(at: at("2026-11-05 12:00"), snapshot: snapshotAfterLastClass(), calendar: cal)
+        #expect(e.phase == .finished && !e.hadClassesToday)   // 快照本身丢了信息
+    }
+
+    @Test func hintKeepsTodayClassesAfterRefreshFollowingLastClass() {
+        let day = cal.startOfDay(for: at("2026-11-05 11:00"))
+        let e = ScheduleTimeline.entry(at: at("2026-11-05 12:00"), snapshot: snapshotAfterLastClass(), calendar: cal, hadClassesOn: day)
+        #expect(e.hadClassesToday)
+        // 提示只对那一天有效，第二天不能沿用
+        let next = ScheduleTimeline.entry(at: at("2026-11-06 09:00"), snapshot: snapshotAfterLastClass(), calendar: cal, hadClassesOn: day)
+        #expect(!next.hadClassesToday)
+        let (entries, _) = ScheduleTimeline.entries(snapshot: snapshotAfterLastClass(), now: at("2026-11-05 12:00"), calendar: cal, hadClassesOn: day)
+        #expect(entries.first?.hadClassesToday == true)
+    }
+}

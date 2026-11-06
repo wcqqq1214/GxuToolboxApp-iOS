@@ -76,8 +76,8 @@ public struct SelectedCourse: Codable, Hashable, Sendable, Identifiable {
         teacherId = c.lenientText(.teacherId)
         location = c.lenientText(.location)
         credit = c.lenientNumber(.credit) ?? 0
-        year = Int(c.lenientNumber(.year) ?? 0)
-        term = Int(c.lenientNumber(.term) ?? 0)
+        year = c.lenientInt(.year) ?? 0
+        term = c.lenientInt(.term) ?? 0
     }
 }
 
@@ -87,6 +87,12 @@ private extension KeyedDecodingContainer {
         if let v = try? decodeIfPresent(Int.self, forKey: key) { return String(v) }
         if let v = try? decodeIfPresent(Double.self, forKey: key) { return String(v) }
         return ""
+    }
+
+    /// 超出 Int 范围的数字直接转 Int 会崩溃，当作缺失（0），后面 `rows()` 会以"学年学期无效"拒绝
+    func lenientInt(_ key: Key) -> Int? {
+        guard let v = lenientNumber(key), abs(v) < 1e15 else { return nil }
+        return Int(v)
     }
 
     func lenientNumber(_ key: Key) -> Double? {
@@ -209,17 +215,18 @@ public struct SelectedCourseRepository: Sendable {
     }
 
     private static func rows(_ items: [SelectedCourse], studentId: String, now: Date) throws -> [SelectedCourseRecord] {
-        var seen = Set<String>()
+        // 同一学期同一教学班出现多次时留最后一条（RN 的 Map 也是后写覆盖先写），位置保持第一次出现的位置
+        var index: [String: Int] = [:]
         var rows: [SelectedCourseRecord] = []
         for c in items {
             guard !c.classId.isEmpty else { throw GxuError.invalidData("已选课程缺少教学班标识") }
             guard (1...3).contains(c.term), c.year > 0 else { throw GxuError.invalidData("已选课程学年学期无效：\(c.year)/\(c.term)") }
-            guard seen.insert(c.id).inserted else { continue }   // 同一学期同一教学班只留一条
-            rows.append(SelectedCourseRecord(
+            let row = SelectedCourseRecord(
                 studentId: studentId, year: c.year, term: c.term, classId: c.classId, courseId: c.courseId,
                 courseName: c.courseName, type: c.type, selectionType: c.selectionType, classification: c.classification,
                 belongTo: c.belongTo, system: c.system, teacher: c.teacher, teacherId: c.teacherId, location: c.location, credit: c.credit, updatedAt: now
-            ))
+            )
+            if let i = index[c.id] { rows[i] = row } else { index[c.id] = rows.count; rows.append(row) }
         }
         return rows
     }

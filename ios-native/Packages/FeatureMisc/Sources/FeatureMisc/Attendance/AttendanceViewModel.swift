@@ -26,6 +26,8 @@ final class AttendanceViewModel {
     private(set) var access: Access = .ok
 
     private var page = 1
+    /// 每次 load / 换学期都递增；下拉刷新的请求不会被 `.task(id:)` 取消，旧响应回来时靠它判断是否已过期
+    private var loadVersion = 0
     private let api: AttendanceAPI
     private let services: AppServices
     private let pageSize = 20
@@ -44,6 +46,7 @@ final class AttendanceViewModel {
     private func resetForCalendar() {
         records = []; termRecords = []; courses = []; page = 1; hasMore = false; totalRecords = 0
         if let calendar { week = calendar.currentWeek() }
+        loadVersion += 1
     }
 
     private func checkAccess() -> Bool {
@@ -66,17 +69,25 @@ final class AttendanceViewModel {
     func load() async {
         guard checkAccess() else { return }
         error = nil
+        loadVersion += 1
+        var version = loadVersion
         isLoading = true
-        defer { isLoading = false }
+        defer { if version == loadVersion { isLoading = false } }
         do {
             if calendars.isEmpty {
-                calendars = try await api.calendars()
-                if calendarId == nil { calendarId = (calendars.first { $0.isCurrent } ?? calendars.last)?.calendarId }
+                let loaded = try await api.calendars()
+                guard version == loadVersion else { return }
+                calendars = loaded
+                if calendarId == nil {
+                    calendarId = (calendars.first { $0.isCurrent } ?? calendars.last)?.calendarId   // 设置默认学期会触发 didSet 递增版本，这不是用户切换，沿用新版本
+                    version = loadVersion
+                }
             }
             guard let calendarId else { return }
             switch mode {
             case .records:
                 let first = try await api.records(calendarId: calendarId, page: 1, pageSize: pageSize)
+                guard version == loadVersion else { return }   // 期间换了学期或又发起了加载：旧响应作废
                 records = first.records
                 page = first.pageIndex
                 totalRecords = first.totalRecord
@@ -86,8 +97,11 @@ final class AttendanceViewModel {
                 guard let userId = services.accounts.attendance?.loginInfo?.userId else { throw GxuError.sessionExpired(.attendance) }
                 async let table = api.schedule(calendarId: calendarId, week: week, userId: userId)
                 async let all = api.records(calendarId: calendarId, page: 1, pageSize: 1000)
-                courses = try await table
-                termRecords = try await all.records
+                let loadedCourses = try await table
+                let loadedRecords = try await all.records
+                guard version == loadVersion else { return }
+                courses = loadedCourses
+                termRecords = loadedRecords
             }
         } catch {
             handle(error)
@@ -96,10 +110,12 @@ final class AttendanceViewModel {
 
     func loadMore() async {
         guard mode == .records, hasMore, !isLoading, access == .ok, let calendarId else { return }
+        let version = loadVersion
         isLoading = true
-        defer { isLoading = false }
+        defer { if version == loadVersion { isLoading = false } }
         do {
             let next = try await api.records(calendarId: calendarId, page: page + 1, pageSize: pageSize)
+            guard version == loadVersion else { return }
             records += next.records
             page = next.pageIndex
             hasMore = next.pageIndex < next.totalPage

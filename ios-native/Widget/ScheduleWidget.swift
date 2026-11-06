@@ -15,15 +15,17 @@ struct ScheduleProvider: TimelineProvider {
         return WidgetShared.currentSnapshot(store: store) ?? .empty(.missingSchedule, now: .now)
     }
 
+    private func hadClassesDay() -> Date? { UserDefaultsSharedStore().value(WidgetShared.hadClassesDayKey) }
+
     func placeholder(in context: Context) -> ScheduleTimelineEntry { ScheduleTimelineEntry(content: .sample) }
 
     func getSnapshot(in context: Context, completion: @escaping (ScheduleTimelineEntry) -> Void) {
         if context.isPreview { return completion(ScheduleTimelineEntry(content: .sample)) }
-        completion(ScheduleTimelineEntry(content: ScheduleTimeline.entry(at: .now, snapshot: load())))
+        completion(ScheduleTimelineEntry(content: ScheduleTimeline.entry(at: .now, snapshot: load(), hadClassesOn: hadClassesDay())))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<ScheduleTimelineEntry>) -> Void) {
-        let (entries, reloadAfter) = ScheduleTimeline.entries(snapshot: load(), now: .now)
+        let (entries, reloadAfter) = ScheduleTimeline.entries(snapshot: load(), now: .now, hadClassesOn: hadClassesDay())
         completion(Timeline(entries: entries.map(ScheduleTimelineEntry.init), policy: .after(reloadAfter)))
     }
 }

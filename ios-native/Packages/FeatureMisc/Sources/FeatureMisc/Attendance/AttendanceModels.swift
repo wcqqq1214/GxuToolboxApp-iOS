@@ -232,7 +232,11 @@ enum AttendanceDay {
     static func parse(_ text: String, calendar: Calendar = .current) -> Date? {
         let parts = text.prefix(10).split(separator: "-").compactMap { Int($0) }
         guard parts.count == 3 else { return nil }
-        return calendar.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2]))
+        let comps = DateComponents(year: parts[0], month: parts[1], day: parts[2])
+        guard let date = calendar.date(from: comps) else { return nil }
+        let back = calendar.dateComponents([.year, .month, .day], from: date)
+        guard back.year == parts[0], back.month == parts[1], back.day == parts[2] else { return nil }   // 无效日期不顺延
+        return date
     }
 }
 
@@ -245,7 +249,8 @@ private extension KeyedDecodingContainer {
 
     func lenientInt(_ key: Key) -> Int? {
         if let v = try? decodeIfPresent(Int.self, forKey: key) { return v }
-        if let v = try? decodeIfPresent(Double.self, forKey: key), v.isFinite { return Int(v) }
+        // 超出 Int 范围的数字转 Int 会直接崩溃，当作缺失处理
+        if let v = try? decodeIfPresent(Double.self, forKey: key), v.isFinite, abs(v) < 1e15 { return Int(v) }
         if let v = try? decodeIfPresent(String.self, forKey: key) { return Int(v.trimmingCharacters(in: .whitespaces)) }
         return nil
     }

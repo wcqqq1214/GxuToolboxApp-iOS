@@ -6,7 +6,12 @@ enum DayText {
     static func parse(_ text: String, calendar: Calendar) -> Date? {
         let parts = text.prefix(10).split(separator: "-").compactMap { Int($0) }
         guard parts.count == 3 else { return nil }
-        return calendar.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2]))
+        let comps = DateComponents(year: parts[0], month: parts[1], day: parts[2])
+        guard let date = calendar.date(from: comps) else { return nil }
+        // Calendar 会把 2026-02-30 悄悄变成 3 月 2 日：往回取一次，对不上就是无效日期，不"编造"日期
+        let back = calendar.dateComponents([.year, .month, .day], from: date)
+        guard back.year == parts[0], back.month == parts[1], back.day == parts[2] else { return nil }
+        return date
     }
 
     /// `2月15日`

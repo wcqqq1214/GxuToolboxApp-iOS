@@ -49,7 +49,9 @@ public enum ScheduleTimeline {
     /// 一个 Timeline 最多放多少个条目（每节课开始 / 结束各一个，一天最多 6 节课 ≈ 12 个）
     public static let maxEntries = 24
 
-    public static func entry(at date: Date, snapshot: NextCourses, calendar: Calendar = .current) -> ScheduleWidgetEntry {
+    /// - Parameter hadClassesOn: App 刷新快照时发现"这一天有过课"的那一天。快照的 `today` 只含还没结束的课，
+    ///   最后一节课结束后再刷新，`today` 为空，没有这个信息会把"今天的课已上完"误报成"今天没有课"
+    public static func entry(at date: Date, snapshot: NextCourses, calendar: Calendar = .current, hadClassesOn: Date? = nil) -> ScheduleWidgetEntry {
         guard snapshot.state == .ready else { return ScheduleWidgetEntry(date: date, phase: .unavailable(snapshot.state)) }
 
         let all = uniqueCourses(snapshot)
@@ -74,14 +76,14 @@ public enum ScheduleTimeline {
 
         return ScheduleWidgetEntry(
             date: date, phase: phase, current: isStale ? nil : current, upcoming: isStale ? [] : upcoming,
-            tomorrow: isStale ? [] : tomorrow, next: next, hadClassesToday: !today.isEmpty
+            tomorrow: isStale ? [] : tomorrow, next: next, hadClassesToday: !today.isEmpty || (hadClassesOn.map { calendar.isDate($0, inSameDayAs: date) } ?? false)
         )
     }
 
     /// 从 `now` 起的条目：现在一个，之后每节课开始和结束各一个，另加每天零点一个（日期翻页）。
     /// `reloadAfter` 是最后一个条目的时间，WidgetKit 之后会重新请求时间线。
     public static func entries(
-        snapshot: NextCourses, now: Date, calendar: Calendar = .current
+        snapshot: NextCourses, now: Date, calendar: Calendar = .current, hadClassesOn: Date? = nil
     ) -> (entries: [ScheduleWidgetEntry], reloadAfter: Date) {
         var boundaries = Set<Date>()
         for course in uniqueCourses(snapshot) {
@@ -94,7 +96,7 @@ public enum ScheduleTimeline {
             if let midnight = calendar.date(byAdding: .day, value: offset, to: base), midnight > now { boundaries.insert(midnight) }
         }
         let dates = [now] + boundaries.sorted().prefix(maxEntries - 1)
-        let entries = dates.map { entry(at: $0, snapshot: snapshot, calendar: calendar) }
+        let entries = dates.map { entry(at: $0, snapshot: snapshot, calendar: calendar, hadClassesOn: hadClassesOn) }
         return (entries, dates.last ?? now)
     }
 
