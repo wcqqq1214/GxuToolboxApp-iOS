@@ -1,22 +1,17 @@
 import {Text, useTheme} from "@rneui/themed";
-import {StyleSheet, ToastAndroid, TouchableOpacity, View} from "react-native";
+import {StyleSheet, TouchableOpacity, View} from "react-native";
 import {Icon} from "@/components/un-ui/Icon.tsx";
 import Flex from "@/components/un-ui/Flex.tsx";
 import {Color} from "@/shared/color.ts";
-import {IPos} from "@/type/pos.ts";
-import {Pos} from "@/js/pos.ts";
+import type {Building} from "@/features/map/type.ts";
+import {useMapNavigation} from "@/features/map/hooks/useMapNavigation.ts";
 
 interface Props {
-    building: IPos;
+    building: Building;
 }
 
 export default function BuildingListItem(props: Props) {
-    const openMap = async () => {
-        Pos.searchInMap(props.building).catch(e => {
-            console.error(e);
-            ToastAndroid.show("无法打开地图", ToastAndroid.SHORT);
-        });
-    };
+    const {openMap} = useMapNavigation();
 
     const {theme} = useTheme();
     const defaultColor = Color.mix(
@@ -61,7 +56,7 @@ export default function BuildingListItem(props: Props) {
     });
 
     return (
-        <TouchableOpacity onPress={openMap}>
+        <TouchableOpacity onPress={() => openMap(props.building.fullName)}>
             <View style={styles.container}>
                 <Flex direction="column" align="flex-start" style={{flex: 1}}>
                     <Text style={styles.nameText}>{props.building.name}</Text>

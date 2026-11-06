@@ -4,11 +4,10 @@ import {Image, StyleSheet, View} from "react-native";
 import {useSafeAreaInsets} from "react-native-safe-area-context";
 import {Icon} from "@/components/un-ui/Icon.tsx";
 import {UnBottomSheet, UnPressable} from "@/components/un-ui";
-
-export type MapPickerApp = "amap" | "baidu";
+import type {MapApp} from "@/features/map/type.ts";
 
 export type MapPickerOption = {
-    app: MapPickerApp;
+    app: MapApp;
     label: string;
 };
 
@@ -18,8 +17,8 @@ type MapPickerRequest = {
     options: MapPickerOption[];
 };
 
-type MapPickerResolver = (value: MapPickerApp | null) => void;
-type MapPickerHandler = (request: MapPickerRequest) => Promise<MapPickerApp | null>;
+type MapPickerResolver = (value: MapApp | null) => void;
+type MapPickerHandler = (request: MapPickerRequest) => Promise<MapApp | null>;
 
 let mapPickerHandler: MapPickerHandler | null = null;
 const mapAppIcons = {
@@ -27,8 +26,8 @@ const mapAppIcons = {
     baidu: require("@/pictures/baidu.png"),
 } as const;
 
-export function requestMapPicker(request: MapPickerRequest): Promise<MapPickerApp | null> | undefined {
-    return mapPickerHandler?.(request);
+export function requestMapPicker(request: MapPickerRequest): Promise<MapApp | null> {
+    return mapPickerHandler ? mapPickerHandler(request) : Promise.resolve(null);
 }
 
 export function MapPickerHost() {
@@ -149,14 +148,14 @@ export function MapPickerHost() {
         },
     }), [theme]);
 
-    function close(value: MapPickerApp | null) {
+    function close(value: MapApp | null) {
         const resolver = resolverRef.current;
         resolverRef.current = null;
         setRequest(null);
         resolver?.(value);
     }
 
-    function renderMapAppIcon(app: MapPickerApp) {
+    function renderMapAppIcon(app: MapApp) {
         return (
             <View style={styles.appIconOuter}>
                 <Image source={mapAppIcons[app]} style={styles.appIconImage} resizeMode="cover" />
