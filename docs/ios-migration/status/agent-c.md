@@ -214,3 +214,20 @@ WAM = wamNumerator / denominator    // 加权平均成绩
 3. 考勤课表：`connectCount` 给 `Int.max` 时 `row + 1 + connectCount` 溢出崩溃 → 连续节数限制在表剩余行数内（`AttendanceHostileScheduleTests`）。
 
 丢弃 6 条（没有证明：term 0 残留行取决于后端行为、`isLoading` 卡住在下次成功加载时复位、选课范围切换的数据库时序等）。
+
+## 第 3 轮（2 个对抗 subagent；B 中途被限额打断，结果没有拿到）
+
+A 验证后的发现 4 条，全部修复并加了回归测试：
+1. 小组件快照和 App Intent 没算用户选的冲突课程和自定义日程（和 App 里的"今天"不一致，Intent 还会说"有 2 节课"而实际只能上一门）→ `SnapshotProvider` / `ScheduleQuery` 改用 B 提供的 `ScheduleRepository.cachedSnapshot`（已叠加节假日 / 补班、冲突选择、自定义日程）（`SnapshotConsistencyTests`）。
+2. `ElectiveStrategy.number` 遇到超大 / 无穷学分崩溃（`Int(v)`）→ 非有限返回 "0"，超大不转 Int。
+3. 学分 `"NaN"` 解码成 NaN，写库触发 NOT NULL 失败，一行坏数据让整个刷新失败 → 非有限当缺失（0，RN 的 `Number(x) || 0`）。
+4. 已选课程 / 选课策略 view model：同一范围内下拉刷新的旧响应覆盖新数据 → `loadVersion` 版本号。
+（回归测试：`NonFiniteNumberTests`、`SnapshotConsistencyTests`。）
+
+收尾时查清的一次测试失败：`SnapshotConsistencyTests` 一度失败，原因是**测试写错**不是产品 bug——测试里算冲突组键用的课表没带教室，而数据库里存的课表带教室，课程 id / 冲突键含教室，两边键不同，所以冲突选择没生效。改成两处共用同一份课表，断言没有改动。
+
+## 结束状态
+- 轮数：3（第 3 轮 B 未完成）；按用户决定不再开新一轮。
+- RN / 后端缺口（保留，不处理）：调课信息、选课课程列表（后端未代理）；期末评教（`GET /jw/evaluation` 404，详情 / 评语 / 一键评教 / 提交无接口）；`GET /feedback/{userId}` 401。
+- 已知偏离 RN 但有意保留：教师工号 `000000` 视为网络课。
+- 未验证：第 3 轮 B（渲染、Dynamic Type、无障碍）没有结果；真机 / 真实账号相关项仍标"后续测试"。

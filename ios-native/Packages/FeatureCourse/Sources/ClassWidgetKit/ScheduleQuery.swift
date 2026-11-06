@@ -5,11 +5,12 @@ import ScheduleKit
 /// "某一天有什么课"：App Intent 用的查询与口语化文案。
 public enum ScheduleQuery {
     public static func courses(
-        on day: Date, schedule: Schedule, term: TermCalendar, campus: CampusCalendar = .empty
+        on day: Date, schedule: Schedule, term: TermCalendar, campus: CampusCalendar = .empty, choices: [String: String] = [:]
     ) -> [WidgetCourse] {
         let start = term.calendar.startOfDay(for: day)
-        let all = CalendarOverlay.apply(to: ScheduleExpander.occurrences(of: schedule, in: term), calendar: campus, term: term).occurrences
-        return all
+        let overlaid = CalendarOverlay.apply(to: ScheduleExpander.occurrences(of: schedule, in: term), calendar: campus, term: term).occurrences
+        // 冲突的课只保留用户选的那一门，否则会说"有 2 节课"而实际只能上一门
+        return ConflictResolver.resolve(overlaid, choices: choices)
             .filter { $0.date == start }
             .map { WidgetCourse($0, calendar: term.calendar) }
     }
@@ -23,13 +24,12 @@ public enum ScheduleQuery {
         on day: Date, studentId: String, database: AppDatabase, calendar: Calendar = .current
     ) async throws -> [WidgetCourse] {
         let repo = ScheduleRepository(backend: UnavailableBackend(), database: database)
-        guard let days = try? await repo.cachedStartDays(),
-              let start = TermResolver.current(in: days, now: day, calendar: calendar),
-              let term = TermCalendar(start, calendar: calendar)
-        else { throw Failure.noTermCalendar }
-        guard let cached = try? await repo.cachedSchedule(studentId: studentId, term: start.academicTerm) else { throw Failure.noSchedule }
-        let campus = await CampusCalendarRepository(database: database).current()
-        return courses(on: day, schedule: cached.schedule, term: term, campus: campus)
+        guard let snapshot = await repo.cachedSnapshot(studentId: studentId, now: day, calendar: calendar) else {
+            if let days = try? await repo.cachedStartDays(), TermResolver.current(in: days, now: day, calendar: calendar) != nil { throw Failure.noSchedule }
+            throw Failure.noTermCalendar
+        }
+        // `snapshot.schedule` 已含自定义日程，`snapshot.choices` 是用户选的冲突课程
+        return courses(on: day, schedule: snapshot.schedule, term: snapshot.termCalendar, campus: snapshot.campus, choices: snapshot.choices)
     }
 
     /// "今天有 3 节课：08:00 高等数学（西3-406）；……"

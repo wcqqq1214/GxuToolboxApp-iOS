@@ -201,3 +201,20 @@ private func passedNames(adding extra: [String] = []) throws -> Set<String> {
         #expect(p.current.isEmpty && p.past.isEmpty)
     }
 }
+
+@Suite struct NonFiniteNumberTests {
+    @Test func nonFiniteOrHugeCreditsNeverTrapOrBreakCache() async throws {
+        func decode(_ credit: String) throws -> SelectedCourse {
+            try JSONDecoder().decode(SelectedCourse.self, from: Data(#"{"classId":"a","courseName":"x","credit":\#(credit),"year":2025,"term":1}"#.utf8))
+        }
+        #expect(try decode(#""NaN""#).credit == 0)
+        #expect(try decode(#""inf""#).credit == 0)
+        let huge = try decode("1e30")
+        #expect(ElectiveStrategy.number(huge.credit) == "1e+30")   // 不再 Int() 转换
+        #expect(ElectiveStrategy.number(.infinity) == "0" && ElectiveStrategy.number(.nan) == "0")
+        // 一行坏数据不能让整个刷新失败
+        let repo = SelectedCourseRepository(database: try AppDatabase.inMemory(features: [CourseFeature.migrations]))
+        try await repo.replaceAll([try decode(#""NaN""#)], studentId: "s1")
+        #expect(try await repo.list(studentId: "s1", scope: .all).count == 1)
+    }
+}

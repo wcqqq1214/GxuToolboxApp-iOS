@@ -13,6 +13,8 @@ final class SelectedCoursesViewModel {
     private(set) var isLoading = false
     private(set) var error: GxuError?
     private var hasContext = false
+    /// 每次 load 递增。下拉刷新不会被 `.task(id:)` 取消，同一范围内先发的请求可能后返回：旧响应不能覆盖新数据
+    private var loadVersion = 0
 
     private let api: SelectedCourseAPI
     private let repo: SelectedCourseRepository
@@ -36,24 +38,30 @@ final class SelectedCoursesViewModel {
             return
         }
         let scope = scope
+        loadVersion += 1
+        let version = loadVersion
         error = nil
         isLoading = true
-        defer { if self.scope == scope { isLoading = false } }
+        defer { if version == loadVersion { isLoading = false } }
 
-        courses = (try? await repo.list(studentId: studentId, scope: scope)) ?? []
+        let cached = (try? await repo.list(studentId: studentId, scope: scope)) ?? []
+        guard version == loadVersion else { return }
+        courses = cached
         if case .term(let t) = scope, !t.isBackendQueryable { return }   // 后端只支持 1 / 2
         do {
             let remote = try await api.list(scope)
-            guard !Task.isCancelled, self.scope == scope else { return }
+            guard !Task.isCancelled, version == loadVersion else { return }
             switch scope {
             case .all: try await repo.replaceAll(remote, studentId: studentId)
             case .term(let t): try await repo.replaceTerm(remote, studentId: studentId, term: t)
             }
-            courses = (try? await repo.list(studentId: studentId, scope: scope)) ?? remote
+            let stored = (try? await repo.list(studentId: studentId, scope: scope)) ?? remote
+            guard version == loadVersion else { return }
+            courses = stored
         } catch is CancellationError {
             return
         } catch {
-            guard self.scope == scope else { return }
+            guard version == loadVersion else { return }
             self.error = asGxuError(error)
         }
     }

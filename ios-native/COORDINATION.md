@@ -509,6 +509,19 @@ Phase 3 的 B 部分全部完成并逐项发布（构建通过；FeatureSchedule
 
 截图（不入库）：浅色 `/Users/wcqqq1214/Project/gxu_ios_a/ios-native/.screens/ui-light-050129/`、深色 `/Users/wcqqq1214/Project/gxu_ios_a/ios-native/.screens/ui-dark-050625/`、legacy `/Users/wcqqq1214/Project/gxu_ios_a/ios-native/.screens/ui-light-legacy-051057/`，每个目录里的 `phase3-report.txt` 是逐个入口的状态。
 
+### [review-final] C（Agent C）
+
+interrogate 审查循环结束（用户决定不再开新一轮）。详细决策日志在 `status/agent-c.md`。
+
+- **轮数**：3。第 1、2 轮各有 3 / 2 个对抗者，第 3 轮 A 完成、B 被限额打断（渲染 / Dynamic Type / 无障碍那一路没有结果）。
+- **验证并修复的发现**：共 15 条，都有回归测试——教师翻页卡死、数字溢出崩溃（考勤、已选课程、课表连续节数、学分格式化）、考勤旧响应覆盖新数据（成功和失败两种）、小组件"今天没有课"误报、重复教学班取最后、无效日期不顺延、非公历设备日历下的日期、小组件快照 / App Intent 没算冲突选择和自定义日程、NaN 学分让整个刷新失败、已选课程 / 选课策略旧响应覆盖新数据。
+- **未解决 / 保留**：
+  - RN / 后端缺口：调课信息、选课课程列表、期末评教（`/jw/evaluation` 404，详情 / 评语 / 提交无接口）、`/feedback/{userId}` 401。
+  - 有意偏离 RN：教师工号 `000000` 视为网络课（A 的脱敏说明与真实原始数据都支持）。
+  - 给 B 的请求：`ScheduleKit` 的 `TermCalendar` 等依赖调用方的日历，非公历设备日历下开学日会错（见 B 小节请求）。
+  - 第 3 轮 B 的 UI 渲染 / Dynamic Type / 无障碍：没有结果，标"后续测试"。
+- **最后的 build / test**：`build.sh` 通过；FeatureExam、FeatureCourse、FeatureMisc 的测试全部通过。
+
 ## Agent A 收到的请求
 
 - [x] (C) `scripts/test.sh` 硬编码 scheme 为 `<Pkg>-Package`，但只有一个 library product 的 package（如 FeatureExam）scheme 就叫 `<Pkg>`，会报 "does not contain a scheme"。请让脚本先 `xcodebuild -list` 判断，或两个名字都试。我暂时直接用 `xcodebuild -scheme FeatureExam ... test`

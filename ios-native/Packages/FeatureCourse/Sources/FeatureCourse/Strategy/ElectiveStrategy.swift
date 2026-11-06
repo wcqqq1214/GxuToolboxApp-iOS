@@ -132,7 +132,8 @@ struct ElectiveStrategy {
 
     /// 学分显示：整数不带小数点（对应 JS 的数字转字符串）
     static func number(_ v: Double) -> String {
-        v == v.rounded() ? String(Int(v)) : String(v)
+        guard v.isFinite else { return "0" }                       // 防御：Int(无穷 / NaN) 会崩溃
+        return v == v.rounded() && abs(v) < 1e15 ? String(Int(v)) : String(v)
     }
 }
 

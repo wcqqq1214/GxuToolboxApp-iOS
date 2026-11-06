@@ -97,7 +97,7 @@ private extension KeyedDecodingContainer {
 
     func lenientNumber(_ key: Key) -> Double? {
         if let v = try? decodeIfPresent(Double.self, forKey: key), v.isFinite { return v }
-        if let v = try? decodeIfPresent(String.self, forKey: key) { return Double(v.trimmingCharacters(in: .whitespaces)) }
+        if let v = try? decodeIfPresent(String.self, forKey: key), let d = Double(v.trimmingCharacters(in: .whitespaces)), d.isFinite { return d }   // "NaN" / "inf" 当缺失（RN：Number(x) || 0）
         return nil
     }
 }

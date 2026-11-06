@@ -15,6 +15,7 @@ final class ElectiveStrategyViewModel {
     private(set) var isLoading = false
     private(set) var error: GxuError?
 
+    private var loadVersion = 0
     private let services: AppServices
 
     init(services: AppServices) { self.services = services }
@@ -31,16 +32,18 @@ final class ElectiveStrategyViewModel {
             error = .notLoggedIn(.jw)
             return
         }
+        loadVersion += 1
+        let version = loadVersion
         error = nil
         isLoading = true
-        defer { isLoading = false }
+        defer { if version == loadVersion { isLoading = false } }
 
         if let profile = try? await services.profiles.profile(studentId: studentId), profile.enrollmentYear > 0 {
             grade = profile.enrollmentYear
         }
         let selectedRepo = SelectedCourseRepository(database: services.database)
         let examRepo = ExamRepository(database: services.database)
-        await showCached(studentId: studentId, selectedRepo: selectedRepo, examRepo: examRepo)
+        await showCached(studentId: studentId, selectedRepo: selectedRepo, examRepo: examRepo, version: version)
 
         var failures: [GxuError] = []
         do {
@@ -52,15 +55,18 @@ final class ElectiveStrategyViewModel {
             try await examRepo.replaceAllScores(remote, studentId: studentId)
         } catch is CancellationError { return } catch { failures.append(asGxuError(error)) }
 
-        await showCached(studentId: studentId, selectedRepo: selectedRepo, examRepo: examRepo)
+        guard version == loadVersion else { return }
+        await showCached(studentId: studentId, selectedRepo: selectedRepo, examRepo: examRepo, version: version)
+        guard version == loadVersion else { return }
         // 有缓存就保留；两边都没有数据才报错
         if let first = failures.first, courses.isEmpty && passedScores.isEmpty { error = first }
     }
 
-    private func showCached(studentId: String, selectedRepo: SelectedCourseRepository, examRepo: ExamRepository) async {
+    private func showCached(studentId: String, selectedRepo: SelectedCourseRepository, examRepo: ExamRepository, version: Int) async {
         let selected = (try? await selectedRepo.list(studentId: studentId, scope: .all)) ?? []
-        courses = selected.filter { $0.selectionType == "通识选修课" }
         let scores = (try? await examRepo.allScores(studentId: studentId)) ?? []
+        guard version == loadVersion else { return }
+        courses = selected.filter { $0.selectionType == "通识选修课" }
         passedScores = Self.passed(scores)
     }
 
