@@ -721,6 +721,31 @@ interrogate 审查循环结束（用户决定不再开新一轮）。详细决�
 - **未做：** 考勤图层（课程块上的考勤状态，需要 C 的考勤数据按 `week-day-begin-end` 挂载）、课表底栏考试信息卡（iOS 已有首页“下一件事”和底部附件）、课程详情栏的逐项对照。
 - 截图：`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/schedule-exam-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/schedule-exam-dark.png`。
 
+### [v22-aligned] B（Agent B，2026-11-06）
+
+基准 RN `c7c11bc3`。`build.sh` 通过，FeatureSchedule / FeatureCampus 测试通过，均已发布到 `ios-native`。没有安装到手机。
+
+**已对齐**
+- 工具箱按 v2.2：“个人课表”、加回“空闲教室”。
+- 空闲教室整套（FeatureCampus）：按时间查询、分页、楼栋 / 楼层、教室搜索、筛选、节次与时段高亮、缓存管理。真实数据标「后续测试」。
+- 课表：补课日保留当天原有的课（两组并排、冲突域分开）；9、10 节合并行文字为“9 - 10”（RN 工具箱默认 13 行不合并，按协调者决定保留 12 行）；`getWeekOfDate` 周次算法有一致性测试。
+- 课表考试图层（并排、详情）；实验课教师 / 地点按日期覆盖，周网格、首页快照、写给小组件的下一节课快照都已应用（`PhyExpOverrides`）。
+- 课程详情：相关考试卡（类型 / 日期时间 / 教室 / “N 号” / 已结束·今天考试·N 天后）、地点行“导航到这里”（体育学院按 北 / 西 / 东 搜 行健馆 / 西校园综合体育馆 / 东校园体育场，其余按教室解析教学楼，解析不到不显示按钮）、考勤行。
+- 课表考勤图层：课程块右下角状态图标（形状区分，有无障碍文字），逻辑与 RN `normalizeAttendanceRecords` 同规则（无效日期 / 节次、1–13、止不早于起），有单测。
+- 账号 / 学期隔离、开学日缓存：iOS 本来按 学号 + 学期 存 GRDB，等价，不用改。
+
+**未对齐（原因）**
+- 考勤图层的**数据源**：C 的 `AttendanceAPI.records` 是 internal 且没有本地缓存，课表侧已就绪但真实环境还没有数据。已写进 C 请求区，C 发布后 B 在 `layersProvider` 里接上（一小段）。Demo 模式用假标记看过效果。
+- 小组件 / App Intent（`ClassWidgetKit`，归 C）里的实验课覆盖：已写进 C 请求区；`PhyExpOverrides` 和 `cachedSnapshot(overrides:)` 已可用。
+- 假期里的课：RN 保留课程只加横幅，iOS 有意移除（早前已说明，改成对齐是一行改动，等决定）。
+- 课程详情的“任课教师卡片 + 查看详情（教师查询）”没有移植（教师查询页是 C 的，接入需要跳转契约）。
+- 假期 NextEvent 表现我没有逐项再对照 RN，不能说已对齐。
+- 实验课的“教学周 / 节次编辑”：iOS 没有照搬，自定义日程已能达到同样效果。
+
+**截图**（`ios-native/.screens/`，Demo 数据）：`v22-attendance-grid-{light,dark}.png`（周网格 + 考勤图标）、`v22-attendance-detail-{light,dark}.png`（课程详情含考勤行和相关考试）。
+
+**后续测试（需真实账号 / 校园网）**：考勤记录、PEC 实验课覆盖、空闲教室真实数据。
+
 ## Agent A 收到的请求
 
 - [x] (C) v2.2 校选课进度：请抓一份 `GET /jw/elective-progress` 的真实脱敏响应放进 `Fixtures/sanitized/elective-progress.json`（我本机试登录得到 401，没有重试）。目前 `ElectiveProgress` 模型和测试夹具按 RN `schema/progress.ts` 构造，拿到样本后核对字段（尤其 `matchedBy`、`attempts`、`online` 可空）。
