@@ -71,9 +71,8 @@ private struct StubBackend: BackendAPI {
     func get<T: Decodable & Sendable>(_ path: String, query: [String: String], auth: AuthSystem?, as type: T.Type) async throws -> T {
         let inner: String
         switch path {
-        case "/attendance/index-data": inner = Self.menu
-        case "/attendance/personal-data": inner = Self.records
-        case "/attendance/schedule": inner = Self.schedule
+        case "/attendance/v2/personal": inner = Self.records
+        case "/attendance/v2/schedule": inner = Self.schedule
         case "/teachers/search":
             return try JSONDecoder().decode(type, from: Data(Self.teacherSearch.utf8))
         case "/teachers/profile":
@@ -82,7 +81,7 @@ private struct StubBackend: BackendAPI {
             return try JSONDecoder().decode(type, from: Data(json.utf8))
         default: throw GxuError.network("调试数据不支持 \(path)")
         }
-        return try JSONDecoder().decode(type, from: Data(#"{"data":{"code":600,"msg":"","data":\#(inner)}}"#.utf8))
+        return try JSONDecoder().decode(type, from: Data(#"{"code":200,"data":\#(inner)}"#.utf8))
     }
 
     func post<T: Decodable & Sendable, Body: Encodable & Sendable>(_ path: String, body: Body, auth: AuthSystem?, as type: T.Type) async throws -> T {
@@ -114,45 +113,36 @@ private struct StubBackend: BackendAPI {
         return f.string(from: Calendar.current.date(byAdding: .day, value: offset, to: .now)!)
     }
 
-    private static var menu: String {
-        let year = Calendar.current.component(.month, from: .now) >= 9 ? Calendar.current.component(.year, from: .now) : Calendar.current.component(.year, from: .now) - 1
-        // 第一周的周一 = 今天往前推到本周一再退 9 周
-        let weekday = (Calendar.current.component(.weekday, from: .now) + 5) % 7
-        return """
-        {"calendarList":[
-          {"calendarId":17,"calendarName":"\(year - 1)-2","firstWeekBegin":"\(day(-weekday - 63 - 140))","lastWeekEnd":"\(day(-weekday - 63 - 7))","weekTotal":20,"isCurrent":0},
-          {"calendarId":18,"calendarName":"\(year)-1","firstWeekBegin":"\(day(-weekday - 63))","lastWeekEnd":"\(day(-weekday + 77))","weekTotal":20,"isCurrent":1}]}
-        """
-    }
-
     private static var records: String {
-        func r(_ off: Int, _ name: String, _ room: String, _ periods: String, _ id: Int, _ label: String, _ time: String) -> String {
-            #"{"day":"\#(day(off))","courseName":"\#(name)","roomName":"\#(room)","periodConnect":"\#(periods)","atdStateId":\#(id),"atdStateName":"\#(label)","atdTime":"\#(time.isEmpty ? "" : day(off) + " " + time)"}"#
+        func r(_ off: Int, _ name: String, _ room: String, _ range: String, _ label: String, _ code: Int, _ status: String) -> String {
+            #"{"date":"\#(day(off))","courseName":"\#(name)","roomName":"\#(room)","periodRange":"\#(range)","periodLabel":"\#(label)","statusCode":\#(code),"statusName":"\#(status)"}"#
         }
+        let wd = (Calendar.current.component(.weekday, from: .now) + 5) % 7   // 0 = 周一
         let list = [
-            r(0, "程序设计基础", "东1-201", "5-6", 1, "正常", "14:22:01"),
-            r(-1, "大学英语", "西2-302", "3-4", 2, "迟到", "10:04:33"),
-            r(-1, "大学物理实验", "实验楼B201", "7-8", 4, "未到", ""),
-            r(-3, "高等数学", "西3-406", "1-2", 1, "正常", "07:52:10"),
-            r(-2, "线性代数", "西3-407", "1-3", 1, "正常", "07:55:40"),
-            r(-3, "体育", "西体育馆", "3-4", 100, "无需打卡", ""),
+            r(-wd + 3, "程序设计基础", "东1-201", "5,6", "第5-6节", 1, "正常"),
+            r(-wd + 2, "大学英语", "西2-302", "3,4", "第3-4节", 2, "迟到"),
+            r(-wd + 2, "大学物理实验", "实验楼B201", "7,8", "第7-8节", 4, "未到"),
+            r(-wd, "高等数学", "西3-406", "1,2", "第1-2节", 1, "正常"),
+            r(-12, "线性代数", "西3-407", "1,2,3", "第1-3节", 2, "迟到"),
+            r(-20, "体育", "西体育馆", "3,4", "第3-4节", 1, "正常"),
         ]
-        return #"{"records":[\#(list.joined(separator: ","))],"total_record":41,"total_page":3,"page_index":1}"#
+        return #"{"items":[\#(list.joined(separator: ","))]}"#
     }
 
     /// 本周：周一 1–2 节高数、周三 3–4 节英语、周四 5–6 节程序设计
     private static var schedule: String {
         let weekday = (Calendar.current.component(.weekday, from: .now) + 5) % 7
         func date(_ d: Int) -> String { day(-weekday + d - 1) }
-        var rows: [[String]] = Array(repeating: Array(repeating: "{}", count: 8), count: 13)
-        func put(_ row: Int, _ d: Int, _ name: String, _ connect: Int) {
-            rows[row][d] = #"{"weekDay":"\#(date(d))","subjectName":"\#(name)","connectCount":\#(connect)}"#
+        func cell(_ d: Int, _ id: Int, _ name: String, _ room: String, _ a: Int, _ b: Int) -> String {
+            #"{"date":"\#(date(d))","subjectId":\#(id),"subjectName":"\#(name)","periods":[\#(a),\#(b)],"connectedCount":1,"roomName":"\#(room)"}"#
         }
-        put(0, 1, "高等数学", 1); put(1, 1, "高等数学", 0)
-        put(2, 3, "大学英语", 1); put(3, 3, "大学英语", 0)
-        put(4, 4, "程序设计基础", 1); put(5, 4, "程序设计基础", 0)
-        let body = rows.map { #"{"courses":[\#($0.joined(separator: ","))]}"# }.joined(separator: ",")
-        return #"{"resTableRankList":[\#(body)]}"#
+        // 周一 1–2 节高数，周三 3–4 节英语，周四 5–6 节程序设计（和上面的记录日期对得上，状态按 `<日期>-<节次>` 对应）
+        let rows = [
+            #"{"date":"\#(date(1))","courses":[\#(cell(1, 11, "高等数学", "西3-406", 1, 2))]}"#,
+            #"{"date":"\#(date(3))","courses":[\#(cell(3, 12, "大学英语", "西2-302", 3, 4))]}"#,
+            #"{"date":"\#(date(4))","courses":[\#(cell(4, 13, "程序设计基础", "东1-201", 5, 6))]}"#,
+        ]
+        return #"{"totalWeeks":20,"rows":[\#(rows.joined(separator: ","))]}"#
     }
 }
 #endif

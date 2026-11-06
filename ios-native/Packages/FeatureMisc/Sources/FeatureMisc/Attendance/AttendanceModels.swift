@@ -2,87 +2,14 @@ import Foundation
 import GxuFoundation
 import GxuNetworking
 
-// 考勤系统接口：后端返回两层 `{code, message, data: {code: 600, msg, data: …}}`，
-// `getData` 解掉外层，这里的 `AttendanceEnvelope` 是内层，`code == 600` 才是成功。
-// TODO(verify): 没有真实账号，字段按 RN 的类型定义（type/api/auth/attendanceSystem.ts）写，解码都宽容；用 Mock 和单测验证。
+// 考勤系统接口（RN v2.2 `src/features/attendance`）：后端 `GET /attendance/v2/personal`、`GET /attendance/v2/schedule`，
+// 带 `Authorization: Token`（`auth: .attendance`）。RN 取 `res.data`，即响应体只有一层 `{code, data}`，没有 v1 的内层 `code == 600`。
+// 学期用 `calendarId = 2 * year + term - 4033`（2025 秋 = 18），不再需要 `/attendance/index-data` 取校历。
+// TODO(verify): 没有考勤账号，响应字段按 RN 的用法（RecordScreen / RecordCard / useScheduleTable）写，解码都宽容；用 Mock 和单测验证，后续测试。
 
-struct AttendanceEnvelope<T: Decodable & Sendable>: Decodable, Sendable {
-    var code: Int
-    var msg: String?
-    var data: T?
-
-    init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        code = c.lenientInt(.code) ?? -1
-        msg = try? c.decodeIfPresent(String.self, forKey: .msg)
-        data = try? c.decodeIfPresent(T.self, forKey: .data)
-    }
-
-    private enum CodingKeys: String, CodingKey { case code, msg, data }
-
-    /// 内层 code 不是 600 时抛错，文案用服务端的 `msg`
-    func unwrap() throws -> T {
-        guard code == 600 else { throw GxuError.invalidData(msg?.isEmpty == false ? msg! : "考勤系统返回了错误（\(code)）") }
-        guard let data else { throw GxuError.invalidData("考勤系统返回的数据格式异常") }
-        return data
-    }
-}
-
-/// 学期校历（`/attendance/index-data` 的 `calendarList` 一项）
-public struct AttendanceCalendar: Decodable, Sendable, Hashable, Identifiable {
-    public var calendarId: Int
-    /// 形如 `2025-1`
-    public var calendarName: String
-    /// `yyyy-MM-dd…`
-    public var firstWeekBegin: String
-    public var lastWeekEnd: String
-    public var weekTotal: Int
-    public var isCurrent: Bool
-
-    public var id: Int { calendarId }
-
-    public init(calendarId: Int, calendarName: String, firstWeekBegin: String, lastWeekEnd: String = "", weekTotal: Int = 20, isCurrent: Bool = false) {
-        self.calendarId = calendarId
-        self.calendarName = calendarName
-        self.firstWeekBegin = firstWeekBegin
-        self.lastWeekEnd = lastWeekEnd
-        self.weekTotal = weekTotal
-        self.isCurrent = isCurrent
-    }
-
-    private enum CodingKeys: String, CodingKey { case calendarId, calendarName, firstWeekBegin, lastWeekEnd, weekTotal, isCurrent }
-
-    public init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        calendarId = c.lenientInt(.calendarId) ?? 0
-        calendarName = (try? c.decodeIfPresent(String.self, forKey: .calendarName)) ?? ""
-        firstWeekBegin = (try? c.decodeIfPresent(String.self, forKey: .firstWeekBegin)) ?? ""
-        lastWeekEnd = (try? c.decodeIfPresent(String.self, forKey: .lastWeekEnd)) ?? ""
-        weekTotal = c.lenientInt(.weekTotal) ?? 20
-        isCurrent = (c.lenientInt(.isCurrent) ?? 0) == 1
-    }
-
-    /// 学期第一周的周一
-    public func firstDay(calendar: Calendar = .current) -> Date? { AttendanceDay.parse(firstWeekBegin, calendar: calendar) }
-
-    /// 今天是第几周；不在 1…weekTotal 范围内返回 1（RN 同）
-    public func currentWeek(now: Date = .now, calendar: Calendar = .current) -> Int {
-        guard let first = firstDay(calendar: calendar) else { return 1 }
-        let days = calendar.dateComponents([.day], from: first, to: calendar.startOfDay(for: now)).day ?? 0
-        let week = Int((Double(days) / 7).rounded(.down)) + 1
-        return (1...max(weekTotal, 1)).contains(week) ? week : 1
-    }
-}
-
-struct AttendanceMenu: Decodable, Sendable {
-    var calendarList: [AttendanceCalendar]
-
-    private enum CodingKeys: String, CodingKey { case calendarList }
-
-    init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        calendarList = (try? c.decodeIfPresent([AttendanceCalendar].self, forKey: .calendarList)) ?? []
-    }
+/// 考勤系统的学期编号：和 RN 一致 `2 * year + term - 4033`
+public enum AttendanceCalendarID {
+    public static func id(year: Int, term: Int) -> Int { 2 * year + term - 4033 }
 }
 
 public enum AttendanceState: Int, Sendable, Hashable {
@@ -103,126 +30,132 @@ public enum AttendanceState: Int, Sendable, Hashable {
     }
 }
 
-/// 一条考勤记录（`/attendance/personal-data` 的 `records` 一项）
+/// 一条考勤记录（`/attendance/v2/personal` 的 `items` 一项）
 public struct AttendanceRecord: Decodable, Sendable, Hashable, Identifiable {
-    public var day: String
+    public var date: String
     public var courseName: String
     public var roomName: String
-    public var stateId: Int?
-    public var stateName: String
-    public var atdTime: String
-    public var periodConnect: String
+    public var statusCode: Int?
+    public var statusName: String
+    /// 节次文案：`periodLabel`，没有就用 `periodRange`
+    public var periodText: String
+    /// 原始的节次范围（如 `1,2`），和课表的 `AttendanceCourse.id` 对应用
+    public var periodRange: String
 
-    public var state: AttendanceState { AttendanceState(id: stateId) }
-    public var id: String { "\(day)|\(courseName)|\(periodConnect)|\(atdTime)" }
+    public var state: AttendanceState { AttendanceState(id: statusCode) }
+    public var id: String { "\(date)|\(courseName)|\(periodRange)|\(statusName)" }
 
-    public init(day: String, courseName: String, roomName: String = "", stateId: Int?, stateName: String = "", atdTime: String = "", periodConnect: String = "") {
-        self.day = day
+    public init(date: String, courseName: String, roomName: String = "", statusCode: Int?, statusName: String = "", periodText: String = "", periodRange: String = "") {
+        self.date = date
         self.courseName = courseName
         self.roomName = roomName
-        self.stateId = stateId
-        self.stateName = stateName
-        self.atdTime = atdTime
-        self.periodConnect = periodConnect
+        self.statusCode = statusCode
+        self.statusName = statusName
+        self.periodText = periodText
+        self.periodRange = periodRange
     }
 
-    private enum CodingKeys: String, CodingKey { case day, courseName, roomName, atdStateId, atdStateName, atdTime, periodConnect }
+    private enum CodingKeys: String, CodingKey { case date, courseName, roomName, statusCode, statusName, periodLabel, periodRange }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        day = c.lenientText(.day)
+        date = c.lenientText(.date)
         courseName = c.lenientText(.courseName)
         roomName = c.lenientText(.roomName)
-        stateId = c.lenientInt(.atdStateId)
-        stateName = c.lenientText(.atdStateName)
-        atdTime = c.lenientText(.atdTime)
-        periodConnect = c.lenientText(.periodConnect)
+        statusCode = c.lenientInt(.statusCode)
+        statusName = c.lenientText(.statusName)
+        let label = c.lenientText(.periodLabel)
+        periodRange = c.lenientText(.periodRange)
+        periodText = label.isEmpty ? periodRange : label
     }
+
+    /// 迟到或缺勤（RN：statusCode 2 或 4）
+    public var isAbnormal: Bool { statusCode == 2 || statusCode == 4 }
 }
 
 struct AttendanceRecordPage: Decodable, Sendable {
-    var records: [AttendanceRecord]
-    var totalRecord: Int
-    var totalPage: Int
-    var pageIndex: Int
+    var items: [AttendanceRecord]
 
-    private enum CodingKeys: String, CodingKey { case records, total_record, total_page, page_index }
+    private enum CodingKeys: String, CodingKey { case items }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        records = (try? c.decodeIfPresent([AttendanceRecord].self, forKey: .records)) ?? []
-        totalRecord = c.lenientInt(.total_record) ?? records.count
-        totalPage = c.lenientInt(.total_page) ?? 1
-        pageIndex = c.lenientInt(.page_index) ?? 1
+        items = (try? c.decodeIfPresent([AttendanceRecord].self, forKey: .items)) ?? []
     }
 }
 
-/// 考勤课表里的一节课（已按 RN 的规则从二维表里解析出来）
+/// 考勤课表里的一节课（`/attendance/v2/schedule` 的 `rows[].courses[]`，规则同 RN `useScheduleTable`）
 public struct AttendanceCourse: Sendable, Hashable, Identifiable {
     public var day: String          // yyyy-MM-dd
-    public var weekday: Int         // 1 = 周一
     public var name: String
+    public var room: String
     /// 起止节次（含）
     public var firstPeriod: Int
     public var lastPeriod: Int
-    public var id: String { "\(day)|\(name)|\(firstPeriod)" }
+    /// 和考勤记录对应用的键：`<日期>-<起,止>`（RN 的 `item.id`）
+    public var id: String { "\(day)-\(firstPeriod),\(lastPeriod)" }
 }
 
-struct AttendanceScheduleTable: Decodable, Sendable {
+struct AttendanceSchedule: Decodable, Sendable {
     struct Row: Decodable, Sendable {
         struct Cell: Decodable, Sendable {
-            var weekDay: String
+            var date: String
+            var subjectId: Int?
             var subjectName: String
-            var connectCount: Int
+            var periods: [Int]
+            var connectedCount: Int
+            var roomName: String
 
-            private enum CodingKeys: String, CodingKey { case weekDay, subjectName, connectCount }
+            private enum CodingKeys: String, CodingKey { case date, subjectId, subjectName, periods, connectedCount, roomName }
 
             init(from decoder: Decoder) throws {
                 let c = try decoder.container(keyedBy: CodingKeys.self)
-                weekDay = c.lenientText(.weekDay)
+                date = c.lenientText(.date)
+                subjectId = c.lenientInt(.subjectId)
                 subjectName = c.lenientText(.subjectName)
-                connectCount = c.lenientInt(.connectCount) ?? 0
+                periods = ((try? c.decodeIfPresent([Int].self, forKey: .periods)) ?? nil) ?? []
+                connectedCount = c.lenientInt(.connectedCount) ?? 0
+                roomName = c.lenientText(.roomName)
             }
         }
 
+        var date: String
         var courses: [Cell]
 
-        private enum CodingKeys: String, CodingKey { case courses }
+        private enum CodingKeys: String, CodingKey { case date, courses }
 
         init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
+            date = c.lenientText(.date)
             courses = (try? c.decodeIfPresent([Cell].self, forKey: .courses)) ?? []
         }
     }
 
-    var resTableRankList: [Row]
+    var totalWeeks: Int
+    var rows: [Row]
 
-    private enum CodingKeys: String, CodingKey { case resTableRankList }
+    private enum CodingKeys: String, CodingKey { case totalWeeks, rows }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        resTableRankList = (try? c.decodeIfPresent([Row].self, forKey: .resTableRankList)) ?? []
+        totalWeeks = c.lenientInt(.totalWeeks) ?? 20
+        rows = (try? c.decodeIfPresent([Row].self, forKey: .rows)) ?? []
     }
 
-    /// 移植自 RN `AttendanceCourseScheduleClass`：行是节次，`courses[day]`（day = 1…7，下标 0 是表头列）是那天那节的格子；
-    /// 有课程名且 `connectCount > 0` 的格子是一门课的起点，连续占 `connectCount + 1` 节，之后跳过这些节。
+    /// 移植自 RN `useScheduleTable`：没有课程名（且 subjectId 为空 / 0）的格子丢弃；日期取格子自己的 `date`，没有就用行的 `date`；
+    /// 起止节次取 `periods` 的首尾，没有就用行号和连续节数；只占一节的（起止相同）不是课程起点，丢弃
     func courses() -> [AttendanceCourse] {
         var result: [AttendanceCourse] = []
-        for day in 1...7 {
-            var row = 0
-            while row < resTableRankList.count {
-                let cells = resTableRankList[row].courses
-                if day < cells.count, !cells[day].subjectName.isEmpty, cells[day].connectCount > 0 {
-                    let cell = cells[day]
-                    // 连续节数不会超过表里剩下的行数；服务端给出离谱的数字（如 Int.max）时，后面的加法会溢出崩溃
-                    let span = min(cell.connectCount, resTableRankList.count - row - 1)
-                    result.append(AttendanceCourse(
-                        day: String(cell.weekDay.prefix(10)), weekday: day, name: cell.subjectName,
-                        firstPeriod: row + 1, lastPeriod: row + 1 + span
-                    ))
-                    row += span
-                }
-                row += 1
+        for (rowIndex, row) in rows.enumerated() {
+            for cell in row.courses {
+                if (cell.subjectId == nil || cell.subjectId == 0) && cell.subjectName.isEmpty { continue }
+                let day = String((cell.date.isEmpty ? row.date : cell.date).prefix(10))
+                guard !day.isEmpty, !cell.subjectName.isEmpty else { continue }
+                let begin = cell.periods.first ?? rowIndex + 1
+                // 连续节数是服务端给的，离谱的值（如 Int.max）加法会溢出崩溃：限制在合理范围内
+                let end = cell.periods.last ?? begin + min(max(cell.connectedCount, 0), 100)
+                guard begin != end else { continue }
+                result.append(AttendanceCourse(day: day, name: cell.subjectName, room: cell.roomName, firstPeriod: begin, lastPeriod: end))
             }
         }
         return result
@@ -284,26 +217,22 @@ public struct AttendanceAPI: Sendable {
 
     public init(backend: any BackendAPI) { self.backend = backend }
 
-    func calendars() async throws -> [AttendanceCalendar] {
-        let env = try await backend.getData("/attendance/index-data", auth: .attendance, as: AttendanceEnvelope<AttendanceMenu>.self)
-        return try env.unwrap().calendarList
+    /// 一次取整个学期的记录（RN 同样 `pageSize = 500`、`day DESC`），不分页
+    func records(year: Int, term: Int) async throws -> [AttendanceRecord] {
+        let page = try await backend.getData(
+            "/attendance/v2/personal",
+            query: ["calendarId": String(AttendanceCalendarID.id(year: year, term: term)), "pageSize": "500", "orderBy": "day DESC"],
+            auth: .attendance, as: AttendanceRecordPage?.self
+        )
+        return page?.items ?? []
     }
 
-    func records(calendarId: Int, page: Int = 1, pageSize: Int = 20) async throws -> AttendanceRecordPage {
-        let env = try await backend.getData(
-            "/attendance/personal-data",
-            query: ["cal": String(calendarId), "page_index": String(page), "page_size": String(pageSize)],
-            auth: .attendance, as: AttendanceEnvelope<AttendanceRecordPage>.self
+    func schedule(year: Int, term: Int, week: Int, userId: Int) async throws -> (courses: [AttendanceCourse], totalWeeks: Int)? {
+        let table = try await backend.getData(
+            "/attendance/v2/schedule",
+            query: ["calendarId": String(AttendanceCalendarID.id(year: year, term: term)), "currentWeek": String(week), "userId": String(userId)],
+            auth: .attendance, as: AttendanceSchedule?.self
         )
-        return try env.unwrap()
-    }
-
-    func schedule(calendarId: Int, week: Int, userId: Int) async throws -> [AttendanceCourse] {
-        let env = try await backend.getData(
-            "/attendance/schedule",
-            query: ["cal": String(calendarId), "currentWeek": String(week), "userId": String(userId)],
-            auth: .attendance, as: AttendanceEnvelope<AttendanceScheduleTable>.self
-        )
-        return try env.unwrap().courses()
+        return table.map { ($0.courses(), $0.totalWeeks) }
     }
 }

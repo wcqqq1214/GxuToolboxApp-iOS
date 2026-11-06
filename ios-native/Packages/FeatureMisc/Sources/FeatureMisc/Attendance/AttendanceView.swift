@@ -22,14 +22,14 @@ public struct AttendanceView: View {
                 if model.access != .ok {
                     needsLogin
                 } else {
+                    Section { TermRow(model: model) }
                     Section {
                         Picker("内容", selection: $model.mode) {
-                            Text("考勤记录").tag(AttendanceViewModel.Mode.records)
                             Text("考勤课表").tag(AttendanceViewModel.Mode.schedule)
+                            Text("考勤记录").tag(AttendanceViewModel.Mode.records)
                         }
                         .pickerStyle(.segmented)
                         .listRowBackground(Color.clear)
-                        
                     }
                     if let error = model.error {
                         GxuErrorView(error.userMessage) { Task { await model.load() } }.listRowBackground(Color.clear)
@@ -43,15 +43,16 @@ public struct AttendanceView: View {
             .navigationTitle("考勤查询")
             .navigationBarTitleDisplayMode(.inline)
             .gxuHidesTabChrome()
-            .toolbar { if model.access == .ok { calendarMenu } }
-            .task(id: LoadKey(mode: model.mode, calendarId: model.calendarId, week: model.week)) { await model.load() }
+            .task { await model.resolveContext() }
+            .task(id: LoadKey(mode: model.mode, selection: model.selection, week: model.week, ready: model.isReady)) { await model.load() }
             .refreshable { await model.load() }
         }
 
         private struct LoadKey: Hashable {
             var mode: AttendanceViewModel.Mode
-            var calendarId: Int?
+            var selection: AttendanceViewModel.Selection
             var week: Int
+            var ready: Bool
         }
 
         // MARK: 需要登录
@@ -73,7 +74,6 @@ public struct AttendanceView: View {
 
         @ViewBuilder
         private var records: some View {
-            let groups = AttendanceDayGroup.group(model.records)
             if model.records.isEmpty {
                 if model.isLoading {
                     GxuLoadingView("正在查询考勤记录…").frame(minHeight: 240).listRowBackground(Color.clear)
@@ -81,15 +81,15 @@ public struct AttendanceView: View {
                     GxuEmptyView("本学期暂无考勤记录", systemImage: "checkmark.circle").listRowBackground(Color.clear)
                 }
             } else {
-                Section { SummaryRow(summary: model.summary) } header: { Text("共 \(model.totalRecords) 条") }
-                ForEach(groups) { group in
+                Section {
+                    Toggle("只看异常和最近 7 天", isOn: $model.onlyAbnormal)
+                } footer: {
+                    Text("本学期共有 \(model.abnormalCount) 条迟到或缺勤记录。")
+                }
+                ForEach(AttendanceDayGroup.group(model.visibleRecords)) { group in
                     Section(group.title) {
                         ForEach(group.records) { RecordRow(record: $0) }
                     }
-                }
-                if model.hasMore {
-                    ProgressView().frame(maxWidth: .infinity).listRowBackground(Color.clear)
-                        .task { await model.loadMore() }
                 }
             }
         }
@@ -105,8 +105,8 @@ public struct AttendanceView: View {
                     Spacer()
                     Text("第 \(model.week) 周").font(.headline)
                     Spacer()
-                    Button("下一周", systemImage: "chevron.right") { model.week = min(model.calendar?.weekTotal ?? 20, model.week + 1) }
-                        .labelStyle(.iconOnly).disabled(model.week >= (model.calendar?.weekTotal ?? 20))
+                    Button("下一周", systemImage: "chevron.right") { model.week = min(model.totalWeeks, model.week + 1) }
+                        .labelStyle(.iconOnly).disabled(model.week >= model.totalWeeks)
                 }
                 .buttonStyle(.borderless)
             }
@@ -117,33 +117,39 @@ public struct AttendanceView: View {
                     GxuEmptyView("这一周没有课", systemImage: "calendar").listRowBackground(Color.clear)
                 }
             }
-            ForEach(Dictionary(grouping: model.courses, by: \.weekday).keys.sorted(), id: \.self) { weekday in
-                let items = model.courses.filter { $0.weekday == weekday }
-                Section("周\(WeekdayName.short(weekday)) · \(items.first.map { String($0.day.suffix(5)).replacingOccurrences(of: "-", with: "/") } ?? "")") {
-                    ForEach(items) { CourseRow(course: $0, state: model.state(of: $0)) }
+            ForEach(AttendanceDayGroup.groupCourses(model.courses)) { group in
+                Section(group.title) {
+                    ForEach(group.courses) { CourseRow(course: $0, state: model.state(of: $0)) }
                 }
             }
         }
+    }
+}
 
-        private var calendarMenu: some View {
+/// 学年 + 学期（和考试 / 成绩页同样的一行，点开是菜单）
+private struct TermRow: View {
+    @Bindable var model: AttendanceViewModel
+
+    private var termName: String { model.selection.term == 1 ? "秋季" : "春季" }
+
+    var body: some View {
+        LabeledContent("学期") {
             Menu {
-                Picker("学期", selection: $model.calendarId) {
-                    ForEach(model.calendars.sorted { $0.calendarName > $1.calendarName }) { Text(Self.name($0)).tag(Int?.some($0.calendarId)) }
+                Picker("学年", selection: $model.selection.year) {
+                    ForEach(model.years.contains(model.selection.year) ? model.years : (model.years + [model.selection.year]).sorted(), id: \.self) {
+                        Text(verbatim: "\($0)–\($0 + 1) 学年").tag($0)
+                    }
+                }
+                Picker("学期", selection: $model.selection.term) {
+                    Text("秋季").tag(1)
+                    Text("春季").tag(2)
                 }
             } label: {
                 HStack(spacing: 4) {
-                    Text(model.calendar.map(Self.name) ?? "学期")
-                    Image(systemName: "chevron.down").font(.caption2.weight(.semibold))
+                    Text(verbatim: "\(model.selection.year)–\(model.selection.year + 1) \(termName)")
+                    Image(systemName: "chevron.up.chevron.down").font(.caption2.weight(.semibold))
                 }
             }
-            .disabled(model.calendars.isEmpty)
-        }
-
-        /// `2025-1` → `2025–2026 秋季`
-        static func name(_ c: AttendanceCalendar) -> String {
-            let parts = c.calendarName.split(separator: "-").compactMap { Int($0) }
-            guard parts.count == 2, let year = parts.first, let term = parts.last else { return c.calendarName }
-            return "\(year)–\(year + 1) \(term == 1 ? "秋季" : term == 2 ? "春季" : "小学期")"
         }
     }
 }
@@ -170,27 +176,6 @@ extension AttendanceState {
     }
 }
 
-private struct SummaryRow: View {
-    let summary: AttendanceSummary
-
-    var body: some View {
-        HStack {
-            stat("正常", summary.normal, .green)
-            stat("迟到", summary.late, .orange)
-            stat("缺勤", summary.absent, .red)
-            stat("其他", summary.other, .secondary)
-        }
-    }
-
-    private func stat(_ title: String, _ value: Int, _ color: Color) -> some View {
-        VStack(spacing: 2) {
-            Text("\(value)").font(.title3.bold()).foregroundStyle(color)
-            Text(title).font(.caption).foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-    }
-}
-
 private struct RecordRow: View {
     let record: AttendanceRecord
 
@@ -200,13 +185,12 @@ private struct RecordRow: View {
                 .accessibilityHidden(true)   // 右侧有文字状态
             VStack(alignment: .leading, spacing: 2) {
                 Text(record.courseName).font(.headline)
-                Text([record.periodConnect.isEmpty ? "" : "第\(record.periodConnect)节", record.roomName].filter { !$0.isEmpty }.joined(separator: " · "))
+                Text([record.periodText, record.roomName].filter { !$0.isEmpty }.joined(separator: " · "))
                     .font(.subheadline).foregroundStyle(.secondary)
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {
-                Text(record.stateName.isEmpty ? record.state.label : record.stateName).font(.subheadline).foregroundStyle(record.state.tint)
-                if record.atdTime.contains(":") { Text(String(record.atdTime.suffix(8).prefix(5))).font(.caption).foregroundStyle(.secondary) }
+                Text(record.statusName.isEmpty ? record.state.label : record.statusName).font(.subheadline).foregroundStyle(record.state.tint)
             }
         }
         .padding(.vertical, 2)
@@ -228,7 +212,9 @@ private struct CourseRow: View {
         HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(course.name).font(.headline)
-                Text("第\(course.firstPeriod)–\(course.lastPeriod)节 \(timeText)").font(.subheadline).foregroundStyle(.secondary)
+                Text(["第\(course.firstPeriod)–\(course.lastPeriod)节", timeText].filter { !$0.isEmpty }.joined(separator: " · "))
+                    .font(.subheadline).foregroundStyle(.secondary)
+                if !course.room.isEmpty { Text(course.room).font(.subheadline).foregroundStyle(.secondary) }
             }
             Spacer()
             if let state {

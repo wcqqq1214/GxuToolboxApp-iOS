@@ -5,7 +5,7 @@ let package = Package(
     name: "FeatureMisc",
     platforms: [.iOS(.v18)],
     products: [.library(name: "FeatureMisc", targets: ["FeatureMisc"])],
-    dependencies: [.package(path: "../GxuCore"), .package(path: "../GxuDesign"), .package(path: "../FeatureAccount"), .package(path: "../FeatureSchedule")],
+    dependencies: [.package(path: "../GxuCore"), .package(path: "../GxuDesign"), .package(path: "../FeatureAccount"), .package(path: "../FeatureSchedule"), .package(path: "../FeatureExam")],
     targets: [
         .target(name: "FeatureMisc", dependencies: [
             .product(name: "GxuFoundation", package: "GxuCore"),
@@ -15,6 +15,7 @@ let package = Package(
             .product(name: "GxuDesign", package: "GxuDesign"),
             .product(name: "FeatureAccount", package: "FeatureAccount"),
             .product(name: "ScheduleKit", package: "FeatureSchedule"),
+            .product(name: "ExamKit", package: "FeatureExam"),
         ]),
         .testTarget(name: "FeatureMiscTests", dependencies: [
             "FeatureMisc",
