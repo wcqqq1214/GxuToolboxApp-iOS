@@ -31,6 +31,8 @@ default:
 
 # MR 阶段只构建和校验，不碰 COS 写接口
 verify_beta_ota:
+    tags:
+        - deploy
     stage: verify
     interruptible: true
     rules:
@@ -39,6 +41,8 @@ verify_beta_ota:
         - node scripts/ci/publish-ota.mjs --channel beta --dry-run --base "$CI_MERGE_REQUEST_DIFF_BASE_SHA"
 
 verify_ota:
+    tags:
+        - deploy
     stage: verify
     interruptible: true
     rules:
@@ -48,6 +52,8 @@ verify_ota:
 
 # 合并后发布。首次验证先保留 when: manual，确认无误后删除该行即自动发布。
 publish_beta_ota:
+    tags:
+        - deploy
     stage: publish
     resource_group: gxu-cos-publish
     when: manual
@@ -60,6 +66,8 @@ publish_beta_ota:
         - node scripts/ci/publish-ota.mjs --channel beta --create-release
 
 publish_ota:
+    tags:
+        - deploy
     stage: publish
     resource_group: gxu-cos-publish
     when: manual
