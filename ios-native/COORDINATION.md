@@ -160,7 +160,7 @@ CampusCalendar { timeShift: [ShiftRule(workDate, restDate)], holidays: [HolidayR
 ```
 - 数据源 `https://file.unde.site/GxuToolApp/data.json`，只更新 `timeShift: [["补班日","休息日"], …]`。**节假日（`holidays`）不做远程更新（用户已决定）**：内置备份 `Resources/campus-calendar-fallback.json` 就是学校最新数据，最晚到 2027 年元旦；内置数据之外的日期按没有假期处理，不报错。模型仍接受可选的远程 `holidays`（`kind` = national / local / school，缺省 national），但没有人维护它。单条数据格式不对只丢那一条。
 - 你的节假日 / 调课页面请直接读 `current()`（进页面时再 `refresh()` 一次），不要自己请求。`kind == .local` 对应 HolidayScreen 的“地方”标签，其余是“全国”；调课通知页的 timeShift 同理。
-- 课表已经叠加：假期 / 休息日的课移除并显示整天块，补班日显示被调过来的课（`CourseOccurrence.shiftedFrom` 非 nil，带“补”标记）。`NextCourseCalculator.compute(schedule:term:campus:now:)` 新增 `campus:` 参数（默认 `.empty`）；**小组件请传 `repo.current()`**，否则下一节课不含调课。课表页写进 SharedStore 的快照已经包含调课。
+- 课表已经叠加：假期只显示整天块（课程保留，对齐 RN v2.2）；调休休息日的课移除并显示整天块，补班日显示被调过来的课（`CourseOccurrence.shiftedFrom` 非 nil，带“补”标记）。`NextCourseCalculator.compute(schedule:term:campus:now:)` 新增 `campus:` 参数（默认 `.empty`）；**小组件请传 `repo.current()`**，否则下一节课不含调课。课表页写进 SharedStore 的快照已经包含调课。
 - `CalendarOverlay.apply(to:calendar:term:)` 可对任意 `[CourseOccurrence]` 叠加，返回 `(occurrences, dayBlocks)`。
 
 ### 个人信息 / 反馈 / 埋点 / 版本检查 / WebView 容器已就绪（Agent A）
@@ -717,34 +717,33 @@ interrogate 审查循环结束（用户决定不再开新一轮）。详细决�
 - **v2.2 里 commit 标题写“实验课”的几个提交**（教学周与节次编辑面板、本地存储）实际是“自定义事件”（`custom_events`）：iOS 已有（自定义日程：教学周范围、星期、节次、颜色，按学号 + 学期存 GRDB）。
 - **`getWeekOfDate` 口径**：和 iOS 的 `TermCalendar.week(containing:)` 一致（`floor(天数 / 7) + 1`，按天归一），已移植 RN 的用例做回归。
 - **9-10 节合并行核对结果：** RN 默认（行高 > 40）是 13 行、每行 `节次 + 上课 + 下课`，**不合并**；只有紧凑模式 / 画布导出才两两合并成 `N - M`（`1 - 2`、…、`9 - 10`、`13`）。按协调者指示保留“只合并 9-10”的设计，文字改成 RN 的 `9 - 10` 写法。
-- **假期里的课：** RN v2.2 在假期里（非调休休息日）**不移除**课程，只在底层画全天横幅（`563b1ff6` 把标签前移避免被课程盖住）。iOS 保持“假期里的课移除”——假期上课会误导用户。如果协调者 / 用户要求严格对齐 RN，说一声，改一行。
+- **假期里的课：** RN v2.2 在假期里（非调休休息日）**不移除**课程，只在底层画全天横幅（`563b1ff6` 把标签前移避免被课程盖住）。（已改为严格对齐 RN：假期里保留课程，见 `[v22-aligned] B`。原先的说明：iOS 曾保持“假期里的课移除”，）改一行。
 - **未做：** 考勤图层（课程块上的考勤状态，需要 C 的考勤数据按 `week-day-begin-end` 挂载）、课表底栏考试信息卡（iOS 已有首页“下一件事”和底部附件）、课程详情栏的逐项对照。
 - 截图：`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/schedule-exam-light.png`、`/Users/wcqqq1214/Project/gxu_ios_b/ios-native/.screens/schedule-exam-dark.png`。
 
-### [v22-aligned] B（Agent B，2026-11-06）
+### [v22-aligned] B（Agent B，2026-11-07 更新）
 
-基准 RN `c7c11bc3`。`build.sh` 通过，FeatureSchedule / FeatureCampus 测试通过，均已发布到 `ios-native`。没有安装到手机。
+基准 RN `c7c11bc3`。`build.sh` 通过，FeatureSchedule / FeatureCampus / FeatureCourse 测试通过，一项一发布到 `ios-native`。没有安装到手机。
 
 **已对齐**
-- 工具箱按 v2.2：“个人课表”、加回“空闲教室”。
-- 空闲教室整套（FeatureCampus）：按时间查询、分页、楼栋 / 楼层、教室搜索、筛选、节次与时段高亮、缓存管理。真实数据标「后续测试」。
-- 课表：补课日保留当天原有的课（两组并排、冲突域分开）；9、10 节合并行文字为“9 - 10”（RN 工具箱默认 13 行不合并，按协调者决定保留 12 行）；`getWeekOfDate` 周次算法有一致性测试。
-- 课表考试图层（并排、详情）；实验课教师 / 地点按日期覆盖，周网格、首页快照、写给小组件的下一节课快照都已应用（`PhyExpOverrides`）。
-- 课程详情：相关考试卡（类型 / 日期时间 / 教室 / “N 号” / 已结束·今天考试·N 天后）、地点行“导航到这里”（体育学院按 北 / 西 / 东 搜 行健馆 / 西校园综合体育馆 / 东校园体育场，其余按教室解析教学楼，解析不到不显示按钮）、考勤行。
-- 课表考勤图层：课程块右下角状态图标（形状区分，有无障碍文字），逻辑与 RN `normalizeAttendanceRecords` 同规则（无效日期 / 节次、1–13、止不早于起），有单测。
-- 账号 / 学期隔离、开学日缓存：iOS 本来按 学号 + 学期 存 GRDB，等价，不用改。
+- 工具箱按 v2.2：“个人课表”、加回“空闲教室”。空闲教室整套（按时间查询、分页、楼栋 / 楼层、搜索、筛选、节次与时段高亮、缓存管理）。
+- 课表：补课日保留当天原有的课；9、10 节合并行文字“9 - 10”（按协调者决定保留 12 行）；周次算法一致性测试；考试图层并排与详情；实验课（PEC）教师 / 地点按日期覆盖，周网格、首页快照、小组件快照写入处都已应用。
+- **假期只是底层横幅，课程照常保留**（RN `useTimelineLayers` 的假期图层 `needShift: false`）；调休休息日的课仍被移走，补课日把休息日的课调过来。
+- **下一件事包含假期**（RN `NextEventBanner`）：假期日按 08:00 开始，和课程 / 考试取最早，同一时刻假期在前；首页“接下来”卡片和底部附件显示“下个假期 · 名称 · 今天 / 明天 / N 天后”；实验课显示“下节实验课”。调休休息日不算假期。
+- **实验课（RN `customEvent` / `CustomEventsSheet` / `useCustomEvents`）**：名称、教学周文本（`1-8,10,12`，可不连续，解析规则和错误文案同 RN `parseTeachingWeeks`）、星期、开始 / 结束节次（结束不早于开始）、地点、教师、备注，校验同 RN schema（名称 ≤100、地点 ≤200、教师 ≤100、备注 ≤2000、周 1–53）；“我的实验课”列表、编辑、删除确认（“确定删除“X”及其所有重复安排？”）、编辑提示“修改会应用到此实验课的所有教学周”；按 学号 + 学期 存本地 GRDB，旧版（起止周）数据可读；补课日当天原有的实验课不显示（RN 实验课图层没有 `showPreShiftItems`）。界面文案由“日程”改为“实验课”。
+- 课程详情：相关考试卡、地点行导航（体育学院按 北 / 西 / 东 搜场馆）、考勤行、**任课教师卡片**（头像 / 姓名 / 单位 / 查看详情：按姓名查 `/teachers/search`，一条结果直接进 C 的 `TeacherDetailView`，多条先列出来选，和 RN 的 `TeacherSheet` 一致）。
+- 课表考勤图层（课程块状态图标，规则同 `normalizeAttendanceRecords`，有单测）。账号 / 学期隔离、开学日缓存：iOS 本来就按 学号 + 学期 存 GRDB，等价。
 
 **未对齐（原因）**
-- 考勤图层的**数据源**：C 的 `AttendanceAPI.records` 是 internal 且没有本地缓存，课表侧已就绪但真实环境还没有数据。已写进 C 请求区，C 发布后 B 在 `layersProvider` 里接上（一小段）。Demo 模式用假标记看过效果。
-- 小组件 / App Intent（`ClassWidgetKit`，归 C）里的实验课覆盖：已写进 C 请求区；`PhyExpOverrides` 和 `cachedSnapshot(overrides:)` 已可用。
-- 假期里的课：RN 保留课程只加横幅，iOS 有意移除（早前已说明，改成对齐是一行改动，等决定）。
-- 课程详情的“任课教师卡片 + 查看详情（教师查询）”没有移植（教师查询页是 C 的，接入需要跳转契约）。
-- 假期 NextEvent 表现我没有逐项再对照 RN，不能说已对齐。
-- 实验课的“教学周 / 节次编辑”：iOS 没有照搬，自定义日程已能达到同样效果。
+- 考勤图层的**数据源**：C 的 `AttendanceAPI.records` 是 internal 且没有本地缓存，课表侧已就绪，真实环境还没有数据（已在 C 请求区）。Demo 模式验证过显示。
+- 小组件 / App Intent（`ClassWidgetKit`，归 C）里的实验课覆盖（已在 C 请求区）。小组件里的假期课程会随 `CalendarOverlay` 一起保留（和 App 一致）。
+- 教师卡片的查询暂时由 Shell 直接请求 `/teachers/search`（只用 FeatureMisc 公开的 `TeacherSearchPage` / `TeacherSummary` / `TeacherDetailView`），等 C 公开 `TeacherAPI.search` 后换掉（已在 C 请求区）。
+- RN 课程详情里的“课程 QQ 群：加群”按钮、“选课情况：理论满座率”这一行没有移植（现在是“选课人数”一行）；课程信息栏的标题 / 学分 | 考核 排版也沿用 iOS 的 §6 样式，没有照抄。
+- 在模拟器上没有点开教师详情页（Demo 后端没有 `/teachers/profile`），导航路径只看了卡片本身。
 
-**截图**（`ios-native/.screens/`，Demo 数据）：`v22-attendance-grid-{light,dark}.png`（周网格 + 考勤图标）、`v22-attendance-detail-{light,dark}.png`（课程详情含考勤行和相关考试）。
+**截图**（`ios-native/.screens/`，Demo 数据，浅色 / 深色各一张）：`v22-holiday-keeps-*`（假期保留课程）、`v22-nextholiday-*`（首页“下个假期”）、`v22-lab-list-*`、`v22-lab-add-*`（实验课列表 / 编辑）、`v22-teacher-card-*`（教师卡片 + 相关考试 + 考勤行）、`v22-attendance-grid-*`、`v22-attendance-detail-*`。
 
-**后续测试（需真实账号 / 校园网）**：考勤记录、PEC 实验课覆盖、空闲教室真实数据。
+**后续测试（需真实账号 / 校园网）**：考勤记录、PEC 实验课覆盖、空闲教室真实数据、教师查询真实响应。
 
 ## Agent A 收到的请求
 
@@ -799,3 +798,4 @@ interrogate 审查循环结束（用户决定不再开新一轮）。详细决�
   - C：已提供，签名和 B 例子不同——缓存放在 `SharedStore`（UserDefaults），不用数据库。`FeatureMisc.AttendanceRecordCache.cached(store: services.shared, studentId: services.accounts.studentId, year:, term:) -> [AttendanceRecord]`（同步、只读、按学号 + 学期隔离，没有缓存返回空）；考勤页每次成功 `load()` 后写入。可选静默刷新：`await AttendanceRecordCache.refresh(services:year:term:)`（`@MainActor`，仅在 `.attendance == .authenticated` 时联网，失败保留缓存、不报错，期间换账号不写）。`AttendanceRecord` 有 `date` / `periodRange` / `statusCode`，直接转 `AttendanceMark`。`AttendanceAPI.records` 也改为 public。
 - [x] (B → C，小组件 / App Intent 的实验课覆盖) 首页快照 `ScheduleRepository.cachedSnapshot(..., overrides:)` 和 `NextCourseCalculator.compute(..., overrides:)` 已支持按日期覆盖教师 / 地点；FeatureCampus 提供 `PhyExpOverrides.cached(database:studentId:calendar:) async -> [OccurrenceOverride]`（只读本地缓存）。小组件 / App Intent（`ClassWidgetKit/SnapshotProvider.swift`、`ScheduleQuery.swift`，归 C）请在构造快照时传入它的结果，这样小组件里的“物理实验”课也显示 PEC 的教师和地点。注意 ClassWidgetKit 目前不依赖 FeatureCampus，需要依赖或由 C 在 Widget 侧读取同一张 `phy_experiment` 表（按学号）。
   - C：已接入。`ClassWidgetKit` 依赖 FeatureCampus；`SnapshotProvider.compute` 和 `ScheduleQuery.courses(on:studentId:…)` 读 `PhyExpOverrides.cached`，传给 `cachedSnapshot(overrides:)`，并同时传给 `NextCourseCalculator.compute(overrides:)` / `OccurrenceOverrides.apply`（快照里的 `schedule` 是原始课表，要再应用一次才一致）。新增测试 `PhyExpOverrideTests`：有 PEC 记录的日期显示 PEC 教师 + 地点，其它日期、其它课、其它账号不变。FeatureCourse Package.swift 增加 FeatureCampus 依赖（无循环）。
+- [ ] (B → C，课程详情教师卡片) B 已在课程详情里做了“任课教师”卡片（头像 / 姓名 / 单位 / 查看详情），目前 Shell 用 FeatureMisc 公开的 `TeacherSearchPage` 直接请求 `/teachers/search`（`App/Shell/TeacherLookup.swift`，进详情用公开的 `TeacherDetailView(teacher:)`）。请 FeatureMisc 公开 `TeacherAPI.search(_:page:)`（现在是 internal），并可选提供 `TeacherSearchView(initialKeyword:)`，B 发布后改用。不急，不影响现有功能。
