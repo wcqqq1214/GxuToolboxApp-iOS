@@ -18,6 +18,21 @@ private func at(_ s: String) -> Date {
     return f.date(from: s)!
 }
 
+@Suite struct GpaFormatTests {
+    @Test func twoDecimalsRoundHalfUp() {
+        #expect(GpaCalculator.format(2.05) == "2.05")
+        #expect(GpaCalculator.format(3.765) == "3.77")
+        #expect(GpaCalculator.format(3.7649) == "3.76")
+        #expect(GpaCalculator.format(2.0) == "2.00")
+        #expect(GpaCalculator.format(0) == "0.00")
+        #expect(GpaCalculator.format(.nan) == "N/A")
+        #expect(GpaCalculator.format(80.125) == "80.13")
+        // 总绩点 (4.0×2 + 3.5×3) / 5 = 3.7；加权平均 (90×2 + 85×3) / 5 = 87
+        let r = GpaCalculator.calculate([Score(id: "a", year: 2025, term: 1, courseName: "a", credit: 2, score: 90), Score(id: "b", year: 2025, term: 1, courseName: "b", credit: 3, score: 85)])
+        #expect(GpaCalculator.format(r.gpa) == "3.70" && GpaCalculator.format(r.wam) == "87.00")
+    }
+}
+
 @Suite struct ExamTimeParserTests {
     let time = "2026-07-15(09:00-11:00)"
 
@@ -128,6 +143,7 @@ private func at(_ s: String) -> Date {
         #expect(GpaCalculator.pointText(for: 85) == "3.50")
         #expect(GpaCalculator.pointText(for: 87.65) == "3.77")
         #expect(GpaCalculator.pointText(for: 100) == "5.00")
+        #expect(GpaCalculator.pointText(for: 70.5) == "2.05")
     }
 }
 

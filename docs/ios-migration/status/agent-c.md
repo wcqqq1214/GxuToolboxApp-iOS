@@ -245,3 +245,7 @@ A 验证后的发现 4 条，全部修复并加了回归测试：
 - `ElectiveStrategyView` 入口改为后端结果页（`GET /jw/elective-progress`）：校验 `studentId` 等于当前账号、整份结果按学号缓存、新刷新使旧请求作废、刷新失败保留上次结果并提示、`complete=false` 或 `isQualified=nil` 显示"待核对"而不是"未达标"，数值格式移植 `progressDisplay`。
 - 旧本地规则页保留为 `LegacyElectiveStrategyView`（调试屏 `c-strategy-legacy`），年级规则和测试不删，不再路由。
 - 后续测试：没有真实响应样本（已向 A 请求），模型按 RN schema 构造，测试夹具是构造数据。
+
+# 绩点显示两位小数（用户决定）
+
+- 总绩点、加权平均、单门绩点统一两位小数、四舍五入（`GpaCalculator.format`，学校办法与教务系统口径，和 RN 总绩点三位不同，用户明确要求）；取代上面"GPA 三位"的记录。

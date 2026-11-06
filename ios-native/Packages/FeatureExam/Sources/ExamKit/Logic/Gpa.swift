@@ -24,10 +24,18 @@ public enum GpaCalculator {
         return GpaResult(gpa: gpaNumerator / denominator, wam: wamNumerator / denominator)
     }
 
+    /// 绩点、加权平均、单门绩点统一保留两位小数、四舍五入（学校办法和教务系统口径，用户要求；RN 总绩点是三位）。
+    /// 先加一个很小的偏移，避免 3.765 这类二进制误差被舍成 3.76。
+    public static func format(_ value: Double) -> String {
+        guard value.isFinite else { return "N/A" }
+        let eps = value < 0 ? -1e-9 : 1e-9
+        return String(format: "%.2f", ((value + eps) * 100).rounded(.toNearestOrAwayFromZero) / 100)
+    }
+
     /// 单门绩点的展示文案（RN `calculatePoint`）：无成绩 "N/A"，不及格 "0"，否则 (score-50)/10 保留两位
     public static func pointText(for score: Double?) -> String {
         guard let score, score.isFinite else { return "N/A" }
         if score < 60 { return "0" }
-        return String(format: "%.2f", (score - 50) / 10)
+        return format((score - 50) / 10)
     }
 }

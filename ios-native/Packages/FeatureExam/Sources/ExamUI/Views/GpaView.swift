@@ -65,7 +65,7 @@ public struct GpaView: View {
                 Section {
                     VStack(spacing: 4) {
                         Text(summaryTitle).font(.footnote).foregroundStyle(.secondary)
-                        Text(model.scores.isEmpty ? "—" : (showsWam ? String(format: "%.2f", result.wam) : String(format: "%.3f", result.gpa)))
+                        Text(model.scores.isEmpty ? "—" : GpaCalculator.format(showsWam ? result.wam : result.gpa))
                             .font(.system(size: 40, weight: .bold, design: .rounded))
                             .contentTransition(.numericText())
                     }
