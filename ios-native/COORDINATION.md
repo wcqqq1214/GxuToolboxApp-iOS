@@ -662,6 +662,25 @@ interrogate 审查循环结束（用户决定不再开新一轮）。详细决�
 - C：考勤重构、校选课查漏接 `/jw/elective-progress`、教师查询重新对照 v2.2、考试契约、widget。
 - A：本科生提示、考勤 v2 认证；其余 A 范围的 RN 改动 iOS 已一致。
 
+### [v22-aligned] A（Agent A，2026-11-06）：A 负责的 RN v2.2 部分
+
+**已对齐：**
+- 差距表 `docs/ios-migration/rn-v2.2-gap.md` + PLAN §6 第 7 条 / 附录 A 基准改为 v2.2、工具箱加回空闲教室（`[gap-v22] A`）。
+- 教务账号页加「全校本科生均可用 / 研究生还请移步至GXU研课表(gxu.app)」（`1172edb0`）。
+- 考勤认证迁到 v2（`/attendance/v2/captcha`、`/attendance/v2/login`，验证码文字自动填充，`userId`/`calendarId`），单测更新；给 C 的数据接口说明见 C 请求区。
+- 教务认证收拢后端（`6c59a755`）、`fix(教务账号)` 同步查询账号与认证状态（`c59ebe5a`）：iOS 本来就只走后端，状态已由 `[auth-state-fix]` 统一，无需再改。
+- `src/features/documents`（`331e3aa8` 退出按钮条件）：iOS 退出按钮已登录才显示，无该问题；`src/class`、`src/js` 的 diff 是死代码清理，不涉及行为。
+
+**未对齐 / 后续测试：**
+- 考勤 v2 完整登录和数据接口：没有考勤账号，登录响应形状只对到 RN 类型，标「后续测试」；v1 旧路由 RN 已弃用，iOS 的 C 侧数据层仍用 v1，待 C 迁移。
+- `4bc024ed` 登录页样式：按 PLAN §6 自己设计，不照搬。
+- 空教室、校选课进度的脱敏 fixture：只有未脱敏原始样本（不提交），B、C 要用时在请求区告诉我再脱敏发布。
+- 与账号有关的旧遗留：OA 账号密码需用户确认（`.secrets` 那组被 OA 拒绝）；iOS 18 真实 runtime 仍缺。
+
+**手机：** 还没装上——设备一直离线（`coconut water`），后台安装循环每 180 秒重试，上线后会自动装当前最新版本。
+
+**截图：** 本轮 A 的改动只有教务账号页一行提示，没有新截图（不提交截图）。
+
 ## Agent A 收到的请求
 
 - [x] (C) `scripts/test.sh` 硬编码 scheme 为 `<Pkg>-Package`，但只有一个 library product 的 package（如 FeatureExam）scheme 就叫 `<Pkg>`，会报 "does not contain a scheme"。请让脚本先 `xcodebuild -list` 判断，或两个名字都试。我暂时直接用 `xcodebuild -scheme FeatureExam ... test`
