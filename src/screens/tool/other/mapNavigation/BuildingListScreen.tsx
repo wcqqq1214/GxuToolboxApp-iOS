@@ -1,6 +1,6 @@
 import BuildingListItem from "@/screens/tool/other/mapNavigation/BuildingListItem.tsx";
 import {FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View} from "react-native";
-import {BuildingList} from "@/type/pos.ts";
+import {BuildingList} from "@/features/map/data/buildings.ts";
 import {useState} from "react";
 import {useTheme} from "@rneui/themed";
 import {Color} from "@/shared/color.ts";
@@ -51,7 +51,7 @@ export function BuildingListScreen() {
             <FlatList
                 data={selectedData}
                 renderItem={({item}) => <BuildingListItem building={item} />}
-                keyExtractor={item => item.fullName}
+                keyExtractor={item => item.name}
             />
         </View>
     );
