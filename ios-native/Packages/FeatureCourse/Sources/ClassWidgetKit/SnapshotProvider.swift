@@ -1,4 +1,5 @@
 import Foundation
+import FeatureCampus
 import GxuAuth
 import GxuFoundation
 import GxuNetworking
@@ -10,9 +11,12 @@ public enum SnapshotProvider {
     public static func compute(studentId: String, database: AppDatabase, now: Date = .now, calendar: Calendar = .current) async -> NextCourses {
         let repo = ScheduleRepository(backend: UnavailableBackend(), database: database)
         // 用 B 提供的"小组件 / App Intent 用"的缓存快照：已叠加节假日 / 补班、用户选的冲突课程、自定义日程，和 App 里的今天一致
-        if let snapshot = await repo.cachedSnapshot(studentId: studentId, now: now, calendar: calendar) {
+        // 物理实验课按上课日期换成 PEC 里的教师和地点（FeatureCampus 的本地缓存，不联网），和 App 里的今天一致
+        let overrides = await PhyExpOverrides.cached(database: database, studentId: studentId, calendar: calendar)
+        if let snapshot = await repo.cachedSnapshot(studentId: studentId, now: now, calendar: calendar, overrides: overrides) {
             return NextCourseCalculator.compute(
-                schedule: snapshot.schedule, term: snapshot.termCalendar, campus: snapshot.campus, choices: snapshot.choices, now: now
+                schedule: snapshot.schedule, term: snapshot.termCalendar, campus: snapshot.campus, choices: snapshot.choices,
+                overrides: overrides, now: now
             )
         }
         // 没有快照：区分是缺开学日还是缺课表

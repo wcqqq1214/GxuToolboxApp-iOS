@@ -251,3 +251,5 @@ A 验证后的发现 4 条，全部修复并加了回归测试：
 - 总绩点、加权平均、单门绩点统一两位小数、四舍五入（`GpaCalculator.format`，学校办法与教务系统口径，和 RN 总绩点三位不同，用户明确要求）；取代上面"GPA 三位"的记录。
 
 - 校选课进度已用真实脱敏样本核对（`elective-progress.json`），模型无需修改，测试换成真实 fixture；移除 TODO(verify)。
+
+- B 的请求已处理：考勤记录缓存（`AttendanceRecordCache`，SharedStore，按学号+学期）、小组件 / App Intent 的实验课覆盖（ClassWidgetKit 读 `PhyExpOverrides.cached`）。

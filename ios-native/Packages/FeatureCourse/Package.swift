@@ -13,7 +13,7 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../GxuCore"), .package(path: "../GxuDesign"),
-        .package(path: "../FeatureSchedule"), .package(path: "../FeatureExam"),
+        .package(path: "../FeatureSchedule"), .package(path: "../FeatureExam"), .package(path: "../FeatureCampus"),
     ],
     targets: [
         .target(name: "FeatureCourse", dependencies: [
@@ -27,6 +27,7 @@ let package = Package(
             .product(name: "ExamUI", package: "FeatureExam"),
         ]),
         .target(name: "ClassWidgetKit", dependencies: [
+            .product(name: "FeatureCampus", package: "FeatureCampus"),
             .product(name: "GxuFoundation", package: "GxuCore"),
             .product(name: "GxuNetworking", package: "GxuCore"),
             .product(name: "GxuAuth", package: "GxuCore"),
@@ -50,6 +51,7 @@ let package = Package(
         ], resources: [.copy("Fixtures")]),
         .testTarget(name: "ClassWidgetKitTests", dependencies: [
             "ClassWidgetKit",
+            .product(name: "FeatureCampus", package: "FeatureCampus"),
             .product(name: "GxuTestSupport", package: "GxuCore"),
         ]),
     ]
