@@ -15,8 +15,8 @@ settings:
     GXU_BUNDLE_ID: com.gxutool.ios
     GXU_APP_GROUP: group.$(GXU_BUNDLE_ID)                       # 置空 = 不使用 App Group（免费个人团队降级用）
     GXU_KEYCHAIN_GROUP: $(AppIdentifierPrefix)$(GXU_BUNDLE_ID)   # 置空 = 不使用共享的 Keychain 分组
-    MARKETING_VERSION: "0.1.0"
-    CURRENT_PROJECT_VERSION: "1"
+    MARKETING_VERSION: "2.2.0"       # 对齐 RN origin/v2.2 的 package.json / versionName
+    CURRENT_PROJECT_VERSION: "20200"   # 对齐 RN android versionCode 20200（版本检查拿它和后端 versionCode 比较）
 packages:
   GxuCore: {path: Packages/GxuCore}
   GxuDesign: {path: Packages/GxuDesign}
@@ -44,6 +44,8 @@ targets:
       path: App/Resources/Info.plist
       properties:
         CFBundleDisplayName: 西大工具箱
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         UILaunchScreen: {}
         # 真机用真实 Team ID 签名时展开成 TEAMID.com.gxutool.ios；GxuConfig.keychainAccessGroup 读它（模拟器忽略）
         GxuKeychainAccessGroup: "$(GXU_KEYCHAIN_GROUP)"
@@ -103,6 +105,8 @@ targets:
       path: Widget/Info.plist
       properties:
         CFBundleDisplayName: 西大工具箱小组件
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         GxuKeychainAccessGroup: "$(GXU_KEYCHAIN_GROUP)"
         GxuAppGroupID: "$(GXU_APP_GROUP)"
         NSExtension:
