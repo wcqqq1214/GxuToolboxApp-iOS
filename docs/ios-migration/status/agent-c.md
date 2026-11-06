@@ -205,3 +205,12 @@ WAM = wamNumerator / denominator    // 加权平均成绩
 未修 / 判断：
 - 对抗者指出"教师工号 `000000` 当网络课"偏离 RN 的 `isOnline` 规则：保留。理由：A 的脱敏说明明确 `000000` 是网络课占位工号；A 的真实原始数据上 `teacher == "网络教师"` 与 `teacherId == "000000"` 是同样的 7 门；脱敏样本里教师名被替换，只有工号还在。该判断已写进代码注释。
 - 其余被丢弃的（未复现、纯风格、空 courseId 等）共 16 条，不再提。
+
+## 第 2 轮（2 个对抗 subagent：考试 / 小组件、课程 / 考勤 / 教师）
+
+验证后的发现 3 条，全部修复并加了回归测试：
+1. 设备日历设成佛历 / 日本历 / 农历 / 民国历时，考试时间按 `Calendar.current` 拼年月日，年份完全错（状态、倒计时、排序、首页卡片、Intent 都受影响）→ `Calendar.gregorianEquivalent`（同时区公历），考试解析 / 展示、学年推算、节假日日期、考勤日期、Intent 文案都先转公历（`NonGregorianCalendarTests`，5 种日历）。ScheduleKit 里 `TermCalendar` 等同样依赖调用方的日历，是 B 的路径，已写进 B 的请求。
+2. 考勤：过期请求失败时把错误条盖在新学期的成功数据上 → `catch` 里也检查 `loadVersion`（`AttendanceStaleFailureTests`）。
+3. 考勤课表：`connectCount` 给 `Int.max` 时 `row + 1 + connectCount` 溢出崩溃 → 连续节数限制在表剩余行数内（`AttendanceHostileScheduleTests`）。
+
+丢弃 6 条（没有证明：term 0 残留行取决于后端行为、`isLoading` 卡住在下次成功加载时复位、选课范围切换的数据库时序等）。

@@ -1,9 +1,11 @@
+import ExamKit
 import Foundation
 import ScheduleKit
 
 /// 节假日页 / 调休页用的纯逻辑：把 `CampusCalendar`（B 的 ScheduleKit）整理成可展示的条目。
 enum DayText {
     static func parse(_ text: String, calendar: Calendar) -> Date? {
+        let calendar = calendar.gregorianEquivalent
         let parts = text.prefix(10).split(separator: "-").compactMap { Int($0) }
         guard parts.count == 3 else { return nil }
         let comps = DateComponents(year: parts[0], month: parts[1], day: parts[2])
@@ -16,12 +18,14 @@ enum DayText {
 
     /// `2月15日`
     static func monthDay(_ date: Date, calendar: Calendar) -> String {
+        let calendar = calendar.gregorianEquivalent
         let c = calendar.dateComponents([.month, .day], from: date)
         return "\(c.month ?? 0)月\(c.day ?? 0)日"
     }
 
     /// `1月4日（周日）`
     static func monthDayWeekday(_ date: Date, calendar: Calendar) -> String {
+        let calendar = calendar.gregorianEquivalent
         let weekday = (calendar.component(.weekday, from: date) + 5) % 7   // 0 = 周一
         return "\(monthDay(date, calendar: calendar))（周\(["一", "二", "三", "四", "五", "六", "日"][weekday])）"
     }

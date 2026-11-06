@@ -214,11 +214,13 @@ struct AttendanceScheduleTable: Decodable, Sendable {
                 let cells = resTableRankList[row].courses
                 if day < cells.count, !cells[day].subjectName.isEmpty, cells[day].connectCount > 0 {
                     let cell = cells[day]
+                    // 连续节数不会超过表里剩下的行数；服务端给出离谱的数字（如 Int.max）时，后面的加法会溢出崩溃
+                    let span = min(cell.connectCount, resTableRankList.count - row - 1)
                     result.append(AttendanceCourse(
                         day: String(cell.weekDay.prefix(10)), weekday: day, name: cell.subjectName,
-                        firstPeriod: row + 1, lastPeriod: row + 1 + cell.connectCount
+                        firstPeriod: row + 1, lastPeriod: row + 1 + span
                     ))
-                    row += cell.connectCount
+                    row += span
                 }
                 row += 1
             }
@@ -230,6 +232,10 @@ struct AttendanceScheduleTable: Decodable, Sendable {
 enum AttendanceDay {
     /// `yyyy-MM-dd` 或更长的日期时间串，取前 10 位
     static func parse(_ text: String, calendar: Calendar = .current) -> Date? {
+        var calendar = calendar
+        if calendar.identifier != .gregorian {   // 设备日历为佛历 / 农历等时，年月日不是公历
+            var g = Calendar(identifier: .gregorian); g.timeZone = calendar.timeZone; g.locale = calendar.locale; calendar = g
+        }
         let parts = text.prefix(10).split(separator: "-").compactMap { Int($0) }
         guard parts.count == 3 else { return nil }
         let comps = DateComponents(year: parts[0], month: parts[1], day: parts[2])

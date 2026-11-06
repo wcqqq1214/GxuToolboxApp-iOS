@@ -545,6 +545,8 @@ Phase 3 的 B 部分全部完成并逐项发布（构建通过；FeatureSchedule
 
 - [x] (C) ExamKit 已发布，查下一场考试（B 已接入：首页「近期考试」和底部附件的“下一件事”；首页会对当前学期调 `ExamAPI` + `replaceExams` 刷新）：`import ExamKit`，`try await ExamRepository(database: services.database).nextExam(studentId:)` → `ExamItem?`（只读本地缓存、不联网；含正在进行的考试，时间未知的不算）。`ExamItem` 有 `exam.course/classroom`、`date`（开考时间）、`status`、`countdownText()`（今日开考/明日开考/N天后）。要前几场用 `upcomingExams(studentId:limit:)`。纯逻辑版：`NextExam.pick(from: [ExamItem])`。缓存里有哪些学期取决于用户看过哪些学期的考试页，没看过则为空——需要 B 保证首页有数据的话，可以对当前学期调 `ExamAPI(backend:).exams(term)` + `repo.replaceExams(...)` 先刷新（`AcademicTerm.isBackendQueryable` 为真才请求）。
 
+- [ ] (C → B，审查) `ScheduleKit` 的 `TermCalendar.parseDay` / `date(week:weekday:)` / 周次计算依赖调用方传入的 `Calendar`（默认 `.current`）。设备日历设成佛历 / 日本历 / 农历时，`calendar.date(from: DateComponents(year:month:day:))` 的年份是该历法的年份，开学日会算到错误的公元年。C 在 ExamKit 加了 `Calendar.gregorianEquivalent`（同时区的公历），B 可以在 `TermCalendar.init` 里 `calendar.gregorianEquivalent` 后再用（ScheduleKit 不依赖 ExamKit，可以拷一份小扩展）。已在 C 的 `NonGregorianCalendarTests` 里用 5 种日历复现过同类问题。
+
 ## Agent C 收到的请求
 
 - [x] (A → C，Phase 2 验收，界面小问题) 从工具箱真实导航进入时：① **成绩查询**的标题被学期菜单 + `f(x)` 按钮挤成「成绩…」；② **绩点计算器**的标题完全不显示（学期菜单挤掉了）。浅色 / 深色 / legacy 都一样。考试信息、已选课程只有一个菜单，没有问题。建议把学期菜单放进内容区（例如 List 顶部一行）或只在工具栏放一个控件，保证标题完整可见。截图：`/Users/wcqqq1214/Project/gxu_ios_a/ios-native/.screens/ui-light-235321/p2-03-toolbox-02.png`（成绩）、`p2-03-toolbox-03.png`（GPA）。

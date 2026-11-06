@@ -1,5 +1,17 @@
 import Foundation
 
+public extension Calendar {
+    /// 同一时区、同一语言环境的公历。设备日历设成佛历 / 日本历 / 农历时，`Calendar.current` 的年份、月份不是公历，
+    /// 用它拼 `2026-07-15` 会得到完全错的日期；解析和展示服务端的公历日期时先转成公历。
+    var gregorianEquivalent: Calendar {
+        if identifier == .gregorian { return self }
+        var c = Calendar(identifier: .gregorian)
+        c.timeZone = timeZone
+        c.locale = locale
+        return c
+    }
+}
+
 public enum ExamStatus: String, Sendable, Equatable {
     case upcoming, past, tbd
 }
@@ -20,6 +32,7 @@ public enum ExamTimeParser {
     /// 解析 `2023-01-01(09:00-11:00)`。结束时间严格早于 `now` 为 past，否则 upcoming；
     /// 不匹配或日期时间越界（RN 的 dayjs 会滚动进位，这里有意判为 tbd）为 tbd。
     public static func parse(_ time: String, now: Date = .now, calendar: Calendar = .current) -> ParsedExamTime {
+        let calendar = calendar.gregorianEquivalent
         let pattern = /(\d{4})-(\d{2})-(\d{2})\((\d{2}):(\d{2})-(\d{2}):(\d{2})\)/
         guard let m = time.firstMatch(of: pattern),
               let y = Int(m.1), let mo = Int(m.2), let d = Int(m.3),
@@ -56,6 +69,7 @@ public struct ExamItem: Hashable, Sendable, Identifiable {
     /// 卡片上的开考时间，**只表达一次**：今日 / 明日开考时卡片上已经有"今日开考""明日开考"徽章，
     /// 这里只写钟点（`23:00`）；其他情况写日期加钟点（`11月10日 14:30`）；没有日期用原文，原文也没有写"时间未定"
     public func timeLine(now: Date = .now, calendar: Calendar = .current) -> String {
+        let calendar = calendar.gregorianEquivalent
         guard let date else { return exam.time.isEmpty ? "时间未定" : exam.time }
         let c = calendar.dateComponents([.month, .day, .hour, .minute], from: date)
         let clock = String(format: "%02d:%02d", c.hour ?? 0, c.minute ?? 0)
@@ -70,6 +84,7 @@ public struct ExamItem: Hashable, Sendable, Identifiable {
 
     /// 距开考的日历天数文案：今日开考 / 明日开考 / N天后；已过或没有日期时为 nil
     public func countdownText(now: Date = .now, calendar: Calendar = .current) -> String? {
+        let calendar = calendar.gregorianEquivalent
         guard status == .upcoming, let date else { return nil }
         let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: now), to: calendar.startOfDay(for: date)).day ?? -1
         switch days {

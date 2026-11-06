@@ -104,6 +104,7 @@ final class AttendanceViewModel {
                 termRecords = loadedRecords
             }
         } catch {
+            guard version == loadVersion else { return }   // 过期请求的失败不能盖在新数据上
             handle(error)
         }
     }
@@ -120,6 +121,7 @@ final class AttendanceViewModel {
             page = next.pageIndex
             hasMore = next.pageIndex < next.totalPage
         } catch {
+            guard version == loadVersion else { return }
             handle(error)
         }
     }

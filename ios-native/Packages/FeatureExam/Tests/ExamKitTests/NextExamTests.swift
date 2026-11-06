@@ -111,3 +111,21 @@ struct ExamTextTests {
         #expect(line("") == "时间未定")
     }
 }
+
+struct NonGregorianCalendarTests {
+    @Test(arguments: [Calendar.Identifier.buddhist, .japanese, .chinese, .republicOfChina, .islamicCivil])
+    func examTimeIgnoresDeviceCalendarSystem(id: Calendar.Identifier) {
+        var device = Calendar(identifier: id)
+        device.timeZone = TimeZone(identifier: "Asia/Shanghai")!
+        var g = Calendar(identifier: .gregorian)
+        g.timeZone = device.timeZone
+        let f = DateFormatter(); f.calendar = g; f.timeZone = g.timeZone; f.dateFormat = "yyyy-MM-dd HH:mm"
+        let now = f.date(from: "2026-07-01 12:00")!
+        let item = ExamItem(Exam(id: "x", course: "x", classroom: "", time: "2026-07-15(09:00-11:00)", type: ""), now: now, calendar: device)
+        #expect(item.status == .upcoming)
+        #expect(item.date == f.date(from: "2026-07-15 09:00"))
+        #expect(item.countdownText(now: now, calendar: device) == "14天后")
+        #expect(item.timeLine(now: now, calendar: device) == "7月15日 09:00")
+        #expect(TermOptions.academicYear(now: now, calendar: device) == 2025)
+    }
+}

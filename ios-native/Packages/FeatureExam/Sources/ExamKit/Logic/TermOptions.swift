@@ -7,6 +7,7 @@ import ScheduleKit
 public enum TermOptions {
     /// 当前学年：9 月之前算上一年
     public static func academicYear(now: Date = .now, calendar: Calendar = .current) -> Int {
+        let calendar = calendar.gregorianEquivalent
         let c = calendar.dateComponents([.year, .month], from: now)
         return (c.month ?? 1) < 9 ? (c.year ?? 0) - 1 : (c.year ?? 0)
     }
@@ -26,6 +27,7 @@ public enum TermOptions {
     /// 开学日数据不可用（离线且无缓存、或解析失败）时按月份推断：9–1 月为秋季，2–8 月为春季；
     /// 暑假默认落在刚结束的春季学期
     public static func defaultTerm(now: Date = .now, calendar: Calendar = .current) -> AcademicTerm {
+        let calendar = calendar.gregorianEquivalent
         let month = calendar.component(.month, from: now)
         let year = academicYear(now: now, calendar: calendar)
         return AcademicTerm(year: year, term: (month >= 9 || month == 1) ? 1 : 2)

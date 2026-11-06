@@ -8,7 +8,7 @@ public enum NextExamSpeech {
             return "没有查到还没结束的考试。在西大工具箱里打开「考试信息」可以同步最新安排。"
         }
         let f = DateFormatter()
-        f.calendar = calendar
+        f.calendar = calendar.gregorianEquivalent
         f.locale = Locale(identifier: "zh_CN")
         f.dateFormat = "M月d日 HH:mm"
         var text = "下一场考试是\(item.exam.course)，\(f.string(from: date))"
