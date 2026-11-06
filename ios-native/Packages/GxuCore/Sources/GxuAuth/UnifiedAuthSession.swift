@@ -53,8 +53,10 @@ public actor UnifiedAuthSession {
         }
     }
 
-    /// 统一认证是否可用（RN `authApi.testToken`：**跟随重定向**后返回 JSON 对象才算登录）。
+    /// 统一认证是否可用（RN `authApi.testToken`：**跟随重定向**后 `typeof res.data === "object"` 才算登录）。
     /// 已登录时，校验接口会 302 到 CAS 换 ticket 再回来；没登录时会落在 CAS 登录页（HTML）。
+    /// **JS 里 JSON 数组也是 object**：真实响应（2026-11-06 用真实账号验证）这个「应用分组」接口返回的是数组，
+    /// 所以判断是「合法 JSON（对象或数组）且不是登录页」，不能只认字典。
     public func testToken() async throws -> Bool {
         var request = URLRequest(url: URL(string: "http://ca.gxu.edu.cn:81/zfim/application/home/getYyfz.zf")!)
         request.httpMethod = "GET"
@@ -63,8 +65,8 @@ public actor UnifiedAuthSession {
             Self.log("校验接口", landing, note: "状态码异常")
             return false
         }
-        guard (try? JSONSerialization.jsonObject(with: landing.data)) is [String: Any] else {
-            Self.log("校验接口", landing, note: Self.isLoginPage(landing.data) ? "落在登录页（没有登录）" : "不是 JSON")
+        guard Self.isJSONContainer(landing.data) else {
+            Self.log("校验接口", landing, note: Self.isLoginPage(landing.data) ? "落在登录页（没有登录）" : "不是 JSON 对象或数组")
             return false
         }
         return true
@@ -277,6 +279,12 @@ public actor UnifiedAuthSession {
     }
 
     // MARK: 解析（纯函数，便于测试）
+
+    /// 合法 JSON 且顶层是对象或数组（对应 JS 的 `typeof x === "object"`；纯字符串、数字、HTML 不算）
+    static func isJSONContainer(_ data: Data) -> Bool {
+        guard let object = try? JSONSerialization.jsonObject(with: data) else { return false }
+        return object is [String: Any] || object is [Any]
+    }
 
     static func execution(in html: Data) -> String? {
         let text = String(decoding: html, as: UTF8.self)

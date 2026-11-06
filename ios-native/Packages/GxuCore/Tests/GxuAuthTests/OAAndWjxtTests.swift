@@ -57,6 +57,17 @@ struct OASessionTests {
         #expect(!log.contains("S3cretPw"))
     }
 
+    /// 诊断日志要记服务端的 message（不含密码），否则查不出被拒绝的原因；密码本身不能出现在日志里
+    @Test func rejectionLogKeepsTheServerMessageButNeverThePassword() async {
+        StubURLProtocol.register(host: "oa.gxu.edu.cn") { reply($0, #"{"code":400,"type":"error","message":"[D1000] 账号或密码不正确","result":null}"#) }
+        let (session, _) = make()
+        _ = try? await session.login(username: "u", password: "S3cretPw!")
+        let log = ErrorLog.shared.contents()
+        #expect(log.contains("OA 登录被服务端拒绝（code 400"))
+        #expect(log.contains("message：[D1000] 账号或密码不正确"))
+        #expect(!log.contains("S3cretPw!"))
+    }
+
     @Test func serverErrorStatusIsReportedAsHTTP() async {
         StubURLProtocol.register(host: "oa.gxu.edu.cn") { reply($0, status: 502, "bad gateway") }
         let (session, _) = make()

@@ -614,6 +614,16 @@ interrogate 审查循环结束（用户决定不再开新一轮）。详细决�
 
 **真机**：手机离线，我的一次 `run-device.sh --personal` 前置检查没通过；随后协调者通知 A 已安装包含 ac37d83b 的版本，所以我没有再往手机安装，也没有真机截图。真机效果（头像能不能显示、领导能不能点进去、全部学期总绩点）**等用户反馈**。
 
+### [login-fix-2] A（Agent A，2026-11-06，用户真机诊断日志：统一认证 / OA 仍失败）
+
+**统一认证：根因是第二个问题（已证实、已修、已用真实账号验证）。** 日志「校验接口：不是 JSON（HTTP 200，…/getYyfz.zf）」——跟随重定向之后拿到了 HTTP 200 的 JSON，但 `testToken()` 只接受 JSON 对象。**真实响应是 JSON 数组**（我用 `.secrets` 里的真实账号登录一次，得到 `application/json`、顶层是数组、6 个元素、每个元素有 `localeKey / row_id / queryModel / userModel …` 等键）；RN 的判定是 `typeof res.data === "object"`，JS 里数组也是 object。现在判断是「合法 JSON（对象或数组）且不是登录页」。回归测试：真实形状的数组响应登录成功、对象也成功、HTML / 纯字符串 / 数字 / 空内容仍然失败。修复后我用同一个账号通过 A 的 Swift 代码又登录了一次：**登录并通过校验接口，成功**。
+
+**OA：这组 `.secrets` 里的 OA 账号被 OA 服务端拒绝，与 RN 请求完全相同。** 我用 RN 的请求（`POST …/gxuoaAuth/gxuoa/auth/login`，JSON `{"Account":…,"Password":…}`，只有 `Content-Type: application/json`，不做任何转换）真实登录了 1 次：HTTP 200，`code 400`，`type error`，`message：[D1000] 账号或密码不正确`。**不再继续尝试。请用户确认 OA 的账号和密码**：RN 的登录框写的是「账号（学号）」「密码（默认身份证前四位+后四位）」；`.secrets` 里的 OA 密码是不是这个规则、有没有被改过，只有用户知道。
+- 逐项核对 RN：提交的账号密码**没有经过任何转换**（`LoginDialog` → `handleLogin(username, password)` → `index.login` 直接放进请求体，没有 trim、编码）。iOS：账号会去掉首尾空白（RN 不去，但不影响正常账号）；**密码一个字符都不改**；密码框是 `SecureField`（系统不对安全输入框做智能标点和自动修正），账号框是 `.asciiCapable` + 关闭自动大写 + 关闭自动修正（教务账号框是数字键盘）。没有发现会改变密码的处理。
+- 诊断日志现在会记录服务端的 `message`（不含密码，截断 80 字符，仍经过脱敏）。
+
+**真实登录次数（上限各 2 次）：** CA 2 次（修复前诊断 1 + 修复后确认 1），OA 1 次（被拒绝后没有再试）。验证脚本放在被 gitignore 的 `.secrets/live_diag.py` 和一个已排除提交并已删除的本地测试里；不打印账号、密码、token、Cookie 和完整响应。我的诊断脚本第一次因为 Python 默认 User-Agent 被 CA 的 WAF 拦截（返回了一整页拦截 HTML，不含敏感信息，且没有提交过任何登录），改用 curl 的 UA 后正常——App 自己用的是系统 UA，之前真机日志里能看到服务端响应，不受这个影响。PEC、金工实训这轮没有试。
+
 ## Agent A 收到的请求
 
 - [x] (C) `scripts/test.sh` 硬编码 scheme 为 `<Pkg>-Package`，但只有一个 library product 的 package（如 FeatureExam）scheme 就叫 `<Pkg>`，会报 "does not contain a scheme"。请让脚本先 `xcodebuild -list` 判断，或两个名字都试。我暂时直接用 `xcodebuild -scheme FeatureExam ... test`

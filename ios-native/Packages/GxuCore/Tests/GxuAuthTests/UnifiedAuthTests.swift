@@ -9,6 +9,14 @@ import Testing
 private let pubKey = #"{"modulus":"a170b33839263059f28c105d1fb17c2390c192cfd3ac94af0f21ddb66cad4a268d116ece1738f7d93d9c172411e20b8f6b0d549b6f03675a1600a35a099950d836f675cc81e74ef5e8e25d940ed904759531985d5d9dc9f81818e811892f902bd23f0824128b2f330c5c7fd0a6a3a4506513270e269e0d37f2a74de452e6b439","exponent":"10001"}"#
 private let loginPage = #"<form id="fm1" action="/zfca/login" method="post"><input type="hidden" name="execution" value="abc-123_XYZ"/></form>"#
 
+/// 校验接口登录后的响应内容。**真实响应（2026-11-06 用真实账号验证）是 JSON 数组**（应用分组列表）；这个套件是串行的，测试里改了要还原
+private final class TokenCheckBody: @unchecked Sendable {
+    static let realShape = #"[{"localeKey":"zh_CN","row_id":"1","doType":null,"pageable":false,"queryModel":{}}]"#
+    private let storage = Mutex(TokenCheckBody.realShape)
+    var value: String { get { storage.withLock { $0 } } set { storage.withLock { $0 = newValue } } }
+}
+private let tokenCheckBody = TokenCheckBody()
+
 private final class Counter: @unchecked Sendable {
     private let storage = Mutex(0)
     @discardableResult func increment() -> Int { storage.withLock { $0 += 1; return $0 } }
@@ -119,7 +127,7 @@ struct UnifiedAuthTests {
                 if !tokenCheckWorks { return reply(request, loginPage) }
                 return hit == 1
                     ? reply(request, status: 302, headers: ["Location": "http://ca.gxu.edu.cn:81/zfim/system/login/login.zf?ticket=ST-1"], "")
-                    : reply(request, #"{"apps":[]}"#)
+                    : reply(request, tokenCheckBody.value)
             }
             if path == "/zfim/system/login/login.zf" {
                 return reply(request, status: 302, headers: ["Location": "/zfim/application/home/getYyfz.zf"], "")
@@ -226,5 +234,30 @@ struct UnifiedAuthTests {
         await settle()
         #expect(rejected.states[.unified] == .signedOut)
         #expect(rejected.states[.unified]?.displayText == "需要重新登录")
+    }
+
+    /// 回归（真机日志「校验接口：不是 JSON（HTTP 200）」）：真实响应是 JSON 数组，只认字典会把成功的登录判成失败。
+    /// RN 的判定是 `typeof res.data === "object"`，JS 里数组也是 object。
+    @Test func tokenCheckAcceptsAJSONArrayLikeTheRealResponse() async throws {
+        tokenCheckBody.value = TokenCheckBody.realShape
+        registerCAFlow()
+        try await makeSession().login(username: "2025001", password: "pw")
+    }
+
+    @Test func tokenCheckAcceptsAJSONObjectToo() async throws {
+        defer { tokenCheckBody.value = TokenCheckBody.realShape }
+        tokenCheckBody.value = #"{"apps":[]}"#
+        registerCAFlow()
+        #expect(try await makeSession().testToken())
+    }
+
+    @Test func tokenCheckStillRejectsHTMLAndScalars() {
+        #expect(UnifiedAuthSession.isJSONContainer(Data("[]".utf8)))
+        #expect(UnifiedAuthSession.isJSONContainer(Data("{}".utf8)))
+        #expect(UnifiedAuthSession.isJSONContainer(Data(#"[{"a":1}]"#.utf8)))
+        #expect(!UnifiedAuthSession.isJSONContainer(Data("<html>login</html>".utf8)))
+        #expect(!UnifiedAuthSession.isJSONContainer(Data(#""just a string""#.utf8)))
+        #expect(!UnifiedAuthSession.isJSONContainer(Data("42".utf8)))
+        #expect(!UnifiedAuthSession.isJSONContainer(Data()))
     }
 }
