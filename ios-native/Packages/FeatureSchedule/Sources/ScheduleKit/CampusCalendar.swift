@@ -200,7 +200,7 @@ public struct DayBlock: Sendable, Hashable, Identifiable {
 }
 
 /// 把假期和补班叠加到课表上。
-/// - 假期、调休休息日：当天的课移除，并生成整天块；
+/// - 假期：只生成整天块（横幅），当天的课保留（对齐 RN v2.2）；调休休息日：当天的课移除，并生成整天块；
 /// - 补班日：保留当天原有的课，再加上休息日那天被调过来的课（带 `shiftedFrom` 标记）。
 public enum CalendarOverlay {
     public static func apply(
@@ -219,8 +219,9 @@ public enum CalendarOverlay {
         let holidays = holidayDays(campus.holidays, calendar: cal).filter { !workDates.contains($0.key) }
 
         var result = occurrences.filter { item in
-            // 补课日保留当天原有的课（RN v2.2 `showPreShiftItems`）：被调过来的课和原有的课并排显示，不互相替换
-            !restDates.contains(item.date) && holidays[item.date] == nil
+            // 补课日保留当天原有的课（RN v2.2 `showPreShiftItems`）：被调过来的课和原有的课并排显示，不互相替换；
+            // 假期只是一层底部横幅（RN `useTimelineLayers` 的假期图层 `needShift: false`），课程照常保留；只有调休休息日的课会被移走
+            !restDates.contains(item.date)
         }
         for rule in rules {
             for source in occurrences where source.date == rule.rest {

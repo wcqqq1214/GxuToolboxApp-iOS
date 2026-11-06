@@ -13,15 +13,22 @@ struct CampusCalendarTests {
         ScheduleExpander.occurrences(of: Schedule(theoryList: courses), in: term)
     }
 
-    @Test func holidayRemovesCoursesAndAddsDayBlocks() {
+    @Test func holidayKeepsCoursesAndAddsDayBlocks() {
+        // RN v2.2：假期是一层底部横幅（假期图层 needShift: false），课程照常保留
         let campus = CampusCalendar(holidays: [HolidayRange(title: "中秋节", from: "2026-09-25", to: "2026-09-27")])
         let result = CalendarOverlay.apply(to: expand([friday]), calendar: campus, term: term)
         // 9-25 是周五，第 3 周
-        #expect(!result.occurrences.contains { $0.date == at("2026-09-25") })
-        #expect(result.occurrences.filter { $0.course.courseName == "高等数学" }.count == 17)
+        #expect(result.occurrences.contains { $0.date == at("2026-09-25") })
+        #expect(result.occurrences.filter { $0.course.courseName == "高等数学" }.count == 18)
         #expect(result.dayBlocks.map(\.weekday) == [5, 6, 7])
         #expect(result.dayBlocks.map(\.isFirstDay) == [true, false, false])
         #expect(result.dayBlocks.allSatisfy { $0.week == 3 && $0.title == "中秋节" })
+    }
+
+    @Test func restDayStillRemovesCourses() {
+        let campus = CampusCalendar(timeShift: [ShiftRule(workDate: "2026-09-20", restDate: "2026-09-25")])
+        let result = CalendarOverlay.apply(to: expand([friday]), calendar: campus, term: term)
+        #expect(!result.occurrences.contains { $0.date == at("2026-09-25") })
     }
 
     @Test func makeupDayShowsRestDayCoursesWithMarker() throws {
