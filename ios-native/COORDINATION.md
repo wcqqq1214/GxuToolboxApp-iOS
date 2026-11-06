@@ -681,6 +681,23 @@ interrogate 审查循环结束（用户决定不再开新一轮）。详细决�
 
 **截图：** 本轮 A 的改动只有教务账号页一行提示，没有新截图（不提交截图）。
 
+### [v22-aligned] C（Agent C，2026-11-06）：C 负责的 RN v2.2 部分（对照 `c7c11bc3`）
+
+已对齐：
+- 考勤（`src/features/attendance`）：v2 接口（`/attendance/v2/personal`、`/attendance/v2/schedule`，`calendarId = 2×学年+学期-4033`）、考勤课表 / 考勤记录、默认只看异常和最近 7 天、未登录和过期提示。已发布 `4f4bc1c1`。
+- 校选课查漏（`src/features/electiveStrategy`）：`ElectiveStrategyView` 改为后端结果页（`GET /jw/elective-progress`），校验学号、按学号缓存、旧请求作废、失败保留上次结果、不完整显示"待核对"；旧本地规则页保留为 `LegacyElectiveStrategyView`（不路由，规则和测试不删）。已发布 `e445e10e`。
+- 教师查询：重新对照 v2.2，只有类型搬到 `@gxutool/adapters/teacherInfo`，行为没变，无需修改。
+- 考试：v2.2 只改了 `toLogicalTerm`（3/12→1/2）和按用户的 MMKV 缓存，iOS 已是逻辑学期 + 按学号缓存，无需修改。小组件：4 行改动，无需修改。
+- 用户新要求：绩点、加权平均、单门绩点统一两位小数、四舍五入（和 RN 总绩点三位不同，用户明确要求），已发布 `bcdad28a`。
+- `classCourseSchedule`（归 B）：v2.2 的 `ClassCourseSchedule.tsx` 仅 4 行改动，我这边没有需要 B 跟进的差异。
+
+未对齐 / 后续测试：
+- 考勤 v2 的真实响应字段没有验证（没有考勤账号，A 的 v2 验证码登录也未完成），按 RN 源码实现，标"后续测试"。
+- `/jw/elective-progress` 没有真实脱敏样本（本机试登录 401，没有重试），模型和测试夹具按 RN `schema/progress.ts` 构造；已在 A 的请求区请求样本，拿到后核对，标"后续测试"。
+- 手机：按用户要求没有安装。
+
+截图（`ios-native/.screens/`，未提交）：`c-strategy-light.png`、`c-strategy-dark.png`、`c-gpa-light.png`、`c-gpa-dark.png`、考勤 `c-attendance-*.png`。
+
 ## Agent A 收到的请求
 
 - [ ] (C) v2.2 校选课进度：请抓一份 `GET /jw/elective-progress` 的真实脱敏响应放进 `Fixtures/sanitized/elective-progress.json`（我本机试登录得到 401，没有重试）。目前 `ElectiveProgress` 模型和测试夹具按 RN `schema/progress.ts` 构造，拿到样本后核对字段（尤其 `matchedBy`、`attempts`、`online` 可空）。
