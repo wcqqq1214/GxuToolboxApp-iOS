@@ -105,11 +105,7 @@ extension RootView {
                 guard let start = item.date, let end = Self.examEnd(item.exam.time, start: start) else { return nil }
                 return GridExam(id: item.id, title: item.exam.course, location: item.exam.classroom, seat: item.exam.seatText, start: start, end: end)
             }
-            let labs = await PhyExpRepository(database: services.database, client: NoPECClient()).cached(studentId: studentId)
-            let overrides = labs.compactMap { lab -> OccurrenceOverride? in
-                guard let date = lab.date() else { return nil }
-                return OccurrenceOverride(date: date, courseNameContains: "物理实验", teacher: lab.teacher, venue: lab.place)
-            }
+            let overrides = await PhyExpOverrides.cached(database: services.database, studentId: studentId)
             return ScheduleExtraLayers(exams: exams, overrides: overrides)
         }
     }
@@ -145,7 +141,3 @@ extension RootView {
 
 #Preview { RootView() }
 
-/// 只读缓存时不会联网的 PEC 客户端占位（`PhyExpRepository.cached` 不会用到它）
-private struct NoPECClient: PECClient {
-    func ruleManage() async throws -> Data { throw GxuError.notLoggedIn(.unified) }
-}

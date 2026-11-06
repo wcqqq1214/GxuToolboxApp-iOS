@@ -24,7 +24,8 @@ public struct ScheduleSnapshot: Sendable {
 
 extension ScheduleRepository {
     /// 只读本地缓存（不联网）的当前学期课表。没有缓存的课表 / 学期开始日时返回 nil。
-    public func cachedSnapshot(studentId: String, now: Date = .now, calendar: Calendar = .current) async -> ScheduleSnapshot? {
+    /// - Parameter overrides: 按日期覆盖教师 / 地点（实验课，来自别的模块），先于节假日叠加应用，和课表页一致
+    public func cachedSnapshot(studentId: String, now: Date = .now, calendar: Calendar = .current, overrides: [OccurrenceOverride] = []) async -> ScheduleSnapshot? {
         let startDays = (try? await cachedStartDays()) ?? []
         guard
             let current = TermResolver.current(in: startDays, now: now, calendar: calendar),
@@ -36,7 +37,7 @@ extension ScheduleRepository {
         let activities = await customActivities(studentId: studentId, term: current.academicTerm)
         var schedule = cached.schedule
         schedule.theoryList += activities.filter(\.isValid).map(\.course)
-        let base = ScheduleExpander.occurrences(of: schedule, in: termCalendar)
+        let base = OccurrenceOverrides.apply(overrides, to: ScheduleExpander.occurrences(of: schedule, in: termCalendar))
         let overlaid = CalendarOverlay.apply(to: base, calendar: campus, term: termCalendar)
         return ScheduleSnapshot(
             term: current.academicTerm, termCalendar: termCalendar, schedule: schedule, campus: campus, choices: choices, activities: activities,

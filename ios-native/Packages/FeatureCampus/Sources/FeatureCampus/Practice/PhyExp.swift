@@ -2,6 +2,7 @@ import Foundation
 import GxuAuth
 import GxuFoundation
 import GxuStorage
+import ScheduleKit
 
 /// 物理实验课的一次上课（物理实验教学中心 PEC 的 `getRuleManage`）。
 /// 字段名对照 RN 的 `PhyExpSchema`：id / zc 周次 / bjmc 班级 / skrq 日期(yyyyMMdd) / sksj 时间 / kcmc 课程 / xmmc 实验名 /
@@ -141,4 +142,27 @@ public struct PhyExpRepository: Sendable {
     static func sorted(_ list: [PhyExperiment]) -> [PhyExperiment] {
         list.sorted { ($0.dateText, $0.timeText, $0.id) < ($1.dateText, $1.timeText, $1.id) }
     }
+}
+
+
+/// 物理实验课对课表的覆盖（RN v2.2：标题带“物理实验”的课，按上课日期换成 PEC 里的教师和地点）。只读本地缓存，不联网。
+public enum PhyExpOverrides {
+    public static let courseNameKeyword = "物理实验"
+
+    public static func cached(database: AppDatabase, studentId: String, calendar: Calendar = .current) async -> [OccurrenceOverride] {
+        let labs = await PhyExpRepository(database: database, client: OfflinePECClient()).cached(studentId: studentId)
+        return overrides(for: labs, calendar: calendar)
+    }
+
+    static func overrides(for labs: [PhyExperiment], calendar: Calendar) -> [OccurrenceOverride] {
+        labs.compactMap { lab in
+            lab.date(calendar: calendar).map {
+                OccurrenceOverride(date: $0, courseNameContains: courseNameKeyword, teacher: lab.teacher, venue: lab.place)
+            }
+        }
+    }
+}
+
+private struct OfflinePECClient: PECClient {
+    func ruleManage() async throws -> Data { throw GxuError.notLoggedIn(.unified) }
 }

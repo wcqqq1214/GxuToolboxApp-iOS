@@ -55,3 +55,16 @@ struct PhyExpTests {
         #expect(await repo.cached(studentId: "A").map(\.id) == ["E2"])
     }
 }
+
+extension PhyExpTests {
+    @Test func overridesFromCacheArePerStudent() async throws {
+        let database = try AppDatabase.inMemory(features: [CampusFeature.migrations])
+        let repository = PhyExpRepository(database: database, client: FakePEC(result: .success(try fixture())))
+        #expect(await PhyExpOverrides.cached(database: database, studentId: "A").isEmpty)
+        _ = try await repository.refresh(studentId: "A")
+        let overrides = await PhyExpOverrides.cached(database: database, studentId: "A")
+        #expect(overrides.count == 2)
+        #expect(overrides.allSatisfy { $0.courseNameContains == "物理实验" && ($0.teacher?.isEmpty == false) })
+        #expect(await PhyExpOverrides.cached(database: database, studentId: "B").isEmpty)
+    }
+}

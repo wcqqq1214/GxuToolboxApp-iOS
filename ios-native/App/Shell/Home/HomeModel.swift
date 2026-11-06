@@ -1,4 +1,5 @@
 import ExamKit
+import FeatureCampus
 import Foundation
 import GxuAuth
 import GxuFoundation
@@ -42,7 +43,8 @@ final class HomeModel {
             return
         }
         let repository = ScheduleRepository(backend: services.backend, database: services.database)
-        snapshot = await repository.cachedSnapshot(studentId: studentId)
+        let overrides = await PhyExpOverrides.cached(database: services.database, studentId: studentId)
+        snapshot = await repository.cachedSnapshot(studentId: studentId, overrides: overrides)
         if let snapshot {
             colors = CourseColorAssigner.assign(courses: snapshot.schedule.theoryList.filter(\.isValid))
             phase = .ready
