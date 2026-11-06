@@ -60,3 +60,20 @@
 - 浅色 / 深色 / legacy 各一遍 phase3 走查通过；规则核对和附录 A 逐项状态见 COORDINATION「[phase3-accepted]」；2 项界面小问题写进 B 的请求区
 - 走查脚本：`scripts/run-e2e-ui.sh <light|dark> phase3 [legacy]`（按 RN 工具箱名称，兼容旧名称；入口是切换标签时自动回到出发标签；自动扫描「号座」和「学年第一学期」文字）
 - 截图：`/Users/wcqqq1214/Project/gxu_ios_a/ios-native/.screens/ui-light-050129/`、`ui-dark-050625/`、`ui-light-legacy-051057/`
+
+## 代码审查（pstack interrogate）— 第 1 轮后停止，决策日志（A，2026-11-06）
+- 范围：A 的路径（GxuCore、FeatureAccount、App/Composition、scripts / project.yml / 隐私清单 / fixtures），3 个对抗 subagent。**用户决定审查循环到此结束，没有发 `[review-*]` 公告。**
+- **已验证并修复（a94f5df，每条有回归测试）**：OA 列表快速切换筛选时旧请求覆盖新结果、页码被推进导致「加载更多」跳过第 2 页（`OAFilesModel` 加代数令牌，反馈列表同形态一并修）；`OASession.download` 用 `hasSuffix("gxu.edu.cn")` 导致 `evilgxu.edu.cn` 通过并收到 Bearer token（改为真正的子域判断，token 只发给 `oa.gxu.edu.cn`）；下载文件名可逃出临时目录且没有扩展名（清洗文件名、每次一个独立目录、按 Content-Type / 调用方补扩展名）；`ErrorLog.redact` 漏掉 JSON 字段、`accessToken` / `access_token`、值里带 `;` `,` 空格、整行 Cookie、`密码：`、带分隔符的手机号；查询串里的 `+` 没编码（新增 `QueryString`，BackendClient / OASession / CAS service 都改用，和 JS 的 `encodeURIComponent` 一致）；静默重登进行中退出登录会把已退出的会话写回（`JwSessionManager` 加退出代数，迟到的登录结果作废，`AccountCenter` 忽略退出后的迟到通知）；退出 OA / 换 OA 账号时 wjxt 的 Cookie 还在（新增 `WjxtSession.clear()`）；后端返回极端的 `study_years` / `grade` 会让 `academicYears` 溢出崩溃（限制范围、加法改为溢出安全、`ProfileRepository` 拒绝异常值）。
+- **未验证，真机后再看（第 3 个 reviewer 报告的 5 条，我没有重跑也没有修）**：
+  1. `Info.plist` / `Widget/Info.plist` 里的版本号和构建号是写死的 `1.0` / `1`，`MARKETING_VERSION` 和 `BUILD_NUMBER` 不起作用，第二次上传 TestFlight 会因构建号重复被拒，埋点和反馈的 `appVersion` 也永远是 1.0（建议改成 `$(MARKETING_VERSION)` / `$(CURRENT_PROJECT_VERSION)`）；
+  2. `sanitize-fixtures.py` 只按 `,;，；` 切分教师姓名，遇到 `、` 分隔会漏掉一个名字，而且残留检查看不出来（已提交的 fixture 没有这个问题，是以后抓数据的盲区）；
+  3. `sanitize-fixtures.py` 的假 `teacherId`（和 `qq_map`）按排序编号，出现新教师会让已发布的编号整体移位；
+  4. `archive.sh` 里 `.secrets/archive.env` 会覆盖显式给的 `DEVELOPMENT_TEAM` 环境变量（`run-device.sh` 已经按「环境变量优先」写）；
+  5. `archive.sh --check` 不接受 project.yml 里不带引号且带行尾注释的 Team ID。
+- 没做：第 2 轮及以后的审查；`[review-clean]` / `[review-stopped]` 公告。a94f5df 是 rebase 后未构建就发布的，真机准备这一步重新构建验证。
+
+## 真机验证准备（A，2026-11-06）
+- `scripts/_env.sh`：**`gxu--` 模拟器的原因**——老代码用 `tr '/ ' '--'` 拼名字，分支名 / 目录名一旦解析成单个标点（例如 `basename /` = `/`，来自 git 解析失败的 worktree 或临时 worktree 被删），名字就变成 `gxu--` 并被新建出来（创建时间 03:39，当时没有 worktree 在用它）。现在名字只保留字母数字和 `._-`，清洗后为空、或 `ios-native` 目录里没有 `project.yml` 就**报错退出，不再新建**；`gxu--` 已确认无人使用后删除。我没能复现出触发它的那一次具体运行（临时 worktree 已被清理）。
+- `scripts/run-device.sh`：`--check` 只检查前置条件；否则用真实 Team ID 自动签名构建 App + Widget（不加 ad-hoc 签名）、`devicectl` 安装并启动；Team ID 来自环境变量或 `.secrets/archive.env`，环境变量优先，**不写进 git**，`project.yml` 里仍是占位符；`devicectl` 会把本机的模拟器也列出来，脚本按 `reality = simulated` 排除。没有 Team ID / 没有真机时，`--check` 给出明确提示（已在本机验证）；构建、安装、启动这几步**没有真机，未验证**。
+- Keychain access group：`GxuConfig.keychainAccessGroup` 现在读 Info.plist 的 `GxuKeychainAccessGroup`（`$(AppIdentifierPrefix)com.gxutool.ios`，App 和 Widget 都有），只在真机、且展开后带 10 位 Team ID 前缀时才返回（`TEAMID.com.gxutool.ios`）；模拟器和 ad-hoc 签名返回 nil，行为不变。纯函数 `resolveKeychainAccessGroup` 有单测；真机上能否读写**未验证**（清单 4.1）。
+- `docs/ios-migration/device-checklist.md`：真机清单（小组件 / Live Activity / App Intents、Dynamic Type 和 VoiceOver、需要账号或校园网的功能、Keychain 和后台 / 回前台刷新、上架前的真实 iOS 18 和 archive.sh），每项有步骤、预期结果和操作人。

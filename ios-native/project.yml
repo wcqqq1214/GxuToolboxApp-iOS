@@ -41,6 +41,8 @@ targets:
       properties:
         CFBundleDisplayName: 西大工具箱
         UILaunchScreen: {}
+        # 真机用真实 Team ID 签名时展开成 TEAMID.com.gxutool.ios；GxuConfig.keychainAccessGroup 读它（模拟器忽略）
+        GxuKeychainAccessGroup: "$(AppIdentifierPrefix)com.gxutool.ios"
         NSSupportsLiveActivities: true
         NSSupportsLiveActivitiesFrequentUpdates: false
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
@@ -96,6 +98,7 @@ targets:
       path: Widget/Info.plist
       properties:
         CFBundleDisplayName: 西大工具箱小组件
+        GxuKeychainAccessGroup: "$(AppIdentifierPrefix)com.gxutool.ios"
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     entitlements:

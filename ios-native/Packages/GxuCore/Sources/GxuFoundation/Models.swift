@@ -96,6 +96,21 @@ public enum GxuConfig {
     public static let backendBaseURL = URL(string: "https://api.tool.gxutech.xyz")!
     public static let jwCookieURL = URL(string: "https://jwxt2018.gxu.edu.cn/jwglxt")!
     public static let appGroupID = "group.com.gxutool.ios"
-    /// Keychain access group 需要 Team ID 前缀，用户填写 Team ID 后在组装处传入；nil 表示使用 App 默认分组。
-    public static let keychainAccessGroup: String? = nil
+    /// Keychain access group（App 和小组件共用）。真实 Team ID 签名的真机构建里，Info.plist 的 `GxuKeychainAccessGroup`
+    /// （`$(AppIdentifierPrefix)com.gxutool.ios`）会展开成 `TEAMID.com.gxutool.ios`，这里就返回它；
+    /// 模拟器和 ad-hoc 签名没有 Team ID 前缀，返回 nil（使用 App 默认分组），不受影响。
+    public static var keychainAccessGroup: String? {
+        #if targetEnvironment(simulator)
+        return nil
+        #else
+        resolveKeychainAccessGroup(Bundle.main.object(forInfoDictionaryKey: "GxuKeychainAccessGroup") as? String)
+        #endif
+    }
+
+    /// 纯函数，便于测试：只接受展开后带 Team ID 前缀的值（`TEAMID.com.xxx`）；空值、没展开的 `$(…)`、没有前缀的 `com.xxx` 都返回 nil
+    public static func resolveKeychainAccessGroup(_ value: String?) -> String? {
+        guard let value, !value.isEmpty, !value.contains("$("), !value.hasPrefix("com."),
+              value.range(of: #"^[A-Z0-9]{10}\."#, options: .regularExpression) != nil else { return nil }
+        return value
+    }
 }

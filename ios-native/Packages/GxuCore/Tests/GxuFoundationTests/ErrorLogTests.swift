@@ -49,3 +49,20 @@ struct ErrorLogTests {
         #expect(log.contents().split(separator: "\n").count == 50)
     }
 }
+
+struct KeychainAccessGroupTests {
+    @Test func onlyAcceptsExpandedTeamPrefixedGroups() {
+        #expect(GxuConfig.resolveKeychainAccessGroup("ABCDE12345.com.gxutool.ios") == "ABCDE12345.com.gxutool.ios")
+        #expect(GxuConfig.resolveKeychainAccessGroup(nil) == nil)
+        #expect(GxuConfig.resolveKeychainAccessGroup("") == nil)
+        #expect(GxuConfig.resolveKeychainAccessGroup("$(AppIdentifierPrefix)com.gxutool.ios") == nil)   // 没展开
+        #expect(GxuConfig.resolveKeychainAccessGroup("com.gxutool.ios") == nil)                          // 没有 Team ID 前缀（ad-hoc）
+        #expect(GxuConfig.resolveKeychainAccessGroup("abcde12345.com.gxutool.ios") == nil)               // Team ID 必须是 10 位大写字母数字
+    }
+
+    @Test func simulatorAlwaysUsesTheDefaultGroup() {
+        #if targetEnvironment(simulator)
+        #expect(GxuConfig.keychainAccessGroup == nil)
+        #endif
+    }
+}
