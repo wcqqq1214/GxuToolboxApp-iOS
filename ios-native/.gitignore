@@ -14,3 +14,4 @@ Fixtures/raw/
 # 打包产物
 build/
 .build-release/
+.build-device/

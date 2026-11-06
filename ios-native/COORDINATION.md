@@ -558,7 +558,12 @@ interrogate 审查循环结束（用户决定不再开新一轮）。详细决�
 
 **没有实机验证的：** 签名、安装、启动（下面「真机运行结果」会写实际情况）；个人团队是否接受 App Group、Keychain 共享、小组件扩展（同上）；降级构建里 App 在真机上的行为（模拟器不校验 App Group，所以这部分只能真机验证）。
 
-**真机运行结果：** （见下一条更新）
+**真机运行结果（第一次实机运行，iOS 27.3，Xcode 里已登录免费个人团队）：**
+- ✅ **签名成功，完整能力**：个人团队接受了 **App Group**（`com.apple.security.application-groups = group.com.gxutool.ios`）和 **Keychain 共享**（`keychain-access-groups = <TEAM>.*`），App 和 **小组件扩展**（`com.gxutool.ios.widget`）两个描述文件都带了这些权限，**没有触发降级**。默认的 `com.gxutool.ios` 没有被占用，不需要 `BUNDLE_ID`。描述文件到期日 2026-11-13（7 天），已登记 1 台设备。
+- ✅ **安装成功**（`devicectl device install app`）。
+- ⏸ **启动被拒绝**：`Unable to launch … its profile has not been explicitly trusted by the user`——这是第一次装免费账号 App 的正常情况，**需要用户在手机上点一下：设置 → 通用 → VPN 与设备管理 → 信任你的开发者账号**，然后点开 App。
+- ⚠️ **还没验证的（要等用户信任后）**：App 在真机上能否真的读写 App Group 容器 / 共享 Keychain（描述文件里有权限，运行时是否生效要看实际启动）、小组件能否读到 App 的数据、Live Activity、各项账号功能。上面只证明了「个人团队愿意给这些权限」，不证明运行正常。
+- 另外修了一个脚本问题：启动被拒绝时旧脚本仍然打印「已在手机上启动」，现在会如实说明被拒绝以及怎么做。
 
 ## Agent A 收到的请求
 

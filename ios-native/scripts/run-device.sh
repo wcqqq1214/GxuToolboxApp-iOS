@@ -280,9 +280,11 @@ APP="$(find "$DD/Build/Products" -maxdepth 2 -name GxuToolApp.app | head -1)"
 # ---- 安装、启动 ----
 xcrun devicectl device install app --device "$CHOSEN_UDID" "$APP"
 if [ "$LAUNCH" = 1 ]; then
-  xcrun devicectl device process launch --device "$CHOSEN_UDID" --terminate-existing "$BUNDLE_ID" || \
-    echo "安装成功但启动失败（多半是手机还没信任开发者）：设置 → 通用 → VPN 与设备管理 → 信任你的开发者账号，然后在手机上手动打开。"
-  echo "已在 ${CHOSEN_NAME} 上启动。真机上请手动登录各账号（脚本不会传递任何账号密码）。"
+  if xcrun devicectl device process launch --device "$CHOSEN_UDID" --terminate-existing "$BUNDLE_ID"; then
+    echo "已在 ${CHOSEN_NAME} 上启动。真机上请手动登录各账号（脚本不会传递任何账号密码）。"
+  else
+    echo "已安装到 ${CHOSEN_NAME}，但启动被拒绝（多半是手机还没信任这个开发者账号）：手机 设置 → 通用 → VPN 与设备管理 → 信任你的开发者账号，然后在手机上手动打开 App。"
+  fi
 else
   echo "已安装到 ${CHOSEN_NAME}（未启动）。"
 fi
