@@ -75,6 +75,34 @@ struct AuthStateRegressionTests {
         await #expect(throws: GxuError.sessionExpired(.jw)) { try await center.ensureAuthenticated(.jw) }   // 不再自动重试
     }
 
+    /// 回归：后端 / 教务上游故障也会返回 401（例如「无法获取初始登录cookie」），那不是账号密码的问题，不能变成「需要重新登录」
+    @Test func upstreamFailureReturning401DoesNotChangeTheStateAndIsNotBlamedOnThePassword() async throws {
+        let host = "as-\(UUID().uuidString).test"
+        let hits = serve(host) { respond($0, status: 401, #"{"code":401,"message":"无法获取初始登录cookie","data":null}"#) }
+        let (center, _, _) = make(host: host)
+        await settle(hits)
+        #expect(center.states[.jw] == .authenticated)
+        #expect(center.states[.jw]?.displayText == "已登录")
+        // 手动登录遇到同样的故障：报错文案如实说是服务问题，状态不变
+        do { try await center.login(.jw, username: "9", password: "p"); Issue.record("应该失败") } catch {
+            let message = (error as? GxuError)?.userMessage ?? ""
+            #expect(message.contains("暂时不可用") && message.contains("无法获取初始登录cookie"))
+            #expect(message.contains("不是账号密码的问题"))
+            #expect(!(error as? GxuError)!.isCredentialRejection)
+        }
+        #expect(center.states[.jw] == .authenticated)
+        #expect(ErrorLog.shared.contents().contains("教务登录：HTTP 401，但不是账号密码错误"))
+    }
+
+    @Test func onlyMessagesThatSayTheCredentialsAreWrongCountAsRejections() {
+        for message in ["账号或密码错误，登录失败", "用户名或密码错误", "密码不正确", "账号不存在"] {
+            #expect(JwSessionManager.isCredentialRejectionMessage(message), "应该算拒绝：\(message)")
+        }
+        for message in ["无法获取初始登录cookie", "登录态过期，请重新登录", "服务异常", "", nil] as [String?] {
+            #expect(!JwSessionManager.isCredentialRejectionMessage(message), "不该算拒绝：\(message ?? "nil")")
+        }
+    }
+
     @Test func loggingInAgainAfterRejectionRestoresAuthenticated() async throws {
         let host = "as-\(UUID().uuidString).test"
         let accept = Counter()

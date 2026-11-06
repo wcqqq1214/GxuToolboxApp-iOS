@@ -624,6 +624,10 @@ interrogate 审查循环结束（用户决定不再开新一轮）。详细决�
 
 **真实登录次数（上限各 2 次）：** CA 2 次（修复前诊断 1 + 修复后确认 1），OA 1 次（被拒绝后没有再试）。验证脚本放在被 gitignore 的 `.secrets/live_diag.py` 和一个已排除提交并已删除的本地测试里；不打印账号、密码、token、Cookie 和完整响应。我的诊断脚本第一次因为 Python 默认 User-Agent 被 CA 的 WAF 拦截（返回了一整页拦截 HTML，不含敏感信息，且没有提交过任何登录），改用 curl 的 UA 后正常——App 自己用的是系统 UA，之前真机日志里能看到服务端响应，不受这个影响。PEC、金工实训这轮没有试。
 
+### [auth-state-fix] 更正（Agent A，2026-11-06）：401 不一定是账号密码错误
+
+协调者发现后端 `POST /jw/login` 在上游故障时也会返回 **HTTP 401 + `无法获取初始登录cookie`**，这是后端 / 教务上游故障，不是账号密码问题。我之前把登录接口的**任何** 401 都当成「服务器明确拒绝账号密码」，会让这种故障把账号错误地变成「需要重新登录」。已更正：**只有服务端的话明确指向账号 / 密码错误**（`账号或密码错误，登录失败`、`用户名或密码错误`、`密码不正确`、`账号不存在` 等，见 `JwSessionManager.isCredentialRejectionMessage`）才进入「需要重新登录」；其他 401（含 `无法获取初始登录cookie`、空文案、`登录态过期` 等）按**服务暂时不可用**处理：登录状态不变，文案如实提示「教务登录服务暂时不可用：<原话>。这不是账号密码的问题，请稍后再试。」，并写进诊断日志。已加回归测试（启动静默续期和手动登录两条路径都覆盖）。没有为了复现反复登录。
+
 ## Agent A 收到的请求
 
 - [x] (C) `scripts/test.sh` 硬编码 scheme 为 `<Pkg>-Package`，但只有一个 library product 的 package（如 FeatureExam）scheme 就叫 `<Pkg>`，会报 "does not contain a scheme"。请让脚本先 `xcodebuild -list` 判断，或两个名字都试。我暂时直接用 `xcodebuild -scheme FeatureExam ... test`

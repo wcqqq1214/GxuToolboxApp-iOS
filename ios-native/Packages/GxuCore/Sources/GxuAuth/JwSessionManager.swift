@@ -61,8 +61,16 @@ public actor JwSessionManager: SessionRenewer {
         guard startEpoch == epoch else { throw CancellationError() }   // 登录期间用户退出了
         guard (200..<300).contains(response.statusCode) else {
             let message = Self.message(in: data)
-            // 登录接口返回 401 = 服务器明确说账号或密码不对（实测：401 `账号或密码错误，登录失败`）；其他状态码（5xx、403 等）不是
-            if response.statusCode == 401 { throw GxuError.credentialsRejected(.jw, message ?? "") }
+            // 只有服务器**明确说账号或密码不对**才算拒绝（实测：401 `账号或密码错误，登录失败`）。
+            // 同样是 401，后端 / 教务上游故障也会这么返回（例如 `无法获取初始登录cookie`），那不是账号密码的问题：
+            // 按服务暂时不可用处理，不改变登录状态；其他状态码（5xx、403 等）同样不算
+            if response.statusCode == 401, Self.isCredentialRejectionMessage(message) {
+                throw GxuError.credentialsRejected(.jw, message ?? "")
+            }
+            if response.statusCode == 401 {
+                ErrorLog.shared.record("auth", "教务登录：HTTP 401，但不是账号密码错误（message：\(String((message ?? "").prefix(80)))），按服务暂时不可用处理")
+                throw GxuError.http(status: 401, message: "教务登录服务暂时不可用：\(message?.isEmpty == false ? message! : "没有给出原因")。这不是账号密码的问题，请稍后再试。")
+            }
             throw GxuError.http(status: response.statusCode, message: message)
         }
         let headers = response.allHeaderFields.reduce(into: [String: String]()) { result, pair in
@@ -117,6 +125,13 @@ public actor JwSessionManager: SessionRenewer {
                 cookies.deleteCookie(cookie)
             }
         }
+    }
+
+    /// 服务端的话明确指向账号 / 密码错误（含「账号或密码错误」「用户名或密码错误」「密码不正确」等）。空文案、别的原因都不算
+    static func isCredentialRejectionMessage(_ message: String?) -> Bool {
+        guard let message, !message.isEmpty else { return false }
+        return ["账号或密码", "用户名或密码", "账号密码", "密码错误", "密码不正确", "密码不对", "账号错误", "用户名错误", "账号不存在"]
+            .contains { message.contains($0) }
     }
 
     private static func message(in data: Data) -> String? {
