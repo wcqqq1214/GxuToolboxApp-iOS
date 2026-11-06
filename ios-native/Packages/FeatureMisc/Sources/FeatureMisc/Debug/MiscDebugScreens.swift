@@ -28,7 +28,8 @@ public enum MiscDebugScreens {
                             switch page {
                             case "c-teachers": TeacherSearchView()
                             case "c-teachers-results": TeacherSearchView()
-                            case "c-teacher-detail": TeacherDetailView(teacher: TeacherSummary(id: "1", name: "张老师", unit: "计算机与电子信息学院"))
+                            case "c-teacher-detail": TeacherDetailView(teacher: TeacherSummary(id: "1", name: "张明", unit: "计算机与电子信息学院", picURL: "http://prof.gxu.edu.cn/images/icon-teacher.jpg"))
+                            case "c-teacher-leader": TeacherDetailView(teacher: .leader(SchoolLeaders.all[0].leaders[0]), leader: SchoolLeaders.all[0].leaders[0])
                             default: AttendanceView()
                             }
                         }
@@ -76,7 +77,9 @@ private struct StubBackend: BackendAPI {
         case "/teachers/search":
             return try JSONDecoder().decode(type, from: Data(Self.teacherSearch.utf8))
         case "/teachers/profile":
-            return try JSONDecoder().decode(type, from: Data(Self.teacherProfile.utf8))
+            // 学校领导的资料很少（真实响应也是这样：只有姓名、性别、职称、工号和更新时间）
+            let json = query["school"] == "校领导" ? Self.leaderProfile : Self.teacherProfile
+            return try JSONDecoder().decode(type, from: Data(json.utf8))
         default: throw GxuError.network("调试数据不支持 \(path)")
         }
         return try JSONDecoder().decode(type, from: Data(#"{"data":{"code":600,"msg":"","data":\#(inner)}}"#.utf8))
@@ -88,8 +91,13 @@ private struct StubBackend: BackendAPI {
 
     private static let teacherSearch = """
     {"data":{"list":[
-      {"id":"1","name":"张明","unit":"计算机与电子信息学院"},{"id":"2","name":"张伟","unit":"土木建筑工程学院"},
-      {"id":"3","name":"张丽","unit":"数学与信息科学学院"},{"id":"4","name":"张强","unit":"机械工程学院"}],"pages":3,"total":41}}
+      {"id":"1","name":"张明","unit":"计算机与电子信息学院","picUrl":"http://prof.gxu.edu.cn/images/icon-teacher.jpg"},{"id":"2","name":"张伟","unit":"土木建筑工程学院"},
+      {"id":"3","name":"张丽","unit":"数学与信息科学学院","picUrl":""},{"id":"4","name":"张强","unit":"机械工程学院"}],"pages":3,"total":41}}
+    """
+
+    private static let leaderProfile = """
+    {"data":{"baseInfo":{"name":"徐华蕊","sex":"2","title":"教授","pic":"","employed":"1","updatedAt":1775180200000,"supervisedDisciplines":[]},
+     "academicProfile":{"employeeNumber":"90000001","biography":"","achievements":{"summary":"","papers":"","books":"","patents":""}}}}
     """
 
     private static let teacherProfile = """

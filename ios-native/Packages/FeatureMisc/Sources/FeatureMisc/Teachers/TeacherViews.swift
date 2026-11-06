@@ -73,6 +73,30 @@ final class TeacherSearchModel {
     func reset() { version += 1; isLoadingMore = false; keyword = ""; active = ""; results = []; total = 0; page = 1; pages = 0; searchError = nil; moreError = nil; isSearching = false }
 }
 
+/// 头像：有地址就加载，加载中 / 失败 / 没有地址时用姓名的第一个字占位，不留空白
+struct TeacherAvatar: View {
+    let url: URL?
+    let name: String
+    var size: CGSize = CGSize(width: 56, height: 56)
+    var cornerRadius: CGFloat = 8
+
+    var body: some View {
+        ZStack {
+            Color.accentColor.opacity(0.15)
+            Text(String(name.trimmingCharacters(in: .whitespaces).prefix(1)))
+                .font(.system(size: size.width * 0.42, weight: .semibold)).foregroundStyle(Color.accentColor)
+            if let url {
+                AsyncImage(url: url) { phase in
+                    if let image = phase.image { image.resizable().scaledToFill() }
+                }
+            }
+        }
+        .frame(width: size.width, height: size.height)
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        .accessibilityHidden(true)
+    }
+}
+
 public struct TeacherSearchView: View {
     @Environment(\.services) private var services
 
@@ -86,33 +110,11 @@ public struct TeacherSearchView: View {
         init(services: AppServices) { _model = State(initialValue: TeacherSearchModel(services: services)) }
 
         var body: some View {
-            List {
+            Group {
                 if !model.isActive && !model.isSearching {
-                    ForEach(SchoolLeaders.all) { group in
-                        Section(group.title) { ForEach(group.leaders) { LeaderRow(leader: $0) } }
-                    }
-                } else if model.isSearching {
-                    GxuLoadingView("正在查询教师信息…").frame(minHeight: 240).listRowBackground(Color.clear)
-                } else if let error = model.searchError {
-                    GxuErrorView(error) { Task { await model.search() } }.listRowBackground(Color.clear)
-                } else if model.results.isEmpty {
-                    GxuEmptyView("暂无匹配教师", systemImage: "person.text.rectangle").listRowBackground(Color.clear)
+                    LeadersGrid()
                 } else {
-                    Section {
-                        ForEach(model.results) { teacher in
-                            NavigationLink { TeacherDetailView(teacher: teacher) } label: {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(teacher.name).font(.headline)
-                                    Text(teacher.unit).font(.subheadline).foregroundStyle(.secondary)
-                                }
-                            }
-                        }
-                        if model.hasMore || model.moreError != nil {
-                            footer
-                        }
-                    } header: {
-                        Text("共有 \(model.total) 个结果")
-                    }
+                    results
                 }
             }
             .navigationTitle("教师查询")
@@ -126,6 +128,35 @@ public struct TeacherSearchView: View {
             .onChange(of: model.keyword) { _, new in if new.isEmpty && model.isActive { model.reset() } }
         }
 
+        private var results: some View {
+            List {
+                if model.isSearching {
+                    GxuLoadingView("正在查询教师信息…").frame(minHeight: 240).listRowBackground(Color.clear)
+                } else if let error = model.searchError {
+                    GxuErrorView(error) { Task { await model.search() } }.listRowBackground(Color.clear)
+                } else if model.results.isEmpty {
+                    GxuEmptyView("暂无匹配教师", systemImage: "person.text.rectangle").listRowBackground(Color.clear)
+                } else {
+                    Section {
+                        ForEach(model.results) { teacher in
+                            NavigationLink { TeacherDetailView(teacher: teacher) } label: {
+                                HStack(spacing: 12) {
+                                    TeacherAvatar(url: teacher.avatarURL, name: teacher.name)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(teacher.name).font(.headline)
+                                        Text(teacher.unit).font(.subheadline).foregroundStyle(.secondary)
+                                    }
+                                }
+                            }
+                        }
+                        if model.hasMore || model.moreError != nil { footer }
+                    } header: {
+                        Text("共有 \(model.total) 个结果")
+                    }
+                }
+            }
+        }
+
         @ViewBuilder
         private var footer: some View {
             if let error = model.moreError {
@@ -137,26 +168,134 @@ public struct TeacherSearchView: View {
     }
 }
 
-private struct LeaderRow: View {
+/// 学校领导：每行三位的照片卡片（和 RN 一致），点击进入详情（用姓名 + 单位"校领导"查询，和 RN 的查询方式一致）
+private struct LeadersGrid: View {
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: 8, alignment: .top), count: 3)
+
+    var body: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 20) {
+                ForEach(SchoolLeaders.all) { group in
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text(group.title).font(.title3.weight(.semibold))
+                            .padding(.leading, GxuDesign.Layout.cardInset)   // B 线：和分组标题一致
+                        LazyVGrid(columns: columns, spacing: 8) {
+                            ForEach(group.leaders) { leader in
+                                NavigationLink {
+                                    TeacherDetailView(teacher: .leader(leader), leader: leader)
+                                } label: {
+                                    LeaderCard(leader: leader)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, GxuDesign.Layout.pageMargin)                // A 线：卡片边
+            .padding(.bottom, 24)
+        }
+        .background(Color(.systemGroupedBackground))
+    }
+}
+
+private struct LeaderCard: View {
     let leader: SchoolLeader
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            AsyncImage(url: leader.photoURL) { image in
-                image.resizable().scaledToFill()
-            } placeholder: {
-                Image(systemName: "person.crop.square").font(.largeTitle).foregroundStyle(.secondary)
+        VStack(spacing: 0) {
+            // 照片铺满卡片宽度（宽高比 0.78，和 RN 一致）；加载中 / 失败时是姓名占位
+            Color.accentColor.opacity(0.15)
+                .aspectRatio(0.78, contentMode: .fit)
+                .overlay {
+                    Text(String(leader.name.prefix(1))).font(.largeTitle.weight(.semibold)).foregroundStyle(Color.accentColor)
+                }
+                .overlay {
+                    if let url = leader.photoURL {
+                        AsyncImage(url: url) { phase in
+                            if let image = phase.image { image.resizable().scaledToFill() }
+                        }
+                    }
+                }
+                .clipped()
+            HStack(spacing: 2) {
+                Text(leader.name).font(.subheadline.weight(.semibold)).lineLimit(1).minimumScaleFactor(0.8)
+                Image(systemName: "chevron.right").font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
             }
-            .frame(width: 52, height: 68)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            VStack(alignment: .leading, spacing: 3) {
-                Text(leader.name).font(.headline)
-                Text(leader.position).font(.subheadline).foregroundStyle(.secondary)
-                ForEach(leader.duties, id: \.self) { Text($0).font(.caption).foregroundStyle(.secondary) }
+            .padding(.vertical, 8)
+        }
+        .background(Color(.secondarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(leader.name)，查看详细资料")
+    }
+}
+
+public struct TeacherDetailView: View {
+    @Environment(\.services) private var services
+    let teacher: TeacherSummary
+    let leader: SchoolLeader?
+
+    public init(teacher: TeacherSummary) { self.teacher = teacher; leader = nil }
+    init(teacher: TeacherSummary, leader: SchoolLeader?) { self.teacher = teacher; self.leader = leader }
+
+    public var body: some View { Content(services: services, teacher: teacher, leader: leader) }
+
+    private struct Content: View {
+        @State private var model: TeacherDetailModel
+        let teacher: TeacherSummary
+
+        init(services: AppServices, teacher: TeacherSummary, leader: SchoolLeader?) {
+            self.teacher = teacher
+            _model = State(initialValue: TeacherDetailModel(services: services, teacher: teacher, leader: leader))
+        }
+
+        var body: some View {
+            List {
+                if model.isLoading {
+                    GxuLoadingView("正在加载…").frame(minHeight: 240).listRowBackground(Color.clear)
+                } else if let error = model.error {
+                    GxuErrorView(error) { Task { await model.load() } }.listRowBackground(Color.clear)
+                } else {
+                    header
+                    if let leader = model.leader {
+                        let duties = ([leader.position].filter { !$0.isEmpty } + leader.duties).joined(separator: "\n")
+                        if !duties.isEmpty { Section("职务与分工") { Text(duties) } }
+                    }
+                    if let detail = model.detail {
+                        ForEach(TeacherSections.build(detail)) { section in
+                            Section(section.title) { Text(section.text).textSelection(.enabled) }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("教师信息")
+            .navigationBarTitleDisplayMode(.inline)
+            .gxuHidesTabChrome()
+            .task { await model.load() }
+        }
+
+        private var header: some View {
+            let detail = model.detail
+            let info = detail.map { TeacherHeader.make($0, fallbackName: teacher.name) }
+            let photo = detail.flatMap { TeacherAvatarURL.url($0.base.pic) } ?? teacher.avatarURL
+            return Section {
+                HStack(alignment: .top, spacing: 14) {
+                    TeacherAvatar(url: photo, name: info?.name ?? teacher.name, size: CGSize(width: 88, height: 120))
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(info?.name ?? teacher.name).font(.title2.bold())
+                        if !teacher.unit.isEmpty { Text(teacher.unit).font(.subheadline).foregroundStyle(.secondary) }
+                        if let info {
+                            if !info.badges.isEmpty { Text(info.badges.joined(separator: " · ")).font(.subheadline) }
+                            if !info.infoLine.isEmpty { Text(info.infoLine.joined(separator: " · ")).font(.subheadline) }
+                            if !info.address.isEmpty { Text("通讯地址：\(info.address)").font(.subheadline).foregroundStyle(.secondary) }
+                            if !info.updatedAt.isEmpty { Text("更新于 \(info.updatedAt)").font(.caption).foregroundStyle(.secondary) }
+                        }
+                    }
+                }
+                .padding(.vertical, 4)
             }
         }
-        .padding(.vertical, 2)
-        .accessibilityElement(children: .combine)
     }
 }
 
@@ -167,65 +306,27 @@ final class TeacherDetailModel {
     private(set) var error: String?
     private let api: TeacherAPI
     private let teacher: TeacherSummary
+    /// 学校领导：教师库里的资料很少（常常只有姓名和职称），查不到时界面仍用领导自己的信息，不当成错误
+    let leader: SchoolLeader?
 
-    init(services: AppServices, teacher: TeacherSummary) {
+    init(services: AppServices, teacher: TeacherSummary, leader: SchoolLeader? = nil) {
         api = TeacherAPI(backend: services.backend)
         self.teacher = teacher
+        self.leader = leader
     }
 
     func load() async {
         isLoading = true; error = nil; detail = nil
         defer { isLoading = false }
         do {
-            guard let d = try await api.profile(name: teacher.name, unit: teacher.unit) else { error = "暂无教师信息"; return }
+            guard let d = try await api.profile(name: teacher.name, unit: teacher.unit) else {
+                if leader == nil { error = "暂无教师信息" }
+                return
+            }
             detail = d
         } catch is CancellationError {
         } catch {
-            self.error = ((error as? GxuError) ?? .network(error.localizedDescription)).userMessage
-        }
-    }
-}
-
-public struct TeacherDetailView: View {
-    @Environment(\.services) private var services
-    let teacher: TeacherSummary
-
-    public init(teacher: TeacherSummary) { self.teacher = teacher }
-
-    public var body: some View { Content(services: services, teacher: teacher) }
-
-    private struct Content: View {
-        @State private var model: TeacherDetailModel
-        let teacher: TeacherSummary
-
-        init(services: AppServices, teacher: TeacherSummary) {
-            self.teacher = teacher
-            _model = State(initialValue: TeacherDetailModel(services: services, teacher: teacher))
-        }
-
-        var body: some View {
-            List {
-                if model.isLoading {
-                    GxuLoadingView("正在加载…").frame(minHeight: 240).listRowBackground(Color.clear)
-                } else if let error = model.error {
-                    GxuErrorView(error) { Task { await model.load() } }.listRowBackground(Color.clear)
-                } else if let detail = model.detail {
-                    Section {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(detail.base.name.isEmpty ? teacher.name : detail.base.name).font(.title2.bold())
-                            Text([teacher.unit, detail.base.title, detail.base.position].filter { !$0.isEmpty }.joined(separator: " · "))
-                                .font(.subheadline).foregroundStyle(.secondary)
-                        }
-                    }
-                    ForEach(TeacherSections.build(detail)) { section in
-                        Section(section.title) { Text(section.text).textSelection(.enabled) }
-                    }
-                }
-            }
-            .navigationTitle("教师信息")
-            .navigationBarTitleDisplayMode(.inline)
-            .gxuHidesTabChrome()
-            .task { await model.load() }
+            if leader == nil { self.error = ((error as? GxuError) ?? .network(error.localizedDescription)).userMessage }
         }
     }
 }
