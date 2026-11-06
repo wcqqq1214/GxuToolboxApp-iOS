@@ -48,6 +48,9 @@ private struct HomeList: View {
 
     private var plan: TodayPlan { snapshot.todayPlan(now: now) }
     private var event: HomeEvent? { HomeEvent.pick(plan: plan, exams: model.exams, now: now) }
+    /// “接下来”卡片只在学期内显示（学期结束 / 未开学时不显示），所以只有真的显示了才从“近期考试”里去重，
+    /// 否则这场考试在首页上就哪里都看不到
+    private var shownEvent: HomeEvent? { plan.phase == .inTerm ? event : nil }
     /// 正在上或还没上的课
     private var remaining: [CourseOccurrence] { plan.courses.filter { plan.status(of: $0, now: now) != .finished } }
     private var finished: [CourseOccurrence] { plan.courses.filter { plan.status(of: $0, now: now) == .finished } }
@@ -117,7 +120,7 @@ private struct HomeList: View {
 
             // 已经在“接下来”里展示的那场考试不再重复
             let otherExams = model.exams.filter { exam in
-                if case .exam(let shown, _) = event { return shown.id != exam.id }
+                if case .exam(let shown, _) = shownEvent { return shown.id != exam.id }
                 return true
             }
             if !otherExams.isEmpty {
