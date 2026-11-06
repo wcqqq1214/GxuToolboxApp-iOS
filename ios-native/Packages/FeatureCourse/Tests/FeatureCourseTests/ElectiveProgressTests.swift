@@ -5,7 +5,7 @@ import GxuTestSupport
 import Testing
 @testable import FeatureCourse
 
-// 样例按 RN v2.2 `schema/progress.ts` 构造（不是真实响应，学号、课程均为虚构），真实脱敏样本到手后再核对。
+// 构造样例按 RN v2.2 `schema/progress.ts` 写（虚构学号和课程），用来覆盖真实样本没有的分支（达标 / 未达标 / ratio）；真实响应见文末 ElectiveProgressFixtureTests。
 private func sample(studentId: String = "2024000001", complete: Bool = true, qualified: Bool? = true,
                     passed: Bool? = false) -> String {
     let passedJSON = passed.map(String.init) ?? "null"
@@ -80,5 +80,40 @@ private func sample(studentId: String = "2024000001", complete: Bool = true, qua
         #expect(ElectiveProgressCache.load(store, studentId: "2024000001") == a)
         #expect(ElectiveProgressCache.load(store, studentId: "2024000002") == nil)
         #expect(throws: GxuError.self) { try ElectiveProgressCache.save(store, a, studentId: "2024000002") }
+    }
+}
+
+// 真实脱敏响应（A 抓取，`Fixtures/sanitized/elective-progress.json`）；期望值由 Python 对同一份数据独立算出。
+@Suite struct ElectiveProgressFixtureTests {
+    private struct Envelope: Decodable { var data: ElectiveProgress }
+
+    private func real() throws -> ElectiveProgress {
+        let url = try #require(Bundle.module.url(forResource: "elective-progress", withExtension: "json", subdirectory: "Fixtures"))
+        return try JSONDecoder().decode(Envelope.self, from: Data(contentsOf: url)).data
+    }
+
+    @Test func decodesRealResponse() throws {
+        let p = try real()
+        #expect(p.courses.count == 12 && p.requirements.count == 7 && p.issues.count == 1)
+        #expect(p.computedDate != nil)
+        #expect(p.courses.reduce(0) { $0 + $1.countedCredits } == p.stats.totalCredits)
+        #expect(p.courses.contains { $0.status == .review && $0.credit == nil && $0.online == nil && $0.excludedReason != nil })
+    }
+
+    @Test func incompleteAccountShowsPending() throws {
+        let p = try real()
+        #expect(!p.complete && p.isQualified == nil && p.qualified == nil)
+        #expect(p.requirements.allSatisfy { p.passed($0) == nil })
+        #expect(p.requirements.map(ElectiveProgressDisplay.format).prefix(2) == ["11.5 / ≥10 学分", "6.5 / ≥5 学分"])
+        #expect(ElectiveProgressDisplay.format(p.requirements[5]) == "3 / ≥2 个")
+    }
+
+    @Test func apiAcceptsRealResponseForMatchingStudent() async throws {
+        let p = try real()
+        let mock = MockBackendAPI()
+        let url = try #require(Bundle.module.url(forResource: "elective-progress", withExtension: "json", subdirectory: "Fixtures"))
+        mock.stub("GET /jw/elective-progress", json: try Data(contentsOf: url))
+        #expect(try await ElectiveProgressAPI(backend: mock).fetch(studentId: p.studentId) == p)
+        await #expect(throws: GxuError.self) { _ = try await ElectiveProgressAPI(backend: mock).fetch(studentId: "other") }
     }
 }

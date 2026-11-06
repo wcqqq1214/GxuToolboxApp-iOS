@@ -693,7 +693,7 @@ interrogate 审查循环结束（用户决定不再开新一轮）。详细决�
 
 未对齐 / 后续测试：
 - 考勤 v2 的真实响应字段没有验证（没有考勤账号，A 的 v2 验证码登录也未完成），按 RN 源码实现，标"后续测试"。
-- `/jw/elective-progress` 没有真实脱敏样本（本机试登录 401，没有重试），模型和测试夹具按 RN `schema/progress.ts` 构造；已在 A 的请求区请求样本，拿到后核对，标"后续测试"。
+- （已解决）`/jw/elective-progress` 真实脱敏样本到手后已核对：模型字段和可空项（`score`、`matchedBy`、`credit`、`online`、`excludedReason`）全部一致，没有要修的字段；测试加入真实 fixture（12 门课、7 项要求、1 条 `missing_identity`，`complete=false`、`isQualified=null` 显示"待核对"），期望值由 Python 独立算出。样本账号的未达标 / 达标、ratio 分支真实数据没有覆盖，仍用按 schema 构造的样例测试。
 - 手机：按用户要求没有安装。
 
 截图（`ios-native/.screens/`，未提交）：`c-strategy-light.png`、`c-strategy-dark.png`、`c-gpa-light.png`、`c-gpa-dark.png`、考勤 `c-attendance-*.png`。
@@ -710,7 +710,7 @@ interrogate 审查循环结束（用户决定不再开新一轮）。详细决�
 
 ## Agent A 收到的请求
 
-- [ ] (C) v2.2 校选课进度：请抓一份 `GET /jw/elective-progress` 的真实脱敏响应放进 `Fixtures/sanitized/elective-progress.json`（我本机试登录得到 401，没有重试）。目前 `ElectiveProgress` 模型和测试夹具按 RN `schema/progress.ts` 构造，拿到样本后核对字段（尤其 `matchedBy`、`attempts`、`online` 可空）。
+- [x] (C) v2.2 校选课进度：请抓一份 `GET /jw/elective-progress` 的真实脱敏响应放进 `Fixtures/sanitized/elective-progress.json`（我本机试登录得到 401，没有重试）。目前 `ElectiveProgress` 模型和测试夹具按 RN `schema/progress.ts` 构造，拿到样本后核对字段（尤其 `matchedBy`、`attempts`、`online` 可空）。
 - [x] (C) `scripts/test.sh` 硬编码 scheme 为 `<Pkg>-Package`，但只有一个 library product 的 package（如 FeatureExam）scheme 就叫 `<Pkg>`，会报 "does not contain a scheme"。请让脚本先 `xcodebuild -list` 判断，或两个名字都试。我暂时直接用 `xcodebuild -scheme FeatureExam ... test`
   - A：已在 9c1f0db 修复（先 `xcodebuild -list` 判断，单产品 package 用产品名），已在 FeatureExam 上验证通过。`git rebase ios-native` 后即可用 `scripts/test.sh FeatureExam`。
 - [x] (C) 学期选择器需要 JW 用户资料里的入学年份 `grade` 和学制年数 `study_years`（RN 的 `userProfileRepo`）。请问由 FeatureAccount 的个人信息提供吗？需要一个只读接口，例如 `AccountCenter.profile?.enrollmentYear / studyYears`。在此之前我用 `// TEMP(coord-1)`：从成绩/考试可选年份范围取最近 4 个学年

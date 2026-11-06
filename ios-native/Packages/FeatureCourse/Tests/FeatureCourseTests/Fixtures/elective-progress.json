@@ -1,0 +1,648 @@
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "studentId": "2200000001",
+    "computedAt": "2026-11-06T10:25:03.832Z",
+    "grade": 2022,
+    "ruleId": "grade-2022",
+    "ruleVersion": "2022-v1",
+    "ruleName": "2022 级通识选修课修读要求",
+    "complete": false,
+    "stats": {
+      "totalCredits": 11.5,
+      "offlineCredits": 6.5,
+      "modules": {
+        "lead": {
+          "credits": 3.5,
+          "courseCount": 4
+        },
+        "entrepreneurship": {
+          "credits": 2,
+          "courseCount": 1
+        },
+        "art": {
+          "credits": 3,
+          "courseCount": 3
+        },
+        "asean": {
+          "credits": 1,
+          "courseCount": 1
+        },
+        "ethnic": {
+          "credits": 1,
+          "courseCount": 1
+        },
+        "ocean": {
+          "credits": 1,
+          "courseCount": 1
+        }
+      }
+    },
+    "requirements": [
+      {
+        "key": "totalCredits",
+        "label": "总学分",
+        "actual": 11.5,
+        "required": 10,
+        "operator": "gte",
+        "unit": "credits",
+        "passed": null
+      },
+      {
+        "key": "offlineCredits",
+        "label": "线下学分",
+        "actual": 6.5,
+        "required": 5,
+        "operator": "gte",
+        "unit": "credits",
+        "passed": null
+      },
+      {
+        "key": "art",
+        "label": "艺术与审美",
+        "actual": 3,
+        "required": 2,
+        "operator": "gte",
+        "unit": "credits",
+        "passed": null
+      },
+      {
+        "key": "lead",
+        "label": "科技与伦理／领军模块",
+        "actual": 4,
+        "required": 1,
+        "operator": "gte",
+        "unit": "courses",
+        "passed": null
+      },
+      {
+        "key": "entrepreneurship",
+        "label": "创新与创业",
+        "actual": 1,
+        "required": 1,
+        "operator": "gte",
+        "unit": "courses",
+        "passed": null
+      },
+      {
+        "key": "specialModules",
+        "label": "东盟、海洋、民族（三选二）",
+        "actual": 3,
+        "required": 2,
+        "operator": "gte",
+        "unit": "modules",
+        "passed": null
+      },
+      {
+        "key": "requiredCourses",
+        "label": "指定必修课程",
+        "actual": 3,
+        "required": 3,
+        "operator": "gte",
+        "unit": "courses",
+        "passed": null
+      }
+    ],
+    "remainingRequired": [],
+    "courses": [
+      {
+        "courseId": "DA2181A94F3307EE741B6512D3A21619",
+        "courseName": "东南亚文化",
+        "classIds": [
+          "BC103D2F39F1A26A219BF250B4DD8551"
+        ],
+        "locations": [
+          "超星尔雅"
+        ],
+        "teachers": [
+          "测试教师1"
+        ],
+        "modules": [
+          "asean"
+        ],
+        "online": true,
+        "credit": 1,
+        "score": 99,
+        "status": "passed",
+        "counted": true,
+        "countedCredits": 1,
+        "excludedReason": null,
+        "attempts": [
+          {
+            "year": 2022,
+            "term": 1,
+            "classId": "BC103D2F39F1A26A219BF250B4DD8551",
+            "credit": 1,
+            "score": 99,
+            "status": "passed",
+            "matchedBy": "classId",
+            "locations": [
+              "超星尔雅"
+            ],
+            "teachers": [
+              "测试教师1"
+            ],
+            "modules": [
+              "asean"
+            ],
+            "online": true
+          }
+        ]
+      },
+      {
+        "courseId": "76133B5C88236E45E3A35792ECF2C6D1",
+        "courseName": "中国艺术史",
+        "classIds": [
+          "49675743EEE7CD3EB4FF8EACEFFF8F77"
+        ],
+        "locations": [
+          "学堂在线"
+        ],
+        "teachers": [
+          "测试教师1"
+        ],
+        "modules": [
+          "art"
+        ],
+        "online": true,
+        "credit": 1,
+        "score": 69,
+        "status": "passed",
+        "counted": true,
+        "countedCredits": 1,
+        "excludedReason": null,
+        "attempts": [
+          {
+            "year": 2022,
+            "term": 2,
+            "classId": "49675743EEE7CD3EB4FF8EACEFFF8F77",
+            "credit": 1,
+            "score": 69,
+            "status": "passed",
+            "matchedBy": "classId",
+            "locations": [
+              "学堂在线"
+            ],
+            "teachers": [
+              "测试教师1"
+            ],
+            "modules": [
+              "art"
+            ],
+            "online": true
+          }
+        ]
+      },
+      {
+        "courseId": "B01623B5739359B791A77FA31BD02CD0",
+        "courseName": "中文写作实训",
+        "classIds": [
+          "FF5AFE2D3AC33514FE247686FEFD43A9"
+        ],
+        "locations": [
+          "西2-201"
+        ],
+        "teachers": [
+          "测试教师2"
+        ],
+        "modules": [
+          "lead"
+        ],
+        "online": false,
+        "credit": 0.5,
+        "score": 84,
+        "status": "passed",
+        "counted": true,
+        "countedCredits": 0.5,
+        "excludedReason": null,
+        "attempts": [
+          {
+            "year": 2023,
+            "term": 2,
+            "classId": "FF5AFE2D3AC33514FE247686FEFD43A9",
+            "credit": 0.5,
+            "score": 84,
+            "status": "passed",
+            "matchedBy": "classId",
+            "locations": [
+              "西2-201"
+            ],
+            "teachers": [
+              "测试教师2"
+            ],
+            "modules": [
+              "lead"
+            ],
+            "online": false
+          }
+        ]
+      },
+      {
+        "courseId": "8BE92B5",
+        "courseName": "创业基础",
+        "classIds": [
+          "20A6A07273AC937FD80527697A0E9DB4"
+        ],
+        "locations": [
+          "商-513;商-514;6A-221;6A-323;商-512东西;西大慕课平台;西大慕课平台"
+        ],
+        "teachers": [
+          "测试教师3"
+        ],
+        "modules": [
+          "entrepreneurship"
+        ],
+        "online": false,
+        "credit": 2,
+        "score": 81,
+        "status": "passed",
+        "counted": true,
+        "countedCredits": 2,
+        "excludedReason": null,
+        "attempts": [
+          {
+            "year": 2022,
+            "term": 1,
+            "classId": "20A6A07273AC937FD80527697A0E9DB4",
+            "credit": 2,
+            "score": 81,
+            "status": "passed",
+            "matchedBy": "classId",
+            "locations": [
+              "商-513;商-514;6A-221;6A-323;商-512东西;西大慕课平台;西大慕课平台"
+            ],
+            "teachers": [
+              "测试教师3"
+            ],
+            "modules": [
+              "entrepreneurship"
+            ],
+            "online": false
+          }
+        ]
+      },
+      {
+        "courseId": "034F710E1B540CCB4FB89EC76D0F5A64",
+        "courseName": "垃圾分类",
+        "classIds": [
+          "210C276F6B59545413695C009286AC04"
+        ],
+        "locations": [
+          "超星尔雅"
+        ],
+        "teachers": [
+          "测试教师1"
+        ],
+        "modules": [
+          "lead"
+        ],
+        "online": true,
+        "credit": 1,
+        "score": 90,
+        "status": "passed",
+        "counted": true,
+        "countedCredits": 1,
+        "excludedReason": null,
+        "attempts": [
+          {
+            "year": 2022,
+            "term": 1,
+            "classId": "210C276F6B59545413695C009286AC04",
+            "credit": 1,
+            "score": 90,
+            "status": "passed",
+            "matchedBy": "classId",
+            "locations": [
+              "超星尔雅"
+            ],
+            "teachers": [
+              "测试教师1"
+            ],
+            "modules": [
+              "lead"
+            ],
+            "online": true
+          }
+        ]
+      },
+      {
+        "courseId": "365598358E6884D25C030B49069A26B2",
+        "courseName": "大学音乐",
+        "classIds": [
+          "71AC410DD197E4C5326344A84ED159BC"
+        ],
+        "locations": [
+          "西2-301"
+        ],
+        "teachers": [
+          "测试教师4"
+        ],
+        "modules": [
+          "art"
+        ],
+        "online": false,
+        "credit": 1,
+        "score": 90,
+        "status": "passed",
+        "counted": true,
+        "countedCredits": 1,
+        "excludedReason": null,
+        "attempts": [
+          {
+            "year": 2024,
+            "term": 2,
+            "classId": "71AC410DD197E4C5326344A84ED159BC",
+            "credit": 1,
+            "score": 90,
+            "status": "passed",
+            "matchedBy": "classId",
+            "locations": [
+              "西2-301"
+            ],
+            "teachers": [
+              "测试教师4"
+            ],
+            "modules": [
+              "art"
+            ],
+            "online": false
+          }
+        ]
+      },
+      {
+        "courseId": "F5544B22269126E2A484584CE7B90E98",
+        "courseName": "海洋与人类文明",
+        "classIds": [
+          "A5EA3220D8BFD16459299A9BFF7006A3"
+        ],
+        "locations": [
+          "超星尔雅1"
+        ],
+        "teachers": [
+          "测试教师1"
+        ],
+        "modules": [
+          "ocean"
+        ],
+        "online": null,
+        "credit": null,
+        "score": null,
+        "status": "review",
+        "counted": false,
+        "countedCredits": 0,
+        "excludedReason": "数据存在歧义，待核对",
+        "attempts": [
+          {
+            "year": 2022,
+            "term": 3,
+            "classId": "A5EA3220D8BFD16459299A9BFF7006A3",
+            "credit": 1,
+            "score": null,
+            "status": "review",
+            "matchedBy": null,
+            "locations": [
+              "超星尔雅1"
+            ],
+            "teachers": [
+              "测试教师1"
+            ],
+            "modules": [
+              "ocean"
+            ],
+            "online": true
+          }
+        ]
+      },
+      {
+        "courseId": "6878540",
+        "courseName": "海洋环境污染与保护",
+        "classIds": [
+          "3B5DB89793F67AB7C1FB42327EDF451A"
+        ],
+        "locations": [
+          "西2-305"
+        ],
+        "teachers": [
+          "测试教师5"
+        ],
+        "modules": [
+          "ocean"
+        ],
+        "online": false,
+        "credit": 1,
+        "score": 86,
+        "status": "passed",
+        "counted": true,
+        "countedCredits": 1,
+        "excludedReason": null,
+        "attempts": [
+          {
+            "year": 2024,
+            "term": 2,
+            "classId": "3B5DB89793F67AB7C1FB42327EDF451A",
+            "credit": 1,
+            "score": 86,
+            "status": "passed",
+            "matchedBy": "classId",
+            "locations": [
+              "西2-305"
+            ],
+            "teachers": [
+              "测试教师5"
+            ],
+            "modules": [
+              "ocean"
+            ],
+            "online": false
+          }
+        ]
+      },
+      {
+        "courseId": "91B2C01",
+        "courseName": "穿T恤听古典音乐",
+        "classIds": [
+          "5129D69241C7D4F1F71D5D676828B98B"
+        ],
+        "locations": [
+          "超星尔雅1"
+        ],
+        "teachers": [
+          "测试教师1"
+        ],
+        "modules": [
+          "art"
+        ],
+        "online": true,
+        "credit": 1,
+        "score": 98,
+        "status": "passed",
+        "counted": true,
+        "countedCredits": 1,
+        "excludedReason": null,
+        "attempts": [
+          {
+            "year": 2022,
+            "term": 2,
+            "classId": "5129D69241C7D4F1F71D5D676828B98B",
+            "credit": 1,
+            "score": 98,
+            "status": "passed",
+            "matchedBy": "classId",
+            "locations": [
+              "超星尔雅1"
+            ],
+            "teachers": [
+              "测试教师1"
+            ],
+            "modules": [
+              "art"
+            ],
+            "online": true
+          }
+        ]
+      },
+      {
+        "courseId": "CC52D58",
+        "courseName": "舌尖上的安全—食源性寄生虫病",
+        "classIds": [
+          "76D57AFB7C2A5FF8C2473F723ED7E370"
+        ],
+        "locations": [
+          "超星尔雅教室"
+        ],
+        "teachers": [
+          "测试教师6"
+        ],
+        "modules": [
+          "ethnic"
+        ],
+        "online": false,
+        "credit": 1,
+        "score": 78,
+        "status": "passed",
+        "counted": true,
+        "countedCredits": 1,
+        "excludedReason": null,
+        "attempts": [
+          {
+            "year": 2022,
+            "term": 1,
+            "classId": "76D57AFB7C2A5FF8C2473F723ED7E370",
+            "credit": 1,
+            "score": 78,
+            "status": "passed",
+            "matchedBy": "classId",
+            "locations": [
+              "超星尔雅教室"
+            ],
+            "teachers": [
+              "测试教师6"
+            ],
+            "modules": [
+              "ethnic"
+            ],
+            "online": false
+          }
+        ]
+      },
+      {
+        "courseId": "940367A40464CC9E1ADAA41D9E24AE93",
+        "courseName": "逻辑与批判性思维训练",
+        "classIds": [
+          "C31A7675BC5FB3B3075C64A5DAFE6753"
+        ],
+        "locations": [
+          "超星尔雅"
+        ],
+        "teachers": [
+          "测试教师1"
+        ],
+        "modules": [
+          "lead"
+        ],
+        "online": true,
+        "credit": 1,
+        "score": 95,
+        "status": "passed",
+        "counted": true,
+        "countedCredits": 1,
+        "excludedReason": null,
+        "attempts": [
+          {
+            "year": 2022,
+            "term": 1,
+            "classId": "C31A7675BC5FB3B3075C64A5DAFE6753",
+            "credit": 1,
+            "score": 95,
+            "status": "passed",
+            "matchedBy": "classId",
+            "locations": [
+              "超星尔雅"
+            ],
+            "teachers": [
+              "测试教师1"
+            ],
+            "modules": [
+              "lead"
+            ],
+            "online": true
+          }
+        ]
+      },
+      {
+        "courseId": "15F3606",
+        "courseName": "零基础电脑绘画与p图",
+        "classIds": [
+          "B359EF3A2BE92F3AD679B2EE3662E962"
+        ],
+        "locations": [
+          "东10B-505"
+        ],
+        "teachers": [
+          "测试教师7"
+        ],
+        "modules": [
+          "lead"
+        ],
+        "online": false,
+        "credit": 1,
+        "score": 60,
+        "status": "passed",
+        "counted": true,
+        "countedCredits": 1,
+        "excludedReason": null,
+        "attempts": [
+          {
+            "year": 2024,
+            "term": 2,
+            "classId": "B359EF3A2BE92F3AD679B2EE3662E962",
+            "credit": 1,
+            "score": 60,
+            "status": "passed",
+            "matchedBy": "classId",
+            "locations": [
+              "东10B-505"
+            ],
+            "teachers": [
+              "测试教师7"
+            ],
+            "modules": [
+              "lead"
+            ],
+            "online": false
+          }
+        ]
+      }
+    ],
+    "issues": [
+      {
+        "code": "missing_identity",
+        "courseId": "F5544B22269126E2A484584CE7B90E98",
+        "classId": "A5EA3220D8BFD16459299A9BFF7006A3",
+        "message": "课程标识或学年学期缺失"
+      }
+    ],
+    "isQualified": null
+  }
+}

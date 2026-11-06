@@ -6,7 +6,7 @@ import GxuStorage
 
 // 校选课修读进度：RN v2.2 `src/features/electiveStrategy`（`GET /jw/elective-progress`，由后端计算课程去重、成绩匹配和达标判断，
 // 客户端只展示、只格式化数值）。模型按 RN 的 zod 校验（`schema/progress.ts`）写，校验不过按"数据格式异常"处理，和 RN 一致。
-// TODO(verify): 没有这个接口的真实脱敏响应（本机试登录得到 401），字段按 RN 的 schema 和 A 的差距文档写，用构造的数据测试，后续核对。
+// 已用 A 抓取的真实脱敏响应核对（`Fixtures/sanitized/elective-progress.json`）：字段和可空项与这里一致，无需改模型。
 
 public struct ElectiveProgress: Codable, Sendable, Equatable {
     public enum Module: String, Codable, Sendable { case lead, entrepreneurship, art, asean, ethnic, ocean }
