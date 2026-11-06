@@ -239,3 +239,9 @@ A 验证后的发现 4 条，全部修复并加了回归测试：
 - 绩点计算器：默认全部学期总绩点；可切某学年的全学年 / 单个学期；小学期计入；一次不带 year / term 的请求；失败不显示错误的总数。`GPA 累计范围没做` 的 TODO 已完成。
 - 教师查询按 RN 重做：领导点击进入详情（`profile?name&school=校领导`）、头像（http→https + 姓名占位）、空字段整行隐藏。
 - 待用户真机反馈：头像显示、领导详情、全部学期总绩点。
+
+# v2.2 校选课进度（[v22-aligned] C 之一）
+
+- `ElectiveStrategyView` 入口改为后端结果页（`GET /jw/elective-progress`）：校验 `studentId` 等于当前账号、整份结果按学号缓存、新刷新使旧请求作废、刷新失败保留上次结果并提示、`complete=false` 或 `isQualified=nil` 显示"待核对"而不是"未达标"，数值格式移植 `progressDisplay`。
+- 旧本地规则页保留为 `LegacyElectiveStrategyView`（调试屏 `c-strategy-legacy`），年级规则和测试不删，不再路由。
+- 后续测试：没有真实响应样本（已向 A 请求），模型按 RN schema 构造，测试夹具是构造数据。

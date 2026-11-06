@@ -2,7 +2,8 @@ import GxuAuth
 import GxuDesign
 import SwiftUI
 
-public struct ElectiveStrategyView: View {
+/// 旧的本地算法页面（用 `/jw/selected-courses` + `/jw/score` 在本地按年级规则计算）。RN v2.2 也保留旧页面等待与真实教务数据对照，路由不再使用它
+public struct LegacyElectiveStrategyView: View {
     @Environment(\.services) private var services
 
     public init() {}

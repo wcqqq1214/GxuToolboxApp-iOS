@@ -50,6 +50,7 @@ public enum CourseDebugScreens {
             case "c-timeshift": TimeShiftView()
             case "c-selected": SelectedCoursesView()
             case "c-strategy": ElectiveStrategyView()
+            case "c-strategy-legacy": LegacyElectiveStrategyView()
             case "c-evaluation": EvaluationOverviewView()
             case "c-evaluation-templates": EvaluationTemplatesView()
             default: Text("未知页面 \(name)")
@@ -78,6 +79,7 @@ struct StubBackend: BackendAPI {
         case "/jw/profile/startDay": body = Self.startDays
         case "/jw/exam": body = Self.exams
         case "/jw/evaluation": body = Self.evaluation
+        case "/jw/elective-progress": body = Self.electiveProgress
         case "/jw/score": body = query["year"] == nil ? Self.allScores : Self.scores
         case "/jw/selected-courses": body = Self.selected(year: query["year"].flatMap(Int.init), term: query["term"].flatMap(Int.init))
         case "/jw/score/usual": body = #"[{"name":"平时成绩","ratio":"30","score":"91"},{"name":"期末成绩","ratio":"70","score":"84"},{"name":"总评","ratio":"N/A","score":"86"}]"#
@@ -91,6 +93,19 @@ struct StubBackend: BackendAPI {
         let profile = #"{"data":{"student_id":"2025000000","name":"演示同学","college":"计算机与电子信息学院","major":"计算机科学与技术","class_name":"计科251","grade":"2025","study_years":"4"}}"#
         return try JSONDecoder().decode(type, from: Data(profile.utf8))
     }
+
+    /// 按 RN `schema/progress.ts` 构造的演示数据（虚构学号、课程）
+    private static let electiveProgress = #"""
+    {"studentId":"2025000000","grade":2025,"ruleId":"demo","ruleVersion":"1","ruleName":"2025级通识选修要求（演示）",
+     "computedAt":"2026-11-05T08:30:00.000Z","complete":false,
+     "stats":{"totalCredits":6,"offlineCredits":4,"modules":{"lead":{"credits":0,"courseCount":0},"entrepreneurship":{"credits":0,"courseCount":0},"art":{"credits":2,"courseCount":1},"asean":{"credits":0,"courseCount":0},"ethnic":{"credits":0,"courseCount":0},"ocean":{"credits":4,"courseCount":2}}},
+     "requirements":[{"key":"total","label":"通识选修总学分","actual":6,"required":8,"operator":"gte","unit":"credits","passed":false},{"key":"online","label":"网课学分占比","actual":0.333,"required":0.5,"operator":"lte","unit":"ratio","passed":true},{"key":"modules","label":"覆盖模块","actual":2,"required":2,"operator":"gte","unit":"modules","passed":true}],
+     "remainingRequired":["艺术鉴赏"],
+     "courses":[{"courseId":"c1","courseName":"海洋科学导论","classIds":["j1"],"locations":["东校区"],"teachers":["甲老师"],"modules":["ocean"],"online":false,"credit":2,"score":88,"status":"passed","counted":true,"countedCredits":2,"attempts":[]},
+       {"courseId":"c2","courseName":"音乐欣赏","classIds":["j2"],"locations":[],"teachers":[],"modules":["art"],"online":true,"credit":2,"score":null,"status":"pending","counted":false,"countedCredits":0,"attempts":[]},
+       {"courseId":"c3","courseName":"中国传统文化","classIds":["j3"],"locations":[],"teachers":[],"modules":[],"online":null,"credit":null,"score":null,"status":"review","counted":false,"countedCredits":0,"excludedReason":"缺少学分","attempts":[]}],
+     "issues":[{"code":"missing-credit","courseId":"c3","classId":"j3","message":"缺少学分"}],"isQualified":null}
+    """#
 
     private static var dayFormatter: DateFormatter {
         let f = DateFormatter()
