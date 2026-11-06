@@ -33,13 +33,21 @@ public actor OASession {
         guard (200..<300).contains(response.statusCode) else {
             throw Self.httpError(response, data)
         }
+        // 不是 JSON（例如校外访问时 WAF 返回的 HTML 页面）：不是账号密码的问题
         guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw GxuError.decoding("OA 登录响应无法解析")
+            ErrorLog.shared.record("auth", "OA 登录：响应不是 JSON（HTTP \(response.statusCode)，\(response.value(forHTTPHeaderField: "Content-Type") ?? "无 Content-Type")，\(response.url?.host ?? "?")）")
+            throw GxuError.invalidData("OA 返回了意料之外的内容（不是登录结果），可能需要连接校园网或 VPN，或服务暂时不可用。详情见「设置 → 诊断日志」。")
         }
-        guard (object["code"] as? Int) == 200,
-              let result = object["result"] as? [String: Any], let token = result["accessToken"] as? String, !token.isEmpty else {
-            let message = object["message"] as? String
-            throw GxuError.invalidData(message?.isEmpty == false ? message! : "OA 登录失败，请检查账号和密码")
+        let code = object["code"] as? Int
+        guard code == 200 else {
+            // 服务端明确拒绝：直接用它给出的文案（例如「[D1000] 账号或密码不正确」）；没有文案就不要替它说是密码错了
+            let message = (object["message"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            ErrorLog.shared.record("auth", "OA 登录被服务端拒绝（code \(code.map(String.init) ?? "?")，type \((object["type"] as? String) ?? "?")）")
+            throw GxuError.invalidData(message.isEmpty ? "OA 登录失败，服务器没有给出原因（code \(code.map(String.init) ?? "?")）。" : message)
+        }
+        guard let result = object["result"] as? [String: Any], let token = result["accessToken"] as? String, !token.isEmpty else {
+            ErrorLog.shared.record("auth", "OA 登录：code 200 但没有 accessToken")
+            throw GxuError.invalidData("OA 登录响应里没有访问令牌，可能是服务暂时异常。详情见「设置 → 诊断日志」。")
         }
         tokens.save(token)
         observer?(.authenticated)
@@ -178,7 +186,7 @@ public actor OASession {
     /// 403 多半是 OA 只允许校内网络访问
     static func httpError(_ response: HTTPURLResponse, _ data: Data) -> GxuError {
         ErrorLog.shared.recordRequest(method: "OA", url: response.url, failure: "HTTP \(response.statusCode)")
-        if response.statusCode == 403 { return .http(status: 403, message: "OA 系统拒绝访问，可能需要连接校园网") }
+        if response.statusCode == 403 { return .http(status: 403, message: "OA 系统拒绝访问，可能需要连接校园网或 VPN。") }
         let message = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["message"] as? String
         return .http(status: response.statusCode, message: message)
     }

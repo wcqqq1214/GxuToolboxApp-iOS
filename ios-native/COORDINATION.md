@@ -565,6 +565,20 @@ interrogate 审查循环结束（用户决定不再开新一轮）。详细决�
 - ⚠️ **还没验证的（要等用户信任后）**：App 在真机上能否真的读写 App Group 容器 / 共享 Keychain（描述文件里有权限，运行时是否生效要看实际启动）、小组件能否读到 App 的数据、Live Activity、各项账号功能。上面只证明了「个人团队愿意给这些权限」，不证明运行正常。
 - 另外修了一个脚本问题：启动被拒绝时旧脚本仍然打印「已在手机上启动」，现在会如实说明被拒绝以及怎么做。
 
+### [login-fix] A（Agent A，2026-11-06，用户真机报告统一认证 / OA 登录失败）
+
+**统一认证的根因（已修，有回归测试）：** `UnifiedAuthSession.testToken()` 用的是不跟随重定向的 `send`，而校验接口 `GET http://ca.gxu.edu.cn:81/zfim/application/home/getYyfz.zf` 第一跳就是 302（去 CAS 换 ticket，再回来）。所以**即使登录成功**，校验也必然返回 false，界面就报「统一认证登录失败，请检查账号和密码」。RN 的 axios 在 RN 里会跟随重定向，所以没有这个问题。现在 `testToken()` 跟随整条跳转链，判断最终是不是 JSON（对齐 RN）。已确认 ATS 的 `ca.gxu.edu.cn` 例外按主机生效，覆盖 `:81`（http）和跳转到 `:8443`（https）。
+- 现有单测没抓到的原因：只有 `serviceLogin` / `loginEngTraining` 的用例，**没有一个用例走 `login(username:password:)` 这条会调用 `testToken()` 的路径**，而且 stub 里也没有模拟 302 链。新增用例模拟真实的 302 链；我把 `testToken` 临时改回旧行为验证过，两个相关用例都会失败。
+- 登录成功的判定和 RN 的对照：RN 对「不带 service 的登录」看最终页面是否含 `统一身份认证-主页`；iOS 判断「最终页不是登录页」再加校验接口，等价且更严（登录页特征是 `id="fm1"` + `name="execution"`）。
+- **验证码**：登录页确实有 `authcode` 输入框，但是否显示由 `GET /zfca/v2/getKaptchaStatus` 决定（页面脚本 `showKaptcha()` 用它），我现在查到的是 `false`（不需要），而且页面没有 `kaptchaType`（不弹滑块）。现在登录前会查这个接口：返回 `true`（多半是失败次数多了触发）就**不再提交**，直接提示「统一认证现在要求输入验证码……请先在浏览器登录一次或稍后再试」，避免继续失败被锁定。
+- **错误文案分类**（统一认证）：服务端把登录页连同错误文字（`#errormsg`）送回来 → 如实转述「统一认证提示：…」；没有文字 → 「没有登录成功，登录页也没有说明原因（可能需要验证码，或服务暂时异常）」，**不再冤枉成账号密码错误**；403 → 「拒绝访问，可能需要连接校园网或 VPN」；5xx → 「服务暂时不可用（HTTP N）」；其他状态码 / 登录页格式不对 / 校验接口异常各有各的话。
+
+**OA（查了，没有发现要改的请求格式）：** 我这次查 OA 登录是可达的（之前记录的 403 页面是间歇性的，疑似校外限制）。对一个**假账号**用 `curl` 和 `okhttp` 两种 UA 请求，都是 HTTP 200 + `{"code":400,"type":"error","message":"[D1000] 账号或密码不正确"}`；RN 的请求头只有 `Content-Type: application/json`，和 iOS 一致，没有差异，所以**请求格式没改**。各情况现在的文案：HTTP 403 → 「OA 系统拒绝访问，可能需要连接校园网或 VPN」；HTTP 200 但不是 JSON → 「OA 返回了意料之外的内容……可能需要校园网或 VPN」；`code != 200` → 直接显示服务端的 `message`（例如「[D1000] 账号或密码不正确」，这是服务端明确说的），`message` 为空 → 「服务器没有给出原因（code N）」；200 但没有 accessToken → 「响应里没有访问令牌」；其他 HTTP 状态 → 状态码。**如果用户在手机上看到的是「[D1000] 账号或密码不正确」，那是 OA 服务端明确拒绝了这个账号密码**（OA 的账号和教务 / 统一认证不一定是同一个，初始密码规则见 RN 的备注）。
+
+**诊断日志：** 统一认证和 OA 的每个失败分支都会写一条（步骤、状态码、最终的主机和路径、原因），不含密码、token 和 Cookie；设置 → 诊断日志里能看到，也可以分享。
+
+**这次没有用任何账号反复尝试。** 没有向用户要账号密码，也没有读 Keychain。
+
 ## Agent A 收到的请求
 
 - [x] (C) `scripts/test.sh` 硬编码 scheme 为 `<Pkg>-Package`，但只有一个 library product 的 package（如 FeatureExam）scheme 就叫 `<Pkg>`，会报 "does not contain a scheme"。请让脚本先 `xcodebuild -list` 判断，或两个名字都试。我暂时直接用 `xcodebuild -scheme FeatureExam ... test`

@@ -8,6 +8,12 @@ import Testing
 private let pubKey = #"{"modulus":"a170b33839263059f28c105d1fb17c2390c192cfd3ac94af0f21ddb66cad4a268d116ece1738f7d93d9c172411e20b8f6b0d549b6f03675a1600a35a099950d836f675cc81e74ef5e8e25d940ed904759531985d5d9dc9f81818e811892f902bd23f0824128b2f330c5c7fd0a6a3a4506513270e269e0d37f2a74de452e6b439","exponent":"10001"}"#
 private let loginPage = #"<form id="fm1" action="/zfca/login" method="post"><input type="hidden" name="execution" value="abc-123_XYZ"/></form>"#
 
+private final class Counter: @unchecked Sendable {
+    private let storage = Mutex(0)
+    @discardableResult func increment() -> Int { storage.withLock { $0 += 1; return $0 } }
+    var value: Int { storage.withLock { $0 } }
+}
+
 private func reply(_ request: URLRequest, status: Int = 200, headers: [String: String] = [:], _ body: String = "") -> (HTTPURLResponse, Data) {
     (HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: headers)!, Data(body.utf8))
 }
@@ -54,13 +60,23 @@ struct UnifiedAuthTests {
         #expect(!body.contains("password=pw"))   // 密码必须是加密后的
     }
 
-    @Test func wrongPasswordReturnsLoginPageAndThrows() async {
+    /// 服务端把登录页带着错误文案送回来 → 如实转述；没有文案 → 不冤枉用户说成「账号或密码错误」
+    @Test func loginPageWithServerMessageIsRelayedAndWithoutOneIsNeutral() async {
+        let reason = Mutex("用户名或密码错误")
         StubURLProtocol.register(host: "ca.gxu.edu.cn") { request in
-            request.url!.path.hasSuffix("getPubKey") ? reply(request, pubKey) : reply(request, loginPage)
+            let path = request.url!.path
+            if path.hasSuffix("getPubKey") { return reply(request, pubKey) }
+            if path.hasSuffix("getKaptchaStatus") { return reply(request, "false") }
+            let page = loginPage.replacingOccurrences(of: "</form>", with: "<p class=\"error text-left\" id=\"errormsg\">\(reason.withLock { $0 })</p></form>")
+            return reply(request, page)
         }
         let session = makeSession()
-        await #expect(throws: GxuError.invalidData("统一认证账号或密码错误")) {
-            try await session.loginPEC()
+        await #expect(throws: GxuError.invalidData("统一认证提示：用户名或密码错误")) { try await session.loginPEC() }
+        reason.withLock { $0 = "" }
+        do { try await session.loginPEC(); Issue.record("应该失败") } catch {
+            let message = (error as? GxuError)?.userMessage ?? ""
+            #expect(message.contains("没有说明原因"))
+            #expect(!message.contains("账号或密码"))     // 没有服务端证据时不能这么说
         }
     }
 
@@ -78,5 +94,97 @@ struct UnifiedAuthTests {
     @Test func extractsStudentCodeFromLandingURL() {
         #expect(UnifiedAuthSession.studentCode(from: URL(string: "http://x/a?b=CODE9")!) == "CODE9")
         #expect(UnifiedAuthSession.studentCode(from: URL(string: "http://x/a")!) == nil)
+    }
+
+    // MARK: 回归（真机报告「账号密码是对的但登录失败」）
+
+    private func registerCAFlow(kaptcha: String = "false", loginSucceeds: Bool = true, tokenCheckWorks: Bool = true,
+                                tokenHits: Counter = Counter(), postCount: Counter = Counter()) {
+        StubURLProtocol.register(host: "ca.gxu.edu.cn") { request in
+            let path = request.url!.path
+            if path.hasSuffix("getPubKey") { return reply(request, pubKey) }
+            if path.hasSuffix("getKaptchaStatus") { return reply(request, kaptcha) }
+            if path == "/zfca/login" {
+                if request.httpMethod == "POST" {
+                    postCount.increment()
+                    return loginSucceeds ? reply(request, status: 302, headers: ["Location": "/zfca/index"], "") : reply(request, loginPage)
+                }
+                return reply(request, loginPage)
+            }
+            if path == "/zfca/index" { return reply(request, "<html><title>统一身份认证-主页</title></html>") }
+            // 校验接口：第一次访问 302 到 CAS 换 ticket（和真实服务一样），回来以后第二次才是 JSON
+            if path == "/zfim/application/home/getYyfz.zf" {
+                let hit = tokenHits.increment()
+                if !tokenCheckWorks { return reply(request, loginPage) }
+                return hit == 1
+                    ? reply(request, status: 302, headers: ["Location": "http://ca.gxu.edu.cn:81/zfim/system/login/login.zf?ticket=ST-1"], "")
+                    : reply(request, #"{"apps":[]}"#)
+            }
+            if path == "/zfim/system/login/login.zf" {
+                return reply(request, status: 302, headers: ["Location": "/zfim/application/home/getYyfz.zf"], "")
+            }
+            return reply(request, status: 404, "")
+        }
+    }
+
+    /// 回归：旧的 `testToken` 不跟随重定向，登录成功后第一跳就是 302，永远判成失败 →「请检查账号和密码」
+    @Test func loginSucceedsWhenTheTokenCheckNeedsToFollowRedirects() async throws {
+        registerCAFlow()
+        try await makeSession().login(username: "2025001", password: "pw")
+    }
+
+    @Test func testTokenFollowsTheCASRedirectChain() async throws {
+        registerCAFlow()
+        #expect(try await makeSession().testToken())
+    }
+
+    @Test func tokenCheckLandingOnTheLoginPageMeansNotLoggedIn() async throws {
+        registerCAFlow(tokenCheckWorks: false)
+        #expect(try await makeSession().testToken() == false)
+        // 登录本身被接受、但校验失败：说「校验接口没有返回预期内容」，不说账号密码
+        do { try await makeSession().login(username: "2025001", password: "pw"); Issue.record("应该失败") } catch {
+            let message = (error as? GxuError)?.userMessage ?? ""
+            #expect(message.contains("校验接口"))
+            #expect(!message.contains("账号和密码"))
+        }
+    }
+
+    @Test func captchaRequiredIsReportedAndNothingIsSubmitted() async {
+        let posts = Counter()
+        registerCAFlow(kaptcha: "true", postCount: posts)
+        do { try await makeSession().login(username: "2025001", password: "pw"); Issue.record("应该失败") } catch {
+            let message = (error as? GxuError)?.userMessage ?? ""
+            #expect(message.contains("验证码"))
+            #expect(!message.contains("账号或密码"))
+        }
+        #expect(posts.value == 0)   // 不再提交，避免继续失败被锁定
+    }
+
+    @Test func forbiddenAndServerErrorsAreNotBlamedOnThePassword() async {
+        for (status, expected) in [(403, "校园网"), (503, "暂时不可用")] {
+            StubURLProtocol.register(host: "ca.gxu.edu.cn") { request in
+                request.url!.path.hasSuffix("getPubKey") ? reply(request, pubKey) : reply(request, status: status, "<html>x</html>")
+            }
+            do { try await makeSession().login(username: "2025001", password: "pw"); Issue.record("应该失败") } catch {
+                let message = (error as? GxuError)?.userMessage ?? ""
+                #expect(message.contains(expected), "HTTP \(status) → \(message)")
+                #expect(!message.contains("账号"), "HTTP \(status) 不该说账号：\(message)")
+            }
+        }
+    }
+
+    @Test func failuresAreWrittenToTheDiagnosticLogWithoutSecrets() async {
+        registerCAFlow(tokenCheckWorks: false)
+        _ = try? await makeSession().login(username: "2025001", password: "S3cretPw")
+        let log = ErrorLog.shared.contents()
+        #expect(log.contains("统一认证 校验接口"))
+        #expect(!log.contains("S3cretPw"))
+    }
+
+    @Test func extractsTheServerErrorTextFromTheLoginPage() {
+        let html = Data("<p class=\"error text-left\" id=\"errormsg\">\n  用户名或密码错误 \n</p>".utf8)
+        #expect(UnifiedAuthSession.pageErrorMessage(in: html) == "用户名或密码错误")
+        #expect(UnifiedAuthSession.pageErrorMessage(in: Data("<p id=\"errormsg\">\n\t</p>".utf8)) == "")
+        #expect(UnifiedAuthSession.pageErrorMessage(in: Data("<html/>".utf8)) == "")
     }
 }

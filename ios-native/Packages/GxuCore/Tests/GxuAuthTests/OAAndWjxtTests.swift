@@ -32,10 +32,41 @@ struct OASessionTests {
         #expect(tokens.load() == nil)
     }
 
+    /// 服务端明确拒绝时直接转述它的文案；没有文案就不替它说是密码错了
+    @Test func serverRejectionIsRelayedAndEmptyMessageStaysNeutral() async {
+        StubURLProtocol.register(host: "oa.gxu.edu.cn") { reply($0, #"{"code":400,"type":"error","message":"[D1000] 账号或密码不正确","result":null}"#) }
+        let (session, _) = make()
+        await #expect(throws: GxuError.invalidData("[D1000] 账号或密码不正确")) { try await session.login(username: "u", password: "p") }
+        StubURLProtocol.register(host: "oa.gxu.edu.cn") { reply($0, #"{"code":500,"type":"error","message":"","result":null}"#) }
+        do { try await session.login(username: "u", password: "p"); Issue.record("应该失败") } catch {
+            let message = (error as? GxuError)?.userMessage ?? ""
+            #expect(message.contains("没有给出原因") && !message.contains("账号和密码"))
+        }
+    }
+
+    /// 200 但不是 JSON（WAF 页面等）：说「意料之外的内容 / 可能需要校园网」，不说账号密码，也写进诊断日志
+    @Test func htmlInsteadOfJsonIsNotBlamedOnThePassword() async {
+        StubURLProtocol.register(host: "oa.gxu.edu.cn") { reply($0, "<html>访问出错 - 403</html>") }
+        let (session, _) = make()
+        do { try await session.login(username: "u", password: "S3cretPw"); Issue.record("应该失败") } catch {
+            let message = (error as? GxuError)?.userMessage ?? ""
+            #expect(message.contains("校园网") && !message.contains("账号"))
+        }
+        let log = ErrorLog.shared.contents()
+        #expect(log.contains("OA 登录：响应不是 JSON"))
+        #expect(!log.contains("S3cretPw"))
+    }
+
+    @Test func serverErrorStatusIsReportedAsHTTP() async {
+        StubURLProtocol.register(host: "oa.gxu.edu.cn") { reply($0, status: 502, "bad gateway") }
+        let (session, _) = make()
+        await #expect(throws: GxuError.http(status: 502, message: nil)) { try await session.login(username: "u", password: "p") }
+    }
+
     @Test func blockedNetworkExplainsCampusRequirement() async {
         StubURLProtocol.register(host: "oa.gxu.edu.cn") { reply($0, status: 403, "<html>访问出错 - 403</html>") }
         let (session, _) = make()
-        await #expect(throws: GxuError.http(status: 403, message: "OA 系统拒绝访问，可能需要连接校园网")) { try await session.login(username: "u", password: "p") }
+        await #expect(throws: GxuError.http(status: 403, message: "OA 系统拒绝访问，可能需要连接校园网或 VPN。")) { try await session.login(username: "u", password: "p") }
     }
 
     @Test func requestsCarryBearerAndRetryAfterRelogin() async throws {

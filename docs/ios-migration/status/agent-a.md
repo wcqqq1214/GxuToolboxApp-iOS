@@ -83,3 +83,8 @@
 ## 免费账号真机（`--personal`）（A，2026-11-06）
 - `scripts/run-device.sh --personal`：Team ID 自动取（Xcode 账号 → 钥匙串证书，`scripts/detect-team.py`，只用 ID，打印时打码，`--self-test` 有假数据测试）；`BUNDLE_ID` 可由环境变量 / `.secrets/archive.env` 覆盖（`project.yml` 新增构建设置 `GXU_BUNDLE_ID` / `GXU_APP_GROUP` / `GXU_KEYCHAIN_GROUP`，默认值不变，已确认模拟器构建的标识和 entitlements 没变）；先按完整能力签名，Xcode 报「不支持」才自动降级（`CODE_SIGN_ENTITLEMENTS` 换成空 entitlements、`GXU_APP_GROUP=`、`GXU_KEYCHAIN_GROUP=`，只在这次命令行里生效）；`--self-test` 用 Apple 报错的真实措辞测了降级判断和「Bundle ID 被占用」判断。
 - 运行时回退：`GxuConfig.appGroupID` 改为读 Info.plist（`GxuAppGroupID`），空值 = 不使用 App Group；`AppDatabase.databaseDirectory` 在没有 App Group 或拿不到容器时用 Application Support；`UserDefaultsSharedStore` 在 App Group 容器拿不到时用 `.standard`（显式传入的其他 suite 不受影响）。小组件本来就会在没有快照时显示 `.empty(.missingSchedule)`。有单元测试。**模拟器不校验 App Group entitlement（对任何 group id 都返回容器路径），所以「真的没授权」只能在真机上验证。**
+
+## 登录修复 [login-fix]（A，2026-11-06）
+- 统一认证：`testToken()` 不跟随重定向是根因（登录成功后校验接口第一跳 302，被判成失败）；已改为跟随跳转链并加回归测试；验证码状态接口 `getKaptchaStatus` 返回 true 时不再提交；失败文案按原因分类，只有服务端明确说账号密码有问题才这么说；诊断日志写步骤 / 状态码 / 最终主机路径。**教训：** 之前的单测没有覆盖 `login(username:password:)` → `testToken()` 这条路径，stub 也没模拟 302 链，所以漏了；`RN 的 testToken 在 RN 里靠 XHR 自动跟随重定向` 这个隐含前提当时没有写进测试。
+- OA：请求格式和 RN 一致（只有 `Content-Type: application/json`），没改；按 403 / 非 JSON / `code != 200` / 缺 token / 其他状态码分别给文案并写诊断日志；服务端明确拒绝时转述它的 `message`。
+- 没有证据的不改：没有用任何真实账号尝试，没有读 Keychain 里的密码。
