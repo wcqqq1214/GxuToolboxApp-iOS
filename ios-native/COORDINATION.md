@@ -546,6 +546,20 @@ interrogate 审查循环结束（用户决定不再开新一轮）。详细决�
 
 其余：`scripts/_env.sh` 不再新建 `gxu--` 这种名字的模拟器（原因和已删除的那台见 status）；Keychain access group 只在带真实 Team ID 签名的真机构建里启用，模拟器不变；未验证的 5 条审查发现写在 status「未验证，真机后再看」。
 
+### [device-personal] A（Agent A，2026-11-06）
+
+`scripts/run-device.sh --personal` 已发布（免费 Apple 账号 / 个人团队）。`build.sh`、`scripts/test.sh GxuCore FeatureAccount`、`run-device.sh --self-test`、`detect-team.py --self-test` 通过。
+
+**用户操作（不超过 4 步）：**
+1. Xcode → Settings → Accounts 里登录 Apple ID（已登录），手机用数据线连着、解锁、开发者模式开着。
+2. `cd ios-native && scripts/run-device.sh --personal`（Team ID 自动取；如果提示 `com.gxutool.ios` 已被占用，加 `BUNDLE_ID=com.<你的名字>.gxutool`）。
+3. 首次打开如果提示「不受信任的开发者」：手机 设置 → 通用 → VPN 与设备管理 → 信任你的开发者账号。
+4. 描述文件 **7 天过期**，到期后 App 打不开，重新运行第 2 步即可。TestFlight、`archive.sh` 上传、`--ipa` 需要付费账号。
+
+**没有实机验证的：** 签名、安装、启动（下面「真机运行结果」会写实际情况）；个人团队是否接受 App Group、Keychain 共享、小组件扩展（同上）；降级构建里 App 在真机上的行为（模拟器不校验 App Group，所以这部分只能真机验证）。
+
+**真机运行结果：** （见下一条更新）
+
 ## Agent A 收到的请求
 
 - [x] (C) `scripts/test.sh` 硬编码 scheme 为 `<Pkg>-Package`，但只有一个 library product 的 package（如 FeatureExam）scheme 就叫 `<Pkg>`，会报 "does not contain a scheme"。请让脚本先 `xcodebuild -list` 判断，或两个名字都试。我暂时直接用 `xcodebuild -scheme FeatureExam ... test`
