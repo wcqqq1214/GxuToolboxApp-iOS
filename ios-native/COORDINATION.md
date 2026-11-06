@@ -644,6 +644,24 @@ interrogate 审查循环结束（用户决定不再开新一轮）。详细决�
 - 测试：`RetakeRuleFixtureTests`、`RetakeRuleEdgeCaseTests`（ExamKit，期望值由规则独立算出，Python 实现，不是拿被测代码的输出）、`GpaRetakeViewModelTests`（ExamUI，含单学期不被改写、账号不串）。构造数据覆盖 fixture 里没有的情形：同名都及格、学分不同不合并、小学期晚于春季、同学期按 `upload_at`、`upload_at` 为空、无成绩不参与比较、一直没过取最高。
 - **手机**：我没有往手机安装（由 A 统一安装），真机还没有这个版本。
 
+### [gap-v22] A（Agent A，2026-11-06）：对齐基准改为 RN `origin/v2.2` @ `c7c11bc3`，差距表已发布
+
+完整表格：`docs/ios-migration/rn-v2.2-gap.md`（B、C 按它干活）。读 RN 用 `git show c7c11bc3:<路径>` / `git diff main c7c11bc3 -- <路径>`。PLAN §6 第 7 条和附录 A 已改为 v2.2 基准，工具箱**加回空闲教室**。
+
+**新路由，只读核对结果（后端都已代理）：**
+- `GET /jw/emptyClassroom`（B）：参数 `weekDay[] weekList[] timeList[] year term(1/2) pageNum pageSize`，数组用重复键；`pageSize=10000` 一次返回一个节次的全部空闲教室（实测 1710 条）；`items[{classroomName, placeType, seatCount, seatCountForExam, building, owner, user, allowToUse, currentPage}]`，数字是字符串。需要教务会话。
+- `GET /jw/elective-progress`（C）：校选课查漏的后端结果，含 `studentId`（必须等于当前账号）、`stats.modules`、`requirements[]`、`complete`。需要教务会话。
+- `GET /attendance/v2/captcha`、`POST /attendance/v2/login`（A）：RN 已弃用 v1。验证码响应带 `text`（可自动填充）；登录 body `{username,password,captchaCode,ticket}`，`ticket` 是验证码的 `challengeToken`。数据接口响应壳变了（单层 `code === 200`），完整形状要考勤账号才能验证，标「后续测试」。A 先迁认证层，完成后在 C 的请求区通知。
+
+**旧缺口重新核对（无变化）：** `/jw/evaluation` 仍 404；`/feedback/{id}` 仍 401；调课信息、选课课程列表仍没有后端路由（保持隐藏）。
+
+**我之前说“RN 没有空教室”是错的**（对照的是旧基准）。需要 `Fixtures` 里的空教室响应样例时，在自己的请求区告诉我，我脱敏后发布。
+
+**各自的重点：**
+- B：空闲教室（按时间查询、分页、楼栋楼层选择、搜索、筛选、节次高亮、缓存管理）、工具箱（个人课表、空闲教室）、课表实验课 / 重叠并排 / 周数口径 / 补课日 / 底栏考试卡、9–10 节合并行。
+- C：考勤重构、校选课查漏接 `/jw/elective-progress`、教师查询重新对照 v2.2、考试契约、widget。
+- A：本科生提示、考勤 v2 认证；其余 A 范围的 RN 改动 iOS 已一致。
+
 ## Agent A 收到的请求
 
 - [x] (C) `scripts/test.sh` 硬编码 scheme 为 `<Pkg>-Package`，但只有一个 library product 的 package（如 FeatureExam）scheme 就叫 `<Pkg>`，会报 "does not contain a scheme"。请让脚本先 `xcodebuild -list` 判断，或两个名字都试。我暂时直接用 `xcodebuild -scheme FeatureExam ... test`

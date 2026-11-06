@@ -221,7 +221,7 @@ B、C：在 bootstrap 发布之前，先读 RN 源码，把自己 Phase 1 功能
 - **(f) 一次性所有权例外（用户已同意，2026-11-05）**：小组件 / Live Activity / App Intents 这一批，由 C 直接发布 `project.yml`、`App/GxuToolApp.swift`、Info.plist 和 `App/Composition/IntentsPackage.swift` 的相关改动（含 `ClassWidgetKit`、`ToolboxIntents`、`NSSupportsLiveActivities`、`WidgetBridge`）。**仅此一批**，之后恢复 §2 的所有权。C 发布这批之前，A 不改这些文件里相关的部分。
 - **(g) 小组件验证**：设计审查用 `ImageRenderer` 渲染的截图；§5.1 (e) 的"扩展是否读到同一个 App Group 容器"用 XCUITest 限时 30 分钟实测，做不出就留到真机（需要真实 Team ID）。这台机器没有 Simulator.app，无法手动操作。
 - **(h) iOS 18 降级走查**：本机安装 iOS 18 模拟器 runtime 和一台专用模拟器，用 `SIM_ID` 跑 `run-e2e-ui.sh`，对比 iOS 27 与 iOS 18 的关键页面（课表、工具箱、考试、成绩、GPA、设置），截图放 `ios-native/.screens/ios18-*/`；问题按所有权写进 B、C 的请求区。磁盘空间不足时不安装，写进 A 的 status。**2026-11-05 实测：Xcode 27.2 的下载目录里没有任何 iOS 18 runtime（`-downloadPlatform iOS -buildVersion 18.x` 全部 "not available"），磁盘空间不是问题；需要用户决定是否另装 Xcode 16.x 来下载**，详见 A 的 status。
-- **工具箱**：`空教室` 不在附录 A 和 RN 的 `src` 里，用户决定删除，由 B 执行。
+- **工具箱**（2026-11-06 更新）：RN 对齐基准改为 `origin/v2.2` @ `c7c11bc3`。`空闲教室`在 v2.2 里存在（后端 `GET /jw/emptyClassroom`），**加回工具箱**，由 B 实现；此前「删除空教室」的决定作废（当时对照的是旧基准 `main`）。详见 `rn-v2.2-gap.md`。
 - **节假日数据**（用户已决定）：远程 `data.json` 不会增加 `holidays`，学校最新数据就是 App 内置备份（到 2027 年元旦），不再作为待用户项。
 - **真实账号验证**（用户已决定）：CA / PEC / 工程训练中心和考勤的完整登录改为**后续测试**，本轮不等账号；Phase 2 验收对这两项标「后续测试」，不算未通过。
 - **「我的反馈」入口**（用户已决定）：`GET /feedback/{userId}` 一律 401，隐藏该入口，只保留提交反馈；列表 / 详情代码保留，由默认关闭的开关 `FeedbackFeatures.showsMyFeedback`（UserDefaults 键 `feature.showsMyFeedback`）控制，后端修复后再开放（见 §7）。
@@ -260,7 +260,7 @@ B、C：在 bootstrap 发布之前，先读 RN 源码，把自己 Phase 1 功能
 4. 课程块里教室和教师的字号比课程名**小一号**。
 5. 同一张卡片或同一行里，同一个信息只出现一次，例如时间不重复显示。
 6. 课表时间列同时显示上课和下课时间，数据以 RN `timeSpanList` 为准，不修改；**显示层把第 9、10 节合并成一行「9-10节 18:10–19:30」**（依据用户提供的 RN 实际截图；main 的 src 里搜不到这个合并逻辑，以截图为准）。这只是显示层合并，13 节数据不改。
-7. 工具箱的分组、名称和入口以 RN `src/screens/tool/ToolboxIndex.tsx` 为准，不新增功能。
+7. 工具箱的分组、名称和入口以 RN **v2.2**（`c7c11bc3`）的 `src/screens/tool/ToolboxIndex.tsx` 为准（含「个人课表」「空闲教室」），不新增功能。读法：`git show c7c11bc3:src/screens/tool/ToolboxIndex.tsx`。
 8. 课表标题和日期范围在同一中轴线上，附加控件不能把文字挤偏。
 9. 不显示「2026-2027 学年第一学期……」这类没有信息量的说明字样。
 
@@ -294,6 +294,8 @@ B、C：在 bootstrap 发布之前，先读 RN 源码，把自己 Phase 1 功能
 - Android 和 iOS 两端要各写一遍功能，所以新的教务功能应该**先做后端接口**，两端都只接后端。
 
 ## 附录 A：功能对照表（RN 路由 → 负责人 / 阶段）
+
+> **基准：RN `origin/v2.2` @ `c7c11bc3`**（2026-11-06 起，取代 `main`）。v2.2 相对旧表新增 / 变化的项见 `rn-v2.2-gap.md`：空闲教室（B）、考勤 v2（A 认证 + C 界面）、校选课查漏改用 `/jw/elective-progress`（C）、课表实验课等（B）。下表其余行沿用。
 
 | RN 路由 / 功能 | 负责人 | Phase |
 |---|---|---|
