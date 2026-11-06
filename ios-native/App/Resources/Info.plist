@@ -20,8 +20,10 @@
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<key>GxuAppGroupID</key>
+	<string>$(GXU_APP_GROUP)</string>
 	<key>GxuKeychainAccessGroup</key>
-	<string>$(AppIdentifierPrefix)com.gxutool.ios</string>
+	<string>$(GXU_KEYCHAIN_GROUP)</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSExceptionDomains</key>

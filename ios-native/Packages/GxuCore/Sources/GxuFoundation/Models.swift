@@ -95,7 +95,21 @@ public enum GxuError: Error, Sendable, Equatable {
 public enum GxuConfig {
     public static let backendBaseURL = URL(string: "https://api.tool.gxutech.xyz")!
     public static let jwCookieURL = URL(string: "https://jwxt2018.gxu.edu.cn/jwglxt")!
-    public static let appGroupID = "group.com.gxutool.ios"
+    /// App Group（App 和小组件共享数据）。来自 Info.plist 的 `GxuAppGroupID`（`$(GXU_APP_GROUP)`，默认 `group.com.gxutool.ios`，
+    /// 可用构建设置 `GXU_BUNDLE_ID` 改掉）。**nil = 不使用 App Group**：免费个人团队不支持时，`run-device.sh --personal`
+    /// 会把它置空，App 和小组件各用自己的容器（互相读不到数据），不会崩溃。没有这个键（例如测试宿主）时用默认值。
+    public static var appGroupID: String? {
+        resolveAppGroupID(Bundle.main.object(forInfoDictionaryKey: "GxuAppGroupID") as? String)
+    }
+
+    public static let defaultAppGroupID = "group.com.gxutool.ios"
+
+    /// 纯函数，便于测试：没有键（nil）→ 默认值；空字符串或没展开的 `$(…)` → nil（不使用）；其余原样返回
+    public static func resolveAppGroupID(_ infoValue: String?) -> String? {
+        guard let infoValue else { return defaultAppGroupID }
+        let trimmed = infoValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty || trimmed.contains("$(") ? nil : trimmed
+    }
     /// Keychain access group（App 和小组件共用）。真实 Team ID 签名的真机构建里，Info.plist 的 `GxuKeychainAccessGroup`
     /// （`$(AppIdentifierPrefix)com.gxutool.ios`）会展开成 `TEAMID.com.gxutool.ios`，这里就返回它；
     /// 模拟器和 ad-hoc 签名没有 Team ID 前缀，返回 nil（使用 App 默认分组），不受影响。

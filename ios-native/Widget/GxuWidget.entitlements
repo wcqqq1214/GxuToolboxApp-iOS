@@ -4,11 +4,11 @@
 <dict>
 	<key>com.apple.security.application-groups</key>
 	<array>
-		<string>group.com.gxutool.ios</string>
+		<string>$(GXU_APP_GROUP)</string>
 	</array>
 	<key>keychain-access-groups</key>
 	<array>
-		<string>$(AppIdentifierPrefix)com.gxutool.ios</string>
+		<string>$(GXU_KEYCHAIN_GROUP)</string>
 	</array>
 </dict>
 </plist>

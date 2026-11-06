@@ -66,3 +66,14 @@ struct KeychainAccessGroupTests {
         #endif
     }
 }
+
+struct AppGroupConfigTests {
+    @Test func appGroupResolutionFollowsTheInfoPlistValue() {
+        #expect(GxuConfig.resolveAppGroupID(nil) == "group.com.gxutool.ios")                       // 没有这个键（测试宿主）：默认值，行为不变
+        #expect(GxuConfig.resolveAppGroupID("group.com.gxutool.ios") == "group.com.gxutool.ios")
+        #expect(GxuConfig.resolveAppGroupID("group.com.alice.gxutool") == "group.com.alice.gxutool")   // 自定义 Bundle ID
+        #expect(GxuConfig.resolveAppGroupID("") == nil)                                              // 个人团队降级：置空 = 不使用 App Group
+        #expect(GxuConfig.resolveAppGroupID("  ") == nil)
+        #expect(GxuConfig.resolveAppGroupID("$(GXU_APP_GROUP)") == nil)                               // 没展开
+    }
+}

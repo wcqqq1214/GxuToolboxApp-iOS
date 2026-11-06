@@ -11,6 +11,10 @@ settings:
     SWIFT_STRICT_CONCURRENCY: complete
     # TODO(user): 填写 Apple Developer Team ID（真机运行、App Group、Keychain 共享都需要）
     DEVELOPMENT_TEAM: "YOUR_TEAM_ID"
+    # 标识可用构建设置覆盖（scripts/run-device.sh --personal 用环境变量 / .secrets/archive.env 的 BUNDLE_ID 传入）；默认值不变
+    GXU_BUNDLE_ID: com.gxutool.ios
+    GXU_APP_GROUP: group.$(GXU_BUNDLE_ID)                       # 置空 = 不使用 App Group（免费个人团队降级用）
+    GXU_KEYCHAIN_GROUP: $(AppIdentifierPrefix)$(GXU_BUNDLE_ID)   # 置空 = 不使用共享的 Keychain 分组
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: "1"
 packages:
@@ -31,7 +35,7 @@ targets:
         excludes: ["Resources/Info.plist", "Resources/GxuToolApp.entitlements"]
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.gxutool.ios
+        PRODUCT_BUNDLE_IDENTIFIER: $(GXU_BUNDLE_ID)
         PRODUCT_NAME: GxuToolApp
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
@@ -42,7 +46,8 @@ targets:
         CFBundleDisplayName: 西大工具箱
         UILaunchScreen: {}
         # 真机用真实 Team ID 签名时展开成 TEAMID.com.gxutool.ios；GxuConfig.keychainAccessGroup 读它（模拟器忽略）
-        GxuKeychainAccessGroup: "$(AppIdentifierPrefix)com.gxutool.ios"
+        GxuKeychainAccessGroup: "$(GXU_KEYCHAIN_GROUP)"
+        GxuAppGroupID: "$(GXU_APP_GROUP)"
         NSSupportsLiveActivities: true
         NSSupportsLiveActivitiesFrequentUpdates: false
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
@@ -56,8 +61,8 @@ targets:
     entitlements:
       path: App/Resources/GxuToolApp.entitlements
       properties:
-        com.apple.security.application-groups: [group.com.gxutool.ios]
-        keychain-access-groups: ["$(AppIdentifierPrefix)com.gxutool.ios"]
+        com.apple.security.application-groups: ["$(GXU_APP_GROUP)"]
+        keychain-access-groups: ["$(GXU_KEYCHAIN_GROUP)"]
     dependencies:
       - target: GxuWidget
       - {package: GxuCore, product: GxuFoundation}
@@ -83,7 +88,7 @@ targets:
       - target: GxuToolApp
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.gxutool.ios.uitests
+        PRODUCT_BUNDLE_IDENTIFIER: $(GXU_BUNDLE_ID).uitests
         GENERATE_INFOPLIST_FILE: YES
   GxuWidget:
     type: app-extension
@@ -91,21 +96,22 @@ targets:
     sources: [Widget]
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.gxutool.ios.widget
+        PRODUCT_BUNDLE_IDENTIFIER: $(GXU_BUNDLE_ID).widget
         PRODUCT_NAME: GxuWidget
         SKIP_INSTALL: YES
     info:
       path: Widget/Info.plist
       properties:
         CFBundleDisplayName: 西大工具箱小组件
-        GxuKeychainAccessGroup: "$(AppIdentifierPrefix)com.gxutool.ios"
+        GxuKeychainAccessGroup: "$(GXU_KEYCHAIN_GROUP)"
+        GxuAppGroupID: "$(GXU_APP_GROUP)"
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     entitlements:
       path: Widget/GxuWidget.entitlements
       properties:
-        com.apple.security.application-groups: [group.com.gxutool.ios]
-        keychain-access-groups: ["$(AppIdentifierPrefix)com.gxutool.ios"]
+        com.apple.security.application-groups: ["$(GXU_APP_GROUP)"]
+        keychain-access-groups: ["$(GXU_KEYCHAIN_GROUP)"]
     dependencies:
       - {package: GxuCore, product: GxuFoundation}
       - {package: GxuCore, product: GxuStorage}

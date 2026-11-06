@@ -21,6 +21,29 @@
 
 首次运行 Xcode 会自动注册 App ID、App Group `group.com.gxutool.ios`，这需要账号有权限。Bundle ID 目前固定为 `com.gxutool.ios`，如果提示已被别的团队占用，要先让开发者把它改成可配置的。
 
+## 0.5 只有免费 Apple 账号：`--personal` 模式
+
+`cd ios-native && scripts/run-device.sh --personal`：
+- **Team ID 自动取**：从 Xcode 登录的账号（优先免费个人团队）或钥匙串里的 Apple Development 证书取，不用手填；多个会列出（打码），用 `DEVELOPMENT_TEAM=<完整 ID>` 指定。取不到会提示怎么做。
+- **Bundle ID 可改**：默认 `com.gxutool.ios`；被别的团队占用（Xcode 报 "cannot be registered … not available"）时，设 `BUNDLE_ID=com.<你的名字>.gxutool`（环境变量，或写进 `.secrets/archive.env`）。Widget 自动用 `<BUNDLE_ID>.widget`，App Group 用 `group.<BUNDLE_ID>`。
+- **先按完整能力签名**（App Group + Keychain 共享），Xcode 说「个人团队不支持」才自动降级成没有这两项的 Debug 构建，并打印实际结论；降级只对这次构建生效，不改 `project.yml` 和正常构建。降级时 App 数据库和偏好存在 App 自己的容器里，小组件读不到 App 的数据（显示「未就绪」），App 本身不受影响。
+- **7 天过期**：免费账号的描述文件 7 天后过期，过期后 App 打不开，**重新运行这条命令**重新安装。首次打开要在「设置 → 通用 → VPN 与设备管理」里信任开发者。
+- 一台手机最多装 3 个免费账号签名的 App，每周能注册的 App ID 也有限制；换 `BUNDLE_ID` 会占用新的 App ID。
+
+**`--personal` 下能验证 / 不能验证：**
+
+| 项 | 能不能 | 说明 |
+|---|---|---|
+| 第 2 节 大字号、VoiceOver | ✅ | 不依赖账号类型 |
+| 第 3 节 账号 / 校园网功能（CA、PEC、金工实训、考勤、OA、wjxt） | ✅ | 只要手机能连校园网、用户有账号 |
+| 4.3 回前台刷新、4.4 断网缓存、4.6 登录过期自动重登 | ✅ | |
+| 1.8 App Intents | ✅（App 内部的 intent） | 不依赖 App Group 时可用；读 App 数据的结果取决于是否降级 |
+| 1.1–1.7 小组件、Live Activity（共享数据） | 看实际结论 | 个人团队支持 App Group 才能验证；降级时小组件只会显示「未就绪」 |
+| 4.1 Keychain access group（App 和扩展共享） | 看实际结论 | 同上；降级时每个 target 用自己的 Keychain |
+| 4.2 卸载重装后的 Keychain 行为 | ✅ | |
+| 5.1 真实 iOS 18 | ✅（如果手机是 iOS 18） | 需要 iOS 18 的设备 |
+| 5.3 TestFlight、`archive.sh` 上传、`--ipa` 导出 | ❌ | 需要付费的 Apple Developer Program 账号 |
+
 ## 1. 小组件、Live Activity、App Intents（PLAN §5.1 (e)）
 
 | # | 步骤 | 预期结果 | 谁 |
