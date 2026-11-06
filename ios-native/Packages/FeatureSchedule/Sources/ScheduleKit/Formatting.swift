@@ -71,3 +71,26 @@ extension CourseOccurrence {
     /// "第1-2节"
     public var sectionText: String { begin == end ? "第\(begin)节" : "第\(begin)-\(end)节" }
 }
+
+/// 课程详情“导航”按钮的目标（RN `CourseDetailSheet`：体育学院的课按北 / 西 / 东直接搜场馆，其余按教室文案解析教学楼）
+public enum CourseNavigation {
+    public struct Target: Sendable, Hashable {
+        /// 展示用的地点文案，也用来解析教学楼
+        public var room: String
+        /// 体育学院场馆的地图搜索词；有值时直接用它，不再解析教学楼
+        public var mapKeyword: String?
+    }
+
+    public static func target(building: String, venue: String) -> Target? {
+        let room = LocationFormatter.display(building: building, venue: venue)
+        guard !room.isEmpty else { return nil }
+        return Target(room: room, mapKeyword: (building + venue).contains("体育学院") ? sportsKeyword(room) : nil)
+    }
+
+    static func sportsKeyword(_ location: String) -> String? {
+        if location.contains("北") { return "广西大学行健图书馆行健馆" }
+        if location.contains("西") { return "广西大学西校园综合体育馆" }
+        if location.contains("东") { return "广西大学东校园体育场" }
+        return nil
+    }
+}

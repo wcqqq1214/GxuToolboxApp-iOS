@@ -63,6 +63,7 @@ struct RootView: View {
         .gxuTabAccessory(isEnabled: home.phase == .ready && (selection == .schedule || (selection == .toolbox && !toolboxPushed)) && home.hasNextEvent(now: clock)) { NextEventAccessory(model: home) }
         .gxuTheme(theme)
         .environment(preferences)
+        .environment(\.scheduleMapURL, Self.mapURL)
         .task {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(30))
@@ -84,6 +85,16 @@ struct RootView: View {
 }
 
 extension RootView {
+    /// 课程详情“导航”：体育学院场馆直接搜关键词，其余按教室文案解析教学楼（解析不到就不显示按钮）
+    static let mapURL: ScheduleMapURLProvider = { target in
+        if let keyword = target.mapKeyword {
+            var components = URLComponents(string: "https://maps.apple.com/")
+            components?.queryItems = [URLQueryItem(name: "q", value: keyword)]
+            return components?.url
+        }
+        return CampusPlaces.place(forRoom: target.room)?.mapsURL
+    }
+
     /// 课表上的额外图层：考试（读 ExamKit 本地缓存里这个学期的考试）和实验课对教师 / 地点的覆盖（读 PEC 本地缓存）。
     /// 都只读本地缓存、不联网；联网刷新由首页 / 各自的页面负责。
     private var layersProvider: ScheduleExtraLayersProvider {

@@ -59,6 +59,8 @@ private struct CourseSection: View {
     let fields: [DetailFieldSetting]
     var exams: [GridExam] = []
     let onEditActivity: (String?) -> Void
+    @Environment(\.scheduleMapURL) private var mapURL
+    @Environment(\.openURL) private var openURL
     private var course: TheoryCourse { item.course }
 
     var body: some View {
@@ -75,7 +77,12 @@ private struct CourseSection: View {
                 row("备注", course.examMethod)
                 Button("编辑日程", systemImage: "pencil") { onEditActivity(course.customID) }
             } else {
-                ForEach(fields) { field in row(field.label, value(of: field.id)) }
+                ForEach(fields) { field in
+                    row(field.label, value(of: field.id))
+                    if field.id == "venue", let url = navigationURL {
+                        Button("导航到这里", systemImage: "location.fill") { openURL(url) }
+                    }
+                }
             }
             if let choice {
                 if choice.isSelected {
@@ -90,6 +97,10 @@ private struct CourseSection: View {
                 ForEach(exams) { exam in RelatedExamRow(exam: exam) }
             }
         }
+    }
+
+    private var navigationURL: URL? {
+        CourseNavigation.target(building: course.building, venue: course.venueName).flatMap { mapURL?($0) }
     }
 
     private func value(of field: String) -> String {
