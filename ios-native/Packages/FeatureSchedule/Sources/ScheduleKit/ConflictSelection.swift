@@ -18,7 +18,9 @@ public enum ConflictResolver {
     /// 周网格仍然显示整组（带角标），不要用这个。
     public static func resolve(_ occurrences: [CourseOccurrence], choices: [String: String]) -> [CourseOccurrence] {
         var result: [CourseOccurrence] = []
-        for (_, sameDay) in Dictionary(grouping: occurrences, by: \.date) {
+        // 同一天里，补课日被调过来的课和原有的课是两个独立的冲突域（RN v2.2：两组各自合并，不互相吞并）
+        struct Domain: Hashable { var date: Date; var isMakeup: Bool }
+        for (_, sameDay) in Dictionary(grouping: occurrences, by: { Domain(date: $0.date, isMakeup: $0.isMakeup) }) {
             for group in ScheduleExpander.conflictGroups(sameDay) {
                 result.append(group.selected(choices: choices))
             }

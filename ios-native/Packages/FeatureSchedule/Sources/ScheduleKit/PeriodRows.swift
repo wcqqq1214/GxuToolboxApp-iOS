@@ -10,8 +10,8 @@ public enum PeriodRows {
         public let first: Int
         public let last: Int
         public var isMerged: Bool { first != last }
-        /// 左侧时间列的节次文案：“3” 或 “9-10”
-        public var label: String { isMerged ? "\(first)-\(last)" : "\(first)" }
+        /// 左侧时间列的节次文案：“3” 或 “9 - 10”（和 RN 的 `N - M` 写法一致）
+        public var label: String { isMerged ? "\(first) - \(last)" : "\(first)" }
         /// 上课 / 下课时间（取这一行第一节的开始、最后一节的结束）
         public var startText: String { ClassPeriods.period(first)?.startText ?? "" }
         public var endText: String { ClassPeriods.period(last)?.endText ?? "" }

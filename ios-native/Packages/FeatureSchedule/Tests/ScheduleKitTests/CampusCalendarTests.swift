@@ -41,13 +41,23 @@ struct CampusCalendarTests {
         #expect(rest.kind == .rest && rest.week == 5 && rest.weekday == 2)
     }
 
-    @Test func makeupDayDropsItsOwnRegularCourses() {
-        // 9-21 是周一，补 9-25（周五）的课：周一原有的课不再上
+    @Test func makeupDayKeepsItsOwnRegularCourses() {
+        // 9-21 是周一，补 9-25（周五）的课：RN v2.2 保留周一原有的课，两组并排
         let campus = CampusCalendar(timeShift: [ShiftRule(workDate: "2026-09-21", restDate: "2026-09-25")])
         let result = CalendarOverlay.apply(to: expand([monday, friday]), calendar: campus, term: term)
         let onDay = result.occurrences.filter { $0.date == at("2026-09-21") }
-        #expect(onDay.map(\.course.courseName) == ["高等数学"])
-        #expect(onDay[0].isMakeup)
+        #expect(Set(onDay.map(\.course.courseName)) == ["大学英语", "高等数学"])
+        #expect(onDay.filter(\.isMakeup).map(\.course.courseName) == ["高等数学"])
+    }
+
+    @Test func makeupAndOwnCoursesAreSeparateConflictDomains() {
+        // 补课项和原有的课时间重叠也不算同一个冲突组：各自选各自的
+        let own = course("线性代数", weekday: 1, 1, 2, weeks: Array(1...18))
+        let campus = CampusCalendar(timeShift: [ShiftRule(workDate: "2026-09-21", restDate: "2026-09-25")])
+        let result = CalendarOverlay.apply(to: expand([own, friday]), calendar: campus, term: term)
+        let onDay = result.occurrences.filter { $0.date == at("2026-09-21") }
+        #expect(onDay.count == 2)                                         // 都是第 1-2 节，时间重叠
+        #expect(ConflictResolver.resolve(onDay, choices: [:]).count == 2) // 但不是同一个冲突域，两门都保留
     }
 
     @Test func makeupIdsAreUniqueFromRegular() {

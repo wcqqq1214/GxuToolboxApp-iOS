@@ -5,7 +5,7 @@ import Testing
 struct PeriodRowsTests {
     @Test func twelveRowsWithPeriodsNineAndTenMerged() {
         #expect(PeriodRows.count == 12)
-        #expect(PeriodRows.all.map(\.label) == ["1", "2", "3", "4", "5", "6", "7", "8", "9-10", "11", "12", "13"])
+        #expect(PeriodRows.all.map(\.label) == ["1", "2", "3", "4", "5", "6", "7", "8", "9 - 10", "11", "12", "13"])
         let merged = PeriodRows.all[8]
         #expect(merged.isMerged && merged.startText == "18:10" && merged.endText == "19:30")
         // 其他行同时有上课和下课时间

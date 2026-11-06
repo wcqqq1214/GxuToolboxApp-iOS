@@ -46,3 +46,27 @@ struct ReviewRegressionTests {
         #expect(picked.id == second.id)
     }
 }
+
+/// RN v2.2 `getWeekOfDate` 的用例（`utils/__tests__/weekOfDate.test.ts`）：开学日 2026-09-07 周一
+struct WeekOfDateParityTests {
+    let calendar = TermCalendar(startDate: at("2026-09-07"), weekCount: 20, calendar: shanghai)
+
+    @Test func weekBoundaries() {
+        #expect(calendar.week(containing: at("2026-09-07")) == 1)        // 开学当天算第 1 周
+        #expect(calendar.week(containing: at("2026-09-13")) == 1)        // 开学当周的周日仍算第 1 周
+        #expect(calendar.week(containing: at("2026-09-14")) == 2)        // 下一个周一算第 2 周（ceil 写法会错算成第 1 周）
+        let mondays = ["2026-09-07", "2026-09-14", "2026-09-21", "2026-09-28", "2026-10-05"].map { calendar.week(containing: at($0)) }
+        #expect(mondays == [1, 2, 3, 4, 5])
+        #expect(calendar.week(containing: at("2026-09-06")) == 0)        // 早于开学日
+        #expect(calendar.week(containing: at("2027-01-04")) == 18)       // 跨月跨年仍连续
+    }
+
+    @Test func timeOfDayNeverMovesTheWeek() {
+        // 目标日期带时分秒、开学日带时分秒（SQLite 链路 toISOString 会带时间）都按“天”归一
+        #expect(calendar.week(containing: at("2026-09-21 23:59")) == 3)
+        #expect(calendar.week(containing: at("2026-09-06 23:00")) == 0)
+        let withTime = TermCalendar(TermStartDay(year: 2026, term: 1, day: "2026-09-07T08:00:00+08:00", week: 20), calendar: shanghai)
+        #expect(withTime?.week(containing: at("2026-09-14")) == 2)
+        #expect(withTime?.week(containing: at("2026-09-14 23:30")) == 2)
+    }
+}

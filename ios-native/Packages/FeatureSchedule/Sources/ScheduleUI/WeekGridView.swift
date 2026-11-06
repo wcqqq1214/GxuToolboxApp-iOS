@@ -149,7 +149,9 @@ struct WeekBody: View {
                 }
 
                 ForEach(1...7, id: \.self) { weekday in
-                    let groups = ScheduleExpander.conflictGroups(model.index.items(inWeek: week, weekday: weekday))
+                    // 补课日被调过来的课和原有的课是两个独立的冲突组（RN v2.2），重叠时由 GroupLane 并排显示
+                    let dayItems = model.index.items(inWeek: week, weekday: weekday)
+                    let groups = ScheduleExpander.conflictGroups(dayItems.filter { !$0.isMakeup }) + ScheduleExpander.conflictGroups(dayItems.filter(\.isMakeup))
                     ForEach(GroupLane.layout(groups)) { placed in
                         let group = placed.group
                         let rows = PeriodRows.rows(begin: group.begin, end: group.end)
