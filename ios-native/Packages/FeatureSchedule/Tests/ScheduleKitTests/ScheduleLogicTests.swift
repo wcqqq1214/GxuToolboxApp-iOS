@@ -72,7 +72,10 @@ struct ScheduleLogicTests {
         #expect(groups.map { $0.items.map(\.course.courseName) } == [["A", "B", "C"], ["E"], ["D"]])
         #expect(groups.map(\.isConflict) == [true, false, false])
         #expect(groups[0].begin == 1 && groups[0].end == 5)
-        #expect(ScheduleExpander.conflictKey(groups[0]) == ["A_", "B_", "C_"])
+        // key 是组内课程完整 id（含教室、时间）排序后的结果：稳定、与顺序无关、同名课也不会混
+        let key = ScheduleExpander.conflictKey(groups[0])
+        #expect(key == groups[0].items.map { $0.course.id }.sorted())
+        #expect(Set(key).count == 3)
     }
 
     @Test func realScheduleHasConflictsThatStack() throws {

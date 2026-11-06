@@ -21,7 +21,8 @@ struct NextCourseTests {
         #expect(result.tomorrow.map(\.name) == ["周二上午"])
         #expect(result.next?.name == "周一上午")
         #expect(result.next?.beginTime == "08:00" && result.next?.endTime == "09:40")
-        #expect(result.nextRefreshAt == at("2026-09-07 09:40").addingTimeInterval(1))
+        // 下一次变化是第一节课开始（08:00），不是它结束（09:40）：08:00 之后 `next` 就要换成下一节
+        #expect(result.nextRefreshAt == at("2026-09-07 08:00").addingTimeInterval(1))
     }
 
     @Test func classInProgressIsTodayButNotNext() {

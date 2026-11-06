@@ -35,6 +35,8 @@ final class FullScheduleModel {
 
     private var api: CampusAPI?
     private var runTask: Task<Void, Never>?
+    /// 每次 `run()` 加一。上一轮还在飞的请求回来时，generation 对不上就丢弃，不能混进新一轮的结果
+    private var generation = 0
     private nonisolated static let concurrency = 6
 
     /// 本人资料（学院 / 年级 / 专业用来给筛选条件设默认值）：先缓存，没有再联网；拿不到就不设默认值
@@ -82,6 +84,8 @@ final class FullScheduleModel {
     func run() {
         guard let api, let term, !schoolId.isEmpty else { return }
         runTask?.cancel()
+        generation += 1
+        let gen = generation
         let (school, moment) = (schoolId, moment)
         results = []
         total = 0
@@ -93,13 +97,14 @@ final class FullScheduleModel {
                 async let majors = (try? await api.majors(grade: "", school: school)) ?? []
                 let classes = try await api.classes(term: term, school: school)
                 let names = Dictionary(uniqueKeysWithValues: (await majors).map { ($0.majorId, $0.majorName) })
+                guard !Task.isCancelled, await self?.generation == gen else { return }
                 self?.begin(total: classes.count, majorNames: names)
                 await Self.scan(classes: classes, term: term, moment: moment, api: api) { outcome in
-                    self?.record(outcome)
+                    self?.record(outcome, generation: gen)
                 }
-                if !Task.isCancelled { self?.phase = .finished }
+                if !Task.isCancelled, self?.generation == gen { self?.phase = .finished }
             } catch {
-                if error.isCancellation { return }
+                if error.isCancellation || self?.generation != gen { return }
                 self?.phase = .failed(((error as? GxuError) ?? .network(error.localizedDescription)).userMessage)
             }
         }
@@ -116,7 +121,8 @@ final class FullScheduleModel {
         case failed
     }
 
-    private func record(_ outcome: Outcome) {
+    private func record(_ outcome: Outcome, generation gen: Int) {
+        guard gen == generation else { return }
         checked += 1
         switch outcome {
         case .inSession(let item): results.append(item)

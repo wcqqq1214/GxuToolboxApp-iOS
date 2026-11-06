@@ -23,7 +23,8 @@ final class HomeModel {
     private(set) var colors: [String: UInt32] = [:]
     private(set) var isRefreshing = false
 
-    @ObservationIgnored private var lastRefresh: Date?
+    /// 按账号节流：全局一个时间戳会让刚切换的新账号被上一个账号的刷新挡掉
+    @ObservationIgnored private var throttle = RefreshThrottle()
 
     /// 现在有没有“下一件事”（附件栏要不要显示）
     func hasNextEvent(now: Date = .now) -> Bool {
@@ -54,12 +55,11 @@ final class HomeModel {
         phase = snapshot == nil ? .loading : phase
         await reload(services: services)
         guard phase != .needsLogin, let studentId = services.accounts.studentId else { return }
-        if let lastRefresh, Date.now.timeIntervalSince(lastRefresh) < minimumInterval {
+        guard throttle.shouldRefresh(for: studentId, minimumInterval: minimumInterval) else {
             // 另一次刷新还在进行时不下结论，它结束后会更新状态
             if snapshot == nil, !isRefreshing { phase = .unavailable("暂时没有本学期的课表数据") }
             return
         }
-        lastRefresh = .now
         isRefreshing = true
         defer { isRefreshing = false }
 
@@ -79,7 +79,7 @@ final class HomeModel {
                 try await ExamRepository(database: services.database).replaceExams(exams, studentId: studentId, term: term)
             }
         } catch {
-            if error.isCancellation { lastRefresh = nil; return }
+            if error.isCancellation { throttle.forget(studentId); return }
             failure = (error as? GxuError) ?? .network(error.localizedDescription)
         }
         _ = await campusRefresh.value

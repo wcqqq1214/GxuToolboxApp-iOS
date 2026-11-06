@@ -21,6 +21,12 @@ let package = Package(
             .product(name: "GxuDesign", package: "GxuDesign"),
         ]),
         .testTarget(
+            name: "ScheduleUITests",
+            dependencies: ["ScheduleUI", "ScheduleKit", .product(name: "GxuTestSupport", package: "GxuCore"),
+                           .product(name: "GxuAuth", package: "GxuCore"), .product(name: "GxuNetworking", package: "GxuCore"),
+                           .product(name: "GxuFoundation", package: "GxuCore"), .product(name: "GxuStorage", package: "GxuCore")]
+        ),
+        .testTarget(
             name: "ScheduleKitTests",
             dependencies: ["ScheduleKit", .product(name: "GxuTestSupport", package: "GxuCore")],
             resources: [.copy("Fixtures")]

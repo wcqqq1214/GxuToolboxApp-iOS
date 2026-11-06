@@ -47,11 +47,17 @@ final class CampusContext {
 actor ClassScheduleCache {
     static let shared = ClassScheduleCache()
     private var store: [String: Schedule] = [:]
+    /// 正在请求中的 key：同一个班级被并发请求（例如上一轮扫描还没取消完、新一轮已经开始）时共用一个请求
+    private var inFlight: [String: Task<Schedule, Error>] = [:]
 
     func schedule(term: AcademicTerm, of info: ClassInfo, api: CampusAPI) async throws -> Schedule {
         let key = "\(term.year)-\(term.term)-\(info.classId)"
         if let hit = store[key] { return hit }
-        let fresh = try await api.schedule(term: term, of: info)
+        if let running = inFlight[key] { return try await running.value }
+        let task = Task { try await api.schedule(term: term, of: info) }
+        inFlight[key] = task
+        defer { inFlight[key] = nil }
+        let fresh = try await task.value
         store[key] = fresh
         return fresh
     }

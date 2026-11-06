@@ -82,8 +82,9 @@ public enum ScheduleExpander {
         group.items.map { selectionKey($0.course) }.sorted()
     }
 
-    /// 课程 key，与 RN 的 `courseName_teacher` 一致
-    public static func selectionKey(_ course: TheoryCourse) -> String { "\(course.courseName)_\(course.teacher)" }
+    /// 课程 key。用课程的完整 id（含星期、节次、教室、教师、自定义日程 id），
+    /// 不能只用 `课程名_教师`：同名同教师但教室 / 时间不同的两项重叠时，会分不清用户选的是哪一项
+    public static func selectionKey(_ course: TheoryCourse) -> String { course.id }
 }
 
 /// 按周索引，方便周视图取数

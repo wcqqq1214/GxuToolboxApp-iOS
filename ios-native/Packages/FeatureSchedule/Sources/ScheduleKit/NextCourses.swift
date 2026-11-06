@@ -65,9 +65,10 @@ public enum NextCourseCalculator {
         let tomorrow = sorted.filter { $0.date == tomorrowStart }
         let next = sorted.first { $0.startsAt > now }
 
-        let nextEnd = sorted.first { $0.endsAt > now }?.endsAt.addingTimeInterval(1)
+        // 下一次状态变化：还没开始的课开始，或还没结束的课结束，取更早的（课开始时 `next` 要换，结束时 `today` 要变）
+        let nextBoundary = sorted.flatMap { [$0.startsAt, $0.endsAt] }.filter { $0 > now }.min()?.addingTimeInterval(1)
         let midnight = tomorrowStart.addingTimeInterval(1)
-        let refresh = min(nextEnd ?? .distantFuture, midnight)
+        let refresh = min(nextBoundary ?? .distantFuture, midnight)
 
         return NextCourses(
             state: .ready,

@@ -24,6 +24,11 @@ public enum EngTrainingParser {
     }
 
     public static func parse(_ data: Data, now: Date = .now, calendar: Calendar = .current) throws -> [EngTrainingDay] {
+        try parseTable(data, now: now, calendar: calendar).days
+    }
+
+    /// `cellCount` 是表格里的单元格数。有单元格却没有任何日期表头，说明表格结构变了：调用方应当当成错误，不能把缓存清空。
+    public static func parseTable(_ data: Data, now: Date = .now, calendar: Calendar = .current) throws -> (cellCount: Int, days: [EngTrainingDay]) {
         guard
             let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
             let tables = root["datas"] as? [Any], let first = tables.first as? [[String: Any]]
@@ -34,14 +39,17 @@ public enum EngTrainingParser {
             return Cell(startRow: row, startCol: col, colNumber: max(int("colNumber") ?? 1, 1), content: (raw["content"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines))
         }
         let dates = cells.filter { $0.startRow == 2 }
-        return dates.compactMap { date -> EngTrainingDay? in
-            guard let day = resolve(date.content, now: now, calendar: calendar) else { return nil }
+        var seen = Set<String>()
+        let days = dates.compactMap { date -> EngTrainingDay? in
+            // 同一个日期出现两次时只留第一个：日期文案是主键，重复会让整个刷新失败
+            guard let day = resolve(date.content, now: now, calendar: calendar), seen.insert(date.content).inserted else { return nil }
             let exp = cells.first {
                 $0.startRow == 9 && $0.startCol <= date.startCol && $0.startCol + $0.colNumber >= date.startCol + date.colNumber
             }
             return EngTrainingDay(dateText: date.content, date: day, name: exp?.content ?? "")
         }
         .sorted { $0.date < $1.date }
+        return (cells.count, days)
     }
 
     /// “10月8日” → 离 `now` 最近的那一年的 10 月 8 日
@@ -49,8 +57,11 @@ public enum EngTrainingParser {
         let numbers = text.split(whereSeparator: { !$0.isNumber }).compactMap { Int($0) }
         guard numbers.count >= 2 else { return nil }
         let year = calendar.component(.year, from: now)
-        let candidates = [year - 1, year, year + 1].compactMap {
-            calendar.date(from: DateComponents(year: $0, month: numbers[0], day: numbers[1]))
+        // `date(from:)` 会把 2月30日 滚成 3月2日：只接受换算后月、日不变的日期（2月29日只在闰年存在）
+        let candidates = [year - 1, year, year + 1].compactMap { candidate -> Date? in
+            guard let date = calendar.date(from: DateComponents(year: candidate, month: numbers[0], day: numbers[1])) else { return nil }
+            let back = calendar.dateComponents([.month, .day], from: date)
+            return back.month == numbers[0] && back.day == numbers[1] ? date : nil
         }
         return candidates.min { abs($0.timeIntervalSince(now)) < abs($1.timeIntervalSince(now)) }
     }
@@ -96,7 +107,9 @@ public struct EngTrainingRepository: Sendable {
 
     @discardableResult
     public func refresh(studentId: String, now: Date = .now) async throws -> [EngTrainingDay] {
-        let days = try EngTrainingParser.parse(try await client.scheduleTable(), now: now)
+        let table = try EngTrainingParser.parseTable(try await client.scheduleTable(), now: now)
+        if table.cellCount > 0, table.days.isEmpty { throw GxuError.decoding("金工实训数据格式不正确") }   // 保留旧缓存
+        let days = table.days
         let rows = try days.map { ($0.dateText, try JSONEncoder().encode($0)) }
         try await database.writer.write { db in
             try db.execute(sql: "DELETE FROM eng_training WHERE studentId = ?", arguments: [studentId])

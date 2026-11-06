@@ -35,7 +35,10 @@ public struct PhyExperiment: Codable, Sendable, Hashable, Identifiable {
 /// PEC 返回体解析。外层 `{"d": "<JSON 字符串>"}`，里面是 `{"data": [...]}`，键名大小写不固定（RN 统一转小写）。
 /// TODO(verify): 还没有用真实 PEC 响应验证（需要统一认证账号），字段名按 RN 的 schema 推断。
 public enum PhyExpParser {
-    public static func parse(_ data: Data) throws -> [PhyExperiment] {
+    public static func parse(_ data: Data) throws -> [PhyExperiment] { try parseRows(data).items }
+
+    /// `rowCount` 是返回体里的原始行数。行数 > 0 但一条都解析不出来，说明字段名变了：调用方应当当成错误，不能把缓存清空。
+    public static func parseRows(_ data: Data) throws -> (rowCount: Int, items: [PhyExperiment]) {
         guard let outer = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw GxuError.decoding("物理实验数据格式不正确")
         }
@@ -56,11 +59,12 @@ public enum PhyExpParser {
         } else {
             throw GxuError.decoding("物理实验数据格式不正确")
         }
-        return rows.compactMap(experiment(from:))
+        return (rows.count, rows.compactMap(experiment(from:)))
     }
 
     private static func experiment(from row: [String: Any]) -> PhyExperiment? {
-        let lowered = Dictionary(row.map { ($0.key.lowercased(), "\($0.value)") }, uniquingKeysWith: { first, _ in first })
+        // JSON null 当作空，不能变成字面量 “<null>”
+        let lowered = Dictionary(row.map { ($0.key.lowercased(), $0.value is NSNull ? "" : "\($0.value)") }, uniquingKeysWith: { first, _ in first })
         func value(_ key: String) -> String { (lowered[key] ?? "").trimmingCharacters(in: .whitespaces) }
         let date = value("skrq")
         guard !date.isEmpty else { return nil }   // 没有日期的行没法显示
@@ -117,7 +121,9 @@ public struct PhyExpRepository: Sendable {
 
     @discardableResult
     public func refresh(studentId: String) async throws -> [PhyExperiment] {
-        let list = Self.sorted(try PhyExpParser.parse(try await client.ruleManage()))
+        let parsed = try PhyExpParser.parseRows(try await client.ruleManage())
+        if parsed.rowCount > 0, parsed.items.isEmpty { throw GxuError.decoding("物理实验数据格式不正确") }   // 保留旧缓存
+        let list = Self.sorted(parsed.items)
         let rows = try list.map { ($0.id, try JSONEncoder().encode($0)) }
         try await database.writer.write { db in
             // 先删后插：已取消的实验课不残留

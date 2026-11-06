@@ -43,6 +43,10 @@ final class ScheduleViewModel {
     @ObservationIgnored private var startDays: [TermStartDay] = []
     @ObservationIgnored private var pinnedTerm: AcademicTerm?
     @ObservationIgnored private var lastRefresh: Date?
+    /// 账号 / 学期一变就加一。在途的刷新回来时 generation 对不上就丢弃结果，不能把上一个账号 / 学期的课表写进当前界面
+    @ObservationIgnored private var generation = 0
+    /// 正在刷新的是哪一代；只有“当前这一代”已经在刷新时才跳过，换了账号 / 学期要重新发起
+    @ObservationIgnored private var refreshingGeneration: Int?
 
     var weekCount: Int { max(termCalendar?.weekCount ?? 1, index.maxWeek, 1) }
     var currentWeek: Int { termCalendar?.clampedWeek(at: .now) ?? 1 }
@@ -127,10 +131,17 @@ final class ScheduleViewModel {
     }
 
     func refresh() async {
-        guard let services, let studentId, !isRefreshing else { return }
+        guard let services, let studentId, refreshingGeneration != generation else { return }
+        let gen = generation
+        refreshingGeneration = gen
         isRefreshing = true
         lastRefresh = .now
-        defer { isRefreshing = false }
+        defer {
+            if refreshingGeneration == gen {
+                refreshingGeneration = nil
+                isRefreshing = false
+            }
+        }
         let repository = makeRepository(services)
         // 节假日数据与课表并行请求，失败或很慢都不影响课表：继续用缓存 / 内置备份
         let campusRefresh = Task { try? await CampusCalendarRepository(database: services.database).refresh() }
@@ -143,16 +154,19 @@ final class ScheduleViewModel {
             }
         }
         do {
-            startDays = try await repository.refreshStartDays()
+            let fetchedStartDays = try await repository.refreshStartDays()
+            guard gen == generation else { return }
+            startDays = fetchedStartDays
             let previous = term
             resolveTerm()
             guard let term else { throw GxuError.invalidData("暂时无法获取学期信息") }
             let fresh = try await repository.refreshSchedule(studentId: studentId, term: term)
+            guard gen == generation else { return }
             apply(fresh, resetWeek: previous != term)
             refreshError = nil
         } catch {
             // 取消不是故障：保持现有状态，不显示错误条
-            if error.isCancellation || Task.isCancelled { return }
+            if error.isCancellation || Task.isCancelled || gen != generation { return }
             let gxu = (error as? GxuError) ?? .network(error.localizedDescription)
             refreshError = gxu
             if schedule == nil { phase = .failed(gxu.userMessage) }
@@ -210,6 +224,7 @@ final class ScheduleViewModel {
 
     func select(term: AcademicTerm) async {
         guard let services, let studentId, term != self.term else { return }
+        generation += 1
         pinnedTerm = term
         schedule = nil
         phase = .loading
@@ -224,6 +239,7 @@ final class ScheduleViewModel {
     }
 
     private func reset() {
+        generation += 1
         phase = .loading
         term = nil
         termCalendar = nil

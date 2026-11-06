@@ -33,7 +33,10 @@ public struct TermCalendar: Sendable, Equatable {
         }
         let parts = text.prefix(10).split(separator: "-").compactMap { Int($0) }
         guard parts.count == 3 else { return nil }
-        return calendar.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2]))
+        guard let date = calendar.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2])) else { return nil }
+        // `date(from:)` 会把 2026-02-30 滚成 3 月 2 日：换算回来年月日不一致就当无效日期丢弃
+        let back = calendar.dateComponents([.year, .month, .day], from: date)
+        return back.year == parts[0] && back.month == parts[1] && back.day == parts[2] ? date : nil
     }
 
     private static func isUTCMidnight(_ text: String) -> Bool {
