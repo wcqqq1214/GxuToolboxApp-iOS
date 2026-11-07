@@ -50,9 +50,21 @@ struct PendingCourseTests {
         let selected = [PendingCourse(id: "a", name: "高数"), PendingCourse(id: "b", name: "物理实验", isLab: true), PendingCourse(id: "c", name: "英语")]
         let result = PendingCourse.diff(selected: selected, scoredIds: ["a"])
         #expect(result.map(\.id) == ["b", "c"])
-        #expect(result.first?.displayName == "物理实验(实验)")
+        #expect(result.first?.displayName == "物理实验")
         #expect(PendingCourse.diff(selected: selected, scoredIds: ["a", "b", "c"]).isEmpty)
         #expect(PendingCourse.diff(selected: [], scoredIds: ["a"]).isEmpty)
+    }
+
+    @Test func embeddedLabIsHiddenButStandaloneLabStays() {
+        let selected = [
+            PendingCourse(id: "t1", name: "材料力学", courseId: "M"),
+            PendingCourse(id: "l1", name: "材料力学", isLab: true, courseId: "M"),   // 理论课自带的实验班
+            PendingCourse(id: "l2", name: "大学物理实验", isLab: true, courseId: "P"), // 独立设课的实验
+            PendingCourse(id: "l3", name: "未知课程号实验", isLab: true),              // 缺课程号：保守起见保留
+        ]
+        #expect(PendingCourse.diff(selected: selected, scoredIds: []).map(\.id) == ["t1", "l2", "l3"])
+        // 独立设课实验挂科/出分后有自己的成绩行，不再算未出分
+        #expect(PendingCourse.diff(selected: selected, scoredIds: ["t1", "l2"]).map(\.id) == ["l3"])
     }
 
     @Test func allScoresAndSliceReplace() async throws {

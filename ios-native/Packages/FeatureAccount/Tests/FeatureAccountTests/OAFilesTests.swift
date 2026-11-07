@@ -105,3 +105,20 @@ struct OAFilesParsingTests {
         #expect(throws: (any Error).self) { try OAFilesAPI.parseList(Data("not json".utf8)) }
     }
 }
+
+@Suite struct OAHTMLTests {
+    @Test func plainTextBodyKeepsLineBreaks() {
+        let text = "各学院（部）：\n    为做好期末考试工作，现将有关事项通知如下。\n二、总体要求"
+        #expect(OAHTML.isPlainText(text))
+        #expect(OAHTML.wrap(text).contains(#"<body class="plain">"#))
+    }
+
+    @Test func markupBodyRendersAsHTML() {
+        for body in ["<p>正文</p>", "第一行<br/>第二行", "<DIV>x</DIV>", #"<table border="1"><tr><td>a</td></tr></table>"#] {
+            #expect(!OAHTML.isPlainText(body), "\(body)")
+            #expect(OAHTML.wrap(body).contains(#"<body class="rich">"#))
+        }
+        // 行内标签不算块级：<span> / <b> 里的纯文本换行仍然要保留
+        #expect(OAHTML.isPlainText("<b>通知</b>\n正文"))
+    }
+}

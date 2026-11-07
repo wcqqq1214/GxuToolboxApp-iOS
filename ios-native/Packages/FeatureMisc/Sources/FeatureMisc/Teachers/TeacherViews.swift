@@ -140,13 +140,7 @@ public struct TeacherSearchView: View {
                     Section {
                         ForEach(model.results) { teacher in
                             NavigationLink { TeacherDetailView(teacher: teacher) } label: {
-                                HStack(spacing: 12) {
-                                    TeacherAvatar(url: teacher.avatarURL, name: teacher.name)
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(teacher.name).font(.headline)
-                                        Text(teacher.unit).font(.subheadline).foregroundStyle(.secondary)
-                                    }
-                                }
+                                TeacherRow(teacher: teacher)
                             }
                         }
                         if model.hasMore || model.moreError != nil { footer }
@@ -264,7 +258,7 @@ public struct TeacherDetailView: View {
                     }
                     if let detail = model.detail {
                         ForEach(TeacherSections.build(detail)) { section in
-                            Section(section.title) { Text(section.text).textSelection(.enabled) }
+                            TeacherSectionView(section: section)
                         }
                     }
                 }
@@ -280,20 +274,7 @@ public struct TeacherDetailView: View {
             let info = detail.map { TeacherHeader.make($0, fallbackName: teacher.name) }
             let photo = detail.flatMap { TeacherAvatarURL.url($0.base.pic) } ?? teacher.avatarURL
             return Section {
-                HStack(alignment: .top, spacing: 14) {
-                    TeacherAvatar(url: photo, name: info?.name ?? teacher.name, size: CGSize(width: 88, height: 120))
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(info?.name ?? teacher.name).font(.title2.bold())
-                        if !teacher.unit.isEmpty { Text(teacher.unit).font(.subheadline).foregroundStyle(.secondary) }
-                        if let info {
-                            if !info.badges.isEmpty { Text(info.badges.joined(separator: " · ")).font(.subheadline) }
-                            if !info.infoLine.isEmpty { Text(info.infoLine.joined(separator: " · ")).font(.subheadline) }
-                            if !info.address.isEmpty { Text("通讯地址：\(info.address)").font(.subheadline).foregroundStyle(.secondary) }
-                            if !info.updatedAt.isEmpty { Text("更新于 \(info.updatedAt)").font(.caption).foregroundStyle(.secondary) }
-                        }
-                    }
-                }
-                .padding(.vertical, 4)
+                TeacherHeaderCard(info: info, name: info?.name ?? teacher.name, unit: teacher.unit, photo: photo)
             }
         }
     }

@@ -66,7 +66,7 @@ public struct ScoreView: View {
                                 }
                             }
                         } header: {
-                            Text("未出分科目 · \(model.pending.count)门")
+                            Text("未出分科目")
                         }
                     }
                 }

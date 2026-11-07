@@ -162,14 +162,8 @@ struct HTMLView: UIViewRepresentable {
 
     func updateUIView(_ view: WKWebView, context: Context) {}
 
-    /// 加上自适应宽度和深浅色的样式
-    static func wrapped(_ body: String) -> String {
-        """
-        <html><head><meta name="viewport" content="width=device-width, initial-scale=1">
-        <style>:root{color-scheme:light dark} body{font:-apple-system-body;font-size:17px;line-height:1.6;padding:0 16px;word-wrap:break-word} img,table{max-width:100%}</style>
-        </head><body>\(body)</body></html>
-        """
-    }
+    /// 加上自适应宽度、段落和深浅色的样式（纯文本正文保留换行）
+    static func wrapped(_ body: String) -> String { OAHTML.wrap(body) }
 
     final class Coordinator: NSObject, WKNavigationDelegate {
         func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {

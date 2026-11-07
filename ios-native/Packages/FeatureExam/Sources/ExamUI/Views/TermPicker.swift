@@ -21,6 +21,12 @@ struct TermMenu: View {
         }
     }
 
+    /// 菜单标签文字。用 `String` 再 `Text(verbatim:)`：三元表达式里的插值字面量会被当成 `LocalizedStringKey`，
+    /// 整数按本地化格式加千分位（"2,026"），年份不能走这条路
+    private var labelText: String {
+        isAll?.wrappedValue == true ? "全部学期" : "\(year)–\(year + 1) \(termName)"
+    }
+
     var body: some View {
         LabeledContent("学期") {
             Menu {
@@ -43,7 +49,7 @@ struct TermMenu: View {
                 }
             } label: {
                 HStack(spacing: 4) {
-                    Text(isAll?.wrappedValue == true ? "全部学期" : "\(year)–\(year + 1) \(termName)")
+                    Text(verbatim: labelText)
                     Image(systemName: "chevron.up.chevron.down").font(.caption2.weight(.semibold))
                 }
             }

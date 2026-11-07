@@ -88,17 +88,17 @@ private func passedNames(adding extra: [String] = []) throws -> Set<String> {
         #expect(SelectedCourseGroup.group(try selectedAll(), matching: "材料力学").flatMap(\.courses).allSatisfy { $0.courseName.contains("材料力学") })
     }
 
-    @Test func pendingForTermMatchesRealUnmatchedCount() throws {
-        // 真实原始数据上 2025 秋 17 门里有 6 门没有成绩 id 对应（2 门没出分 + 4 门实验班），这里用名字对应关系复现
+    @Test func pendingForTermExcludesEmbeddedLabs() throws {
+        // 真实原始数据上 2025 秋 17 门里有 6 门没有成绩 id 对应（2 门没出分 + 4 门理论课自带的实验班）；
+        // 实验班的成绩并在理论课里，不单独算"未出分"，所以只剩 2 门。这里用名字对应关系复现已出分集合
         let term = try JSONDecoder().decode(Envelope<Page<SelectedCourse>>.self, from: fixture("selected-courses-term")).data.items
         let scores = try JSONDecoder().decode(Envelope<Page<Score>>.self, from: fixture("score")).data.items
         let scoredNames = Set(scores.filter { $0.year == 2025 && $0.term == 1 }.map(\.courseName))
         let scoredIds = Set(term.filter { scoredNames.contains($0.courseName) && !$0.isLab }.map(\.classId))
         let pending = PendingCourse.diff(
-            selected: term.map { PendingCourse(id: $0.classId, name: $0.courseName, isLab: $0.isLab) }, scoredIds: scoredIds
+            selected: term.map { PendingCourse(id: $0.classId, name: $0.courseName, isLab: $0.isLab, courseId: $0.courseId) }, scoredIds: scoredIds
         )
-        #expect(pending.count == 6)
-        #expect(Set(pending.map(\.displayName)) == ["形势与政策（7）", "创新创业实践", "材料力学(实验)", "混凝土结构基本原理(实验)", "土力学(实验)", "岩体力学(实验)"])
+        #expect(pending.map(\.displayName) == ["形势与政策（7）", "创新创业实践"])
     }
 }
 

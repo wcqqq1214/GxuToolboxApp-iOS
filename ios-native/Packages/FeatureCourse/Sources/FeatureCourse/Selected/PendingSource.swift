@@ -21,7 +21,7 @@ public struct SelectedCoursePendingSource: PendingCourseSource {
             selected = remote.filter { $0.year == term.year && $0.term == term.term }
         }
         return PendingCourse.diff(
-            selected: selected.map { PendingCourse(id: $0.classId, name: $0.courseName, isLab: $0.isLab) },
+            selected: selected.map { PendingCourse(id: $0.classId, name: $0.courseName, isLab: $0.isLab, courseId: $0.courseId) },
             scoredIds: scoredClassIds
         )
     }
