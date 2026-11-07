@@ -9,28 +9,12 @@ struct MapDataTests {
         #expect(CampusPlaces.all.allSatisfy { !$0.fullName.isEmpty && !$0.name.isEmpty })
     }
 
-    @Test func roomTextMatchesBuilding() {
-        #expect(CampusPlaces.place(forRoom: "6A-427")?.name == "东校园第六教学楼")
-        #expect(CampusPlaces.place(forRoom: "东10-B406")?.name == "东校园第十教学楼")
-        #expect(CampusPlaces.place(forRoom: "西3-406")?.name == "西校园第三教学楼")
-        #expect(CampusPlaces.place(forRoom: "不存在的教室") == nil)
-        // 只占位用的 `#` 模式不能匹配任何教室
-        #expect(CampusPlaces.all.filter { $0.pattern == nil }.allSatisfy { !$0.matches(room: "西3-406") })
-    }
-
     @Test func searchMatchesNameFullNameAndAliases() throws {
         let sixth = try #require(CampusPlaces.all.first { $0.name == "东校园第六教学楼" })
         #expect(sixth.matches(query: "六教"))        // 俗称
         #expect(sixth.matches(query: "东校园"))      // 名称
         #expect(sixth.matches(query: ""))
         #expect(!sixth.matches(query: "食堂"))
-    }
-
-    @Test func mapsURLEncodesFullName() throws {
-        let place = try #require(CampusPlaces.all.first)
-        let url = try #require(place.mapsURL)
-        #expect(url.host == "maps.apple.com")
-        #expect(URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first?.value == place.fullName)
     }
 
     @Test func buildingsAndFloorImages() throws {

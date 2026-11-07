@@ -24,6 +24,11 @@
 	<string>$(GXU_APP_GROUP)</string>
 	<key>GxuKeychainAccessGroup</key>
 	<string>$(GXU_KEYCHAIN_GROUP)</string>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>iosamap</string>
+		<string>baidumap</string>
+	</array>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSExceptionDomains</key>

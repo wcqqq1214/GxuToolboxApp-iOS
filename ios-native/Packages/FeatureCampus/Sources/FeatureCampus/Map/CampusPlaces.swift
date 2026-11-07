@@ -13,7 +13,8 @@ public struct CampusPlace: Decodable, Sendable, Hashable, Identifiable {
 
     public var id: String { fullName + name }
 
-    public func matches(room text: String) -> Bool {
+    /// RN `matchByMatcher`：强匹配规则（正则，不分行首行尾以外的位置，命中即认定）
+    func matchesStrongRule(_ text: String) -> Bool {
         guard let pattern, let regex = try? Regex(pattern) else { return false }
         return text.firstMatch(of: regex) != nil
     }
@@ -24,12 +25,6 @@ public struct CampusPlace: Decodable, Sendable, Hashable, Identifiable {
             || aliases.contains { $0.localizedStandardContains(q) }
     }
 
-    /// 在 Apple 地图里按全名搜索
-    public var mapsURL: URL? {
-        var components = URLComponents(string: "https://maps.apple.com/")
-        components?.queryItems = [URLQueryItem(name: "q", value: fullName)]
-        return components?.url
-    }
 }
 
 public enum CampusPlaces {
@@ -50,8 +45,24 @@ public enum CampusPlaces {
         return all.map(\.type).filter { seen.insert($0).inserted }
     }
 
-    /// 教室文案对应的地点（教学楼）。给课程详情“点地点打开地图”用。
-    public static func place(forRoom room: String) -> CampusPlace? { all.first { $0.matches(room: room) } }
+    /// RN `parseBuilding`：把地点文案解析成校园地点。先把连续空白合并成一个空格并去掉首尾空白，再依次：
+    /// ① 强匹配规则（按数据顺序取第一条命中，越具体越靠前）；② 文案里包含地点的全称或名称（按数据顺序第一条）；
+    /// ③ 文案里包含俗称，取最长的俗称（同样长取先出现的）。都不行返回 nil。
+    public static func parse(_ raw: String) -> CampusPlace? {
+        let text = raw.replacing(/\s+/, with: " ").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return nil }
+        if let place = all.first(where: { $0.matchesStrongRule(text) }) { return place }
+        if let place = all.first(where: { text.contains($0.fullName) || text.contains($0.name) }) { return place }
+        var best: CampusPlace?
+        var bestLength = 0
+        for place in all {
+            for alias in place.aliases where alias.count > bestLength && text.contains(alias) {
+                best = place
+                bestLength = alias.count
+            }
+        }
+        return best
+    }
 }
 
 /// 教学楼平面图：教学楼 → 楼层图（远程 webp）

@@ -18,6 +18,16 @@ struct CourseDetailSheet: View {
     @Environment(\.dismiss) private var dismiss
     /// 点选后立刻反映在 sheet 里（外面的 `selected` 要等持久化后才变）
     @State private var chosenID: String?
+    @Environment(\.scheduleMapPlan) private var mapPlan
+    @Environment(\.openURL) private var openURL
+    @State private var pendingMap: PendingMap?
+    @State private var toast: String?
+
+    private struct PendingMap: Identifiable {
+        let keyword: String
+        let apps: [MapApp]
+        var id: String { keyword }
+    }
 
     private var currentID: String { chosenID ?? selected.id }
 
@@ -42,7 +52,8 @@ struct CourseDetailSheet: View {
                         fields: preferences.value.courseDetail.filter(\.isShown),
                         exams: item.course.isCustom ? [] : RelatedExams.matching(courseName: item.course.courseName, in: exams, term: term),
                         attendance: attendance?.status(for: item),
-                        onEditActivity: onEditActivity
+                        onEditActivity: onEditActivity,
+                        onNavigate: navigateAction
                     )
                 }
             }
@@ -51,9 +62,60 @@ struct CourseDetailSheet: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) { Button("完成") { dismiss() } }
             }
+            .gxuToast($toast)
+            #if DEBUG
+            .task { debugMapAction() }
+            #endif
+            .confirmationDialog("请选择打开方式", isPresented: mapDialogShown, titleVisibility: .visible, presenting: pendingMap) { pending in
+                mapChoices(pending)
+            }
         }
         .presentationDetents(Self.detents)
         .presentationDragIndicator(.visible)
+    }
+
+    #if DEBUG
+    /// 截图自查：`-GxuMapAction unparsed|choose` 直接走一遍“解析不到提示 / 选地图应用”
+    private func debugMapAction() {
+        let args = CommandLine.arguments
+        guard let i = args.firstIndex(of: "-GxuMapAction"), i + 1 < args.count else { return }
+        let course = group.items[0].course
+        switch args[i + 1] {
+        case "unparsed": navigate(CourseNavigation.Target(text: "未知楼 | 9Z-999", mapKeyword: nil))
+        default: if let target = CourseNavigation.target(building: course.building, venue: course.venueName) { navigate(target) }
+        }
+    }
+    #endif
+
+    private var navigateAction: ((CourseNavigation.Target) -> Void)? {
+        mapPlan == nil ? nil : { target in navigate(target) }
+    }
+
+    private var mapDialogShown: Binding<Bool> {
+        Binding(get: { pendingMap != nil }, set: { if !$0 { pendingMap = nil } })
+    }
+
+    @ViewBuilder
+    private func mapChoices(_ pending: PendingMap) -> some View {
+        ForEach(pending.apps, id: \.self) { app in
+            Button(app.label) { open(app, keyword: pending.keyword) }
+        }
+    }
+
+    /// RN `useMapNavigation.openMap`：解析不到 / 没有地图应用 → 提示；一个 → 直接打开；多个 → 让用户选
+    private func navigate(_ target: CourseNavigation.Target) {
+        guard let mapPlan else { return }
+        switch mapPlan(target) {
+        case .unparsed: toast = MapOpenPlan.unparsedMessage
+        case .noApp: toast = MapOpenPlan.noAppMessage
+        case .open(let keyword, let apps):
+            if apps.count == 1, let app = apps.first { open(app, keyword: keyword) } else { pendingMap = PendingMap(keyword: keyword, apps: apps) }
+        }
+    }
+
+    private func open(_ app: MapApp, keyword: String) {
+        guard let url = app.url(keyword: keyword) else { toast = MapOpenPlan.openFailedMessage(app); return }
+        openURL(url) { accepted in if !accepted { toast = MapOpenPlan.openFailedMessage(app) } }
     }
 
     private static var detents: Set<PresentationDetent> {
@@ -72,9 +134,9 @@ private struct CourseSection: View {
     var exams: [GridExam] = []
     var attendance: AttendanceStatus?
     let onEditActivity: (String?) -> Void
-    @Environment(\.scheduleMapURL) private var mapURL
+    /// 地点行的“导航到这里”；没有注入地图能力时为 nil（不显示按钮）
+    var onNavigate: ((CourseNavigation.Target) -> Void)?
     @Environment(\.scheduleTeacherSupport) private var teacherSupport
-    @Environment(\.openURL) private var openURL
     private var course: TheoryCourse { item.course }
 
     var body: some View {
@@ -102,8 +164,8 @@ private struct CourseSection: View {
                     if !(field.id == "teacher" && teacherSupport != nil && !course.teacher.isEmpty) {
                         row(field.label, value(of: field.id))
                     }
-                    if field.id == "venue", let url = navigationURL {
-                        Button("导航到这里", systemImage: "location.fill") { openURL(url) }
+                    if field.id == "venue", let onNavigate, let target = navigationTarget {
+                        Button("导航到这里", systemImage: "location.fill") { onNavigate(target) }
                     }
                 }
             }
@@ -122,8 +184,8 @@ private struct CourseSection: View {
         }
     }
 
-    private var navigationURL: URL? {
-        CourseNavigation.target(building: course.building, venue: course.venueName).flatMap { mapURL?($0) }
+    private var navigationTarget: CourseNavigation.Target? {
+        CourseNavigation.target(building: course.building, venue: course.venueName)
     }
 
     private func value(of field: String) -> String {

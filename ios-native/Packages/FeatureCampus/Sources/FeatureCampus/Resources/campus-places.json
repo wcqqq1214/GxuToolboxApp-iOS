@@ -84,21 +84,21 @@
   },
   {
    "type": "综合性建筑",
+   "name": "行健图书馆",
+   "fullName": "广西大学图书馆行健馆",
+   "aliases": [
+    "图书馆"
+   ],
+   "pattern": "^行健图书馆"
+  },
+  {
+   "type": "综合性建筑",
    "name": "东校园图书馆",
    "fullName": "广西大学东校园图书馆",
    "aliases": [
     "图书馆"
    ],
    "pattern": "图书馆|^图"
-  },
-  {
-   "type": "综合性建筑",
-   "name": "行健图书馆",
-   "fullName": "广西大学图书馆行健馆",
-   "aliases": [
-    "图书馆"
-   ],
-   "pattern": null
   },
   {
    "type": "综合性建筑",
@@ -560,13 +560,6 @@
   },
   {
    "type": "宿舍",
-   "name": "西5栋",
-   "fullName": "广西大学西校园学生宿舍5栋",
-   "aliases": [],
-   "pattern": null
-  },
-  {
-   "type": "宿舍",
    "name": "西6B栋",
    "fullName": "广西大学西校园学生宿舍6B栋",
    "aliases": [],
@@ -952,15 +945,6 @@
   },
   {
    "type": "体育场",
-   "name": "西体育馆",
-   "fullName": "广西大学西校园新西体育馆",
-   "aliases": [
-    "西体"
-   ],
-   "pattern": null
-  },
-  {
-   "type": "体育场",
    "name": "西田径场",
    "fullName": "广西大学西校园运动场",
    "aliases": [
@@ -988,14 +972,14 @@
   {
    "type": "体育场",
    "name": "行健田径场、体育馆",
-   "fullName": "广西大学图书馆行健馆",
+   "fullName": "广西大学北校区体育馆",
    "aliases": [],
    "pattern": null
   },
   {
    "type": "体育场",
    "name": "行健篮球场",
-   "fullName": "广西大学行健文理学院篮球场",
+   "fullName": "广西大学北校区体育馆",
    "aliases": [],
    "pattern": null
   },

@@ -1,9 +1,11 @@
 import GxuDesign
+import ScheduleKit
 import SwiftUI
 
 /// 工具箱 → 地图导航：校内地点列表，按类型筛选、可搜索；点一个地点在地图 App 里搜索它。
 struct MapNavigationView: View {
     @Environment(\.openURL) private var openURL
+    @State private var flow = MapOpenFlow()
     @State private var type = ""
     @State private var query = ""
 
@@ -29,7 +31,8 @@ struct MapNavigationView: View {
             Section {
                 ForEach(places) { place in
                     Button {
-                        if let url = place.mapsURL { openURL(url) }
+                        // RN `BuildingListItem`：`openMap(building.fullName)`，同样先解析再打开
+                        flow.open(text: place.fullName, openURL: openURL)
                     } label: {
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
@@ -50,6 +53,15 @@ struct MapNavigationView: View {
         .searchable(text: $query, prompt: "搜索地点")
         .navigationTitle("地图导航")
         .navigationBarTitleDisplayMode(.inline)
+        .gxuToast($flow.toast)
+        .confirmationDialog(
+            "请选择打开方式", isPresented: Binding(get: { flow.pending != nil }, set: { if !$0 { flow.pending = nil } }),
+            titleVisibility: .visible, presenting: flow.pending
+        ) { pending in
+            ForEach(pending.apps, id: \.self) { app in
+                Button(app.label) { flow.launch(app, keyword: pending.keyword, openURL: openURL) }
+            }
+        }
     }
 
     private func chip(_ title: String, value: String) -> some View {

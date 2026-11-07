@@ -37,8 +37,8 @@ public enum LocationFormatter {
         return room
     }
 
-    /// 完整的楼名 + 教室（“西三教西3-406”）。**只用于导航 / 地图匹配**：教学楼的匹配规则按完整文案写，不能因为显示改短而失效。
-    /// 体育学院的课同样只保留“北 / 西 / 东”及之后的部分。
+    /// 完整的楼名 + 教室（“西三教西3-406”），体育学院的课只保留“北 / 西 / 东”及之后的部分。显示用（`display`）只在体育学院时走这里；
+    /// 导航不用它，用 `CourseNavigation`（按 RN 的 `楼名 | 教室` 文案解析）。
     public static func fullText(building: String, venue: String) -> String {
         let full = building + venue
         guard full.contains("体育学院"), let index = full.firstIndex(where: { "北西东".contains($0) }) else { return full }
@@ -83,19 +83,28 @@ extension CourseOccurrence {
     public var sectionText: String { begin == end ? "第\(begin)节" : "第\(begin)-\(end)节" }
 }
 
-/// 课程详情“导航”按钮的目标（RN `CourseDetailSheet`：体育学院的课按北 / 西 / 东直接搜场馆，其余按教室文案解析教学楼）
+/// 课程详情“导航到这里”的目标（RN `CourseDetailSheet`）：
+/// - 解析用的文案 `text`：楼名含“体育学院”时只用教室，否则 `楼名 | 教室`（RN `displayLocation`）；
+/// - 体育学院的课（楼名 + 教室里含“体育学院”）按文案里的 北 / 西 / 东 直接搜场馆，不再解析教学楼（RN `resolveSportsCollegeMapKeyword`）。
+/// 界面上显示的地点仍然只显示教室（`LocationFormatter.display`）；这里的文案只用来解析楼名，不显示。
 public enum CourseNavigation {
     public struct Target: Sendable, Hashable {
-        /// 展示用的地点文案，也用来解析教学楼
-        public var room: String
-        /// 体育学院场馆的地图搜索词；有值时直接用它，不再解析教学楼
+        /// 交给楼名解析的文案（RN `displayLocation`）
+        public var text: String
+        /// 体育学院场馆的地图搜索词；有值时直接用它
         public var mapKeyword: String?
+
+        public init(text: String, mapKeyword: String?) {
+            self.text = text
+            self.mapKeyword = mapKeyword
+        }
     }
 
     public static func target(building: String, venue: String) -> Target? {
-        let room = LocationFormatter.fullText(building: building, venue: venue)
-        guard !room.isEmpty else { return nil }
-        return Target(room: room, mapKeyword: (building + venue).contains("体育学院") ? sportsKeyword(room) : nil)
+        guard !(building + venue).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+        let text = building.contains("体育学院") ? venue : "\(building) | \(venue)"
+        let isSportsCollege = (building + venue).contains("体育学院")
+        return Target(text: text, mapKeyword: isSportsCollege ? sportsKeyword(text) : nil)
     }
 
     static func sportsKeyword(_ location: String) -> String? {

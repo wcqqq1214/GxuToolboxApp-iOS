@@ -35,17 +35,18 @@ public enum ScheduleFeature {
 }
 
 
-/// 课程详情“导航”按钮把地点变成地图链接。ScheduleUI 不依赖 FeatureCampus（地点数据在那里），由 Shell 注入；没有注入或解析不到时不显示按钮。
-public typealias ScheduleMapURLProvider = @Sendable (CourseNavigation.Target) -> URL?
+/// 课程详情“导航到这里”：把地点交给 Shell 解析（楼名数据在 FeatureCampus，ScheduleUI 不依赖它），Shell 返回要怎么做（RN `useMapNavigation.openMap`）：
+/// 解析不到 → 提示；没有地图应用 → 提示；一个 → 直接打开；多个 → 让用户选。没有注入时不显示按钮。
+public typealias ScheduleMapPlanProvider = @MainActor @Sendable (CourseNavigation.Target) -> MapOpenPlan
 
-private struct ScheduleMapURLKey: EnvironmentKey {
-    static let defaultValue: ScheduleMapURLProvider? = nil
+private struct ScheduleMapPlanKey: EnvironmentKey {
+    static let defaultValue: ScheduleMapPlanProvider? = nil
 }
 
 public extension EnvironmentValues {
-    var scheduleMapURL: ScheduleMapURLProvider? {
-        get { self[ScheduleMapURLKey.self] }
-        set { self[ScheduleMapURLKey.self] = newValue }
+    var scheduleMapPlan: ScheduleMapPlanProvider? {
+        get { self[ScheduleMapPlanKey.self] }
+        set { self[ScheduleMapPlanKey.self] = newValue }
     }
 }
 

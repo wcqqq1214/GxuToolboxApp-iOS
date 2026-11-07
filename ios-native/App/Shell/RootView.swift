@@ -63,7 +63,7 @@ struct RootView: View {
         .gxuTabAccessory(isEnabled: home.phase == .ready && (selection == .schedule || (selection == .toolbox && !toolboxPushed)) && home.hasNextEvent(now: clock)) { NextEventAccessory(model: home) }
         .gxuTheme(theme)
         .environment(preferences)
-        .environment(\.scheduleMapURL, Self.mapURL)
+        .environment(\.scheduleMapPlan, Self.mapPlan)
         .environment(\.scheduleTeacherSupport, TeacherLookup.support(services: resolvedServices))
         .task {
             while !Task.isCancelled {
@@ -86,14 +86,9 @@ struct RootView: View {
 }
 
 extension RootView {
-    /// 课程详情“导航”：体育学院场馆直接搜关键词，其余按教室文案解析教学楼（解析不到就不显示按钮）
-    static let mapURL: ScheduleMapURLProvider = { target in
-        if let keyword = target.mapKeyword {
-            var components = URLComponents(string: "https://maps.apple.com/")
-            components?.queryItems = [URLQueryItem(name: "q", value: keyword)]
-            return components?.url
-        }
-        return CampusPlaces.place(forRoom: target.room)?.mapsURL
+    /// 课程详情“导航到这里”：按 RN `useMapNavigation.openMap` 解析（体育学院直接用场馆关键词，其余按 `楼名 | 教室` 解析教学楼）
+    static let mapPlan: ScheduleMapPlanProvider = { target in
+        MapNavigation.plan(text: target.text, keyword: target.mapKeyword)
     }
 
     /// 课表上的额外图层：考试（读 ExamKit 本地缓存里这个学期的考试）和实验课对教师 / 地点的覆盖（读 PEC 本地缓存）。

@@ -8,16 +8,20 @@ struct CourseNavigationTests {
         #expect(CourseNavigation.target(building: "体育学院", venue: "西体育馆")?.mapKeyword == "广西大学西校园综合体育馆")
         #expect(CourseNavigation.target(building: "体育学院", venue: "东田径场")?.mapKeyword == "广西大学东校园体育场")
         #expect(CourseNavigation.target(building: "体育学院", venue: "室内馆")?.mapKeyword == nil)
+        // RN：楼名含“体育学院”只用教室当解析文案
+        #expect(CourseNavigation.target(building: "体育学院", venue: "西体育馆")?.text == "西体育馆")
     }
 
-    @Test func ordinaryRoomHasNoKeyword() {
-        let target = CourseNavigation.target(building: "6A", venue: "427")
-        #expect(target?.room == "6A427")
+    @Test func ordinaryRoomParsesAsBuildingBarRoom() {
+        // RN `displayLocation`：`楼名 | 教室`
+        let target = CourseNavigation.target(building: "东六教", venue: "6A-113")
+        #expect(target?.text == "东六教 | 6A-113")
         #expect(target?.mapKeyword == nil)
     }
 
     @Test func emptyLocationHasNoTarget() {
         #expect(CourseNavigation.target(building: "", venue: "") == nil)
+        #expect(CourseNavigation.target(building: " ", venue: "") == nil)
     }
 }
 
@@ -25,7 +29,7 @@ struct CourseLocationDisplayTests {
     @Test func courseShowsOnlyTheRoomButNavigationKeepsTheBuilding() {
         let course = TheoryCourse(building: "西二教", venueName: "西2-202", courseName: "高等数学", weeks: [1], weekday: 1)
         #expect(course.locationText == "西2-202")
-        #expect(CourseNavigation.target(building: course.building, venue: course.venueName)?.room == "西二教西2-202")
+        #expect(CourseNavigation.target(building: course.building, venue: course.venueName)?.text == "西二教 | 西2-202")
         let noRoom = TheoryCourse(building: "西二教", venueName: "", courseName: "高等数学", weeks: [1], weekday: 1)
         #expect(noRoom.locationText == "西二教")
     }

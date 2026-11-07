@@ -52,6 +52,8 @@ targets:
         GxuAppGroupID: "$(GXU_APP_GROUP)"
         NSSupportsLiveActivities: true
         NSSupportsLiveActivitiesFrequentUpdates: false
+        # 地图导航用 canOpenURL 探测高德 / 百度是否安装（MapNavigation.installedApps）；不声明时探测一律为否
+        LSApplicationQueriesSchemes: [iosamap, baidumap]
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         NSAppTransportSecurity:
           NSExceptionDomains:
