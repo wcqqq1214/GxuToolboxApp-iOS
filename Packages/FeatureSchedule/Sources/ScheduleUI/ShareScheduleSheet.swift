@@ -1,3 +1,4 @@
+import GxuAuth
 import GxuDesign
 import ScheduleKit
 import SwiftUI
