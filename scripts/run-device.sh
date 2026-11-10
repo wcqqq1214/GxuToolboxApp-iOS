@@ -123,24 +123,49 @@ elif ! [[ "$TEAM" =~ ^[A-Z0-9]{10}$ ]]; then
   fail "Team ID 格式不对：应为 10 位大写字母或数字（长度 ${#TEAM}）"
 fi
 
-# 4. 已连接的设备（devicectl 的 JSON 输出）。state：connected / offline（已配对但 Xcode 看到的是离线）
+# 4. 用 devicectl 枚举真机，必要时用 xcdevice 确认可用性。
 DEVICES_JSON="$(mktemp)"; trap 'rm -f "$DEVICES_JSON"' EXIT
 ALL_LINES=""
 if xcrun --find devicectl >/dev/null 2>&1; then
   if xcrun devicectl list devices --json-output "$DEVICES_JSON" >/dev/null 2>&1; then
     ALL_LINES="$(python3 -I - "$DEVICES_JSON" <<'PY'
-import json, sys
+import json, subprocess, sys
+
+def available_device_ids():
+    # USB 已连接时，CoreDevice 的隧道也可能还没建立。用 Xcode 的设备状态核对。
+    try:
+        devices = json.loads(subprocess.check_output(
+            ["xcrun", "xcdevice", "list", "--timeout", "3"],
+            stderr=subprocess.DEVNULL, timeout=10,
+        ))
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return set()
+    return {
+        d["identifier"].casefold()
+        for d in devices
+        if d.get("platform") == "com.apple.platform.iphoneos"
+        and d.get("simulator") is False and d.get("available") is True
+        and d.get("identifier")
+    }
+
 try:
     devices = json.load(open(sys.argv[1])).get("result", {}).get("devices", [])
 except Exception:
     devices = []
+available_ids = None
 for d in devices:
     hw, props, conn = d.get("hardwareProperties", {}), d.get("deviceProperties", {}), d.get("connectionProperties", {})
     # 只要真机：devicectl 也会列出本机的模拟器（reality = "simulated"），要排除
     if hw.get("platform") != "iOS" or hw.get("reality") == "simulated":
         continue
-    state = "connected" if conn.get("tunnelState") in ("connected", "available") else "offline"
-    print("\t".join([hw.get("udid", d.get("identifier", "")), props.get("name", "?"), hw.get("marketingName", ""), props.get("osVersionNumber", ""), state]))
+    udid = hw.get("udid") or d.get("identifier", "")
+    connected = conn.get("tunnelState") in ("connected", "available")
+    if not connected and udid:
+        if available_ids is None:
+            available_ids = available_device_ids()
+        connected = udid.casefold() in available_ids
+    state = "connected" if connected else "offline"
+    print("\t".join([udid, props.get("name", "?"), hw.get("marketingName", ""), props.get("osVersionNumber", ""), state]))
 PY
 )"
   else
