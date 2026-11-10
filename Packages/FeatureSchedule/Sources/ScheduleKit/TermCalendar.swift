@@ -1,7 +1,10 @@
 import Foundation
+import GxuFoundation
 
 /// 一个学期的周历。所有日期都是日历所在时区的“某天 00:00”，按天计算，避免 UTC 偏移差一天。
 public struct TermCalendar: Sendable, Equatable {
+    static let maximumWeeks = 53
+
     public let startDate: Date
     public let weekCount: Int
     public let calendar: Calendar
@@ -12,11 +15,12 @@ public struct TermCalendar: Sendable, Equatable {
         let calendar = calendar.gregorianEquivalent
         self.calendar = calendar
         self.startDate = calendar.startOfDay(for: startDate)
-        self.weekCount = max(weekCount, 1)
+        self.weekCount = min(max(weekCount, 1), Self.maximumWeeks)
     }
 
     public init?(_ termStartDay: TermStartDay, calendar: Calendar = .current) {
-        guard let date = Self.parseDay(termStartDay.day, calendar: calendar), termStartDay.week > 0 else { return nil }
+        guard (1...Self.maximumWeeks).contains(termStartDay.week),
+              let date = Self.parseDay(termStartDay.day, calendar: calendar) else { return nil }
         self.init(startDate: date, weekCount: termStartDay.week, calendar: calendar)
     }
 
@@ -80,19 +84,5 @@ public enum TermResolver {
             .sorted { $0.1.startDate < $1.1.startDate }
         let today = calendar.gregorianEquivalent.startOfDay(for: now)
         return (sorted.first { today < $0.1.endDate } ?? sorted.last)?.0
-    }
-}
-
-extension Calendar {
-    /// 同时区、同一周起始日设置的公历。已经是公历就原样返回。
-    /// （ExamKit 里有同名的 public 扩展；这里是 internal，ScheduleKit 不依赖 ExamKit，两边互不冲突。）
-    var gregorianEquivalent: Calendar {
-        if identifier == .gregorian { return self }
-        var gregorian = Calendar(identifier: .gregorian)
-        gregorian.timeZone = timeZone
-        gregorian.locale = locale
-        gregorian.firstWeekday = firstWeekday
-        gregorian.minimumDaysInFirstWeek = minimumDaysInFirstWeek
-        return gregorian
     }
 }

@@ -25,6 +25,23 @@ struct OASessionTests {
         #expect(tokens.load() == "T-1")
     }
 
+    @Test func clearingSessionWhileRenewalIsInFlightDiscardsItsToken() async throws {
+        let response = DelayedStubResponse()
+        StubURLProtocol.register(host: "oa.gxu.edu.cn") { request in
+            try response.hold()
+            return reply(request, loginOK)
+        }
+        let (session, tokens) = make()
+        let renewal = Task { try await session.ensureToken() }
+        defer { response.release(); renewal.cancel() }
+
+        try await response.waitForRequest()
+        await session.clear()
+        response.release()
+        await #expect(throws: CancellationError.self) { try await renewal.value }
+        #expect(tokens.load() == nil)
+    }
+
     @Test func loginFailureSurfacesServerMessage() async {
         StubURLProtocol.register(host: "oa.gxu.edu.cn") { reply($0, #"{"code":401,"message":"账号或密码错误","result":null}"#) }
         let (session, tokens) = make()

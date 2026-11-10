@@ -82,6 +82,7 @@ struct RootView: View {
             await home.load(services: resolvedServices)
         }
         // 切标签 / 回前台时重读本地缓存（课表页刷新或改了冲突选择后，首页立刻同步）；回前台还会按需联网刷新
+        .onChange(of: services.accounts.unifiedUsername) { _, _ in Task { await home.reload(services: resolvedServices) } }
         .onChange(of: selection) { _, _ in Task { await home.reload(services: resolvedServices) } }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { Task { await home.load(services: resolvedServices) } }
@@ -109,7 +110,7 @@ extension RootView {
                 guard let start = item.date, let end = Self.examEnd(item.exam.time, start: start) else { return nil }
                 return GridExam(id: item.id, title: item.exam.course, location: item.exam.classroom, seat: item.exam.seatText, start: start, end: end, term: term)
             }
-            let overrides = await PhyExpOverrides.cached(database: services.database, studentId: studentId)
+            let overrides = await PhyExpOverrides.cached(database: services.database, unifiedUsername: await services.accounts.unifiedUsername)
             #if DEBUG
             if ProcessInfo.processInfo.arguments.contains("-GxuDemo") { return ScheduleExtraLayers(exams: exams, overrides: overrides, attendance: DemoMode.attendanceMarks()) }
             #endif

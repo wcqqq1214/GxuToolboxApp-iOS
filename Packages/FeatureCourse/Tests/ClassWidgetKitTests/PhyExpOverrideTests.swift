@@ -32,7 +32,7 @@ private func at(_ s: String) -> Date {
             try d.execute(sql: "INSERT INTO term_start_day (year, term, day, week) VALUES (2026, 1, '2026-11-02', 20)")
             try d.execute(sql: "INSERT INTO schedule_snapshot (studentId, year, term, json, updatedAt) VALUES ('s1', 2026, 1, ?, 0)",
                           arguments: [try JSONEncoder().encode(Self.schedule)])
-            try d.execute(sql: "INSERT INTO phy_experiment (studentId, id, json) VALUES ('s1', 'e1', ?)", arguments: [lab])
+            try d.execute(sql: "INSERT INTO phy_experiment (studentId, id, json) VALUES ('unified:cas-A', 'e1', ?)", arguments: [lab])
         }
         return db
     }
@@ -40,17 +40,19 @@ private func at(_ s: String) -> Date {
     @Test func widgetSnapshotAndIntentShowPecTeacherAndPlace() async throws {
         let db = try await database()
         let monday = at("2026-11-02 07:00")
-        let snapshot = await SnapshotProvider.compute(studentId: "s1", database: db, now: monday, calendar: cal)
+        let snapshot = await SnapshotProvider.compute(studentId: "s1", database: db, unifiedUsername: "cas-A", now: monday, calendar: cal)
         let lab = try #require(snapshot.today.first { $0.name == "大学物理实验" })
         #expect(lab.room == "实验楼301" && lab.teacher == "PEC教师")
         #expect(snapshot.today.first { $0.name == "高等数学" }?.room == "A1")   // 别的课不变
-        let intent = try await ScheduleQuery.courses(on: monday, studentId: "s1", database: db, calendar: cal)
+        let intent = try await ScheduleQuery.courses(on: monday, studentId: "s1", database: db, unifiedUsername: "cas-A", calendar: cal)
         #expect(intent.first { $0.name == "大学物理实验" }?.room == "实验楼301")
         // 没有 PEC 记录的日期（第 2 周周一）保持课表原样
-        let next = try await ScheduleQuery.courses(on: at("2026-11-09 07:00"), studentId: "s1", database: db, calendar: cal)
+        let next = try await ScheduleQuery.courses(on: at("2026-11-09 07:00"), studentId: "s1", database: db, unifiedUsername: "cas-A", calendar: cal)
         #expect(next.first { $0.name == "大学物理实验" }?.room == "原教室" && next.first?.teacher == "原教师")
         // 别的账号读不到 s1 的实验课记录
-        let other = await PhyExpOverrides.cached(database: db, studentId: "s2", calendar: cal)
+        let other = await PhyExpOverrides.cached(database: db, unifiedUsername: "cas-B", calendar: cal)
         #expect(other.isEmpty)
+        let switched = await SnapshotProvider.compute(studentId: "s1", database: db, unifiedUsername: "cas-B", now: monday, calendar: cal)
+        #expect(switched.today.first { $0.name == "大学物理实验" }?.room == "原教室")
     }
 }

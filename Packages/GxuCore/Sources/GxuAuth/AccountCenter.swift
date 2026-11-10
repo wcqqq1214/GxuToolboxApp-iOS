@@ -7,6 +7,9 @@ public final class AccountCenter {
     public private(set) var states: [AuthSystem: AuthState]
     /// 当前教务账号学号，用于数据隔离
     public private(set) var studentId: String?
+    public private(set) var unifiedUsername: String?
+
+    @ObservationIgnored private var unifiedChange = UUID()
 
     @ObservationIgnored private let credentials: any CredentialStore
     @ObservationIgnored private let jw: JwSessionManager
@@ -22,6 +25,7 @@ public final class AccountCenter {
     /// 教务（Cookie）和考勤（token）已接入；CA / OA 在后续步骤接入。
     public init(credentials: any CredentialStore, jw: JwSessionManager, attendance: AttendanceSession? = nil, unified: UnifiedAuthSession? = nil, oa: OASession? = nil, wjxt: WjxtSession? = nil) {
         self.credentials = credentials
+        self.unifiedUsername = credentials.load(.unified)?.username
         self.jw = jw
         self.attendance = attendance
         self.unified = unified
@@ -53,8 +57,13 @@ public final class AccountCenter {
             }
         }
         if let unified {
-            Task { [weak self] in
-                await unified.setObserver { state in Task { @MainActor in self?.applyObserved(.unified, state) } }
+            Task { [weak self, unified] in
+                await unified.setObserver { [weak unified] state, generation in
+                    Task { @MainActor in
+                        guard unified?.isCurrent(generation) == true else { return }
+                        self?.applyObserved(.unified, state)
+                    }
+                }
             }
         }
         Task { [weak self] in
@@ -71,12 +80,14 @@ public final class AccountCenter {
     private func applyObserved(_ system: AuthSystem, _ state: AuthState) {
         guard states[system] != .noAccount else { return }
         if system == .jw, studentId == nil { return }
+        if system == .attendance, state == .signedOut, attendance?.hasToken == true { return }
         states[system] = state
     }
 
     /// 预览 / 测试用：直接指定状态
     public init(credentials: any CredentialStore, jw: JwSessionManager, attendance: AttendanceSession? = nil, unified: UnifiedAuthSession? = nil, oa: OASession? = nil, wjxt: WjxtSession? = nil, states: [AuthSystem: AuthState], studentId: String?) {
         self.credentials = credentials
+        self.unifiedUsername = credentials.load(.unified)?.username
         self.jw = jw
         self.attendance = attendance
         self.unified = unified
@@ -91,8 +102,12 @@ public final class AccountCenter {
             guard let unified else { throw GxuError.invalidData("统一认证未配置") }
             let username = username.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !username.isEmpty, !password.isEmpty else { throw GxuError.invalidData("请输入统一认证账号和密码") }
+            let change = UUID()
+            unifiedChange = change
             try await unified.login(username: username, password: password)
+            guard unifiedChange == change else { throw CancellationError() }
             try credentials.save(Credential(username: username, password: password), for: .unified)
+            unifiedUsername = username
             states[.unified] = .authenticated
             return
         }
@@ -147,12 +162,19 @@ public final class AccountCenter {
             studentId = nil
         }
         if system == .attendance { attendance?.clear() }
-        if system == .unified { await unified?.logout() }
+        if system == .unified {
+            unifiedChange = UUID()
+            credentials.delete(.unified)
+            unifiedUsername = nil
+            states[.unified] = .noAccount
+            await unified?.logout()
+            return
+        }
+        credentials.delete(system)
         if system == .oa {
             await oa?.clear()
             await wjxt?.clear()
         }
-        credentials.delete(system)
         states[system] = .noAccount
     }
 

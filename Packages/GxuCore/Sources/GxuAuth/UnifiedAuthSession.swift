@@ -1,5 +1,6 @@
 import Foundation
 import GxuFoundation
+import Synchronization
 
 /// 工程训练中心（xlzxms）登录结果：`token` 放进请求头 `authorization`，`studentCode` 是学生码。
 public struct EngTrainingSession: Sendable, Equatable {
@@ -25,30 +26,77 @@ public actor UnifiedAuthSession {
     static let caBase = "https://ca.gxu.edu.cn:8443/zfca"
 
     private let credentials: any CredentialStore
-    private let session: URLSession
-    private let cookies: HTTPCookieStorage
+    private let configuration: URLSessionConfiguration
+    private var session: URLSession
+    private var loginTarget: String?
+    private var isLoggingIn = false
     private var pending: Task<Void, Error>?
-    private var observer: (@Sendable (AuthState) -> Void)?
+    private let generation = Mutex(UUID())
+    private var observer: (@Sendable (AuthState, UUID) -> Void)?
+
+    private var currentGeneration: UUID { generation.withLock { $0 } }
+
+    nonisolated func isCurrent(_ id: UUID) -> Bool { generation.withLock { $0 == id } }
+
+    private func checkGeneration(_ id: UUID) throws {
+        guard isCurrent(id), !Task.isCancelled else { throw CancellationError() }
+    }
+
+    private func advanceGeneration() -> UUID {
+        let id = UUID()
+        generation.withLock { $0 = id }
+        pending?.cancel()
+        pending = nil
+        loginTarget = nil
+        isLoggingIn = false
+        return id
+    }
 
     /// - Parameter configuration: 测试里可传入带 `URLProtocol` 的配置
     public init(credentials: any CredentialStore, configuration: URLSessionConfiguration = .ephemeral) {
         self.credentials = credentials
         configuration.timeoutIntervalForRequest = 15
         configuration.httpShouldSetCookies = true
+        self.configuration = configuration
         self.session = URLSession(configuration: configuration, delegate: NoRedirect(), delegateQueue: nil)
-        self.cookies = configuration.httpCookieStorage ?? HTTPCookieStorage.shared
     }
 
-    public func setObserver(_ observer: (@Sendable (AuthState) -> Void)?) { self.observer = observer }
+    /// 旧请求即使已经发出，也只能更新旧会话的 Cookie。
+    private func replaceSession() -> URLSession {
+        let previous = session
+        let configuration = configuration.copy() as! URLSessionConfiguration
+        configuration.httpCookieStorage = URLSessionConfiguration.ephemeral.httpCookieStorage
+        session = URLSession(configuration: configuration, delegate: NoRedirect(), delegateQueue: nil)
+        return previous
+    }
+
+    private func savedCredential() throws -> Credential {
+        guard !isLoggingIn else { throw CancellationError() }
+        guard let credential = credentials.load(.unified) else { throw GxuError.notLoggedIn(.unified) }
+        guard loginTarget == nil || loginTarget == credential.username else { throw CancellationError() }
+        return credential
+    }
+
+    func setObserver(_ observer: (@Sendable (AuthState, UUID) -> Void)?) { self.observer = observer }
 
     // MARK: 登录
 
     /// 用账号登录统一认证。失败时按原因抛不同的 `GxuError`（只有服务端明确说账号密码有问题时才说账号密码，
     /// 需要验证码 / 被拒绝访问 / 服务异常 / 页面不对都各说各的）；详细原因写进诊断日志（不含密码、token、Cookie）。
     public func login(username: String, password: String) async throws {
-        _ = try await casLogin(username: username, password: password, service: nil)
+        let id = advanceGeneration()
+        replaceSession().invalidateAndCancel()
+        isLoggingIn = true
+        defer { if isCurrent(id) { isLoggingIn = false } }
+        try await verifyLogin(username: username, password: password, generation: id)
+        try checkGeneration(id)
+        loginTarget = username
+    }
+
+    private func verifyLogin(username: String, password: String, generation: UUID) async throws {
+        _ = try await casLogin(username: username, password: password, service: nil, generation: generation)
         // RN 同样登录后再用校验接口确认一次
-        guard try await testToken() else {
+        guard try await testToken(generation: generation) else {
             throw GxuError.invalidData("统一认证接受了登录，但校验接口没有返回预期内容（可能是校园网限制或服务暂时异常）。详情见「设置 → 诊断日志」。")
         }
     }
@@ -58,9 +106,13 @@ public actor UnifiedAuthSession {
     /// **JS 里 JSON 数组也是 object**：真实响应（2026-11-06 用真实账号验证）这个「应用分组」接口返回的是数组，
     /// 所以判断是「合法 JSON（对象或数组）且不是登录页」，不能只认字典。
     public func testToken() async throws -> Bool {
+        try await testToken(generation: currentGeneration)
+    }
+
+    private func testToken(generation: UUID) async throws -> Bool {
         var request = URLRequest(url: URL(string: "http://ca.gxu.edu.cn:81/zfim/application/home/getYyfz.zf")!)
         request.httpMethod = "GET"
-        let landing = try await follow(request)
+        let landing = try await follow(request, generation: generation)
         guard (200..<300).contains(landing.status) else {
             Self.log("校验接口", landing, note: "状态码异常")
             return false
@@ -73,43 +125,67 @@ public actor UnifiedAuthSession {
     }
 
     public func logout() async {
+        let id = advanceGeneration()
+        let previous = replaceSession()
+        defer { previous.invalidateAndCancel() }
         var request = URLRequest(url: URL(string: "\(Self.caBase)/logout?service=http://ca.gxu.edu.cn:81/zfim/logout")!)
         request.httpMethod = "GET"
-        _ = try? await follow(request)
-        for cookie in cookies.cookies ?? [] { cookies.deleteCookie(cookie) }
+        _ = try? await follow(request, generation: id, using: previous)
     }
 
     /// 用 Keychain 里的账号登录（合并并发调用）
     public func renew() async throws {
         if let pending { return try await pending.value }
+        let id = currentGeneration
         let task = Task<Void, Error> {
-            guard let credential = credentials.load(.unified) else { throw GxuError.notLoggedIn(.unified) }
-            try await login(username: credential.username, password: credential.password)
+            let credential = try savedCredential()
+            try await verifyLogin(username: credential.username, password: credential.password, generation: id)
         }
         pending = task
-        defer { pending = nil }
+        defer { if isCurrent(id) { pending = nil } }
         try await task.value
     }
 
     // MARK: 服务登录（PEC、xlzxms）
 
-    /// 登录到某个服务（CAS `service`），返回最终落地的 URL 和内容。服务自己的 Cookie 留在本会话的 Cookie 存储里，
-    /// 之后用 `data(for:)` 发请求即可带上。需要 Keychain 里有统一认证账号。
+    /// 登录到某个服务（CAS `service`），返回最终落地的 URL 和内容。
     @discardableResult
     public func serviceLogin(_ service: String) async throws -> (url: URL, data: Data) {
-        guard let credential = credentials.load(.unified) else { throw GxuError.notLoggedIn(.unified) }
-        let result = try await casLogin(username: credential.username, password: credential.password, service: service)
+        let result = try await serviceLogin(service, username: nil, generation: currentGeneration)
         return (result.url, result.data)
     }
 
-    /// 物理实验平台（PEC）：登录后，用 `data(for:)` 请求 `https://pec.gxu.edu.cn/LMSmini/...`
+    private func serviceLogin(_ service: String, username: String?, generation: UUID) async throws -> Landing {
+        let credential = try savedCredential()
+        guard username == nil || credential.username == username else { throw CancellationError() }
+        return try await casLogin(username: credential.username, password: credential.password, service: service, generation: generation)
+    }
+
     public func loginPEC() async throws {
         try await serviceLogin(Self.pecService)
     }
 
+    public func pecData(for request: URLRequest, username: String) async throws -> (Data, HTTPURLResponse) {
+        let id = currentGeneration
+        _ = try await serviceLogin(Self.pecService, username: username, generation: id)
+        return try await send(request, generation: id)
+    }
+
     /// 工程训练中心：取学生码并换 token（RN `loginEngTraining`）
     public func loginEngTraining() async throws -> EngTrainingSession {
-        let landed = try await serviceLogin(Self.engTrainingService)
+        try await loginEngTraining(username: nil, generation: currentGeneration)
+    }
+
+    public func engTrainingData(for request: URLRequest, username: String) async throws -> (Data, HTTPURLResponse) {
+        let id = currentGeneration
+        let session = try await loginEngTraining(username: username, generation: id)
+        var request = request
+        request.setValue(session.token, forHTTPHeaderField: "authorization")
+        return try await send(request, generation: id)
+    }
+
+    private func loginEngTraining(username: String?, generation: UUID) async throws -> EngTrainingSession {
+        let landed = try await serviceLogin(Self.engTrainingService, username: username, generation: generation)
         guard let studentCode = Self.studentCode(from: landed.url) else {
             throw GxuError.invalidData("未获取到工程训练中心学生码")
         }
@@ -119,7 +195,7 @@ public actor UnifiedAuthSession {
         request.httpBody = try JSONSerialization.data(withJSONObject: [
             "username": studentCode, "code": "ssocode", "queryParam": "queryParam", "password": "1",
         ])
-        let (data, response) = try await send(request)
+        let (data, response) = try await send(request, generation: generation)
         guard (200..<300).contains(response.statusCode) else { throw GxuError.http(status: response.statusCode, message: nil) }
         guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let datas = object["datas"] as? [String: Any], let token = datas["token"] as? String, !token.isEmpty else {
@@ -128,35 +204,33 @@ public actor UnifiedAuthSession {
         return EngTrainingSession(studentCode: studentCode, token: token)
     }
 
-    /// 用本会话（含 CA / PEC / xlzxms 的 Cookie）发请求，不自动跟随重定向
-    public func data(for request: URLRequest) async throws -> (Data, HTTPURLResponse) {
-        try await send(request)
-    }
-
     // MARK: Internals
 
     private struct PubKey: Decodable { let modulus: String; let exponent: String }
 
     /// RN `authApi.login`：RSA 加密 → 取 execution → POST 表单 → 手动跟随重定向。`service == nil` 是普通登录。
-    private func casLogin(username: String, password: String, service: String?) async throws -> Landing {
+    private func casLogin(username: String, password: String, service: String?, generation: UUID) async throws -> Landing {
+        try checkGeneration(generation)
         // 先清掉旧会话，避免带着别人的 TGC
-        for cookie in cookies.cookies ?? [] where cookie.domain.contains("gxu.edu.cn") { cookies.deleteCookie(cookie) }
+        if let cookies = session.configuration.httpCookieStorage {
+            for cookie in cookies.cookies ?? [] where cookie.domain.contains("gxu.edu.cn") { cookies.deleteCookie(cookie) }
+        }
 
         let keyRequest = URLRequest(url: URL(string: "\(Self.caBase)/v2/getPubKey")!)
-        let (keyData, keyResponse) = try await send(keyRequest)
+        let (keyData, keyResponse) = try await send(keyRequest, generation: generation)
         guard (200..<300).contains(keyResponse.statusCode), let key = try? JSONDecoder().decode(PubKey.self, from: keyData) else {
             throw GxuError.invalidData("获取统一认证公钥失败")
         }
         let encrypted = try ZfcaRSA.encrypt(password: password, exponentHex: key.exponent, modulusHex: key.modulus)
 
-        let page = try await follow(URLRequest(url: URL(string: "\(Self.caBase)/login")!))
+        let page = try await follow(URLRequest(url: URL(string: "\(Self.caBase)/login")!), generation: generation)
         try Self.ensureReachable(page, step: "登录页")
         guard let execution = Self.execution(in: page.data) else {
             Self.log("登录页", page, note: "没有找到 execution")
             throw GxuError.invalidData("统一认证登录页的格式和预期不一样，暂时无法登录。详情见「设置 → 诊断日志」。")
         }
         // 服务端在多次失败后会要求验证码（登录页上的 authcode）。我们没有办法输入，也不要再提交（继续失败可能被锁定），直接如实说明
-        if await kaptchaRequired() {
+        if try await kaptchaRequired(generation: generation) {
             Self.log("登录页", page, note: "服务端要求验证码（getKaptchaStatus = true）")
             throw GxuError.invalidData("统一认证现在要求输入验证码（通常是登录失败次数过多触发的）。请先在浏览器打开 https://ca.gxu.edu.cn:8443/zfca/login 登录一次，或稍后再试。")
         }
@@ -169,30 +243,33 @@ public actor UnifiedAuthSession {
         post.httpBody = Self.formBody([
             ("username", username), ("password", encrypted), ("execution", execution), ("_eventId", "submit"),
         ])
-        let result = try await follow(post)
+        let result = try await follow(post, generation: generation)
+        try checkGeneration(generation)
         try Self.ensureReachable(result, step: "提交登录")
         if Self.isLoginPage(result.data) {
             Self.log("提交登录", result, note: "又回到了登录页")
             let error = Self.loginPageError(result.data)
-            if error.isCredentialRejection { observer?(.signedOut) }   // 服务端明确拒绝：需要重新登录
+            if !isLoggingIn, error.isCredentialRejection { observer?(.signedOut, generation) }   // 服务端明确拒绝：需要重新登录
             throw error
         }
-        observer?(.authenticated)
+        if !isLoggingIn { observer?(.authenticated, generation) }
         return result
     }
 
     /// 登录页是否要求验证码：`GET v2/getKaptchaStatus` 返回 `true`（页面脚本 `showKaptcha()` 同样靠它决定要不要显示 authcode）
-    private func kaptchaRequired() async -> Bool {
-        guard let (data, response) = try? await send(URLRequest(url: URL(string: "\(Self.caBase)/v2/getKaptchaStatus")!)),
+    private func kaptchaRequired(generation: UUID) async throws -> Bool {
+        let result = try? await send(URLRequest(url: URL(string: "\(Self.caBase)/v2/getKaptchaStatus")!), generation: generation)
+        try checkGeneration(generation)
+        guard let (data, response) = result,
               (200..<300).contains(response.statusCode) else { return false }
         return String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "true"
     }
 
     /// 手动跟随 3xx（最多 10 跳）；POST 遇到重定向后改成 GET。返回最终 URL、内容和状态码。
-    private func follow(_ initial: URLRequest) async throws -> Landing {
+    private func follow(_ initial: URLRequest, generation: UUID, using transport: URLSession? = nil) async throws -> Landing {
         var request = initial
         for _ in 0..<10 {
-            let (data, response) = try await send(request)
+            let (data, response) = try await send(request, generation: generation, using: transport)
             guard (300..<400).contains(response.statusCode),
                   let location = response.value(forHTTPHeaderField: "Location"),
                   let next = URL(string: location, relativeTo: response.url)?.absoluteURL else {
@@ -205,9 +282,11 @@ public actor UnifiedAuthSession {
         throw GxuError.network("重定向次数过多")
     }
 
-    private func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+    private func send(_ request: URLRequest, generation: UUID, using transport: URLSession? = nil) async throws -> (Data, HTTPURLResponse) {
+        try checkGeneration(generation)
         do {
-            let (data, response) = try await session.data(for: request)
+            let (data, response) = try await (transport ?? session).data(for: request)
+            try checkGeneration(generation)
             guard let http = response as? HTTPURLResponse else { throw GxuError.network("无效的服务器响应") }
             return (data, http)
         } catch let error as GxuError {
@@ -217,6 +296,7 @@ public actor UnifiedAuthSession {
         } catch let error as URLError where error.code == .cancelled {
             throw CancellationError()
         } catch {
+            try checkGeneration(generation)
             ErrorLog.shared.recordRequest(method: request.httpMethod ?? "GET", url: request.url, failure: "network error \((error as? URLError)?.code.rawValue ?? 0)")
             throw GxuError.network("网络连接失败，请检查网络后重试")
         }

@@ -69,6 +69,7 @@ public struct ScheduleRepository: Sendable {
     @discardableResult
     public func refreshStartDays() async throws -> [TermStartDay] {
         let terms = try await backend.getData("/jw/profile/startDay", auth: .jw, as: [TermStartDay].self)
+            .filter { (1...TermCalendar.maximumWeeks).contains($0.week) }
         guard !terms.isEmpty else { return try await cachedStartDays() }
         try await database.writer.write { db in
             for term in terms {

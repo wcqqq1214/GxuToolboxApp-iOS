@@ -35,24 +35,24 @@ struct PhyExpTests {
     @Test func repositoryCachesPerStudentAndKeepsCacheOnFailure() async throws {
         let database = try AppDatabase.inMemory(features: [CampusFeature.migrations])
         let ok = PhyExpRepository(database: database, client: FakePEC(result: .success(try fixture())))
-        #expect(await ok.cached(studentId: "A").isEmpty)
-        let fresh = try await ok.refresh(studentId: "A")
+        #expect(await ok.cached(unifiedUsername: "A").isEmpty)
+        let fresh = try await ok.refresh(unifiedUsername: "A")
         #expect(fresh.count == 2)
-        #expect(await ok.cached(studentId: "A").map(\.id) == ["E1", "E2"])
-        #expect(await ok.cached(studentId: "B").isEmpty)           // 账号隔离
+        #expect(await ok.cached(unifiedUsername: "A").map(\.id) == ["E1", "E2"])
+        #expect(await ok.cached(unifiedUsername: "B").isEmpty)           // 账号隔离
 
         let failing = PhyExpRepository(database: database, client: FakePEC(result: .failure(.notLoggedIn(.unified))))
-        await #expect(throws: GxuError.self) { try await failing.refresh(studentId: "A") }
-        #expect(await failing.cached(studentId: "A").count == 2)   // 失败保留旧缓存
+        await #expect(throws: GxuError.self) { try await failing.refresh(unifiedUsername: "A") }
+        #expect(await failing.cached(unifiedUsername: "A").count == 2)   // 失败保留旧缓存
     }
 
     @Test func refreshReplacesCancelledEntries() async throws {
         let database = try AppDatabase.inMemory(features: [CampusFeature.migrations])
-        _ = try await PhyExpRepository(database: database, client: FakePEC(result: .success(try fixture()))).refresh(studentId: "A")
+        _ = try await PhyExpRepository(database: database, client: FakePEC(result: .success(try fixture()))).refresh(unifiedUsername: "A")
         let smaller = #"{"d":"{\"data\":[{\"ID\":\"E2\",\"SKRQ\":\"20251015\",\"XMMC\":\"光栅衍射\"}]}"}"#
         let repo = PhyExpRepository(database: database, client: FakePEC(result: .success(Data(smaller.utf8))))
-        _ = try await repo.refresh(studentId: "A")
-        #expect(await repo.cached(studentId: "A").map(\.id) == ["E2"])
+        _ = try await repo.refresh(unifiedUsername: "A")
+        #expect(await repo.cached(unifiedUsername: "A").map(\.id) == ["E2"])
     }
 }
 
@@ -60,11 +60,45 @@ extension PhyExpTests {
     @Test func overridesFromCacheArePerStudent() async throws {
         let database = try AppDatabase.inMemory(features: [CampusFeature.migrations])
         let repository = PhyExpRepository(database: database, client: FakePEC(result: .success(try fixture())))
-        #expect(await PhyExpOverrides.cached(database: database, studentId: "A").isEmpty)
-        _ = try await repository.refresh(studentId: "A")
-        let overrides = await PhyExpOverrides.cached(database: database, studentId: "A")
+        #expect(await PhyExpOverrides.cached(database: database, unifiedUsername: "A").isEmpty)
+        _ = try await repository.refresh(unifiedUsername: "A")
+        let overrides = await PhyExpOverrides.cached(database: database, unifiedUsername: "A")
         #expect(overrides.count == 2)
         #expect(overrides.allSatisfy { $0.courseNameContains == "物理实验" && ($0.teacher?.isEmpty == false) })
-        #expect(await PhyExpOverrides.cached(database: database, studentId: "B").isEmpty)
+        #expect(await PhyExpOverrides.cached(database: database, unifiedUsername: "B").isEmpty)
+    }
+}
+
+extension PhyExpTests {
+    @Test func practiceDatesUseGregorianComponentsInTheDeviceTimeZone() throws {
+        let zone = try #require(TimeZone(identifier: "Asia/Shanghai"))
+        var gregorian = Calendar(identifier: .gregorian)
+        gregorian.timeZone = zone
+        var lab = try #require(try PhyExpParser.parse(try fixture()).first)
+        lab.dateText = "20261008"
+        let expected = try #require(gregorian.date(from: DateComponents(year: 2026, month: 10, day: 8)))
+        for id in [Calendar.Identifier.buddhist, .chinese] {
+            var device = Calendar(identifier: id)
+            device.timeZone = zone
+            #expect(lab.date(calendar: device) == expected)
+            let table = Data(#"{"datas":[[{"startRow":2,"startCol":1,"content":"10月8日"}]]}"#.utf8)
+            let days = try EngTrainingParser.parse(table, now: expected, calendar: device)
+            #expect(days.map(\.date) == [expected])
+        }
+    }
+
+    @Test func previousAccountAndLegacyJwCachesStayHiddenWhenRefreshFails() async throws {
+        let database = try AppDatabase.inMemory(features: [CampusFeature.migrations])
+        let source = PhyExpRepository(database: database, client: FakePEC(result: .success(try fixture())))
+        let labs = try await source.refresh(unifiedUsername: "A")
+        let lab = try #require(labs.first)
+        try await database.writer.write { db in
+            try db.execute(sql: "INSERT INTO phy_experiment (studentId, id, json) VALUES ('B', ?, ?)",
+                           arguments: [lab.id, try JSONEncoder().encode(lab)])
+        }
+        let offline = PhyExpRepository(database: database, client: FakePEC(result: .failure(.network("offline"))))
+        await #expect(throws: GxuError.network("offline")) { try await offline.refresh(unifiedUsername: "B") }
+        #expect(await offline.cached(unifiedUsername: "B").isEmpty)
+        #expect(await offline.cached(unifiedUsername: "A") == labs)
     }
 }

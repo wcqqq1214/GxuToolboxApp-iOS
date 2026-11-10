@@ -24,10 +24,10 @@ public enum ScheduleQuery {
 
     /// 读本地缓存，不联网
     public static func courses(
-        on day: Date, studentId: String, database: AppDatabase, calendar: Calendar = .current
+        on day: Date, studentId: String, database: AppDatabase, unifiedUsername: String? = nil, calendar: Calendar = .current
     ) async throws -> [WidgetCourse] {
         let repo = ScheduleRepository(backend: UnavailableBackend(), database: database)
-        let overrides = await PhyExpOverrides.cached(database: database, studentId: studentId, calendar: calendar)
+        let overrides = await PhyExpOverrides.cached(database: database, unifiedUsername: unifiedUsername, calendar: calendar)
         guard let snapshot = await repo.cachedSnapshot(studentId: studentId, now: day, calendar: calendar, overrides: overrides) else {
             if let days = try? await repo.cachedStartDays(), TermResolver.current(in: days, now: day, calendar: calendar) != nil { throw Failure.noSchedule }
             throw Failure.noTermCalendar

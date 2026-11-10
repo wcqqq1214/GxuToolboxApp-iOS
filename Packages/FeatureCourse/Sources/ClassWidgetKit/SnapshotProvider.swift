@@ -8,11 +8,11 @@ import ScheduleKit
 
 /// 从本地缓存（数据库）算出最新的 `NextCourses`，不联网。App、App Intent 和桥接共用。
 public enum SnapshotProvider {
-    public static func compute(studentId: String, database: AppDatabase, now: Date = .now, calendar: Calendar = .current) async -> NextCourses {
+    public static func compute(studentId: String, database: AppDatabase, unifiedUsername: String? = nil, now: Date = .now, calendar: Calendar = .current) async -> NextCourses {
         let repo = ScheduleRepository(backend: UnavailableBackend(), database: database)
         // 用 B 提供的"小组件 / App Intent 用"的缓存快照：已叠加节假日 / 补班、用户选的冲突课程、自定义日程，和 App 里的今天一致
         // 物理实验课按上课日期换成 PEC 里的教师和地点（FeatureCampus 的本地缓存，不联网），和 App 里的今天一致
-        let overrides = await PhyExpOverrides.cached(database: database, studentId: studentId, calendar: calendar)
+        let overrides = await PhyExpOverrides.cached(database: database, unifiedUsername: unifiedUsername, calendar: calendar)
         if let snapshot = await repo.cachedSnapshot(studentId: studentId, now: now, calendar: calendar, overrides: overrides) {
             return NextCourseCalculator.compute(
                 schedule: snapshot.schedule, term: snapshot.termCalendar, campus: snapshot.campus, choices: snapshot.choices,
@@ -28,8 +28,8 @@ public enum SnapshotProvider {
 
 extension SnapshotProvider {
     /// `day` 这天本来有没有课（含已结束的），读本地缓存，出错按"没有"
-    public static func hadClasses(on day: Date, studentId: String, database: AppDatabase, calendar: Calendar = .current) async -> Bool {
-        ((try? await ScheduleQuery.courses(on: day, studentId: studentId, database: database, calendar: calendar)) ?? []).isEmpty == false
+    public static func hadClasses(on day: Date, studentId: String, database: AppDatabase, unifiedUsername: String? = nil, calendar: Calendar = .current) async -> Bool {
+        ((try? await ScheduleQuery.courses(on: day, studentId: studentId, database: database, unifiedUsername: unifiedUsername, calendar: calendar)) ?? []).isEmpty == false
     }
 }
 

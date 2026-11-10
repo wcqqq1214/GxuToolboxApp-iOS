@@ -97,6 +97,9 @@ struct RepositoryTests {
 
         backend.stub("GET /jw/profile/startDay", json: #"{"data": []}"#)
         #expect(try await repo.refreshStartDays().count == 2)   // 空响应不清缓存
+
+        backend.stub("GET /jw/profile/startDay", json: #"{"data":[{"year":2026,"term":1,"day":"2026-09-14","week":9223372036854775807}]}"#)
+        #expect(try await repo.refreshStartDays() == cached)
     }
 
     @Test func currentTermInfoUsesCacheThenRefreshes() async throws {

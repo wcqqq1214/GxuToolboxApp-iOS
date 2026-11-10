@@ -99,11 +99,12 @@ public final class BackendClient: BackendAPI {
     }
 
     private func send(_ request: URLRequest, auth: AuthSystem?) async throws -> Data {
-        var (data, response) = try await perform(authorized(request, auth))
+        let requestToken = auth.flatMap { tokenProvider?($0) }
+        var (data, response) = try await perform(authorized(request, token: requestToken))
         if let auth, SessionExpiry.isExpired(response, data: data) {
             guard let renewer else { throw GxuError.sessionExpired(auth) }
-            try await renewer.renew(auth)
-            (data, response) = try await perform(authorized(request, auth))
+            try await renewer.renew(auth, rejectedToken: requestToken)
+            (data, response) = try await perform(authorized(request, token: tokenProvider?(auth)))
             if SessionExpiry.isExpired(response, data: data) { throw GxuError.sessionExpired(auth) }
         }
         guard (200..<300).contains(response.statusCode) else {
@@ -113,8 +114,8 @@ public final class BackendClient: BackendAPI {
         return data
     }
 
-    private func authorized(_ request: URLRequest, _ auth: AuthSystem?) -> URLRequest {
-        guard let auth, let token = tokenProvider?(auth) else { return request }
+    private func authorized(_ request: URLRequest, token: String?) -> URLRequest {
+        guard let token else { return request }
         var request = request
         request.setValue("Token \(token)", forHTTPHeaderField: "Authorization")
         return request

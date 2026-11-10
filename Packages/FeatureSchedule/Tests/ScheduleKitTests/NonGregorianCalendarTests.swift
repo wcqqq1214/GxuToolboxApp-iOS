@@ -57,3 +57,16 @@ struct NonGregorianCalendarTests {
         }
     }
 }
+
+
+extension NonGregorianCalendarTests {
+    @Test func ignoresOutOfRangeAcademicWeeks() throws {
+        let input = Data(#"[{"year":2026,"term":1,"day":"2026-09-07","week":9223372036854775807},{"year":2026,"term":2,"day":"2027-03-01","week":20}]"#.utf8)
+        let terms = try JSONDecoder().decode([TermStartDay].self, from: input)
+        #expect(TermCalendar(terms[0], calendar: shanghai) == nil)
+        #expect(TermResolver.current(in: terms, now: at("2026-09-07"), calendar: shanghai) == terms[1])
+        let normal = try #require(TermCalendar(terms[1], calendar: shanghai))
+        let mixed = course("测试课", weekday: 1, 1, 2, weeks: [1, Int.max])
+        #expect(ScheduleExpander.occurrences(of: Schedule(theoryList: [mixed]), in: normal).map(\.week) == [1])
+    }
+}

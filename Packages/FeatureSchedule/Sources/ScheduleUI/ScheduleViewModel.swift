@@ -48,6 +48,7 @@ final class ScheduleViewModel {
 
     @ObservationIgnored private var services: AppServices?
     @ObservationIgnored private var studentId: String?
+    @ObservationIgnored private var unifiedUsername: String?
     @ObservationIgnored private var startDays: [TermStartDay] = []
     @ObservationIgnored private var pinnedTerm: AcademicTerm?
     @ObservationIgnored private var lastRefresh: Date?
@@ -108,6 +109,11 @@ final class ScheduleViewModel {
         }
         if studentId != self.studentId { reset() }
         self.studentId = studentId
+        if unifiedUsername != accounts.unifiedUsername {
+            unifiedUsername = accounts.unifiedUsername
+            overrides = []
+            rebuildIndex()
+        }
 
         // 加载过程中账号可能又换了（`.task(id:)` 只会取消，不会打断已经在 await 的代码）：
         // 每次 await 之后核对 generation，旧账号的数据不能写进新账号的界面和小组件快照
@@ -115,11 +121,11 @@ final class ScheduleViewModel {
         let repository = makeRepository(services)
         let cachedDays = (try? await repository.cachedStartDays()) ?? []
         guard gen == generation else { return }
-        startDays = cachedDays
+        updateStartDays(cachedDays)
         let campus = await CampusCalendarRepository(database: services.database).current()
         guard gen == generation else { return }
         campusCalendar = campus
-        await applyTerm(repository: repository, studentId: studentId, generation: gen, useCache: true)
+        await applyTerm(repository: repository, studentId: studentId, generation: gen)
         guard gen == generation else { return }
         await reloadExams(generation: gen)
         guard gen == generation else { return }
@@ -165,7 +171,7 @@ final class ScheduleViewModel {
         let campusRefresh = Task { try? await CampusCalendarRepository(database: services.database).refresh() }
         defer {
             Task { @MainActor in
-                if let updated = await campusRefresh.value, updated != campusCalendar {
+                if let updated = await campusRefresh.value, gen == generation, updated != campusCalendar {
                     campusCalendar = updated
                     rebuildIndex()
                 }
@@ -174,21 +180,22 @@ final class ScheduleViewModel {
         do {
             let fetchedStartDays = try await repository.refreshStartDays()
             guard gen == generation else { return }
-            startDays = fetchedStartDays
+            updateStartDays(fetchedStartDays)
             let previous = term
-            resolveTerm()
-            guard let term else { throw GxuError.invalidData("暂时无法获取学期信息") }
-            // 学期在刷新中滚动到了新学期：这个学期的日程和冲突选择也要换成新学期的
-            if previous != term {
-                let newChoices = await repository.conflictChoices(studentId: studentId, term: term)
-                let newActivities = await repository.customActivities(studentId: studentId, term: term)
-                guard gen == generation else { return }
+            guard let target = resolvedTerm, let calendar = calendar(for: target) else {
+                throw GxuError.invalidData("暂时无法获取学期信息")
+            }
+            let fresh = try await repository.refreshSchedule(studentId: studentId, term: target)
+            guard !Task.isCancelled, gen == generation else { return }
+            if previous != target {
+                let newChoices = await repository.conflictChoices(studentId: studentId, term: target)
+                let newActivities = await repository.customActivities(studentId: studentId, term: target)
+                guard !Task.isCancelled, gen == generation else { return }
                 choices = newChoices
                 activities = newActivities
             }
-            let fresh = try await repository.refreshSchedule(studentId: studentId, term: term)
-            guard gen == generation else { return }
-            apply(fresh, resetWeek: previous != term)
+            setTerm(target, calendar: calendar)
+            apply(fresh, resetWeek: previous != target)
             refreshError = nil
             await reloadExams(generation: gen)
         } catch {
@@ -202,9 +209,11 @@ final class ScheduleViewModel {
 
     /// 读取这个学期的考试并刷新考试图层。账号 / 学期在读取过程中变了就丢弃结果
     func reloadExams(generation gen: Int) async {
-        guard let layersProvider, let studentId, let term else { return }
+        guard let layersProvider, let services, let studentId, let term else { return }
+        let username = services.accounts.unifiedUsername
         let layers = await layersProvider(studentId, term)
-        guard !Task.isCancelled, gen == generation else { return }
+        guard !Task.isCancelled, gen == generation, self.term == term, services.accounts.studentId == studentId,
+              services.accounts.unifiedUsername == username else { return }
         exams = layers.exams
         overrides = layers.overrides
         attendanceMarks = layers.attendance
@@ -217,14 +226,18 @@ final class ScheduleViewModel {
     /// 新增或修改自定义日程，立即反映到课表和小组件快照
     func save(_ activity: CustomActivity) async {
         guard let services, let studentId, let term else { return }
-        try? await makeRepository(services).saveCustomActivity(activity, studentId: studentId, term: term)
+        let gen = generation
+        guard (try? await makeRepository(services).saveCustomActivity(activity, studentId: studentId, term: term)) != nil,
+              gen == generation, self.term == term, services.accounts.studentId == studentId else { return }
         if let i = activities.firstIndex(where: { $0.id == activity.id }) { activities[i] = activity } else { activities.append(activity) }
         activitiesChanged()
     }
 
     func delete(_ activity: CustomActivity) async {
         guard let services, let studentId, let term else { return }
-        try? await makeRepository(services).deleteCustomActivity(id: activity.id, studentId: studentId, term: term)
+        let gen = generation
+        guard (try? await makeRepository(services).deleteCustomActivity(id: activity.id, studentId: studentId, term: term)) != nil,
+              gen == generation, self.term == term, services.accounts.studentId == studentId else { return }
         activities.removeAll { $0.id == activity.id }
         activitiesChanged()
     }
@@ -268,10 +281,14 @@ final class ScheduleViewModel {
         generation += 1
         pinnedTerm = term
         schedule = nil
+        index = ScheduleIndex(occurrences: [])
+        updatedAt = nil
         phase = .loading
         let gen = generation
-        await applyTerm(repository: makeRepository(services), studentId: studentId, generation: gen, useCache: true)
+        await applyTerm(repository: makeRepository(services), studentId: studentId, generation: gen)
+        guard gen == generation else { return }
         await reloadExams(generation: gen)
+        guard gen == generation else { return }
         await refresh()
     }
 
@@ -299,38 +316,46 @@ final class ScheduleViewModel {
         refreshError = nil
         pinnedTerm = nil
         studentId = nil
+        unifiedUsername = nil
     }
 
-    private func resolveTerm() {
-        availableTerms = startDays.map(\.academicTerm).sorted(by: >)
-        if let pinnedTerm {
-            term = pinnedTerm
-        } else if let current = TermResolver.current(in: startDays, now: .now) {
-            term = current.academicTerm
-        }
-        termCalendar = term.flatMap { term in
-            startDays.first { $0.academicTerm == term }.flatMap { TermCalendar($0) }
-        }
+    private func updateStartDays(_ days: [TermStartDay]) {
+        startDays = days
+        availableTerms = days.map(\.academicTerm).sorted(by: >)
     }
 
-    private func applyTerm(repository: ScheduleRepository, studentId: String, generation gen: Int, useCache: Bool) async {
+    private var resolvedTerm: AcademicTerm? {
+        pinnedTerm ?? TermResolver.current(in: startDays, now: .now)?.academicTerm ?? term
+    }
+
+    private func calendar(for term: AcademicTerm) -> TermCalendar? {
+        startDays.first { $0.academicTerm == term }.flatMap { TermCalendar($0) }
+    }
+
+    private func setTerm(_ target: AcademicTerm, calendar: TermCalendar?) {
+        if term != target {
+            exams = []
+            overrides = []
+            attendanceMarks = []
+            attendance = nil
+        }
+        term = target
+        termCalendar = calendar
+    }
+
+    private func applyTerm(repository: ScheduleRepository, studentId: String, generation gen: Int) async {
+        guard let target = resolvedTerm else { return }
         let previous = term
-        resolveTerm()
-        if let term {
-            let newChoices = await repository.conflictChoices(studentId: studentId, term: term)
-            let newActivities = await repository.customActivities(studentId: studentId, term: term)
-            guard gen == generation else { return }
-            choices = newChoices
-            activities = newActivities
-        }
-        let cachedSchedule: CachedSchedule?
-        if let term { cachedSchedule = try? await repository.cachedSchedule(studentId: studentId, term: term) } else { cachedSchedule = nil }
-        guard gen == generation else { return }
-        guard useCache, let term, let cached = cachedSchedule else {
-            if schedule == nil { phase = .loading }
-            return
-        }
-        apply(cached, resetWeek: previous != term)
+        let calendar = calendar(for: target)
+        let cached = try? await repository.cachedSchedule(studentId: studentId, term: target)
+        guard !Task.isCancelled, gen == generation, resolvedTerm == target, cached != nil || schedule == nil else { return }
+        let newChoices = await repository.conflictChoices(studentId: studentId, term: target)
+        let newActivities = await repository.customActivities(studentId: studentId, term: target)
+        guard !Task.isCancelled, gen == generation, resolvedTerm == target else { return }
+        setTerm(target, calendar: calendar)
+        choices = newChoices
+        activities = newActivities
+        if let cached { apply(cached, resetWeek: previous != target) }
     }
 
     private func apply(_ cached: CachedSchedule, resetWeek: Bool) {
@@ -360,8 +385,10 @@ final class ScheduleViewModel {
     }
 
     private func publishWidgetSnapshot() {
-        guard let services, let studentId else { return }
-        let snapshot = NextCourseCalculator.compute(schedule: mergedSchedule, term: termCalendar, campus: campusCalendar, choices: choices, overrides: overrides, now: .now)
+        let now = Date.now
+        guard let services, let studentId, let term, services.accounts.studentId == studentId,
+              TermResolver.current(in: startDays, now: now)?.academicTerm == term else { return }
+        let snapshot = NextCourseCalculator.compute(schedule: mergedSchedule, term: termCalendar, campus: campusCalendar, choices: choices, overrides: overrides, now: now)
         services.shared.set(snapshot, for: ScheduleKit.widgetSnapshotKey(studentId: studentId))
     }
 }

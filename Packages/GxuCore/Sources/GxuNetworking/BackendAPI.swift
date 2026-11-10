@@ -26,4 +26,12 @@ public extension BackendAPI {
 /// 会话失效时由认证层提供的“重新登录”能力。实现方必须自行合并并发调用。
 public protocol SessionRenewer: Sendable {
     func renew(_ system: AuthSystem) async throws
+    /// rejectedToken 是收到失效响应的请求所携带的 token。
+    func renew(_ system: AuthSystem, rejectedToken: String?) async throws
+}
+
+public extension SessionRenewer {
+    func renew(_ system: AuthSystem, rejectedToken: String?) async throws {
+        try await renew(system)
+    }
 }

@@ -1,16 +1,6 @@
 import Foundation
 
-public extension Calendar {
-    /// 同一时区、同一语言环境的公历。设备日历设成佛历 / 日本历 / 农历时，`Calendar.current` 的年份、月份不是公历，
-    /// 用它拼 `2026-07-15` 会得到完全错的日期；解析和展示服务端的公历日期时先转成公历。
-    var gregorianEquivalent: Calendar {
-        if identifier == .gregorian { return self }
-        var c = Calendar(identifier: .gregorian)
-        c.timeZone = timeZone
-        c.locale = locale
-        return c
-    }
-}
+import GxuFoundation
 
 public enum ExamStatus: String, Sendable, Equatable {
     case upcoming, past, tbd
@@ -19,10 +9,12 @@ public enum ExamStatus: String, Sendable, Equatable {
 public struct ParsedExamTime: Equatable, Sendable {
     /// 开始时间，用于排序和展示
     public var date: Date?
+    public let endsAt: Date?
     public var status: ExamStatus
 
-    public init(date: Date?, status: ExamStatus) {
+    public init(date: Date?, endsAt: Date? = nil, status: ExamStatus) {
         self.date = date
+        self.endsAt = endsAt
         self.status = status
     }
 }
@@ -40,7 +32,7 @@ public enum ExamTimeParser {
               let start = makeDate(y, mo, d, sh, sm, calendar),
               let end = makeDate(y, mo, d, eh, em, calendar)
         else { return ParsedExamTime(date: nil, status: .tbd) }
-        return ParsedExamTime(date: start, status: end < now ? .past : .upcoming)
+        return ParsedExamTime(date: start, endsAt: end, status: end < now ? .past : .upcoming)
     }
 
     private static func makeDate(_ y: Int, _ mo: Int, _ d: Int, _ h: Int, _ mi: Int, _ calendar: Calendar) -> Date? {
@@ -56,6 +48,7 @@ public enum ExamTimeParser {
 public struct ExamItem: Hashable, Sendable, Identifiable {
     public var exam: Exam
     public var date: Date?
+    public let endsAt: Date?
     public var status: ExamStatus
     public var id: String { exam.id }
 
@@ -63,6 +56,7 @@ public struct ExamItem: Hashable, Sendable, Identifiable {
         let parsed = ExamTimeParser.parse(exam.time, now: now, calendar: calendar)
         self.exam = exam
         self.date = parsed.date
+        self.endsAt = parsed.endsAt
         self.status = parsed.status
     }
 

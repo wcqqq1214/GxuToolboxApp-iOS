@@ -56,6 +56,7 @@ public enum EngTrainingParser {
     static func resolve(_ text: String, now: Date, calendar: Calendar) -> Date? {
         let numbers = text.split(whereSeparator: { !$0.isNumber }).compactMap { Int($0) }
         guard numbers.count >= 2 else { return nil }
+        let calendar = calendar.gregorianEquivalent
         let year = calendar.component(.year, from: now)
         // `date(from:)` 会把 2月30日 滚成 3月2日：只接受换算后月、日不变的日期（2月29日只在闰年存在）
         let candidates = [year - 1, year, year + 1].compactMap { candidate -> Date? in
@@ -75,20 +76,23 @@ public protocol EngTrainingClient: Sendable {
 public struct LiveEngTrainingClient: EngTrainingClient {
     let unified: UnifiedAuthSession?
 
-    public init(unified: UnifiedAuthSession?) { self.unified = unified }
+    let username: String
+
+    public init(unified: UnifiedAuthSession?, username: String) {
+        self.unified = unified
+        self.username = username
+    }
 
     public func scheduleTable() async throws -> Data {
         guard let unified else { throw GxuError.notLoggedIn(.unified) }
-        let session = try await unified.loginEngTraining()
-        var request = URLRequest(url: URL(string: "http://xlzxms.gxu.edu.cn/api/course-newedition-server/course/course/arrange/stuPersonalArrangeTable")!)
-        request.setValue(session.token, forHTTPHeaderField: "authorization")
-        let (data, response) = try await unified.data(for: request)
+        let request = URLRequest(url: URL(string: "http://xlzxms.gxu.edu.cn/api/course-newedition-server/course/course/arrange/stuPersonalArrangeTable")!)
+        let (data, response) = try await unified.engTrainingData(for: request, username: username)
         guard (200..<300).contains(response.statusCode) else { throw GxuError.http(status: response.statusCode, message: nil) }
         return data
     }
 }
 
-/// 金工实训安排的本地缓存，按学号隔离；刷新失败保留旧缓存
+/// 金工实训安排的本地缓存，按统一认证账号隔离；刷新失败保留旧缓存
 public struct EngTrainingRepository: Sendable {
     private let database: AppDatabase
     private let client: any EngTrainingClient
@@ -98,23 +102,25 @@ public struct EngTrainingRepository: Sendable {
         self.client = client
     }
 
-    public func cached(studentId: String) async -> [EngTrainingDay] {
+    public func cached(unifiedUsername: String) async -> [EngTrainingDay] {
+        let cacheKey = PracticeCache.key(for: unifiedUsername)
         let blobs = try? await database.writer.read { db -> [Data] in
-            try Row.fetchAll(db, sql: "SELECT json FROM eng_training WHERE studentId = ?", arguments: [studentId]).map { $0["json"] }
+            try Row.fetchAll(db, sql: "SELECT json FROM eng_training WHERE studentId = ?", arguments: [cacheKey]).map { $0["json"] }
         }
         return (blobs ?? []).compactMap { try? JSONDecoder().decode(EngTrainingDay.self, from: $0) }.sorted { $0.date < $1.date }
     }
 
     @discardableResult
-    public func refresh(studentId: String, now: Date = .now) async throws -> [EngTrainingDay] {
+    public func refresh(unifiedUsername: String, now: Date = .now) async throws -> [EngTrainingDay] {
         let table = try EngTrainingParser.parseTable(try await client.scheduleTable(), now: now)
         if table.cellCount > 0, table.days.isEmpty { throw GxuError.decoding("金工实训数据格式不正确") }   // 保留旧缓存
         let days = table.days
+        let cacheKey = PracticeCache.key(for: unifiedUsername)
         let rows = try days.map { ($0.dateText, try JSONEncoder().encode($0)) }
         try await database.writer.write { db in
-            try db.execute(sql: "DELETE FROM eng_training WHERE studentId = ?", arguments: [studentId])
+            try db.execute(sql: "DELETE FROM eng_training WHERE studentId = ?", arguments: [cacheKey])
             for (id, json) in rows {
-                try db.execute(sql: "INSERT INTO eng_training (studentId, id, json) VALUES (?, ?, ?)", arguments: [studentId, id, json])
+                try db.execute(sql: "INSERT INTO eng_training (studentId, id, json) VALUES (?, ?, ?)", arguments: [cacheKey, id, json])
             }
         }
         return days

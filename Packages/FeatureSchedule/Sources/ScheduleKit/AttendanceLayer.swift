@@ -1,3 +1,4 @@
+import GxuFoundation
 import Foundation
 
 /// 考勤图层（RN v2.2 `normalizeAttendanceRecords` + 课表上的状态图标）。考勤数据来自别的模块（FeatureMisc），由 Shell 转成字符串形式注入。

@@ -42,7 +42,10 @@ enum HomeEvent: Equatable {
     }
 
     static func pick(plan: TodayPlan, exams: [ExamItem], holiday: NextHoliday? = nil, now: Date) -> HomeEvent? {
-        let ongoingExam = exams.first { ($0.date ?? .distantFuture) <= now }
+        let ongoingExam = exams.first { exam in
+            guard let start = exam.date, let end = exam.endsAt else { return false }
+            return start <= now && now < end
+        }
         if let ongoingExam { return .exam(ongoingExam, isOngoing: true) }
         if let current = plan.current { return .course(current, isOngoing: true, isTomorrow: false) }
 

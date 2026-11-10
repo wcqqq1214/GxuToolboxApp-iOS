@@ -79,23 +79,23 @@ struct ReviewRegressionTests {
         let raw = #"{"datas":[[{"startRow":2,"startCol":1,"colNumber":1,"content":"10月8日"},{"startRow":2,"startCol":2,"colNumber":1,"content":"10月8日"}]]}"#
         let db = try AppDatabase.inMemory(features: [CampusFeature.migrations])
         let repo = EngTrainingRepository(database: db, client: FakeEng2(data: Data(raw.utf8)))
-        do { _ = try await repo.refresh(studentId: "A", now: d(2026, 10, 1)); print("DUP ok") } catch { print("DUP threw:", error) ; throw error }
+        do { _ = try await repo.refresh(unifiedUsername: "A", now: d(2026, 10, 1)); print("DUP ok") } catch { print("DUP threw:", error) ; throw error }
     }
 
     @Test func emptyOrRenamedPayloadWipesCache() async throws {
         let db = try AppDatabase.inMemory(features: [CampusFeature.migrations])
         let good = #"{"datas":[[{"startRow":2,"startCol":1,"colNumber":1,"content":"10月8日"}]]}"#
-        _ = try await EngTrainingRepository(database: db, client: FakeEng2(data: Data(good.utf8))).refresh(studentId: "A", now: d(2026, 10, 1))
+        _ = try await EngTrainingRepository(database: db, client: FakeEng2(data: Data(good.utf8))).refresh(unifiedUsername: "A", now: d(2026, 10, 1))
         let shifted = #"{"datas":[[{"startRow":3,"startCol":1,"colNumber":1,"content":"10月8日"}]]}"#
-        _ = try? await EngTrainingRepository(database: db, client: FakeEng2(data: Data(shifted.utf8))).refresh(studentId: "A", now: d(2026, 10, 1))
-        let eng = await EngTrainingRepository(database: db, client: FakeEng2(data: Data())).cached(studentId: "A").count
+        _ = try? await EngTrainingRepository(database: db, client: FakeEng2(data: Data(shifted.utf8))).refresh(unifiedUsername: "A", now: d(2026, 10, 1))
+        let eng = await EngTrainingRepository(database: db, client: FakeEng2(data: Data())).cached(unifiedUsername: "A").count
         #expect(eng == 1)
 
         let goodPec = #"{"d":"{\"data\":[{\"id\":\"1\",\"skrq\":\"20261008\",\"xmmc\":\"x\"}]}"}"#
-        _ = try await PhyExpRepository(database: db, client: FakePEC(data: Data(goodPec.utf8))).refresh(studentId: "A")
+        _ = try await PhyExpRepository(database: db, client: FakePEC(data: Data(goodPec.utf8))).refresh(unifiedUsername: "A")
         let renamed = #"{"d":"{\"data\":[{\"id\":\"1\",\"rq\":\"20261008\",\"xmmc\":\"x\"}]}"}"#
-        let r = try? await PhyExpRepository(database: db, client: FakePEC(data: Data(renamed.utf8))).refresh(studentId: "A")
-        let phy = await PhyExpRepository(database: db, client: FakePEC(data: Data())).cached(studentId: "A").count
+        let r = try? await PhyExpRepository(database: db, client: FakePEC(data: Data(renamed.utf8))).refresh(unifiedUsername: "A")
+        let phy = await PhyExpRepository(database: db, client: FakePEC(data: Data())).cached(unifiedUsername: "A").count
         #expect(phy == 1)
     }
 

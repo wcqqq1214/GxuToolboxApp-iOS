@@ -12,9 +12,14 @@ YEAR="${1:-2025}"; TERM="${2:-1}"
 OUT="$ROOT/Fixtures/raw"; mkdir -p "$OUT"
 JAR="$(mktemp)"; trap 'rm -f "$JAR"' EXIT
 
-curl -sS -c "$JAR" -D "$OUT/jw_login.headers.txt" -o "$OUT/jw_login.body.json" \
+LOGIN_JSON="$(JW_USER="$JW_USER" JW_PASS="$JW_PASS" python3 - <<'PY'
+import json, os
+print(json.dumps({"username": os.environ["JW_USER"], "password": os.environ["JW_PASS"]}))
+PY
+)"
+printf '%s' "$LOGIN_JSON" | curl -sS -c "$JAR" -D "$OUT/jw_login.headers.txt" -o "$OUT/jw_login.body.json" \
   -H 'Content-Type: application/json' \
-  -d "{\"username\":\"$JW_USER\",\"password\":\"$JW_PASS\"}" "$BASE/jw/login"
+  --data-binary @- "$BASE/jw/login"
 grep -q JSESSIONID "$JAR" || { echo "登录失败，见 $OUT/jw_login.*" >&2; exit 1; }
 
 fetch() { # name path

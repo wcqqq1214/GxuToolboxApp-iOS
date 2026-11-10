@@ -121,6 +121,7 @@ private struct HomeList: View {
 
             // 已经在“接下来”里展示的那场考试不再重复
             let otherExams = model.exams.filter { exam in
+                guard let end = exam.endsAt, now < end else { return false }
                 if case .exam(let shown, _) = shownEvent { return shown.id != exam.id }
                 return true
             }

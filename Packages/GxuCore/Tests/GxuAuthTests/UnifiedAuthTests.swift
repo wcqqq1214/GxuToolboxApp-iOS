@@ -36,6 +36,45 @@ private func bodyString(_ request: URLRequest) -> String {
     return String(decoding: data, as: UTF8.self)
 }
 
+/// 延后一次 PEC 登录响应，同时允许退出和新账号登录的请求完成。
+private final class DeferredUnifiedRejection: URLProtocol, @unchecked Sendable {
+    private static let pending = Mutex<DeferredUnifiedRejection?>(nil)
+
+    override class func canInit(with request: URLRequest) -> Bool {
+        request.httpMethod == "POST" && request.url?.query?.contains("caslogin") == true
+    }
+
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        Self.pending.withLock { $0 = self }
+    }
+
+    override func stopLoading() {}
+
+    static func waitForRequest() async throws {
+        let deadline = ContinuousClock.now + .seconds(5)
+        while !pending.withLock({ $0 != nil }) {
+            guard ContinuousClock.now < deadline else { throw URLError(.timedOut) }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+    }
+
+    static func release() {
+        let stub = pending.withLock { value in
+            let stub = value
+            value = nil
+            return stub
+        }
+        guard let stub, let client = stub.client else { return }
+        let page = loginPage.replacingOccurrences(of: "</form>", with: #"<p id="errormsg">密码错误</p></form>"#)
+        let (response, data) = reply(stub.request, page)
+        client.urlProtocol(stub, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client.urlProtocol(stub, didLoad: data)
+        client.urlProtocolDidFinishLoading(stub)
+    }
+}
+
 /// 这些测试都用固定域名（ca / xlzxms），合并成一个串行测试，避免并行互相覆盖 handler。
 @Suite(.serialized)
 struct UnifiedAuthTests {
@@ -234,6 +273,35 @@ struct UnifiedAuthTests {
         await settle()
         #expect(rejected.states[.unified] == .signedOut)
         #expect(rejected.states[.unified]?.displayText == "需要重新登录")
+    }
+
+    @MainActor
+    @Test func lateServiceRejectionDoesNotSignOutReplacementAccount() async throws {
+        defer { DeferredUnifiedRejection.release() }
+        StubURLProtocol.register(host: "ca.gxu.edu.cn") { request in
+            let path = request.url!.path
+            if path.hasSuffix("getPubKey") { return reply(request, pubKey) }
+            if path.hasSuffix("getKaptchaStatus") { return reply(request, "false") }
+            if path.hasSuffix("getYyfz.zf") { return reply(request, "[]") }
+            if path.hasSuffix("logout") { return reply(request, "<html>logout</html>") }
+            if request.httpMethod == "POST" { return reply(request, "<html>success</html>") }
+            return reply(request, loginPage)
+        }
+        let creds = InMemoryCredentialStore([.unified: Credential(username: "A", password: "fake-A")])
+        let configuration = StubURLProtocol.makeConfiguration()
+        configuration.protocolClasses = [DeferredUnifiedRejection.self, StubURLProtocol.self]
+        let unified = UnifiedAuthSession(credentials: creds, configuration: configuration)
+        let transport = BackendClient(session: BackendClient.makeSession(configuration: StubURLProtocol.makeConfiguration()))
+        let accounts = AccountCenter(credentials: creds, jw: JwSessionManager(credentials: creds, transport: transport), unified: unified)
+        let stale = Task { try await unified.loginPEC() }
+        defer { stale.cancel() }
+        try await DeferredUnifiedRejection.waitForRequest()
+        await accounts.logout(.unified)
+        try await accounts.login(.unified, username: "B", password: "fake-B")
+        DeferredUnifiedRejection.release()
+        await #expect(throws: CancellationError.self) { try await stale.value }
+        #expect(accounts.savedUsername(.unified) == "B")
+        #expect(accounts.states[.unified] == .authenticated)
     }
 
     /// 回归（真机日志「校验接口：不是 JSON（HTTP 200）」）：真实响应是 JSON 数组，只认字典会把成功的登录判成失败。

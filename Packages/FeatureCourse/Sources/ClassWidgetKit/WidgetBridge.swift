@@ -1,5 +1,6 @@
 import GxuAuth
 import GxuStorage
+import Observation
 import ScheduleKit
 import SwiftUI
 import UIKit
@@ -12,32 +13,67 @@ import WidgetKit
 /// 每次进入前台、账号变化时：从本地缓存重新算快照写入 App Group → 刷新小组件时间线 → 同步 Live Activity。
 @MainActor
 public enum WidgetBridge {
+    private static var refreshIDs: [ObjectIdentifier: UUID] = [:]
+    private enum RefreshTrigger: Sendable { case foreground, accountChanged }
+
     /// 运行直到任务取消。
     public static func run(services: AppServices) async {
         #if DEBUG
         if let directory = WidgetGallery.outputDirectory() { WidgetGallery.run(into: directory); return }
         if ProcessInfo.processInfo.arguments.contains("-GxuWidgetDemo") { await runDemo(services: services); return }
         #endif
+        let (triggers, continuation) = AsyncStream<RefreshTrigger>.makeStream()
+        let foreground = Task {
+            for await _ in NotificationCenter.default.notifications(named: UIApplication.didBecomeActiveNotification) {
+                continuation.yield(.foreground)
+            }
+        }
+        defer {
+            foreground.cancel()
+            continuation.finish()
+        }
+        func observeAccount() {
+            withObservationTracking {
+                _ = services.accounts.studentId
+                _ = services.accounts.unifiedUsername
+            } onChange: {
+                continuation.yield(.accountChanged)
+            }
+        }
+
+        observeAccount()
         await refresh(services: services)
-        for await _ in NotificationCenter.default.notifications(named: UIApplication.didBecomeActiveNotification) {
+        for await trigger in triggers {
+            if case .accountChanged = trigger { observeAccount() }
             await refresh(services: services)
         }
     }
 
     public static func refresh(services: AppServices, now: Date = .now) async {
-        guard let studentId = services.accounts.studentId else {
+        guard !Task.isCancelled else { return }
+        let key = ObjectIdentifier(services.accounts)
+        let refreshID = UUID()
+        refreshIDs[key] = refreshID
+        defer { if refreshIDs[key] == refreshID { refreshIDs[key] = nil } }
+        if services.shared.value(WidgetShared.activeStudentIdKey) != services.accounts.studentId {
             services.shared.set(nil, for: WidgetShared.activeStudentIdKey)
-            await ClassActivityController.shared.endAll()
+            services.shared.set(nil, for: WidgetShared.hadClassesDayKey)
             WidgetCenter.shared.reloadAllTimelines()
+        }
+        guard let studentId = services.accounts.studentId else {
+            await ClassActivityController.shared.endAll()
             return
         }
-        let snapshot = await SnapshotProvider.compute(studentId: studentId, database: services.database, now: now)
-        services.shared.set(snapshot, for: ScheduleKit.widgetSnapshotKey(studentId: studentId))
-        services.shared.set(studentId, for: WidgetShared.activeStudentIdKey)
+        let unifiedUsername = services.accounts.unifiedUsername
+        let snapshot = await SnapshotProvider.compute(studentId: studentId, database: services.database, unifiedUsername: unifiedUsername, now: now)
         // 最后一节课结束后刷新时 `today` 为空，另记一笔"今天有过课"，小组件才能写"今天的课已上完"
         var had = !snapshot.today.isEmpty
-        if !had { had = await SnapshotProvider.hadClasses(on: now, studentId: studentId, database: services.database) }
+        if !had { had = await SnapshotProvider.hadClasses(on: now, studentId: studentId, database: services.database, unifiedUsername: unifiedUsername) }
+        guard !Task.isCancelled, refreshIDs[key] == refreshID, services.accounts.studentId == studentId,
+              services.accounts.unifiedUsername == unifiedUsername else { return }
+        services.shared.set(snapshot, for: ScheduleKit.widgetSnapshotKey(studentId: studentId))
         services.shared.set(had ? Calendar.current.startOfDay(for: now) : nil, for: WidgetShared.hadClassesDayKey)
+        services.shared.set(studentId, for: WidgetShared.activeStudentIdKey)
         WidgetCenter.shared.reloadAllTimelines()
         await ClassActivityController.shared.sync(snapshot: snapshot, now: now)
     }

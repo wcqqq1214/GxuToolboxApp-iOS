@@ -34,6 +34,7 @@ public struct ScheduleRootView: View {
     private struct AccountKey: Hashable {
         var studentId: String?
         var state: AuthState?
+        var unifiedUsername: String?
     }
 
     private struct AttendanceKey: Hashable {
@@ -57,7 +58,8 @@ public struct ScheduleRootView: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar { toolbar }
         }
-        .task(id: AccountKey(studentId: services.accounts.studentId, state: services.accounts.states[.jw])) {
+        .task(id: AccountKey(studentId: services.accounts.studentId, state: services.accounts.states[.jw],
+                             unifiedUsername: services.accounts.unifiedUsername)) {
             model.layersProvider = layers
             await model.load(services: services)
         }

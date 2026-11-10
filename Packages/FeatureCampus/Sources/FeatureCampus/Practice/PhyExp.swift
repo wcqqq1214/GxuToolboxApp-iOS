@@ -24,7 +24,10 @@ public struct PhyExperiment: Codable, Sendable, Hashable, Identifiable {
     public func date(calendar: Calendar = .current) -> Date? {
         guard dateText.count == 8, let year = Int(dateText.prefix(4)), let month = Int(dateText.dropFirst(4).prefix(2)), let day = Int(dateText.suffix(2))
         else { return nil }
-        return calendar.date(from: DateComponents(year: year, month: month, day: day))
+        let calendar = calendar.gregorianEquivalent
+        guard let date = calendar.date(from: DateComponents(year: year, month: month, day: day)) else { return nil }
+        let actual = calendar.dateComponents([.year, .month, .day], from: date)
+        return actual.year == year && actual.month == month && actual.day == day ? date : nil
     }
 
     /// 显示用标题：实验名，没有就用课程名
@@ -88,22 +91,26 @@ public protocol PECClient: Sendable {
 public struct LivePECClient: PECClient {
     let unified: UnifiedAuthSession?
 
-    public init(unified: UnifiedAuthSession?) { self.unified = unified }
+    let username: String
+
+    public init(unified: UnifiedAuthSession?, username: String) {
+        self.unified = unified
+        self.username = username
+    }
 
     public func ruleManage() async throws -> Data {
         guard let unified else { throw GxuError.notLoggedIn(.unified) }
-        try await unified.loginPEC()
         var request = URLRequest(url: URL(string: "https://pec.gxu.edu.cn/LMSmini/teacher/UI/wxInterface/syjx.asmx/getRuleManage")!)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: ["page": 1, "limit": 100])
-        let (data, response) = try await unified.data(for: request)
+        let (data, response) = try await unified.pecData(for: request, username: username)
         guard (200..<300).contains(response.statusCode) else { throw GxuError.http(status: response.statusCode, message: nil) }
         return data
     }
 }
 
-/// 物理实验课的本地缓存，按学号隔离。先读缓存，再 `refresh`；刷新失败保留旧缓存。
+/// 物理实验课的本地缓存，按统一认证账号隔离。先读缓存，再 `refresh`；刷新失败保留旧缓存。
 public struct PhyExpRepository: Sendable {
     private let database: AppDatabase
     private let client: any PECClient
@@ -113,26 +120,28 @@ public struct PhyExpRepository: Sendable {
         self.client = client
     }
 
-    public func cached(studentId: String) async -> [PhyExperiment] {
+    public func cached(unifiedUsername: String) async -> [PhyExperiment] {
+        let cacheKey = PracticeCache.key(for: unifiedUsername)
         let blobs = try? await database.writer.read { db -> [Data] in
-            try Row.fetchAll(db, sql: "SELECT json FROM phy_experiment WHERE studentId = ?", arguments: [studentId]).map { $0["json"] }
+            try Row.fetchAll(db, sql: "SELECT json FROM phy_experiment WHERE studentId = ?", arguments: [cacheKey]).map { $0["json"] }
         }
         return Self.sorted((blobs ?? []).compactMap { try? JSONDecoder().decode(PhyExperiment.self, from: $0) })
     }
 
     @discardableResult
-    public func refresh(studentId: String) async throws -> [PhyExperiment] {
+    public func refresh(unifiedUsername: String) async throws -> [PhyExperiment] {
         let parsed = try PhyExpParser.parseRows(try await client.ruleManage())
         if parsed.rowCount > 0, parsed.items.isEmpty { throw GxuError.decoding("物理实验数据格式不正确") }   // 保留旧缓存
         let list = Self.sorted(parsed.items)
+        let cacheKey = PracticeCache.key(for: unifiedUsername)
         let rows = try list.map { ($0.id, try JSONEncoder().encode($0)) }
         try await database.writer.write { db in
             // 先删后插：已取消的实验课不残留
-            try db.execute(sql: "DELETE FROM phy_experiment WHERE studentId = ?", arguments: [studentId])
+            try db.execute(sql: "DELETE FROM phy_experiment WHERE studentId = ?", arguments: [cacheKey])
             for (id, json) in rows {
                 try db.execute(
                     sql: "INSERT INTO phy_experiment (studentId, id, json) VALUES (?, ?, ?) ON CONFLICT(studentId, id) DO UPDATE SET json = excluded.json",
-                    arguments: [studentId, id, json]
+                    arguments: [cacheKey, id, json]
                 )
             }
         }
@@ -149,8 +158,9 @@ public struct PhyExpRepository: Sendable {
 public enum PhyExpOverrides {
     public static let courseNameKeyword = "物理实验"
 
-    public static func cached(database: AppDatabase, studentId: String, calendar: Calendar = .current) async -> [OccurrenceOverride] {
-        let labs = await PhyExpRepository(database: database, client: OfflinePECClient()).cached(studentId: studentId)
+    public static func cached(database: AppDatabase, unifiedUsername: String?, calendar: Calendar = .current) async -> [OccurrenceOverride] {
+        guard let unifiedUsername else { return [] }
+        let labs = await PhyExpRepository(database: database, client: OfflinePECClient()).cached(unifiedUsername: unifiedUsername)
         return overrides(for: labs, calendar: calendar)
     }
 

@@ -38,7 +38,8 @@ private func coursesDialog(offset: Int, name: String) async throws -> (String, [
     let calendar = Calendar.current
     let day = calendar.date(byAdding: .day, value: offset, to: calendar.startOfDay(for: .now)) ?? .now
     do {
-        let courses = try await ScheduleQuery.courses(on: day, studentId: studentId, database: database)
+        let username = KeychainCredentialStore().load(.unified)?.username
+        let courses = try await ScheduleQuery.courses(on: day, studentId: studentId, database: database, unifiedUsername: username)
         return (ScheduleQuery.describe(dayName: name, courses: courses), courses)
     } catch {
         throw IntentFailure.noSchedule

@@ -38,6 +38,15 @@ struct ScheduleLogicTests {
         #expect(try JSONDecoder().decode(Schedule.self, from: Data(dirty.utf8)).theoryList[0].isValid == false)
     }
 
+    @Test func outOfRangeNumbersFallBackToSectionRange() throws {
+        let json = #"{"theoryList":[{"sectionRange":"3-4","begin":1e20,"end":-1e20,"weekday":2.5,"weeks":[1]}]}"#
+        let schedule = try JSONDecoder().decode(Schedule.self, from: Data(json.utf8))
+        let course = try #require(schedule.theoryList.first)
+        #expect(course.begin == 3)
+        #expect(course.end == 4)
+        #expect(course.weekday == 2)
+    }
+
     @Test func expandsRealScheduleIntoDatedOccurrences() throws {
         let all = ScheduleExpander.occurrences(of: try personalFixture(), in: realTerm)
         #expect(all.count == 157)   // 各课程 weeks 数量之和

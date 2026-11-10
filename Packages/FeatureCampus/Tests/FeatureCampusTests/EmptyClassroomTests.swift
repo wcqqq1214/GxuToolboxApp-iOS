@@ -99,6 +99,14 @@ struct EmptyClassroomFetchTests {
         }
     }
 
+    @Test func paginationRejectsEmptyPageBeforeAdvertisedLastPage() async {
+        await #expect(throws: IncompleteDataError.self) {
+            _ = try await EmptyClassroomAPI.collectSlotPages { pageNum in
+                ClassroomPage(totalPage: 3, items: pageNum == 2 ? [] : [.init(classroomName: "\(pageNum)", building: "A")])
+            }
+        }
+    }
+
     @Test func fetchDayMergesThirteenPeriodsAndDedupes() async throws {
         let backend = ClosureBackend { query in
             let period = Int(query["timeList"]!)!

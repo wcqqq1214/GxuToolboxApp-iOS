@@ -49,7 +49,7 @@ public enum ScheduleExpander {
         var result: [CourseOccurrence] = []
         for course in schedule.theoryList where course.isValid {
             guard let first = ClassPeriods.period(course.begin), let last = ClassPeriods.period(course.end) else { continue }
-            for week in Set(course.weeks) where week >= 1 {
+            for week in Set(course.weeks) where (1...TermCalendar.maximumWeeks).contains(week) {
                 let day = term.date(week: week, weekday: course.weekday)
                 guard
                     let start = calendar.date(bySettingHour: first.start.hour, minute: first.start.minute, second: 0, of: day),

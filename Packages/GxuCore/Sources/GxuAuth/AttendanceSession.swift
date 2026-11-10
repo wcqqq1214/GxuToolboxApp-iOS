@@ -114,8 +114,8 @@ public final class AttendanceSession: SessionRenewer, @unchecked Sendable {
     }
 
     /// 给 `BackendClient(tokenProvider:)` 用
-    public var token: String? { tokens.load() }
-    public var hasToken: Bool { tokens.load() != nil }
+    public var token: String? { lock.withLock { tokens.load() } }
+    public var hasToken: Bool { token != nil }
     public var loginInfo: AttendanceLoginInfo? { lock.withLock { info } }
 
     public func captcha() async throws -> AttendanceCaptcha {
@@ -129,22 +129,34 @@ public final class AttendanceSession: SessionRenewer, @unchecked Sendable {
         let result = try await transport.postData("/attendance/v2/login", body: body, auth: nil, as: AttendanceLoginResult.self)
         guard !result.token.isEmpty else { throw GxuError.invalidData("登录失败，请检查账号、密码和验证码") }
         let newInfo = AttendanceLoginInfo(userId: result.userId, calendarId: result.calendarId)
-        tokens.save(result.token)
-        defaults.set(try? JSONEncoder().encode(newInfo), forKey: Self.infoKey)
-        let observer = lock.withLock { info = newInfo; return self.observer }
+        let observer = lock.withLock {
+            tokens.save(result.token)
+            defaults.set(try? JSONEncoder().encode(newInfo), forKey: Self.infoKey)
+            info = newInfo
+            return self.observer
+        }
         observer?(.authenticated)
     }
 
     public func clear() {
-        tokens.save(nil)
-        defaults.removeObject(forKey: Self.infoKey)
-        lock.withLock { info = nil }
+        lock.withLock {
+            tokens.save(nil)
+            defaults.removeObject(forKey: Self.infoKey)
+            info = nil
+        }
     }
 
     /// 后端返回 401（token 无效）：清掉 token，通知状态变为已登出，由 UI 引导用户重新输入验证码
     public func renew(_ system: AuthSystem) async throws {
-        tokens.save(nil)
-        let observer = lock.withLock { self.observer }
+        try await renew(system, rejectedToken: token)
+    }
+
+    public func renew(_ system: AuthSystem, rejectedToken: String?) async throws {
+        let observer = try lock.withLock {
+            guard tokens.load() == rejectedToken else { throw CancellationError() }
+            tokens.save(nil)
+            return self.observer
+        }
         observer?(.signedOut)
         throw GxuError.sessionExpired(.attendance)
     }
@@ -159,9 +171,14 @@ public struct SessionRenewers: SessionRenewer {
         self.attendance = attendance
     }
     public func renew(_ system: AuthSystem) async throws {
-        switch system {
-        case .attendance: try await attendance.renew(system)
-        default: try await jw.renew(system)
-        }
+        try await renewer(for: system).renew(system)
+    }
+
+    public func renew(_ system: AuthSystem, rejectedToken: String?) async throws {
+        try await renewer(for: system).renew(system, rejectedToken: rejectedToken)
+    }
+
+    private func renewer(for system: AuthSystem) -> any SessionRenewer {
+        system == .attendance ? attendance : jw
     }
 }

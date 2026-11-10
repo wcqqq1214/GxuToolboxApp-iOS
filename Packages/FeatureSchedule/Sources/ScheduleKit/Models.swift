@@ -188,7 +188,7 @@ extension KeyedDecodingContainer {
     /// 整数或数字字符串；无法解析（含 NaN）返回 nil
     func lenientInt(_ key: Key) -> Int? {
         if let value = try? decodeIfPresent(Int.self, forKey: key) { return value }
-        if let value = try? decodeIfPresent(Double.self, forKey: key), value.isFinite { return Int(value) }
+        if let value = try? decodeIfPresent(Double.self, forKey: key) { return Int(exactly: value.rounded(.towardZero)) }
         if let value = try? decodeIfPresent(String.self, forKey: key) { return Int(value.trimmingCharacters(in: .whitespaces)) }
         return nil
     }

@@ -93,7 +93,7 @@ public struct EmptyClassroomAPI: Sendable {
             if page.items.count < pageSize { hitMax = false; break }
         }
         if let totalCount, rawCount < totalCount { throw IncompleteDataError(collected: rawCount, expected: totalCount, pagesFetched: pagesFetched) }
-        if hitMax, let totalPage, pagesFetched < totalPage { throw IncompleteDataError(collected: rawCount, expected: totalCount, pagesFetched: pagesFetched) }
+        if totalCount == nil, let totalPage, pagesFetched < totalPage { throw IncompleteDataError(collected: rawCount, expected: nil, pagesFetched: pagesFetched) }
         if hitMax, totalCount == nil, totalPage == nil { throw IncompleteDataError(collected: rawCount, expected: nil, pagesFetched: pagesFetched) }
         return items
     }

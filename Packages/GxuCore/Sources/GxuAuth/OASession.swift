@@ -11,6 +11,7 @@ public actor OASession {
     private let tokens: any TokenStore
     private let session: URLSession
     private var pending: Task<Void, Error>?
+    private var generation = 0
     private var observer: (@Sendable (AuthState) -> Void)?
 
     public init(credentials: any CredentialStore, tokens: any TokenStore, configuration: URLSessionConfiguration = .ephemeral) {
@@ -25,11 +26,13 @@ public actor OASession {
     nonisolated public var hasToken: Bool { tokens.load() != nil }
 
     public func login(username: String, password: String) async throws {
+        let generation = self.generation
         var request = URLRequest(url: Self.loginURL)
         request.httpMethod = "POST"
         request.setValue("application/json; charset=utf-8", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: ["Account": username, "Password": password])
         let (data, response) = try await perform(request)
+        try checkGeneration(generation)
         guard (200..<300).contains(response.statusCode) else {
             throw Self.httpError(response, data)
         }
@@ -68,6 +71,9 @@ public actor OASession {
     }
 
     public func clear() {
+        generation &+= 1
+        pending?.cancel()
+        pending = nil
         tokens.save(nil)
         let storage = session.configuration.httpCookieStorage
         for cookie in storage?.cookies(for: Self.loginURL) ?? [] where cookie.name == "token" {
@@ -77,11 +83,16 @@ public actor OASession {
 
     /// 带 Bearer 发请求。HTTP 401 时用 Keychain 里的账号重新登录一次再重试；仍然 401 抛 `sessionExpired(.oa)`。
     public func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+        let generation = self.generation
         if tokens.load() == nil { try await renew() }
+        try checkGeneration(generation)
         var (data, response) = try await perform(authorized(request))
+        try checkGeneration(generation)
         if response.statusCode == 401 {
             try await renew()
+            try checkGeneration(generation)
             (data, response) = try await perform(authorized(request))
+            try checkGeneration(generation)
             if response.statusCode == 401 {
                 observer?(.signedOut)
                 throw GxuError.sessionExpired(.oa)
@@ -158,15 +169,28 @@ public actor OASession {
 
     // MARK: Internals
 
+    private func checkGeneration(_ generation: Int) throws {
+        guard generation == self.generation else { throw CancellationError() }
+    }
+
     private func renew() async throws {
-        if let pending { return try await pending.value }
+        let generation = self.generation
+        if let pending {
+            try await pending.value
+            return try checkGeneration(generation)
+        }
         let task = Task<Void, Error> {
+            try checkGeneration(generation)
             guard let credential = credentials.load(.oa) else { throw GxuError.notLoggedIn(.oa) }
             try await login(username: credential.username, password: credential.password)
         }
         pending = task
-        defer { pending = nil }
-        do { try await task.value } catch {
+        defer { if generation == self.generation { pending = nil } }
+        do {
+            try await task.value
+            try checkGeneration(generation)
+        } catch {
+            try checkGeneration(generation)
             // 只有服务器明确拒绝账号密码才算「需要重新登录」；网络错误、非 JSON 页面、5xx 不改变状态
             if let error = error as? GxuError, error.isCredentialRejection { observer?(.signedOut) }
             throw error

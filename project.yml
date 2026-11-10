@@ -18,6 +18,9 @@ settings:
     MARKETING_VERSION: "2.2.0"       # 对齐 RN origin/v2.2 的 package.json / versionName
     CURRENT_PROJECT_VERSION: "20200"   # 对齐 RN android versionCode 20200（版本检查拿它和后端 versionCode 比较）
 packages:
+  GRDB:
+    url: https://github.com/groue/GRDB.swift.git
+    from: 7.0.0
   GxuCore: {path: Packages/GxuCore}
   GxuDesign: {path: Packages/GxuDesign}
   FeatureAccount: {path: Packages/FeatureAccount}
@@ -84,6 +87,18 @@ targets:
       - {package: FeatureCourse, product: ClassWidgetKit}
       - {package: FeatureCourse, product: ToolboxIntents}
       - {package: FeatureMisc, product: FeatureMisc}
+  GxuToolAppTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [AppTests]
+    dependencies:
+      - target: GxuToolApp
+      - {package: GxuCore, product: GxuTestSupport}
+      - {package: GRDB, product: GRDB}
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(GXU_BUNDLE_ID).tests
+        GENERATE_INFOPLIST_FILE: YES
   GxuToolAppUITests:
     type: bundle.ui-testing
     platform: iOS
@@ -133,4 +148,4 @@ schemes:
       targets:
         GxuToolApp: all
     test:
-      targets: [GxuToolAppUITests]
+      targets: [GxuToolAppTests, GxuToolAppUITests]

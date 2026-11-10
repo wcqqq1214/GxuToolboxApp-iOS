@@ -7,6 +7,7 @@ import SwiftUI
 /// 工具箱 → 金工实训：缓存优先，后台刷新；需要统一认证账号（工程训练中心用 CA 单点登录）。
 struct EngTrainingView: View {
     @Environment(\.services) private var services
+    @State private var loadedUsername: String?
     @State private var days: [EngTrainingDay] = []
     @State private var updating = false
     @State private var error: GxuError?
@@ -16,12 +17,12 @@ struct EngTrainingView: View {
 
     var body: some View {
         Group {
-            if needsAccount, days.isEmpty {
+            if username == nil {
                 GxuEmptyView(
                     "需要统一认证账号", systemImage: "person.crop.circle.badge.questionmark",
                     message: "金工实训安排来自工程训练中心，请先在 设置 → 统一认证账号 登录"
                 )
-            } else if !loadedOnce, days.isEmpty {
+            } else if loadedUsername != username || (!loadedOnce && days.isEmpty) {
                 GxuLoadingView("正在加载实训安排…")
             } else if days.isEmpty {
                 if let error {
@@ -40,7 +41,7 @@ struct EngTrainingView: View {
                 if updating { ProgressView() } else { Link(destination: Self.siteURL) { Image(systemName: "safari") }.accessibilityLabel("在工程训练中心查看") }
             }
         }
-        .task { await load() }
+        .task(id: username) { await load() }
     }
 
     private var content: some View {
@@ -68,37 +69,47 @@ struct EngTrainingView: View {
         .refreshable { await refresh() }
     }
 
-    private var needsAccount: Bool {
+    private var username: String? {
         #if DEBUG
-        if CommandLine.arguments.contains("-GxuEngDemo") { return false }
+        if CommandLine.arguments.contains("-GxuEngDemo") { return "demo" }
         #endif
-        return services.accounts.states[.unified] == .noAccount
+        return services.accounts.unifiedUsername
     }
 
-    private func repository() -> EngTrainingRepository {
+    private func repository(username: String) -> EngTrainingRepository {
         #if DEBUG
         if CommandLine.arguments.contains("-GxuEngDemo") { return EngTrainingRepository(database: services.database, client: DemoEng()) }
         #endif
-        return EngTrainingRepository(database: services.database, client: LiveEngTrainingClient(unified: services.accounts.unified))
+        return EngTrainingRepository(database: services.database, client: LiveEngTrainingClient(unified: services.accounts.unified, username: username))
     }
 
     private func load() async {
-        guard let studentId = services.accounts.studentId else { loadedOnce = true; return }
-        days = await repository().cached(studentId: studentId)
-        loadedOnce = !days.isEmpty
+        loadedUsername = username
+        days = []
+        error = nil
+        updating = false
+        loadedOnce = false
+        guard let username else { return }
+        let cached = await repository(username: username).cached(unifiedUsername: username)
+        guard !Task.isCancelled, self.username == username else { return }
+        days = cached
+        loadedOnce = !cached.isEmpty
         await refresh()
+        guard !Task.isCancelled, self.username == username else { return }
         loadedOnce = true
     }
 
     private func refresh() async {
-        guard let studentId = services.accounts.studentId, !needsAccount else { return }
+        guard let username, !updating else { return }
         updating = true
-        defer { updating = false }
+        defer { if self.username == username { updating = false } }
         do {
-            days = try await repository().refresh(studentId: studentId)
+            let fresh = try await repository(username: username).refresh(unifiedUsername: username)
+            guard !Task.isCancelled, self.username == username else { return }
+            days = fresh
             error = nil
         } catch {
-            if error.isCancellation { return }
+            guard !error.isCancellation, !Task.isCancelled, self.username == username else { return }
             self.error = (error as? GxuError) ?? .network(error.localizedDescription)
         }
     }

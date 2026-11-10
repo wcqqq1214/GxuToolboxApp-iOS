@@ -15,13 +15,16 @@ private let loginOK = """
 """
 
 @MainActor
-private func make(host: String, tokens: InMemoryTokenStore = InMemoryTokenStore(), creds: InMemoryCredentialStore = InMemoryCredentialStore())
+private func make(
+    host: String, tokens: InMemoryTokenStore = InMemoryTokenStore(), creds: InMemoryCredentialStore = InMemoryCredentialStore(),
+    attendanceTransport: (any BackendAPI)? = nil
+)
     -> (AccountCenter, AttendanceSession, BackendClient, InMemoryCredentialStore, InMemoryTokenStore) {
     let config = StubURLProtocol.makeConfiguration()
     let url = URL(string: "http://\(host)")!
     let plain = BackendClient(baseURL: url, session: BackendClient.makeSession(configuration: config))
     let jw = JwSessionManager(credentials: creds, transport: plain)
-    let attendance = AttendanceSession(transport: plain, tokens: tokens, defaults: UserDefaults(suiteName: UUID().uuidString)!)
+    let attendance = AttendanceSession(transport: attendanceTransport ?? plain, tokens: tokens, defaults: UserDefaults(suiteName: UUID().uuidString)!)
     let backend = BackendClient(
         baseURL: url, session: BackendClient.makeSession(configuration: config),
         renewer: SessionRenewers(jw: jw, attendance: attendance),
@@ -104,6 +107,32 @@ struct AttendanceTests {
         #expect(tokens.load() == nil)
         #expect(center.states[.attendance] == .signedOut)
         await #expect(throws: GxuError.sessionExpired(.attendance)) { try await center.ensureAuthenticated(.attendance) }
+    }
+
+    @Test func unauthorizedResponseForOldTokenPreservesReplacementSession() async throws {
+        let host = "att-\(UUID().uuidString).test"
+        let response = DelayedStubResponse()
+        StubURLProtocol.register(host: host) { request in
+            #expect(request.value(forHTTPHeaderField: "Authorization") == "Token previous")
+            try response.hold()
+            return json(request, status: 401, "{}")
+        }
+        let loginTransport = MockBackendAPI()
+        loginTransport.stub("POST /attendance/v2/login", json: loginOK)
+        let tokens = InMemoryTokenStore("previous")
+        let creds = InMemoryCredentialStore([.attendance: Credential(username: "1", password: "p")])
+        let (center, attendance, backend, _, _) = make(host: host, tokens: tokens, creds: creds, attendanceTransport: loginTransport)
+        let oldRequest = Task { try await backend.getData("/attendance/index-data", auth: .attendance, as: Int.self) }
+        defer { response.release(); oldRequest.cancel() }
+
+        try await response.waitForRequest()
+        await center.logout(.attendance)
+        try await center.loginAttendance(username: "2", password: "p", captcha: "x", ticket: nil)
+        response.release()
+        await #expect(throws: CancellationError.self) { _ = try await oldRequest.value }
+        #expect(tokens.load() == "tok-1")
+        #expect(attendance.loginInfo?.userId == 42)
+        #expect(center.states[.attendance] == .authenticated)
     }
 
     @Test func logoutClearsEverything() async throws {

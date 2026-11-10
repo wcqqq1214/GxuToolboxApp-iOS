@@ -48,11 +48,11 @@ struct EngTrainingTests {
     @Test func repositoryIsolatesStudentsAndKeepsCacheOnFailure() async throws {
         let database = try AppDatabase.inMemory(features: [CampusFeature.migrations])
         let ok = EngTrainingRepository(database: database, client: FakeEng(result: .success(try fixture())))
-        _ = try await ok.refresh(studentId: "A", now: now(2026, 10, 1))
-        #expect(await ok.cached(studentId: "A").count == 2)
-        #expect(await ok.cached(studentId: "B").isEmpty)
+        _ = try await ok.refresh(unifiedUsername: "A", now: now(2026, 10, 1))
+        #expect(await ok.cached(unifiedUsername: "A").count == 2)
+        #expect(await ok.cached(unifiedUsername: "B").isEmpty)
         let failing = EngTrainingRepository(database: database, client: FakeEng(result: .failure(.notLoggedIn(.unified))))
-        await #expect(throws: GxuError.self) { try await failing.refresh(studentId: "A") }
-        #expect(await failing.cached(studentId: "A").count == 2)
+        await #expect(throws: GxuError.self) { try await failing.refresh(unifiedUsername: "A") }
+        #expect(await failing.cached(unifiedUsername: "A").count == 2)
     }
 }

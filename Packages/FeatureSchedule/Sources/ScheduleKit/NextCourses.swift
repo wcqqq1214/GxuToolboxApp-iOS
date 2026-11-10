@@ -1,3 +1,4 @@
+import GxuFoundation
 import Foundation
 
 public enum ScheduleDataState: String, Codable, Sendable {
