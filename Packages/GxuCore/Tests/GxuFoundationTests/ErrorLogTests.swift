@@ -18,6 +18,7 @@ struct ErrorLogTests {
 
     @Test func keepsOrdinaryDiagnosticText() {
         #expect(ErrorLog.redact("GET /jw/exam → HTTP 500 (code 200)") == "GET /jw/exam → HTTP 500 (code 200)")
+        #expect(ErrorLog.redact("network error -1009") == "network error -1009")
     }
 
     @Test func appendsLinesAndClears() {

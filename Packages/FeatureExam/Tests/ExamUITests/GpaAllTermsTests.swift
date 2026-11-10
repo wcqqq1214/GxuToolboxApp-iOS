@@ -22,7 +22,8 @@ import Testing
         mock.stub("GET /jw/score", json: try fixture())
         let model = ScoreViewModel(services: services(mock), query: .all)
         await model.load()
-        #expect(model.scores.count == 100)
+        #expect(model.scores.count == 100)  // 成绩查询保留全部原始记录
+        #expect(model.resolved.counted.count == 79)
         // 绩点页按"同一门课只计一次、取最高成绩"合并后计算（2.037255 / 69.679739）；不处理重修时是 1.397758 / 52.912556
         #expect(abs(model.gpa.gpa - 2.037255) < 1e-5 && abs(model.gpa.wam - 69.679739) < 1e-5)
         #expect(abs(GpaCalculator.calculate(model.scores).gpa - 1.397758) < 1e-5)
@@ -80,16 +81,6 @@ private extension MockBackendAPI {
     private func fixture() throws -> Data {
         let url = try #require(Bundle.module.url(forResource: "score", withExtension: "json", subdirectory: "Fixtures"))
         return try Data(contentsOf: url)
-    }
-
-    @Test func allTermsGpaUsesRetakeResolutionButScoresKeepsEveryRecord() async throws {
-        let mock = MockBackendAPI()
-        mock.stub("GET /jw/score", json: try fixture())
-        let model = ScoreViewModel(services: .preview(backend: mock, features: [ExamRepository.migrations]), query: .all)
-        await model.load()
-        #expect(model.scores.count == 100)                          // 成绩数据（成绩查询页用）保持全部原始记录
-        #expect(model.resolved.counted.count == 79)
-        #expect(abs(model.gpa.gpa - 2.037255) < 1e-5 && abs(model.gpa.wam - 69.679739) < 1e-5)
     }
 
     @Test func singleTermQueryIsNotRewrittenByLaterTerms() async throws {

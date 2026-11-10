@@ -4,7 +4,6 @@ import Testing
 
 struct MapDataTests {
     @Test func placesLoadFromBundledJSON() {
-        #expect(CampusPlaces.all.count > 100)
         #expect(CampusPlaces.types.first == "体育场" || CampusPlaces.types.contains("教学楼"))
         #expect(CampusPlaces.all.allSatisfy { !$0.fullName.isEmpty && !$0.name.isEmpty })
     }

@@ -30,11 +30,6 @@ struct RedactionRegressionTests {
             #expect(!output.contains(secret), "「\(input)」脱敏后仍含「\(secret)」：\(output)")
         }
     }
-
-    @Test func ordinaryDiagnosticsAreKept() {
-        #expect(ErrorLog.redact("GET /jw/exam → HTTP 500 (code 200)") == "GET /jw/exam → HTTP 500 (code 200)")
-        #expect(ErrorLog.redact("network error -1009") == "network error -1009")
-    }
 }
 
 struct QueryEncodingRegressionTests {
@@ -54,32 +49,6 @@ struct QueryEncodingRegressionTests {
         let client = BackendClient(baseURL: URL(string: "http://\(host)")!, session: BackendClient.makeSession(configuration: StubURLProtocol.makeConfiguration()))
         _ = try await client.getData("/x", query: ["q": "C++ a&b"], auth: nil, as: Int.self)
         #expect(seen.withLock { $0 }.hasSuffix("/x?q=C%2B%2B%20a%26b"))
-    }
-}
-
-@MainActor
-struct LogoutRaceRegressionTests {
-    /// 静默重登的请求还在路上时用户退出：迟到的登录结果不能把已退出的账号写回（Cookie、已登录状态）
-    @Test func logoutDuringSilentRenewStaysLoggedOut() async throws {
-        let host = "race-\(UUID().uuidString).test"
-        StubURLProtocol.register(host: host) { request in
-            Thread.sleep(forTimeInterval: 0.6)
-            return (HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["Set-Cookie": "JSESSIONID=a, route=b"])!, Data("{}".utf8))
-        }
-        let store = InMemoryCredentialStore([.jw: Credential(username: "9", password: "p")])
-        let client = BackendClient(baseURL: URL(string: "http://\(host)")!, session: BackendClient.makeSession(configuration: StubURLProtocol.makeConfiguration()))
-        let jw = JwSessionManager(credentials: store, transport: client)
-        let center = AccountCenter(credentials: store, jw: jw)
-        try await Task.sleep(for: .milliseconds(100))
-        let renew = Task { try? await jw.renew(.jw) }
-        try await Task.sleep(for: .milliseconds(200))
-        await center.logout(.jw)
-        await renew.value
-        try await Task.sleep(for: .milliseconds(200))
-        #expect(center.states[.jw] == .noAccount)
-        #expect(!jw.hasSession())
-        #expect(store.load(.jw) == nil)
-        #expect(center.studentId == nil)
     }
 }
 

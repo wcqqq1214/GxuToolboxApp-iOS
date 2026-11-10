@@ -7,8 +7,6 @@ let package = Package(
     products: [
         .library(name: "ExamKit", targets: ["ExamKit"]),
         .library(name: "ExamUI", targets: ["ExamUI"]),
-        // 兼容旧名：= ExamKit + ExamUI
-        .library(name: "FeatureExam", targets: ["FeatureExam"]),
     ],
     dependencies: [
         .package(path: "../GxuCore"), .package(path: "../GxuDesign"), .package(path: "../FeatureSchedule"),
@@ -25,7 +23,6 @@ let package = Package(
             "ExamKit",
             .product(name: "GxuDesign", package: "GxuDesign"),
         ]),
-        .target(name: "FeatureExam", dependencies: ["ExamKit", "ExamUI"]),
         .testTarget(name: "ExamUITests", dependencies: [
             "ExamUI", "ExamKit",
             .product(name: "GxuTestSupport", package: "GxuCore"),

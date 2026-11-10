@@ -16,6 +16,10 @@
 
 # 生成物：由 xcodegen 生成
 *.xcodeproj
+/App/Resources/Info.plist
+/App/Resources/GxuToolApp.entitlements
+/Widget/Info.plist
+/Widget/GxuWidget.entitlements
 .build/
 DerivedData/
 .swiftpm/
