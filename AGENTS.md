@@ -6,7 +6,8 @@
 - 编写或审查 SwiftUI 时，使用 [`swiftui-pro`](.agents/skills/swiftui-pro/SKILL.md)，并遵循本项目的 Swift 与 iOS 版本要求。[Skill 来源](.agents/README.md)
 - 在用户打开或指定的原仓库工作，保留已有修改和暂存内容。开始任务时运行 `git fetch github main`，核对当前分支及本地 `main` 与远端的差异。拉取失败时说明情况，有未推送提交或分歧时先确认归属。
 - 新任务默认从最新 `github/main` 创建本地分支，Git worktree 仅在用户明确要求时创建。`github` 用于 iOS 开发和发布，`origin` 是 RN 的 GitLab 上游。
-- 验证后按用户授权提交、合并和推送，默认不创建 PR。核对暂存 diff，只提交本任务改动，使用简短英文提交信息。发布前再次 fetch，优先 `git merge --ff-only`，推送用 `git push github main`。确认远端包含任务提交后，按授权删除已合入分支。
+- 验证后按用户授权提交、合并和推送，默认不创建 PR。核对暂存 diff，只提交本任务改动。发布前再次 fetch，优先 `git merge --ff-only`，推送用 `git push github main`。确认远端包含任务提交后，按授权删除已合入分支。
+- 提交信息遵循 Conventional Commits 1.0.0。标题格式为 `<type>[(scope)][!]: <中文描述>`，例如 `docs: 更新开发流程`。使用 `feat`、`fix`、`docs` 等英文类型，标题描述和正文用中文。[约定式提交规范](https://www.conventionalcommits.org/zh-hans/v1.0.0/)
 
 ## 代码入口与边界
 
