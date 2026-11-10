@@ -1,151 +1,36 @@
-# 西大工具箱-移动教务
+# 西大工具箱 · iOS
 
-<div align="center">
+广西大学校园工具箱的原生 iOS 版。应用使用 SwiftUI，支持 iOS 18 及以上版本，提供个人和班级课表、考试、成绩与 GPA、考勤、空闲教室、学校文件，以及课表小组件和实时活动。
 
-<img src="android/app/src/main/res/mipmap-xxhdpi/ic_launcher_round.png" alt="platform">
-<br>
-<br>
+本仓库保留 GitHub fork 关系和提交历史。默认分支维护原生 iOS 工程，Android 版由上游项目维护。[GitHub 上游](https://github.com/GxuTool/GxuToolboxApp) · [GitLab RN v2.2](https://gitlab.unde.site/gxutool/gxu_tool_app/-/tree/v2.2)
 
-<div>
-<img src="https://img.shields.io/badge/Android-3DDC84?style=flat&logo=android&logoColor=white" alt="platform">
-<img src="https://img.shields.io/badge/Version-2.1.2_beta-3B82F6?style=flat" alt="version">
-<img src="https://img.shields.io/badge/React_Native-0.84-20232A?style=flat&logo=react" alt="react-native">
-<img src="https://img.shields.io/badge/TypeScript-5.9-3178C6?style=flat&logo=typescript&logoColor=white" alt="typescript">
-</div>
+## 模拟器构建
 
-<br>
+需要 macOS、支持 Swift 6 和 iOS 26 SDK 的 Xcode、已安装的 iOS Simulator runtime，以及 XcodeGen。首次构建需要联网解析 Swift Package 依赖。
 
-<a href="https://tooldoc.gxutech.xyz">使用文档</a> ｜
-<a href="best_practice.md">开发指南</a> ｜
-<a href="https://gitlab.unde.site/gxutool/gxu_tool_app/-/issues">问题反馈</a> ｜
-<a href="#贡献--社区">加入公测</a>
+在仓库根目录运行：
 
-</div>
-
----
-
-## 目录
-
-- [功能特性](#功能特性)
-- [开发背景](#开发背景)
-- [快速开始](#快速开始)
-- [项目结构](#项目结构)
-- [文档](#文档)
-- [贡献 & 社区](#贡献--社区)
-- [致谢](#致谢)
-
----
-
-## 功能特性
-
-| | | |
-|---|---|---|
-| 🔐 **统一认证** | 一个账号打通教务平台、统一认证、考勤系统。一次登录，全平台畅行。 |
-| 📅 **智能课表** | 自动导入课表、冲突检测、周视图切换，一键导出至 WakeUp。 |
-| 📝 **考勤查询** | 课表与考勤同屏呈现，登录即查（需校园网）。 |
-| 📊 **成绩绩点** | 自动获取考试成绩、学分统计、绩点计算。 |
-| ✨ **一键评教** | 录制一次模板，自动批量完成评教，告别期末重复劳动。 |
-| 🧩 **桌面小组件** | Android 桌面课表 widget，解锁手机即见今日课程。 |
-| 🎨 **纯净免费** | TypeScript 编写，开源、零广告、无跟踪，西大人自己的工具。 |
-
----
-
-## 开发背景
-
-> [!NOTE]
-> GXU 的教务平台、文件系统、考勤系统各自独立鉴权，学生在三个平台间来回切换；第三方课表 App 逐步内置广告且无法适配西大特有功能。
-
-| 痛点 | 说明 |
-|------|------|
-| 登录割裂 | 三个业务各自鉴权，反复登录、反复跳转 |
-| 操作繁琐 | 查课表、查成绩要翻多层页面，手机浏览器体验差 |
-| 考勤分散 | 考勤需单独登录小程序，无法和课表联动查看 |
-| 广告干扰 | 第三方课表 App 陆续加广告，影响使用 |
-
-西大工具箱把这些分散的系统**整合到一个 App 里**，让教务查询像刷手机一样自然。
-
----
-
-## 快速开始
-
-> 项目仅支持 **Android** 平台。
-
-**环境要求**
-
-- **Node.js** ≥ 18
-- **pnpm** ≥ 10
-- **Android Studio** (SDK 36)
-- **JDK** ≥ 17
-
-<details>
-<summary>📋 完整环境配置</summary>
-
-参考 [React Native 环境搭建指南](https://reactnative.dev/docs/set-up-your-environment)，确保 Android SDK 36 和 JDK 17 已正确安装。
-
-</details>
-
-```bash
-# 1. 克隆仓库
-git clone git@gitlab.unde.site:gxutool/gxu_tool_app.git
-cd gxu_tool_app
-
-# 2. 安装依赖
-pnpm install
-
-# 3. 启动 Metro（终端 1）
-pnpm start
-
-# 4. 运行到设备（终端 2）
-pnpm android
+```sh
+bash ios-native/scripts/build.sh
+bash ios-native/scripts/test.sh FeatureSchedule FeatureCourse
 ```
 
----
+构建脚本通过 [project.yml](ios-native/project.yml) 生成 Xcode 工程并构建 `GxuToolApp` 和 `GxuWidget`。脚本会为当前分支选择或创建模拟器，也可用 `SIM_ID` 指定已有模拟器。
+
+要在 Xcode 中运行，进入 `ios-native/` 执行 `xcodegen generate`，打开生成的 `GxuToolApp.xcodeproj`，选择模拟器和 `GxuToolApp` scheme。Debug scheme 可在运行参数中加 `-GxuDemo`，用演示数据查看课表和首页。登录后的线上功能需要对应账号，部分校内系统需要校园网或 VPN。
 
 ## 项目结构
 
-```
-gxu_tool_app/
-├── android/                 # Android 原生工程 (Gradle)
-├── src/
-│   ├── core/                # 基础设施 — 认证、HTTP、数据库
-│   ├── features/            # 功能模块（新代码入口）
-│   │   ├── courseSchedule/  #   课表
-│   │   ├── examInfo/        #   考试信息
-│   │   ├── examScore/       #   成绩查询
-│   │   ├── evaluation/      #   自动评教
-│   │   ├── attendance/      #   考勤
-│   │   └── documents/       #   文件系统
-│   ├── components/un-ui/    # 自研 UI 组件库
-│   ├── screens/             # 页面
-│   ├── route/               # 导航配置
-│   └── widget/              # 桌面课表小组件
-├── scripts/                 # 辅助脚本
-├── best_practice.md         # 工程规范
-└── package.json
-```
+| 路径 | 内容 |
+| --- | --- |
+| [ios-native/App/](ios-native/App/) | 应用入口、依赖装配、首页和工具箱 |
+| [ios-native/Packages/](ios-native/Packages/) | Swift Packages，包含认证、网络、存储、设计组件和功能模块 |
+| [ios-native/Widget/](ios-native/Widget/) | WidgetKit 扩展和实时活动 |
+| [ios-native/UITests/](ios-native/UITests/) | 模拟器 UI 测试 |
+| [ios-native/scripts/](ios-native/scripts/) | 构建、测试和打包脚本 |
+| [docs/api-docs/](docs/api-docs/) 与 [docs/contracts/](docs/contracts/) | 接口参考和契约记录 |
+| [docs/ios-migration/](docs/ios-migration/) | 迁移历史、RN 对照和真机检查清单 |
 
-> 开发前请先阅读 [best_practice.md](best_practice.md)，了解数据流规则、认证边界和代码准入标准。
+## 对照上游
 
----
-
-## 文档
-
-- **使用文档** · [tooldoc.gxutech.xyz](https://tooldoc.gxutech.xyz)
-- **开发指南** · [best_practice.md](best_practice.md) — 数据流、认证、持久化等工程规范
-- **环境搭建** · [React.md](React.md) — 项目目录说明与调试技巧
-
----
-
-## 贡献 & 社区
-
-由 **广西大学 XCPC 技术组** 维护，欢迎校内同学参与。
-
-- 📱 公测群 **580048805**（入群获取安装包）
-- 🐛 [GitLab Issues](https://gitlab.unde.site/gxutool/gxu_tool_app/-/issues) 反馈问题
-- 📖 提交前对照 [Code Review Checklist](best_practice.md#code-review-checklist)
-
----
-
-## 致谢
-
-广西大学 XCPC 技术组全体成员 · 参与公测的同学们 · [React Native](https://reactnative.dev) 及所有开源依赖的作者
+RN 行为和接口对照以 GitLab `v2.2` 为准。本轮清理前的对齐基线为 `9b98f953`。查看上游改动后，把需要的行为移植到 Swift。迁移文档中的 `src/`、`android/` 等路径指向当时的 RN 源码。[RN 对齐基线](https://gitlab.unde.site/gxutool/gxu_tool_app/-/tree/9b98f953)
