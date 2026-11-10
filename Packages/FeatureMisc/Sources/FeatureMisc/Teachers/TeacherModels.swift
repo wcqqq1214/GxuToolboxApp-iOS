@@ -220,7 +220,7 @@ public struct TeacherAPI: Sendable {
 
     public init(backend: any BackendAPI) { self.backend = backend }
 
-    func search(_ keyword: String, page: Int = 1) async throws -> TeacherSearchPage {
+    public func search(_ keyword: String, page: Int = 1) async throws -> TeacherSearchPage {
         try await backend.getData("/teachers/search", query: ["q": keyword, "page": String(page)], auth: nil, as: TeacherSearchPage.self)
     }
 

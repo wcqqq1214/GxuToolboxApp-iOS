@@ -7,9 +7,16 @@ import Synchronization
 
 /// 按 "METHOD path" 返回预设的 JSON 或错误，例如 `stub("GET /jw/exam", json: data)`
 public final class MockBackendAPI: BackendAPI {
+    public struct GetRequest: Sendable {
+        public let path: String
+        public let query: [String: String]
+        public let auth: AuthSystem?
+    }
+
     private struct State {
         var responses: [String: Result<Data, GxuError>] = [:]
         var calls: [String] = []
+        var getRequests: [GetRequest] = []
     }
     private let state = Mutex(State())
 
@@ -21,18 +28,20 @@ public final class MockBackendAPI: BackendAPI {
 
     /// 已经发生过的调用，格式同 key
     public var calls: [String] { state.withLock { $0.calls } }
+    public var getRequests: [GetRequest] { state.withLock { $0.getRequests } }
 
     public func get<T: Decodable & Sendable>(_ path: String, query: [String: String], auth: AuthSystem?, as type: T.Type) async throws -> T {
-        try respond("GET \(path)", as: type)
+        try respond("GET \(path)", getRequest: GetRequest(path: path, query: query, auth: auth), as: type)
     }
 
     public func post<T: Decodable & Sendable, Body: Encodable & Sendable>(_ path: String, body: Body, auth: AuthSystem?, as type: T.Type) async throws -> T {
         try respond("POST \(path)", as: type)
     }
 
-    private func respond<T: Decodable>(_ key: String, as type: T.Type) throws -> T {
+    private func respond<T: Decodable>(_ key: String, getRequest: GetRequest? = nil, as type: T.Type) throws -> T {
         let result = state.withLock { state -> Result<Data, GxuError>? in
             state.calls.append(key)
+            if let getRequest { state.getRequests.append(getRequest) }
             return state.responses[key]
         }
         guard let result else { throw GxuError.network("MockBackendAPI 未预设 \(key)") }

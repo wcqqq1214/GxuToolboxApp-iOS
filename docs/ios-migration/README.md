@@ -12,7 +12,6 @@
 
 ## 待办
 
-- **课程详情教师查询**：让 [TeacherLookup](../../App/Shell/TeacherLookup.swift) 复用 FeatureMisc 的 `TeacherAPI.search`，避免在 Shell 重复构造请求。带初始关键词的教师搜索入口是可选项。
 - **等待后端**：调课信息、选课课程列表缺代理，入口暂隐藏；评教总览在迁移联调时返回 404，入口保持「即将上线」，详情、评语、一键评教和提交也缺代理；「我的反馈」列表联调时返回 401（带教务 Cookie 也一样），验证后端恢复后再启用 `feature.showsMyFeedback`。校选课小学期映射问题见[差距表中的后端待办](rn-v2.2-gap.md#6-后端待办ios-不绕过只记录)。
 
 ## 待验证

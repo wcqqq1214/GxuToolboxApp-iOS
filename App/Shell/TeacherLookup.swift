@@ -1,15 +1,11 @@
 import FeatureMisc
 import GxuAuth
 import GxuDesign
-import GxuFoundation
-import GxuNetworking
 import ScheduleUI
 import SwiftUI
 
 /// 课程详情的“任课教师”卡片（RN `CourseDetailSheet` 的 `useLookup` + `TeacherSheet`）：
 /// 按教师姓名查 `/teachers/search`，卡片取第一条的单位和头像；“查看详情”只有一条结果时直接进详情，多条时列出让用户选。
-/// 请求只用 FeatureMisc 公开的 `TeacherSearchPage` / `TeacherSummary` / `TeacherDetailView`，不另写解析；
-/// TODO：FeatureMisc 公开 `TeacherAPI.search` 后改用它（见 docs/ios-migration/README.md）。
 enum TeacherLookup {
     private actor Cache {
         private var storage: [String: [TeacherSummary]] = [:]
@@ -24,7 +20,7 @@ enum TeacherLookup {
         guard !key.isEmpty else { return [] }
         if let cached = await cache.get(key) { return cached }
         do {
-            let page = try await services.backend.getData("/teachers/search", query: ["q": key, "page": "1"], auth: nil, as: TeacherSearchPage.self)
+            let page = try await TeacherAPI(backend: services.backend).search(key)
             await cache.set(page.list, for: key)
             return page.list
         } catch {

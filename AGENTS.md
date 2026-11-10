@@ -12,8 +12,13 @@
 
 - `App/GxuToolApp.swift` 是入口，`App/Composition/` 负责装配，`App/Shell/` 负责导航和跨功能接线。
 - 功能放在 `Packages/` 对应的 Swift Package。网络、认证和存储共用 `GxuCore`，界面优先使用原生控件和 [GxuDesign](Packages/GxuDesign/README.md)。
+- 在现有 target 内按功能收拢专属的页面、状态、模型、请求和缓存。单一功能的测试放在对应测试 target 下的同名目录。共享服务和跨功能测试留在共同的 target 中。
+- 从 [ToolboxCatalog](App/Shell/ToolboxCatalog.swift) 按工具箱名称定位页面，从 [RootView](App/Shell/RootView.swift) 追踪标签页和跨功能接线。
+- 空闲教室的楼层分组在 [EmptyClassroomFloor](Packages/FeatureCampus/Sources/FeatureCampus/EmptyClassroom/EmptyClassroomFloor.swift)，测试在 [EmptyClassroom](Packages/FeatureCampus/Tests/FeatureCampusTests/EmptyClassroom/)，运行 `bash scripts/test.sh FeatureCampus`。
+- 教师查询的请求在 [TeacherAPI](Packages/FeatureMisc/Sources/FeatureMisc/Teachers/TeacherModels.swift)，测试在 [Teachers](Packages/FeatureMisc/Tests/FeatureMiscTests/Teachers/)，运行 `bash scripts/test.sh FeatureMisc`。课表接线在 [TeacherLookup](App/Shell/TeacherLookup.swift)，改动它时覆盖 App 单元测试。
 - 外部响应解码为内部模型后交给页面。缓存按需隔离账号和学期，刷新失败保留可用缓存。
 - `Widget/` 是 WidgetKit 扩展，共享模型、课表快照和视图位于 `Packages/FeatureCourse/Sources/ClassWidgetKit/`。修改共享数据时检查 App Group 兼容性。
+- 小组件的下一节课由 [SnapshotProvider](Packages/FeatureCourse/Sources/ClassWidgetKit/SnapshotProvider.swift) 调用 [NextCourseCalculator](Packages/FeatureSchedule/Sources/ScheduleKit/Today/NextCourses.swift) 计算。[ScheduleTimelineTests](Packages/FeatureCourse/Tests/ClassWidgetKitTests/ScheduleTimelineTests.swift) 验证显示时序，相关测试运行 `bash scripts/test.sh FeatureSchedule FeatureCourse`。
 - 使用 Swift 6 严格并发检查，最低支持 iOS 18。iOS 26 API 必须有可用性判断和降级路径。
 
 ## 构建与验证
