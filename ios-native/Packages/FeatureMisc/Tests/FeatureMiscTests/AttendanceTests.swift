@@ -106,13 +106,14 @@ private func day(_ s: String) -> Date { AttendanceDay.parse(s, calendar: cal)! }
 @Suite struct AttendanceFilterTests {
     private func r(_ date: String, _ code: Int) -> AttendanceRecord { AttendanceRecord(date: date, courseName: date, statusCode: code) }
 
-    @Test func onlyAbnormalKeepsAbnormalAndRecentWeek() {
+    @Test func recordFiltersDistinguishAbnormalFromRecentRecords() {
         let now = day("2025-11-20")
         let list = [r("2025-11-20", 1), r("2025-11-13", 1), r("2025-11-12", 1), r("2025-09-01", 2), r("2025-09-02", 4), r("2025-09-03", 1), r("bad", 1)]
-        let visible = AttendanceFilter.visible(list, onlyAbnormal: true, now: now, calendar: cal).map(\.date)
+        let visible = AttendanceFilter.abnormalAndRecent.visible(list, now: now, calendar: cal).map(\.date)
         // 今天、7 天前（含）保留；8 天前的正常记录隐藏；迟到 / 缺勤不论多久都保留；日期解析不了的不藏
         #expect(visible == ["2025-11-20", "2025-11-13", "2025-09-01", "2025-09-02", "bad"])
-        #expect(AttendanceFilter.visible(list, onlyAbnormal: false, now: now, calendar: cal).count == list.count)
+        #expect(AttendanceFilter.abnormal.visible(list, now: now, calendar: cal).map(\.date) == ["2025-09-01", "2025-09-02"])
+        #expect(AttendanceFilter.all.visible(list, now: now, calendar: cal) == list)
     }
 }
 

@@ -82,13 +82,27 @@ public struct AttendanceView: View {
                 }
             } else {
                 Section {
-                    Toggle("只看异常和最近 7 天", isOn: $model.onlyAbnormal)
+                    Picker("筛选", selection: $model.recordFilter) {
+                        Text("全部记录").tag(AttendanceFilter.all)
+                        Text("异常和最近 7 天").tag(AttendanceFilter.abnormalAndRecent)
+                        Text("只看异常").tag(AttendanceFilter.abnormal)
+                    }
+                    .pickerStyle(.menu)
                 } footer: {
                     Text("本学期共有 \(model.abnormalCount) 条迟到或缺勤记录。")
                 }
-                ForEach(AttendanceDayGroup.group(model.visibleRecords)) { group in
-                    Section(group.title) {
-                        ForEach(group.records) { RecordRow(record: $0) }
+                let visibleRecords = model.visibleRecords
+                if visibleRecords.isEmpty {
+                    GxuEmptyView(
+                        model.recordFilter == .abnormal ? "本学期没有迟到或缺勤记录" : "当前筛选范围内暂无考勤记录",
+                        systemImage: "checkmark.circle"
+                    )
+                    .listRowBackground(Color.clear)
+                } else {
+                    ForEach(AttendanceDayGroup.group(visibleRecords)) { group in
+                        Section(group.title) {
+                            ForEach(group.records) { RecordRow(record: $0) }
+                        }
                     }
                 }
             }

@@ -16,8 +16,7 @@ final class AttendanceViewModel {
     var mode: Mode = .records
     var selection: Selection { didSet { if oldValue != selection { resetForSelection() } } }
     var week = 1
-    /// 只看异常：迟到 / 缺勤，加上最近 7 天的全部记录（RN 默认开）
-    var onlyAbnormal = true
+    var recordFilter: AttendanceFilter = .abnormalAndRecent
 
     private(set) var years: [Int] = TermOptions.years(enrollmentYear: nil)
     private(set) var totalWeeks = 20
@@ -56,7 +55,7 @@ final class AttendanceViewModel {
     }
 
     var summary: AttendanceSummary { AttendanceSummary(records) }
-    var visibleRecords: [AttendanceRecord] { AttendanceFilter.visible(records, onlyAbnormal: onlyAbnormal) }
+    var visibleRecords: [AttendanceRecord] { recordFilter.visible(records) }
     var abnormalCount: Int { records.filter(\.isAbnormal).count }
 
     private func resetForSelection() {
@@ -129,15 +128,22 @@ enum AttendanceWeek {
     }
 }
 
-enum AttendanceFilter {
-    /// RN `RecordScreen`：只看异常时，迟到 / 缺勤保留，其余只保留最近 7 天（含今天）的
-    static func visible(_ records: [AttendanceRecord], onlyAbnormal: Bool, now: Date = .now, calendar: Calendar = .current) -> [AttendanceRecord] {
-        guard onlyAbnormal else { return records }
-        let cutoff = calendar.date(byAdding: .day, value: -7, to: calendar.startOfDay(for: now)) ?? now
-        return records.filter { record in
-            if record.isAbnormal { return true }
-            guard let day = AttendanceDay.parse(record.date, calendar: calendar) else { return true }   // 日期解析不了就不藏
-            return day >= cutoff
+enum AttendanceFilter: Hashable {
+    case all, abnormalAndRecent, abnormal
+
+    func visible(_ records: [AttendanceRecord], now: Date = .now, calendar: Calendar = .current) -> [AttendanceRecord] {
+        switch self {
+        case .all:
+            return records
+        case .abnormal:
+            return records.filter(\.isAbnormal)
+        case .abnormalAndRecent:
+            let cutoff = calendar.date(byAdding: .day, value: -7, to: calendar.startOfDay(for: now)) ?? now
+            return records.filter { record in
+                if record.isAbnormal { return true }
+                guard let day = AttendanceDay.parse(record.date, calendar: calendar) else { return true }   // 日期解析不了就不藏
+                return day >= cutoff
+            }
         }
     }
 }
