@@ -22,6 +22,8 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>GxuAppGroupID</key>
 	<string>$(GXU_APP_GROUP)</string>
+	<key>GxuCampusKeychainAccessGroup</key>
+	<string>$(GXU_CAMPUS_KEYCHAIN_GROUP)</string>
 	<key>GxuKeychainAccessGroup</key>
 	<string>$(GXU_KEYCHAIN_GROUP)</string>
 	<key>LSApplicationQueriesSchemes</key>
@@ -39,6 +41,11 @@
 				<true/>
 			</dict>
 			<key>pec.gxu.edu.cn</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+			</dict>
+			<key>self.gxu.edu.cn</key>
 			<dict>
 				<key>NSExceptionAllowsInsecureHTTPLoads</key>
 				<true/>

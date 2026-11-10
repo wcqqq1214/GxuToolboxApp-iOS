@@ -1,3 +1,4 @@
+import GxuAuth
 import GxuStorage
 import SwiftUI
 
@@ -97,6 +98,11 @@ public enum CampusFeature {
     /// 工具箱 → 空闲教室
     @MainActor
     public static func makeEmptyClassroomView() -> some View { EmptyClassroomView() }
+
+    @MainActor
+    public static func makeCampusNetworkView(credentials: any CredentialStore) -> some View {
+        CampusNetworkView(credentials: credentials)
+    }
 
     @MainActor
     public static func makeRootView() -> some View { makeClassScheduleView() }

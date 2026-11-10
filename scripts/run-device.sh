@@ -246,7 +246,7 @@ if [ "$PERSONAL" = 1 ]; then
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict/></plist>
 PLIST
-      if build CODE_SIGN_ENTITLEMENTS="$EMPTY_ENT" GXU_APP_GROUP= GXU_KEYCHAIN_GROUP= > "$LOG" 2>&1; then
+      if build CODE_SIGN_ENTITLEMENTS="$EMPTY_ENT" GXU_APP_GROUP= GXU_KEYCHAIN_GROUP= GXU_CAMPUS_KEYCHAIN_GROUP= > "$LOG" 2>&1; then
         CAPABILITY="降级（没有 App Group 和共享 Keychain）"
       else
         FAILED_DEGRADED=1

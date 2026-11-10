@@ -40,7 +40,7 @@ struct ToolboxItem: Identifiable {
     }
 }
 
-/// 工具箱里的全部功能：**功能和分组以 RN 为准，不要新加**（用户原则）。每个功能一行；
+/// 工具箱沿用 RN 分组，校园网用量是 iOS 新增功能。
 /// 各 Agent 上线时把自己那一行最后的参数从 nil 换成 `.push { AnyView(XxxView()) }`。
 /// RN 里没有入口或需要后端代理才能做的项目（调课信息、选课课程列表）暂时不放，等后端接口后加回原来的位置。
 enum ToolboxCatalog {
@@ -62,6 +62,7 @@ enum ToolboxCatalog {
         item("electiveStrategy", "校选课查漏", "checklist", .info, .push { AnyView(ElectiveStrategyView()) }),
         item("teacherInfo", "教师信息查询", "person.text.rectangle", .info, .push { AnyView(TeacherSearchView()) }),
         item("emptyClassroom", "空闲教室", "calendar.badge.clock", .info, .push { AnyView(CampusFeature.makeEmptyClassroomView()) }),
+        item("campusNetwork", "校园网用量", "wifi", .info, .push { AnyView(AppComposition.makeCampusNetworkView()) }),
         // 实践课
         item("phyExp", "物理实验课", "atom", .practice, .push { AnyView(CampusFeature.makePhyExpView()) }),
         item("engTraining", "金工实训", "wrench.and.screwdriver", .practice, .push { AnyView(CampusFeature.makeEngTrainingView()) }),

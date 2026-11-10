@@ -15,6 +15,7 @@ settings:
     GXU_BUNDLE_ID: com.gxutool.ios
     GXU_APP_GROUP: group.$(GXU_BUNDLE_ID)                       # 置空 = 不使用 App Group（免费个人团队降级用）
     GXU_KEYCHAIN_GROUP: $(AppIdentifierPrefix)$(GXU_BUNDLE_ID)   # 置空 = 不使用共享的 Keychain 分组
+    GXU_CAMPUS_KEYCHAIN_GROUP: $(AppIdentifierPrefix)$(GXU_BUNDLE_ID).campus-network
     MARKETING_VERSION: "2.2.0"       # 对齐 RN origin/v2.2 的 package.json / versionName
     CURRENT_PROJECT_VERSION: "20200"   # 对齐 RN android versionCode 20200（版本检查拿它和后端 versionCode 比较）
 packages:
@@ -52,6 +53,7 @@ targets:
         UILaunchScreen: {}
         # 真机用真实 Team ID 签名时展开成 TEAMID.com.gxutool.ios；GxuConfig.keychainAccessGroup 读它（模拟器忽略）
         GxuKeychainAccessGroup: "$(GXU_KEYCHAIN_GROUP)"
+        GxuCampusKeychainAccessGroup: "$(GXU_CAMPUS_KEYCHAIN_GROUP)"
         GxuAppGroupID: "$(GXU_APP_GROUP)"
         NSSupportsLiveActivities: true
         NSSupportsLiveActivitiesFrequentUpdates: false
@@ -65,11 +67,12 @@ targets:
             ca.gxu.edu.cn: {NSExceptionAllowsInsecureHTTPLoads: true}
             pec.gxu.edu.cn: {NSExceptionAllowsInsecureHTTPLoads: true}
             xlzxms.gxu.edu.cn: {NSExceptionAllowsInsecureHTTPLoads: true}
+            self.gxu.edu.cn: {NSExceptionAllowsInsecureHTTPLoads: true}
     entitlements:
       path: App/Resources/GxuToolApp.entitlements
       properties:
         com.apple.security.application-groups: ["$(GXU_APP_GROUP)"]
-        keychain-access-groups: ["$(GXU_KEYCHAIN_GROUP)"]
+        keychain-access-groups: ["$(GXU_KEYCHAIN_GROUP)", "$(GXU_CAMPUS_KEYCHAIN_GROUP)"]
     dependencies:
       - target: GxuWidget
       - {package: GxuCore, product: GxuFoundation}

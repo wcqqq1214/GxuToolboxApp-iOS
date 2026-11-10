@@ -1,7 +1,7 @@
 import Foundation
 
 public enum AuthSystem: String, Codable, Sendable, CaseIterable {
-    case jw, unified, attendance, oa
+    case jw, unified, attendance, oa, campusNetwork
 
     public var displayName: String {
         switch self {
@@ -9,6 +9,7 @@ public enum AuthSystem: String, Codable, Sendable, CaseIterable {
         case .unified: "统一身份认证"
         case .attendance: "考勤系统"
         case .oa: "OA 系统"
+        case .campusNetwork: "校园网自服务"
         }
     }
 }
