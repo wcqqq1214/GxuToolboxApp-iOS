@@ -4,7 +4,7 @@ import GxuFoundation
 import Observation
 import SwiftUI
 
-/// 教师查询：搜索（姓名 / 单位 / 职称 / 一级学科）、分页加载更多、详情；没搜索时显示学校领导。
+/// 教师查询：搜索（姓名 / 单位 / 职称 / 一级学科）、分页加载更多、详情；没搜索时显示搜索引导。
 @MainActor @Observable
 final class TeacherSearchModel {
     var keyword = ""
@@ -112,7 +112,13 @@ public struct TeacherSearchView: View {
         var body: some View {
             Group {
                 if !model.isActive && !model.isSearching {
-                    LeadersGrid()
+                    GxuEmptyView(
+                        "搜索教师信息",
+                        systemImage: "magnifyingglass",
+                        message: "输入姓名、单位、职称或一级学科进行查询"
+                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color(.systemGroupedBackground))
                 } else {
                     results
                 }
@@ -159,69 +165,6 @@ public struct TeacherSearchView: View {
                 ProgressView().frame(maxWidth: .infinity).task { await model.loadMore() }
             }
         }
-    }
-}
-
-/// 学校领导：每行三位的照片卡片（和 RN 一致），点击进入详情（用姓名 + 单位"校领导"查询，和 RN 的查询方式一致）
-private struct LeadersGrid: View {
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 8, alignment: .top), count: 3)
-
-    var body: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 20) {
-                ForEach(SchoolLeaders.all) { group in
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text(group.title).font(.title3.weight(.semibold))
-                            .padding(.leading, GxuDesign.Layout.cardInset)   // B 线：和分组标题一致
-                        LazyVGrid(columns: columns, spacing: 8) {
-                            ForEach(group.leaders) { leader in
-                                NavigationLink {
-                                    TeacherDetailView(teacher: .leader(leader), leader: leader)
-                                } label: {
-                                    LeaderCard(leader: leader)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                    }
-                }
-            }
-            .padding(.horizontal, GxuDesign.Layout.pageMargin)                // A 线：卡片边
-            .padding(.bottom, 24)
-        }
-        .background(Color(.systemGroupedBackground))
-    }
-}
-
-private struct LeaderCard: View {
-    let leader: SchoolLeader
-
-    var body: some View {
-        VStack(spacing: 0) {
-            // 照片铺满卡片宽度（宽高比 0.78，和 RN 一致）；加载中 / 失败时是姓名占位
-            Color.accentColor.opacity(0.15)
-                .aspectRatio(0.78, contentMode: .fit)
-                .overlay {
-                    Text(String(leader.name.prefix(1))).font(.largeTitle.weight(.semibold)).foregroundStyle(Color.accentColor)
-                }
-                .overlay {
-                    if let url = leader.photoURL {
-                        AsyncImage(url: url) { phase in
-                            if let image = phase.image { image.resizable().scaledToFill() }
-                        }
-                    }
-                }
-                .clipped()
-            HStack(spacing: 2) {
-                Text(leader.name).font(.subheadline.weight(.semibold)).lineLimit(1).minimumScaleFactor(0.8)
-                Image(systemName: "chevron.right").font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
-            }
-            .padding(.vertical, 8)
-        }
-        .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(leader.name)，查看详细资料")
     }
 }
 
