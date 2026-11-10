@@ -82,7 +82,7 @@ struct CustomActivityLabTests {
         #expect(lab.weeks == [1, 2, 3, 10, 12])
         #expect(lab.weekText == "第 1-3,10,12 周" && lab.weeksInputText == "1-3,10,12")
         #expect(lab.course.weeks == [1, 2, 3, 10, 12] && lab.course.venueName == "实验楼 301" && lab.course.teacher == "教师甲")
-        #expect(lab.course.courseCategory == "实验课")
+        #expect(lab.course.courseCategory == "自定义课程")
     }
 
     @Test func parseTeachingWeeksLikeRN() throws {
@@ -103,7 +103,7 @@ struct CustomActivityLabTests {
             var a = CustomActivity(name: "实验", weeks: [1]); edit(&a); return a.validationMessage
         }
         #expect(lab { _ in } == nil)
-        #expect(lab { $0.name = "  " } == "请输入实验课名称")
+        #expect(lab { $0.name = "  " } == "请输入课程名称")
         #expect(lab { $0.name = String(repeating: "名", count: 101) } == "名称最多 100 字")
         #expect(lab { $0.location = String(repeating: "a", count: 201) } == "地点最多 200 字")
         #expect(lab { $0.teacher = String(repeating: "a", count: 101) } == "教师最多 100 字")

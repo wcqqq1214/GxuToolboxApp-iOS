@@ -2,8 +2,8 @@ import Foundation
 import GxuFoundation
 import GxuStorage
 
-/// 实验课（RN v2.2 `customEvent`：用户在本地添加的课表项，名称 / 教学周 / 星期 / 节次 / 地点 / 教师 / 备注）。
-/// 显示上和课程一样占课表的格子，带“实验课”标记；整条存 JSON，按 学号 + 学期 隔离。
+/// 自定义课程（RN v2.2 `customEvent`：用户在本地添加的课表项，名称 / 教学周 / 星期 / 节次 / 地点 / 教师 / 备注）。
+/// 显示上和课程一样占课表的格子，带“自定义课程”标记；整条存 JSON，按 学号 + 学期 隔离。
 /// 旧版本存的是起止周（`weekFrom` / `weekTo`），解码时转成教学周列表；编码时仍写出这两个字段，旧数据不丢。
 public struct CustomActivity: Codable, Sendable, Hashable, Identifiable {
     public var id: String
@@ -80,7 +80,7 @@ public struct CustomActivity: Codable, Sendable, Hashable, Identifiable {
 
     public var validationMessage: String? {
         let title = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        if title.isEmpty { return "请输入实验课名称" }
+        if title.isEmpty { return "请输入课程名称" }
         if title.count > 100 { return "名称最多 100 字" }
         if location.trimmingCharacters(in: .whitespacesAndNewlines).count > 200 { return "地点最多 200 字" }
         if teacher.trimmingCharacters(in: .whitespacesAndNewlines).count > 100 { return "教师最多 100 字" }
@@ -104,7 +104,7 @@ public struct CustomActivity: Codable, Sendable, Hashable, Identifiable {
         TheoryCourse(
             venueName: location.trimmingCharacters(in: .whitespacesAndNewlines), sectionRange: "\(begin)-\(end)", begin: begin, end: end,
             courseName: name.trimmingCharacters(in: .whitespaces), weeks: weeks,
-            teacher: teacher.trimmingCharacters(in: .whitespacesAndNewlines), courseCategory: "实验课", examMethod: note,
+            teacher: teacher.trimmingCharacters(in: .whitespacesAndNewlines), courseCategory: "自定义课程", examMethod: note,
             weekday: weekday, customID: id
         )
     }

@@ -154,8 +154,8 @@ public struct ScheduleRootView: View {
         ToolbarItem(placement: .topBarLeading) {
             if model.phase == .content {
                 Menu {
-                    Button("添加实验课", systemImage: "plus") { addActivity() }
-                    Button("我的实验课", systemImage: "list.bullet") { showActivityList = true }
+                    Button("添加自定义课程", systemImage: "plus") { addActivity() }
+                    Button("我的自定义课程", systemImage: "list.bullet") { showActivityList = true }
                     Divider()
                     Button("分享本周课表", systemImage: "square.and.arrow.up") { showShare = true }
                     if let exportDestination {
@@ -166,7 +166,7 @@ public struct ScheduleRootView: View {
                 } label: {
                     Image(systemName: "plus.circle")
                 }
-                .accessibilityLabel("实验课")
+                .accessibilityLabel("课表操作")
             }
         }
         ToolbarItem(placement: .topBarTrailing) {

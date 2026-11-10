@@ -151,13 +151,13 @@ private struct CourseSection: View {
                     .foregroundStyle(.orange)
             }
             if course.isCustom {
-                // 实验课只有这几项有意义；备注放在“考核”字段里（见 `CustomActivity.course`）
+                // 自定义课程只有这几项有意义；备注放在“考核”字段里（见 `CustomActivity.course`）
                 row("时间", "\(WeekdayName.full(item.weekday)) 第\(course.begin)-\(course.end)节  \(timeText)")
                 row("周次", WeekFormatter.describe(course.weeks))
                 row("地点", course.locationText)
                 row("教师", course.teacher)
                 row("备注", course.examMethod)
-                Button("编辑实验课", systemImage: "pencil") { onEditActivity(course.customID) }
+                Button("编辑自定义课程", systemImage: "pencil") { onEditActivity(course.customID) }
             } else {
                 if let attendance { row("考勤", attendance.label) }
                 if let teacherSupport, !course.teacher.isEmpty {

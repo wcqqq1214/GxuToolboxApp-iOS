@@ -2,7 +2,7 @@ import GxuDesign
 import ScheduleKit
 import SwiftUI
 
-/// 新增 / 编辑实验课（RN `CustomEventsSheet` 的表单）：名称、教学周（文本，如 1-8,10,12）、星期、开始 / 结束节次、地点、教师、备注。
+/// 新增 / 编辑自定义课程（RN `CustomEventsSheet` 的表单）：名称、教学周（文本，如 1-8,10,12）、星期、开始 / 结束节次、地点、教师、备注。
 /// 草稿只在点“保存”时校验并提交；校验信息写在表单里。
 struct ActivityEditorSheet: View {
     @State var activity: CustomActivity
@@ -35,7 +35,7 @@ struct ActivityEditorSheet: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("实验课名称（必填）", text: $activity.name)
+                    TextField("课程名称（必填）", text: $activity.name)
                 } footer: {
                     Text(termTitle)
                 }
@@ -61,7 +61,7 @@ struct ActivityEditorSheet: View {
                 } header: {
                     Text("时间")
                 } footer: {
-                    if !isNew { Text("修改会应用到此实验课的所有教学周。") }
+                    if !isNew { Text("修改会应用到这门课的所有教学周。") }
                 }
 
                 Section {
@@ -81,17 +81,17 @@ struct ActivityEditorSheet: View {
 
                 if onDelete != nil {
                     Section {
-                        Button("删除实验课", role: .destructive) { confirmDelete = true }
+                        Button("删除自定义课程", role: .destructive) { confirmDelete = true }
                     }
                 }
             }
-            .navigationTitle(isNew ? "添加实验课" : "编辑实验课")
+            .navigationTitle(isNew ? "添加自定义课程" : "编辑自定义课程")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) { Button("保存", action: submit) }
             }
-            .confirmationDialog("删除实验课", isPresented: $confirmDelete, titleVisibility: .visible) {
+            .confirmationDialog("删除自定义课程", isPresented: $confirmDelete, titleVisibility: .visible) {
                 Button("删除", role: .destructive) {
                     onDelete?()
                     dismiss()
@@ -158,7 +158,7 @@ private struct ColorSwatches: View {
     }
 }
 
-/// 我的实验课：列表、点击编辑、左滑删除、右上角添加
+/// 我的自定义课程：列表、点击编辑、左滑删除、右上角添加
 struct ActivityListSheet: View {
     let activities: [CustomActivity]
     let onAdd: () -> Void
@@ -170,7 +170,7 @@ struct ActivityListSheet: View {
         NavigationStack {
             Group {
                 if activities.isEmpty {
-                    GxuEmptyView("还没有实验课", systemImage: "flask", message: "添加实验课的教学周、星期和节次，会和课程一起显示在课表里", actionTitle: "添加实验课", action: onAdd)
+                    GxuEmptyView("还没有自定义课程", systemImage: "calendar.badge.plus", message: "添加后会显示在课表中。", actionTitle: "添加自定义课程", action: onAdd)
                 } else {
                     List {
                         ForEach(activities) { activity in
@@ -194,7 +194,7 @@ struct ActivityListSheet: View {
                     }
                 }
             }
-            .navigationTitle("我的实验课")
+            .navigationTitle("我的自定义课程")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("完成") { dismiss() } }
