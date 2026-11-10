@@ -1,6 +1,16 @@
+<p align="center">
+  <img src="docs/assets/readme-icon.png" width="96" height="96" alt="西大工具箱原版图标">
+</p>
+
 <h1 align="center">西大工具箱 · iOS</h1>
 
-广西大学校园工具箱的原生 iPhone 版，使用 SwiftUI 和 WidgetKit，支持 iOS 18 及以上版本。
+<p align="center">
+  <img src="https://img.shields.io/badge/iOS-18%2B-1D4ED8?style=flat-square&amp;logo=apple&amp;logoColor=white" alt="iOS 18 及以上">
+  <img src="https://img.shields.io/badge/Version-2.2.0-2F6FED?style=flat-square" alt="版本 2.2.0">
+  <img src="https://img.shields.io/badge/Swift-6-DB3D2A?style=flat-square&amp;logo=swift&amp;logoColor=white" alt="Swift 6">
+</p>
+
+广西大学校园工具箱的原生 iPhone 版。
 
 ## 功能
 
@@ -19,7 +29,7 @@ cd GxuToolboxApp-iOS
 bash scripts/build.sh
 ```
 
-脚本根据 [project.yml](project.yml) 生成 Xcode 工程，构建 App 和 Widget。打开生成的 `GxuToolApp.xcodeproj`，选择模拟器和 `GxuToolApp` scheme 即可运行。Debug 启动参数加上 `-GxuDemo` 后，可用演示数据查看首页和课表。
+打开生成的 `GxuToolApp.xcodeproj`，选择模拟器和 `GxuToolApp` scheme 运行。Debug 启动时可添加 `-GxuDemo` 查看演示数据。
 
 运行包测试可用 `bash scripts/test.sh FeatureSchedule FeatureCourse`。构建和测试脚本都支持用 `SIM_ID` 指定已有的模拟器。真机签名和安装见[设备检查清单](docs/ios-migration/device-checklist.md)。
 
@@ -29,8 +39,8 @@ bash scripts/build.sh
 
 - [接口参考](docs/api-docs/)与[契约记录](docs/contracts/)
 - [脱敏样本与接口参数](Fixtures/sanitized/README.md)
-- [原生 iOS 迁移记录](docs/ios-migration/)（旧文档中的 `ios-native/` 对应现在的仓库根目录）
+- [原生 iOS 迁移记录](docs/ios-migration/)
 
 ## 项目来源
 
-本项目源自 [GxuTool/GxuToolboxApp](https://github.com/GxuTool/GxuToolboxApp)，在此维护原生 iOS 版。功能和接口以 [React Native v2.2](https://gitlab.unde.site/gxutool/gxu_tool_app/-/tree/v2.2) 为移植对照，最初的对齐基线为 [`9b98f953`](https://gitlab.unde.site/gxutool/gxu_tool_app/-/tree/9b98f953)。
+原生 iOS 版源自 [GxuTool/GxuToolboxApp](https://github.com/GxuTool/GxuToolboxApp)，移植参考 [React Native v2.2](https://gitlab.unde.site/gxutool/gxu_tool_app/-/tree/v2.2)。
