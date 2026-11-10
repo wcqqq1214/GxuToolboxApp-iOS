@@ -61,7 +61,7 @@ public struct ExamInfoView: View {
                 Section {
                     ForEach(items) { ExamRow(item: $0) }
                 } header: {
-                    Text("\(title) · \(items.count)门")
+                    Text(title)
                 }
             }
         }
