@@ -8,7 +8,7 @@ struct ClassLiveActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: ClassActivityAttributes.self) { context in
             LockScreenClassView(state: context.state, isStale: context.isStale)
-                .activityBackgroundTint(nil)
+                .activityBackgroundTint(Color(uiColor: .secondarySystemBackground))
                 .widgetURL(URL(string: "gxutool://schedule"))
         } dynamicIsland: { context in
             let state = context.state
@@ -24,7 +24,8 @@ struct ClassLiveActivityWidget: Widget {
                 DynamicIslandExpandedRegion(.trailing) {
                     ClassCountdownText(state: state, isStale: stale)
                         .font(.title2.weight(.semibold)).monospacedDigit()
-                        .frame(maxWidth: 80, alignment: .trailing)
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 80, alignment: .trailing)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     VStack(alignment: .leading, spacing: 6) {
@@ -36,7 +37,12 @@ struct ClassLiveActivityWidget: Widget {
             } compactLeading: {
                 Image(systemName: ClassActivityText.symbol(state, isStale: stale)).foregroundStyle(.tint)
             } compactTrailing: {
-                ClassCountdownText(state: state, isStale: stale).monospacedDigit().frame(maxWidth: 48)
+                ClassCountdownText(state: state, isStale: stale)
+                    .font(.subheadline.weight(.semibold)).monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 48, alignment: .trailing)
             } minimal: {
                 Image(systemName: ClassActivityText.symbol(state, isStale: stale)).foregroundStyle(.tint)
             }

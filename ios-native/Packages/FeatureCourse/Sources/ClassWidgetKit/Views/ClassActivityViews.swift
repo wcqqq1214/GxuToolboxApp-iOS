@@ -71,7 +71,7 @@ public struct ClassProgressBar: View {
                 }
                 .frame(height: 4)
             } else {
-                ProgressView(timerInterval: max(state.startsAt, min(now, state.endsAt))...state.endsAt, countsDown: false) { EmptyView() } currentValueLabel: { EmptyView() }
+                ProgressView(timerInterval: state.startsAt...state.endsAt, countsDown: false) { EmptyView() } currentValueLabel: { EmptyView() }
                     .tint(.accentColor)
             }
         case .ended:
@@ -104,6 +104,7 @@ public struct LockScreenClassView: View {
                 Spacer()
                 ClassCountdownText(state: state, isStale: isStale)
                     .font(.title3.weight(.semibold)).monospacedDigit()
+                    .multilineTextAlignment(.trailing)
             }
             Text(state.name).font(.headline).lineLimit(1)
             Text(["\(state.beginText)–\(state.endText)", state.room, state.teacher].filter { !$0.isEmpty }.joined(separator: " · "))
