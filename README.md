@@ -1,38 +1,36 @@
-# 西大工具箱 · iOS
+<h1 align="center">西大工具箱 · iOS</h1>
 
-广西大学校园工具箱的原生 iOS 版。应用使用 SwiftUI，支持 iOS 18 及以上版本，提供个人和班级课表、考试、成绩与 GPA、考勤、空闲教室、学校文件，以及课表小组件和实时活动。
+广西大学校园工具箱的原生 iPhone 版，使用 SwiftUI 和 WidgetKit，支持 iOS 18 及以上版本。
 
-本仓库保留 GitHub fork 关系和提交历史。默认分支维护原生 iOS 工程，Android 版由上游项目维护。[GitHub 上游](https://github.com/GxuTool/GxuToolboxApp) · [GitLab RN v2.2](https://gitlab.unde.site/gxutool/gxu_tool_app/-/tree/v2.2)
+## 功能
 
-## 模拟器构建
+- 查看个人和班级课表，添加自定义课程，导出课表。
+- 查询考场、成绩、考勤记录和校选课完成情况，计算绩点。
+- 查找教师、空闲教室和教学楼，查看校园网用量、学校文件和调休安排。
+- 通过课表小组件和实时活动查看当前与下一节课。
 
-需要 macOS、支持 Swift 6 和 iOS 26 SDK 的 Xcode、已安装的 iOS Simulator runtime，以及 XcodeGen。首次构建需要联网解析 Swift Package 依赖。
+## 本地运行
 
-从仓库根目录运行下面的命令。
+需要 macOS、提供 Swift 6 和 iOS 26 SDK 的 Xcode、已安装的 iOS 模拟器运行时，以及 XcodeGen。首次构建需要联网解析 Swift Package 依赖。
 
 ```sh
+git clone https://github.com/wcqqq1214/GxuToolboxApp-iOS.git
+cd GxuToolboxApp-iOS
 bash scripts/build.sh
-bash scripts/test.sh FeatureSchedule FeatureCourse
 ```
 
-构建脚本通过 [project.yml](project.yml) 生成 Xcode 工程并构建 `GxuToolApp` 和 `GxuWidget`。脚本会为当前分支选择或创建模拟器，也可用 `SIM_ID` 指定已有模拟器。
+脚本根据 [project.yml](project.yml) 生成 Xcode 工程，构建 App 和 Widget。打开生成的 `GxuToolApp.xcodeproj`，选择模拟器和 `GxuToolApp` scheme 即可运行。Debug 启动参数加上 `-GxuDemo` 后，可用演示数据查看首页和课表。
 
-要在 Xcode 中运行，在仓库根目录执行 `xcodegen generate`，打开生成的 `GxuToolApp.xcodeproj`，选择模拟器和 `GxuToolApp` scheme。Debug scheme 可在运行参数中加 `-GxuDemo`，用演示数据查看课表和首页。登录后的线上功能需要对应账号，部分校内系统需要校园网或 VPN。
+运行包测试可用 `bash scripts/test.sh FeatureSchedule FeatureCourse`。构建和测试脚本都支持用 `SIM_ID` 指定已有的模拟器。真机签名和安装见[设备检查清单](docs/ios-migration/device-checklist.md)。
 
-旧检出如果在 `ios-native/.secrets/` 中保存了本地配置，请将需要的配置移到根目录的 `.secrets/`，并从根目录重新生成 Xcode 工程。
+## 数据与文档
 
-## 项目结构
+查询个人课表、成绩和考勤等信息需要登录相应账号。部分校内系统需要校园网或 VPN。演示和测试使用虚构数据或脱敏样本。
 
-| 路径 | 内容 |
-| --- | --- |
-| [App/](App/) | 应用入口、依赖装配、首页和工具箱 |
-| [Packages/](Packages/) | Swift Packages，包含认证、网络、存储、设计组件和功能模块 |
-| [Widget/](Widget/) | WidgetKit 扩展和实时活动 |
-| [UITests/](UITests/) | 模拟器 UI 测试 |
-| [scripts/](scripts/) | 构建、测试和打包脚本 |
-| [docs/api-docs/](docs/api-docs/) 与 [docs/contracts/](docs/contracts/) | 接口参考和契约记录 |
-| [docs/ios-migration/](docs/ios-migration/) | 迁移历史、RN 对照和真机检查清单 |
+- [接口参考](docs/api-docs/)与[契约记录](docs/contracts/)
+- [脱敏样本与接口参数](Fixtures/sanitized/README.md)
+- [原生 iOS 迁移记录](docs/ios-migration/)（旧文档中的 `ios-native/` 对应现在的仓库根目录）
 
-## 对照上游
+## 项目来源
 
-RN 行为和接口对照以 GitLab `v2.2` 为准。本轮清理前的对齐基线为 `9b98f953`。查看上游改动后，把需要的行为移植到 Swift。迁移记录中的 `ios-native/` 是原工程目录，现已移至仓库根目录。`src/`、`android/` 等路径指向当时的 RN 源码。[RN 对齐基线](https://gitlab.unde.site/gxutool/gxu_tool_app/-/tree/9b98f953)
+本项目源自 [GxuTool/GxuToolboxApp](https://github.com/GxuTool/GxuToolboxApp)，在此维护原生 iOS 版。功能和接口以 [React Native v2.2](https://gitlab.unde.site/gxutool/gxu_tool_app/-/tree/v2.2) 为移植对照，最初的对齐基线为 [`9b98f953`](https://gitlab.unde.site/gxutool/gxu_tool_app/-/tree/9b98f953)。
