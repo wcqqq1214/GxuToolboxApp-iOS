@@ -18,9 +18,16 @@ public struct ScheduleRootView: View {
     private let onRequestLogin: @MainActor () -> Void
     private let layers: ScheduleExtraLayersProvider?
 
-    public init(onRequestLogin: @escaping @MainActor () -> Void = {}, layers: ScheduleExtraLayersProvider? = nil) {
+    private let exportDestination: (@MainActor () -> AnyView)?
+    private let refreshAttendance: (@MainActor (String, AcademicTerm) async -> Void)?
+
+    public init(onRequestLogin: @escaping @MainActor () -> Void = {}, layers: ScheduleExtraLayersProvider? = nil,
+                exportDestination: (@MainActor () -> AnyView)? = nil,
+                refreshAttendance: (@MainActor (String, AcademicTerm) async -> Void)? = nil) {
         self.onRequestLogin = onRequestLogin
         self.layers = layers
+        self.exportDestination = exportDestination
+        self.refreshAttendance = refreshAttendance
     }
 
     /// 账号变化时重新加载
@@ -29,15 +36,38 @@ public struct ScheduleRootView: View {
         var state: AuthState?
     }
 
+    private struct AttendanceKey: Hashable {
+        var studentId: String?
+        var term: AcademicTerm?
+        var userId: Int?
+        var state: AuthState?
+        var isActive: Bool
+    }
+
+    private var attendanceKey: AttendanceKey {
+        AttendanceKey(studentId: services.accounts.studentId, term: model.term,
+                      userId: services.accounts.attendance?.loginInfo?.userId,
+                      state: services.accounts.states[.attendance], isActive: scenePhase == .active)
+    }
+
     public var body: some View {
         NavigationStack {
             content
+                .gxuPageBackground()
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar { toolbar }
         }
         .task(id: AccountKey(studentId: services.accounts.studentId, state: services.accounts.states[.jw])) {
             model.layersProvider = layers
             await model.load(services: services)
+        }
+        .task(id: attendanceKey) {
+            let key = attendanceKey
+            guard let refreshAttendance, key.isActive, let studentId = key.studentId, let term = key.term else { return }
+            await model.refreshExamLayer()
+            guard !Task.isCancelled, key.state == .authenticated, key.userId != nil else { return }
+            await refreshAttendance(studentId, term)
+            if !Task.isCancelled { await model.refreshExamLayer() }
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { Task { await model.refreshIfStale(); await model.refreshExamLayer() } }
@@ -126,6 +156,11 @@ public struct ScheduleRootView: View {
                     Button("我的实验课", systemImage: "list.bullet") { showActivityList = true }
                     Divider()
                     Button("分享本周课表", systemImage: "square.and.arrow.up") { showShare = true }
+                    if let exportDestination {
+                        NavigationLink { exportDestination() } label: {
+                            Label("导出教务课表", systemImage: "doc")
+                        }
+                    }
                 } label: {
                     Image(systemName: "plus.circle")
                 }

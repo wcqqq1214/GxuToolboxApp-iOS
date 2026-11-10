@@ -1,6 +1,8 @@
 import FeatureAccount
 import GxuAuth
 import GxuDesign
+import ImageIO
+import PhotosUI
 import SwiftUI
 
 /// 设置首页骨架。账号相关页面由 FeatureAccount 提供，这里只放入口；外观设置在这里。
@@ -13,6 +15,9 @@ struct SettingsHomeView: View {
         NavigationStack {
             List {
                 Section("账号") {
+                    NavigationLink("打开教务") {
+                        WebViewScreen(url: URL(string: "https://jwxt2018.gxu.edu.cn/jwglxt/xtgl/index_initMenu.html")!, title: "教务系统")
+                    }
                     NavigationLink {
                         AccountFeature.makeRootView()
                     } label: {
@@ -45,6 +50,7 @@ struct SettingsHomeView: View {
                         ForEach(AppearanceMode.allCases) { Text($0.displayName).tag($0) }
                     }
                     AccentPicker()
+                    BackgroundSettings(theme: theme)
                 }
 
                 Section("课表与考试") {
@@ -54,7 +60,11 @@ struct SettingsHomeView: View {
                 }
 
                 Section("关于") {
-                    LabeledContent("版本", value: appVersion)
+                    NavigationLink {
+                        AppVersionListView()
+                    } label: {
+                        LabeledContent("软件版本", value: appVersion)
+                    }
                     NavigationLink {
                         AccountFeature.makeErrorLogView()
                     } label: {
@@ -67,6 +77,7 @@ struct SettingsHomeView: View {
                     }
                 }
             }
+            .gxuPageBackground()
             .navigationTitle("设置")
         }
     }
@@ -171,5 +182,50 @@ private struct AccentPicker: View {
             }
         }
         .padding(.vertical, GxuDesign.Spacing.xs)
+    }
+}
+
+
+private struct BackgroundSettings: View {
+    @Bindable var theme: GxuTheme
+    @State private var selection: PhotosPickerItem?
+    @State private var imageError = false
+
+    var body: some View {
+        PhotosPicker(selection: $selection, matching: .images) { Text("选择背景图") }
+            .task(id: selection) {
+                guard let selection else { return }
+                do {
+                    guard let data = try await selection.loadTransferable(type: Data.self),
+                          let image = await Self.thumbnail(data) else {
+                        if !Task.isCancelled { imageError = true }
+                        return
+                    }
+                    if !Task.isCancelled { theme.backgroundImage = image }
+                } catch {
+                    if !Task.isCancelled { imageError = true }
+                }
+            }
+            .alert("无法读取背景图", isPresented: $imageError) { Button("好", role: .cancel) {} }
+        if theme.backgroundImage != nil {
+            Slider(value: $theme.backgroundMask, in: 0...1, step: 0.01) { Text("背景蒙版透明度") }
+            Button("重置背景", role: .destructive) {
+                selection = nil
+                theme.backgroundImage = nil
+            }
+        }
+    }
+
+    /// 保存缩小后的 JPEG，限制背景图的内存和存储开销。
+    private nonisolated static func thumbnail(_ data: Data) async -> Data? {
+        await Task.detached(priority: .userInitiated) {
+            guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+                  let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+                    kCGImageSourceCreateThumbnailFromImageAlways: true,
+                    kCGImageSourceCreateThumbnailWithTransform: true,
+                    kCGImageSourceThumbnailMaxPixelSize: 1600,
+                  ] as CFDictionary) else { return nil }
+            return UIImage(cgImage: image).jpegData(compressionQuality: 0.75)
+        }.value
     }
 }

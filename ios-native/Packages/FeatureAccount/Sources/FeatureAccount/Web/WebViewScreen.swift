@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import UniformTypeIdentifiers
 import WebKit
 
 /// 点击链接 / `window.open` 弹出的新页面，用来推入导航栈
@@ -15,24 +16,58 @@ public struct WebViewScreen: View {
     let url: URL
     let title: String?
     let cookies: [HTTPCookie]
+    let allowsHTMLExport: Bool
 
     @State private var pageTitle: String?
     @State private var progress = 0.0
     @State private var popup: WebPopup?
     @State private var reloadToken = 0
+    @State private var loadedPage: WKWebView?
+    @State private var html: HTMLDocument?
+    @State private var isExporting = false
+    @State private var showsFileExporter = false
+    @State private var exportError = false
+    @State private var pageError = false
     @Environment(\.openURL) private var openURL
 
-    public init(url: URL, title: String? = nil, cookies: [HTTPCookie] = []) {
+    public init(url: URL, title: String? = nil, cookies: [HTTPCookie] = [], allowsHTMLExport: Bool = false) {
         self.url = url
         self.title = title
         self.cookies = cookies
+        self.allowsHTMLExport = allowsHTMLExport
     }
 
     public var body: some View {
-        WebContainer(url: url, cookies: cookies, reloadToken: reloadToken, pageTitle: $pageTitle, progress: $progress) { popup = WebPopup(url: $0) }
+        WebContainer(url: url, cookies: cookies, reloadToken: reloadToken, pageTitle: $pageTitle, progress: $progress,
+                     onPageLoaded: allowsHTMLExport ? { loadedPage = $0; pageError = false } : nil,
+                     onPageFailure: allowsHTMLExport ? { loadedPage = nil; pageError = true } : nil) { popup = WebPopup(url: $0) }
             .overlay(alignment: .top) {
-                if progress < 1 { ProgressView(value: progress).progressViewStyle(.linear) }
+                if !pageError, progress < 1 { ProgressView(value: progress).progressViewStyle(.linear) }
             }
+            .overlay {
+                if pageError {
+                    ContentUnavailableView {
+                        Label("无法打开教务课表", systemImage: "wifi.exclamationmark")
+                    } actions: {
+                        Button("重试") { reloadToken += 1 }
+                    }
+                    .background(.background)
+                }
+            }
+            .safeAreaInset(edge: .bottom) {
+                if allowsHTMLExport {
+                    Button(isExporting ? "正在导出…" : "导出课表", systemImage: "square.and.arrow.up") {
+                        Task { await exportHTML() }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(loadedPage == nil || isExporting)
+                    .padding(8)
+                }
+            }
+            .fileExporter(isPresented: $showsFileExporter, document: html, contentType: .html, defaultFilename: "export_schedule") {
+                if case .failure = $0 { exportError = true }
+            }
+            .alert("课表导出失败", isPresented: $exportError) { Button("好", role: .cancel) {} }
             .navigationTitle(title ?? pageTitle ?? "")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -45,6 +80,51 @@ public struct WebViewScreen: View {
             }
             .navigationDestination(item: $popup) { WebViewScreen(url: $0.url, cookies: cookies) }
     }
+
+    /// 将已加载的教务页面保存为 HTML，由系统文件选择器决定保存位置。
+    private func exportHTML() async {
+        guard let page = loadedPage, !isExporting else { return }
+        isExporting = true
+        defer { isExporting = false }
+        do {
+            let script = """
+            (() => {
+                const root = document.documentElement.cloneNode(true);
+                root.querySelectorAll('script').forEach(script => script.remove());
+                root.querySelectorAll('input[type="password"], input[type="hidden"]').forEach(input => input.remove());
+                const base = document.createElement('base');
+                base.href = document.baseURI;
+                if (!root.querySelector('base')) root.querySelector('head')?.prepend(base);
+                return '<!doctype html>\\n' + root.outerHTML;
+            })()
+            """
+            guard let text = try await page.evaluateJavaScript(script) as? String,
+                  loadedPage === page, !page.isLoading, !text.isEmpty else {
+                exportError = true
+                return
+            }
+            html = HTMLDocument(data: Data(text.utf8))
+            showsFileExporter = true
+        } catch {
+            exportError = true
+        }
+    }
+}
+
+private struct HTMLDocument: FileDocument {
+    static var readableContentTypes: [UTType] { [.html] }
+    let data: Data
+
+    init(data: Data) { self.data = data }
+
+    init(configuration: ReadConfiguration) throws {
+        guard let data = configuration.file.regularFileContents else { throw CocoaError(.fileReadCorruptFile) }
+        self.data = data
+    }
+
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        FileWrapper(regularFileWithContents: data)
+    }
 }
 
 private struct WebContainer: UIViewRepresentable {
@@ -53,6 +133,8 @@ private struct WebContainer: UIViewRepresentable {
     let reloadToken: Int
     @Binding var pageTitle: String?
     @Binding var progress: Double
+    let onPageLoaded: ((WKWebView?) -> Void)?
+    let onPageFailure: (() -> Void)?
     let onPopup: (URL) -> Void
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
@@ -93,15 +175,33 @@ private struct WebContainer: UIViewRepresentable {
 
         func observe(_ webView: WKWebView) {
             observations = [
-                webView.observe(\.estimatedProgress, options: [.new]) { [weak self] view, _ in
-                    let value = view.estimatedProgress
+                webView.observe(\.estimatedProgress, options: [.new]) { [weak self] _, change in
+                    guard let value = change.newValue else { return }
                     Task { @MainActor in self?.parent.progress = value }
                 },
-                webView.observe(\.title, options: [.new]) { [weak self] view, _ in
-                    let value = view.title
+                webView.observe(\.title, options: [.new]) { [weak self] _, change in
+                    let value = change.newValue ?? nil
                     Task { @MainActor in self?.parent.pageTitle = value }
                 },
             ]
+        }
+
+        func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+            parent.onPageLoaded?(nil)
+        }
+
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            guard let url = webView.url, url.scheme == "https", url.host == parent.url.host,
+                  url.path == parent.url.path else { return }
+            parent.onPageLoaded?(webView)
+        }
+
+        func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+            if (error as? URLError)?.code != .cancelled { parent.onPageFailure?() }
+        }
+
+        func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+            if (error as? URLError)?.code != .cancelled { parent.onPageFailure?() }
         }
 
         // 非 http(s)（tel:、mailto:、itms-apps: 等）交给系统打开

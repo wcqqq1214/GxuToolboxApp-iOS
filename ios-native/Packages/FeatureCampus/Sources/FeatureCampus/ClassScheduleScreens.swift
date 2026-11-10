@@ -106,6 +106,12 @@ final class ClassScheduleModel {
 // MARK: 班级课表
 
 struct ClassScheduleView: View {
+    let exportDestination: (@MainActor () -> AnyView)?
+
+    init(exportDestination: (@MainActor () -> AnyView)? = nil) {
+        self.exportDestination = exportDestination
+    }
+
     @Environment(\.services) private var services
     @State private var context = CampusContext()
     @State private var model = ClassScheduleModel()
@@ -125,6 +131,13 @@ struct ClassScheduleView: View {
             }
         }
         .navigationTitle("班级课表")
+        .toolbar {
+            if let exportDestination {
+                NavigationLink { exportDestination() } label: {
+                    Label("导出课表", systemImage: "square.and.arrow.up")
+                }
+            }
+        }
         .navigationBarTitleDisplayMode(.inline)
         .task {
             await context.load(services: services)

@@ -88,12 +88,16 @@ final class AttendanceViewModel {
         loadVersion += 1
         let version = loadVersion
         let selection = selection, week = week, mode = mode
+        let studentId = services.accounts.studentId
+        let token = services.accounts.attendance?.token
         isLoading = true
         defer { if version == loadVersion { isLoading = false } }
         do {
             // 课表里每节课的出勤状态要对着记录，所以两个页签都取记录
             let loadedRecords = try await api.records(year: selection.year, term: selection.term)
-            guard version == loadVersion else { return }   // 期间换了学期或又发起了加载：旧响应作废
+            guard version == loadVersion, !Task.isCancelled,
+                  services.accounts.studentId == studentId,
+                  services.accounts.attendance?.token == token else { return }
             records = loadedRecords
             AttendanceRecordCache.save(services, loadedRecords, year: selection.year, term: selection.term)
             if mode == .schedule {

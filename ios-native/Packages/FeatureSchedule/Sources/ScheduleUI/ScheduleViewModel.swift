@@ -204,7 +204,7 @@ final class ScheduleViewModel {
     func reloadExams(generation gen: Int) async {
         guard let layersProvider, let studentId, let term else { return }
         let layers = await layersProvider(studentId, term)
-        guard gen == generation else { return }
+        guard !Task.isCancelled, gen == generation else { return }
         exams = layers.exams
         overrides = layers.overrides
         attendanceMarks = layers.attendance

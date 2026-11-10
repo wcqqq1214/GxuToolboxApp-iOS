@@ -43,12 +43,16 @@ public final class GxuTheme {
 
     public var accentHex: UInt32 { didSet { defaults.set(Int(accentHex), forKey: Keys.accent) } }
     public var appearance: AppearanceMode { didSet { defaults.set(appearance.rawValue, forKey: Keys.appearance) } }
+    public var backgroundImage: Data? { didSet { defaults.set(backgroundImage, forKey: Keys.backgroundImage) } }
+    public var backgroundMask: Double { didSet { defaults.set(backgroundMask, forKey: Keys.backgroundMask) } }
     public var accent: Color { Color(hex: accentHex) }
 
     @ObservationIgnored private let defaults: UserDefaults
 
     private enum Keys {
         static let accent = "gxu.theme.accentHex"
+        static let backgroundImage = "gxu.theme.backgroundImage"
+        static let backgroundMask = "gxu.theme.backgroundMask"
         static let appearance = "gxu.theme.appearance"
     }
 
@@ -56,6 +60,8 @@ public final class GxuTheme {
         self.defaults = defaults
         let stored = defaults.object(forKey: Keys.accent) as? Int
         accentHex = stored.map { UInt32(truncatingIfNeeded: $0) } ?? Self.defaultAccentHex
+        backgroundImage = defaults.data(forKey: Keys.backgroundImage)
+        backgroundMask = defaults.object(forKey: Keys.backgroundMask) as? Double ?? 0.65
         appearance = defaults.string(forKey: Keys.appearance).flatMap(AppearanceMode.init(rawValue:)) ?? .system
     }
 
@@ -63,9 +69,36 @@ public final class GxuTheme {
 }
 
 public extension View {
+    /// 给主页面应用用户选择的背景，并保留系统的默认外观。
+    func gxuPageBackground() -> some View { modifier(PageBackgroundModifier()) }
+
     /// 在根视图上调用：下发主题、强调色和外观模式
     func gxuTheme(_ theme: GxuTheme) -> some View {
         modifier(ThemeModifier(theme: theme))
+    }
+}
+
+private struct PageBackgroundModifier: ViewModifier {
+    @Environment(GxuTheme.self) private var theme: GxuTheme?
+
+    func body(content: Content) -> some View {
+        content
+            .scrollContentBackground(theme?.backgroundImage == nil ? .automatic : .hidden)
+            .background {
+                Color(.systemGroupedBackground)
+                if let theme, let data = theme.backgroundImage, let image = UIImage(data: data) {
+                    GeometryReader { geometry in
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: geometry.size.width, height: geometry.size.height)
+                            .clipped()
+                            .overlay(Color(.systemGroupedBackground).opacity(min(max(theme.backgroundMask, 0), 1)))
+                            .accessibilityHidden(true)
+                    }
+                    .ignoresSafeArea()
+                }
+            }
     }
 }
 

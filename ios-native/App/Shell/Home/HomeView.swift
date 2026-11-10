@@ -13,6 +13,7 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             content
+                .gxuPageBackground()
                 .navigationTitle("今天")
                 .navigationBarTitleDisplayMode(.large)
         }

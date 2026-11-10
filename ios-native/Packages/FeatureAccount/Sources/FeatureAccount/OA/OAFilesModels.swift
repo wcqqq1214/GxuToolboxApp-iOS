@@ -76,6 +76,7 @@ final class OAFilesModel {
 @MainActor @Observable
 final class OAFileDetailModel {
     private(set) var detail: OAFileDetail?
+    private(set) var viewerToken: String?
     private(set) var isLoading = true
     private(set) var error: GxuError?
     private(set) var isPreparingPreview = false
@@ -107,7 +108,10 @@ final class OAFileDetailModel {
         isLoading = true
         defer { isLoading = false }
         do {
-            detail = try await OAFilesAPI(session: oa).detail(id: row.id)
+            let detail = try await OAFilesAPI(session: oa).detail(id: row.id)
+            let token = try await oa.documentViewerToken()
+            self.detail = detail
+            viewerToken = token
             error = nil
         } catch is CancellationError {
             return

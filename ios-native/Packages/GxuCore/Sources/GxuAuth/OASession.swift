@@ -27,7 +27,7 @@ public actor OASession {
     public func login(username: String, password: String) async throws {
         var request = URLRequest(url: Self.loginURL)
         request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json; charset=utf-8", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: ["Account": username, "Password": password])
         let (data, response) = try await perform(request)
         guard (200..<300).contains(response.statusCode) else {
@@ -61,8 +61,18 @@ public actor OASession {
         if tokens.load() == nil { try await renew() }
     }
 
+    /// OA 原站文件查看器使用的令牌。调用方须将它限制在 OA 的 HTTPS 域。
+    public func documentViewerToken() throws -> String {
+        guard let token = tokens.load() else { throw GxuError.sessionExpired(.oa) }
+        return token
+    }
+
     public func clear() {
         tokens.save(nil)
+        let storage = session.configuration.httpCookieStorage
+        for cookie in storage?.cookies(for: Self.loginURL) ?? [] where cookie.name == "token" {
+            storage?.deleteCookie(cookie)
+        }
     }
 
     /// 带 Bearer 发请求。HTTP 401 时用 Keychain 里的账号重新登录一次再重试；仍然 401 抛 `sessionExpired(.oa)`。
@@ -87,7 +97,7 @@ public actor OASession {
         if !query.isEmpty { components.percentEncodedQuery = QueryString.encode(query) }
         var request = URLRequest(url: components.url!)
         request.httpMethod = method
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json; charset=utf-8", forHTTPHeaderField: "Content-Type")
         request.httpBody = body
         let (data, _) = try await send(request)
         guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
@@ -166,7 +176,15 @@ public actor OASession {
     private func authorized(_ request: URLRequest) -> URLRequest {
         var request = request
         // 只给 OA 自己的域名带 token，别的校内域名（例如附件放在别处）不带
-        if request.url?.host?.lowercased() == Self.oaHost, let token = tokens.load() { request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
+        if let url = request.url, url.scheme == "https", url.host?.lowercased() == Self.oaHost,
+           url.port == nil || url.port == 443, let token = tokens.load() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            if let cookie = HTTPCookie(properties: [
+                .originURL: url, .domain: Self.oaHost, .path: "/", .name: "token", .value: token, .secure: "TRUE",
+            ]) {
+                session.configuration.httpCookieStorage?.setCookies([cookie], for: url, mainDocumentURL: url)
+            }
+        }
         return request
     }
 

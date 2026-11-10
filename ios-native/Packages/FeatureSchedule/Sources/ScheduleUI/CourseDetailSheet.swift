@@ -2,6 +2,7 @@ import GxuDesign
 import GxuFoundation
 import ScheduleKit
 import SwiftUI
+import UIKit
 
 /// 课程详情。系统 sheet（自动是玻璃），带 detents；冲突组时依次列出每一门课。
 struct CourseDetailSheet: View {
@@ -137,7 +138,10 @@ private struct CourseSection: View {
     /// 地点行的“导航到这里”；没有注入地图能力时为 nil（不显示按钮）
     var onNavigate: ((CourseNavigation.Target) -> Void)?
     @Environment(\.scheduleTeacherSupport) private var teacherSupport
+    @Environment(\.openURL) private var openURL
+    @State private var copiedGroup = false
     private var course: TheoryCourse { item.course }
+    private var qqGroup: String { course.qqGroup.trimmingCharacters(in: .whitespacesAndNewlines) }
 
     var body: some View {
         Section {
@@ -164,6 +168,9 @@ private struct CourseSection: View {
                     if !(field.id == "teacher" && teacherSupport != nil && !course.teacher.isEmpty) {
                         row(field.label, value(of: field.id))
                     }
+                    if field.id == "qqGroup", !qqGroup.isEmpty {
+                        Button("加群", systemImage: "person.badge.plus", action: joinQQGroup)
+                    }
                     if field.id == "venue", let onNavigate, let target = navigationTarget {
                         Button("导航到这里", systemImage: "location.fill") { onNavigate(target) }
                     }
@@ -177,6 +184,7 @@ private struct CourseSection: View {
                 }
             }
         }
+        .alert("已复制 QQ 群号", isPresented: $copiedGroup) { Button("好", role: .cancel) {} }
         if !exams.isEmpty {
             Section("相关考试") {
                 ForEach(exams) { exam in RelatedExamRow(exam: exam) }
@@ -197,9 +205,35 @@ private struct CourseSection: View {
         case "credits": course.credits
         case "category": course.courseCategory
         case "examMethod": course.examMethod
-        case "enrollment": course.enrollmentCount > 0 ? "\(course.enrollmentCount)" : ""
-        case "qqGroup": course.qqGroup
+        case "enrollment":
+            "\(course.enrollmentCount) 人 / \(course.seatCount) 座位 · 理论满座率 \(occupancy)"
+        case "qqGroup": qqGroup
         default: ""
+        }
+    }
+
+    private var occupancy: String {
+        guard course.seatCount > 0, course.enrollmentCount >= 0 else { return "暂无" }
+        let ratio = Double(course.enrollmentCount) / Double(course.seatCount)
+        return ratio.formatted(.percent.precision(.fractionLength(2)))
+    }
+
+    /// 优先打开 QQ 群名片，无法跳转时复制群号。
+    private func joinQQGroup() {
+        var components = URLComponents(string: "mqqapi://card/show_pslcard")!
+        components.queryItems = [
+            URLQueryItem(name: "src_type", value: "internal"),
+            URLQueryItem(name: "version", value: "1"),
+            URLQueryItem(name: "uin", value: qqGroup),
+            URLQueryItem(name: "card_type", value: "group"),
+            URLQueryItem(name: "source", value: "qrcode"),
+        ]
+        guard let url = components.url else { return }
+        openURL(url) { accepted in
+            if !accepted {
+                UIPasteboard.general.string = qqGroup
+                copiedGroup = true
+            }
         }
     }
 

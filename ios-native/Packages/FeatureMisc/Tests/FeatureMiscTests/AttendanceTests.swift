@@ -49,7 +49,8 @@ private func day(_ s: String) -> Date { AttendanceDay.parse(s, calendar: cal)! }
     }
 
     @Test func summaryCounts() {
-        let recs = [1, 1, 2, 4, 5, 100, 9].map { AttendanceRecord(date: "2025-11-03", courseName: "x\($0)", statusCode: $0) }
+        let codes = [1, 1, 2, 4, 5, 100, 9]
+        let recs = codes.map { AttendanceRecord(date: "2025-11-03", courseName: "x\($0)", statusCode: $0) }
         let s = AttendanceSummary(recs)
         #expect(s.normal == 2 && s.late == 1 && s.absent == 1 && s.other == 3 && s.total == 7)
     }

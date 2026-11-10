@@ -1,4 +1,3 @@
-import ClassWidgetKit
 import GxuDesign
 import ScheduleKit
 import SwiftUI

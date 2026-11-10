@@ -8,11 +8,11 @@ import Testing
 @testable import FeatureMisc
 
 @MainActor @Suite struct AttendanceRecordCacheTests {
-    private func services(_ backend: any BackendAPI, studentId: String? = "2025000001", state: AuthState = .authenticated, shared: InMemorySharedStore = InMemorySharedStore()) -> AppServices {
+    private func services(_ backend: any BackendAPI, studentId: String? = "2025000001", state: AuthState = .authenticated, shared: InMemorySharedStore = InMemorySharedStore(), attendance: AttendanceSession? = nil) -> AppServices {
         let p = AppServices.preview()
         let client = BackendClient(session: BackendClient.makeSession(configuration: .ephemeral))
         let creds = InMemoryCredentialStore()
-        let accounts = AccountCenter(credentials: creds, jw: JwSessionManager(credentials: creds, transport: client), states: [.attendance: state], studentId: studentId)
+        let accounts = AccountCenter(credentials: creds, jw: JwSessionManager(credentials: creds, transport: client), attendance: attendance, states: [.attendance: state], studentId: studentId)
         return AppServices(backend: backend, database: p.database, shared: shared, accounts: accounts)
     }
 
@@ -47,6 +47,23 @@ import Testing
         failing.stub("GET /attendance/v2/personal", error: .network("boom"))
         let second = await AttendanceRecordCache.refresh(services: services(failing, shared: shared), year: 2025, term: 1)
         #expect(second.map(\.courseName) == ["高数"])   // 失败：保留缓存，不抛错
+    }
+
+    @Test func cacheIsIsolatedWhenAttendanceAccountChanges() async throws {
+        let backend = MockBackendAPI()
+        backend.stub("POST /attendance/v2/login", json: Data(#"{"code":200,"data":{"token":"fixture","userId":42}}"#.utf8))
+        backend.stub("GET /attendance/v2/personal", json: body("高数"))
+        let suite = "attendance-cache-tests.\(UUID())"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let attendance = AttendanceSession(transport: backend, tokens: InMemoryTokenStore(), defaults: defaults)
+        try await attendance.login(username: "fixture", password: "fixture", captcha: "test", ticket: nil)
+        let s = services(backend, attendance: attendance)
+
+        await AttendanceRecordCache.refresh(services: s, year: 2025, term: 1)
+
+        #expect(AttendanceRecordCache.cached(store: s.shared, studentId: s.accounts.studentId, year: 2025, term: 1, attendanceUserId: 42).map(\.courseName) == ["高数"])
+        #expect(AttendanceRecordCache.cached(store: s.shared, studentId: s.accounts.studentId, year: 2025, term: 1, attendanceUserId: 43).isEmpty)
     }
 
     @Test func refreshDoesNothingWhenNotAuthenticated() async {

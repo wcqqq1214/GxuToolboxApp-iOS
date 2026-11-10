@@ -1,6 +1,7 @@
 import ExamKit
 import FeatureAccount
 import FeatureCampus
+import FeatureMisc
 import GxuAuth
 import GxuFoundation
 import GxuDesign
@@ -48,7 +49,13 @@ struct RootView: View {
                 HomeView(model: home, onRequestLogin: { selection = .settings }).gxuAccessoryInset()
             }
             Tab("课表", systemImage: "calendar", value: AppTab.schedule) {
-                ScheduleFeature.makeRootView(onRequestLogin: { selection = .settings }, layers: layersProvider).gxuAccessoryInset()
+                ScheduleRootView(onRequestLogin: { selection = .settings }, layers: layersProvider,
+                                 exportDestination: { AnyView(JwScheduleExportView()) }) { studentId, term in
+                    let services = resolvedServices
+                    guard services.accounts.studentId == studentId, (1...2).contains(term.term) else { return }
+                    await AttendanceRecordCache.refresh(services: services, year: term.year, term: term.term)
+                }
+                .gxuAccessoryInset()
             }
             Tab("工具箱", systemImage: "square.grid.2x2", value: AppTab.toolbox) {
                 ToolboxView(onSelectTab: { selection = $0 }, isPushed: $toolboxPushed).gxuAccessoryInset()
@@ -106,7 +113,15 @@ extension RootView {
             #if DEBUG
             if ProcessInfo.processInfo.arguments.contains("-GxuDemo") { return ScheduleExtraLayers(exams: exams, overrides: overrides, attendance: DemoMode.attendanceMarks()) }
             #endif
-            return ScheduleExtraLayers(exams: exams, overrides: overrides)
+            let attendance = await MainActor.run {
+                guard services.accounts.studentId == studentId,
+                      let userId = services.accounts.attendance?.loginInfo?.userId else { return [AttendanceMark]() }
+                return AttendanceRecordCache.cached(store: services.shared, studentId: studentId, year: term.year,
+                                                    term: term.term, attendanceUserId: userId).map {
+                    AttendanceMark(date: $0.date, periodRange: $0.periodRange, statusCode: $0.statusCode)
+                }
+            }
+            return ScheduleExtraLayers(exams: exams, overrides: overrides, attendance: attendance)
         }
     }
 

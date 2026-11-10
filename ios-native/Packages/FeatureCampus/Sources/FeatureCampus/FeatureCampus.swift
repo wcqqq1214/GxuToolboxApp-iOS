@@ -70,7 +70,9 @@ public enum CampusFeature {
 
     /// 工具箱 → 班级课表
     @MainActor
-    public static func makeClassScheduleView() -> some View { ClassScheduleView() }
+    public static func makeClassScheduleView(exportDestination: (@MainActor () -> AnyView)? = nil) -> some View {
+        ClassScheduleView(exportDestination: exportDestination)
+    }
 
     /// 工具箱 → 全校课表
     @MainActor

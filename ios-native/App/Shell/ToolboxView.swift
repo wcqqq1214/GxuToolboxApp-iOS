@@ -45,7 +45,7 @@ struct ToolboxView: View {
                 .padding(.horizontal, GxuDesign.Layout.pageMargin)
                 .padding(.vertical, GxuDesign.Spacing.s)
             }
-            .background(Color(.systemGroupedBackground))
+            .gxuPageBackground()
             .navigationTitle("工具箱")
             .searchable(text: $query, prompt: "搜索功能")
             .navigationDestination(for: String.self) { id in

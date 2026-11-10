@@ -99,6 +99,7 @@ struct OAFileDetailView: View {
 
     private struct Content: View {
         @State var model: OAFileDetailModel
+        @State private var originalPageFailed = false
 
         var body: some View {
             Group {
@@ -113,7 +114,10 @@ struct OAFileDetailView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding()
                         Divider()
-                        if let html = detail.html {
+                        if let token = model.viewerToken, !originalPageFailed {
+                            OAOriginalDocumentView(fileID: model.row.id, token: token) { originalPageFailed = true }
+                                .id(token)
+                        } else if let html = detail.html {
                             HTMLView(html: html)
                         } else {
                             GxuEmptyView("没有正文", systemImage: "doc", message: detail.pdfURL != nil || detail.docxURL != nil ? "可以通过右上角预览附件。" : nil)

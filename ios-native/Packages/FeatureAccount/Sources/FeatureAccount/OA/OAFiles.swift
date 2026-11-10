@@ -67,7 +67,7 @@ public struct OAFilesAPI: Sendable {
     }
 
     public func detail(id: Int) async throws -> OAFileDetail {
-        let data = try await session.json("GET", path: "/wenjian/detail", query: ["id": String(id), "Admin": "false"])
+        let data = try await session.json("GET", path: "/wenjian/detail", query: ["_wv": "20250701-2200", "id": String(id), "isAdmin": "false"])
         return try Self.parseDetail(data)
     }
 
