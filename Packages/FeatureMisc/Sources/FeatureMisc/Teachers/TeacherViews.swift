@@ -112,13 +112,9 @@ public struct TeacherSearchView: View {
         var body: some View {
             Group {
                 if !model.isActive && !model.isSearching {
-                    GxuEmptyView(
-                        "搜索教师信息",
-                        systemImage: "magnifyingglass",
-                        message: "输入姓名、单位、职称或一级学科进行查询"
-                    )
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color(.systemGroupedBackground))
+                    GxuEmptyView("搜索教师信息", systemImage: "magnifyingglass")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(Color(.systemGroupedBackground))
                 } else {
                     results
                 }
