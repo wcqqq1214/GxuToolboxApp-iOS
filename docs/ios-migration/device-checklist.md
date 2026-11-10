@@ -1,17 +1,15 @@
 # 真机验证清单
 
-模拟器验证不了的东西。每项写了**步骤、预期结果、谁来操作**。从仓库根目录运行 `scripts/run-device.sh --check` 确认前置条件。
-
-**操作人说明：** 「用户」= 需要有手机、账号或校园网的人；「A / B / C」= 对应 agent 在用户把设备连好、`run-device.sh` 能跑通之后可以代为执行的步骤（agent 不能碰手机屏幕，需要看屏幕的步骤只能由用户做）。
+从仓库根目录运行 `scripts/run-device.sh --check` 确认签名与设备；使用个人团队时加 `--personal`。涉及屏幕、账号或校园网的步骤由设备使用者验证。
 
 ## 0. 前置条件（用户提供）
 
 | 需要什么 | 说明 |
 |---|---|
-| 付费的 Apple Developer Program 账号和 **Team ID** | App Group、Keychain 共享、Live Activities 都需要，免费个人账号做不到。Team ID 写进环境变量 `DEVELOPMENT_TEAM` 或 `.secrets/archive.env`（`DEVELOPMENT_TEAM=XXXXXXXXXX`），**不要提交进 git** |
+| 付费的 Apple Developer Program 账号和 **Team ID** | 用于完整验证共享能力和发布 TestFlight。免费账号可用下文的 `--personal` 安装调试版。Team ID 写进环境变量 `DEVELOPMENT_TEAM` 或 `.secrets/archive.env`（`DEVELOPMENT_TEAM=XXXXXXXXXX`），**不要提交进 git** |
 | 一台 iPhone（iOS 18 或更新，建议再有一台 iOS 18.x 的） | 数据线连接、解锁、信任此电脑；设置 → 隐私与安全性 → 开发者模式打开；Xcode 里登录了 Apple ID |
-| 能在手机上连校园网（或校园 VPN） | CA、PEC、金工实训、OA、wjxt 只有校内网络才能访问 |
-| 账号 | 统一认证 `CA_USER` / `CA_PASS`；OA 账号（与问卷系统共用）；考勤系统账号；教务测试账号（已有）。放进 `.secrets/account.env`（不入库）；真机上由用户自己在 App 里登录，脚本不会传递密码 |
+| 能在手机上连校园网（或校园 VPN） | 校外访问 CA、PEC、金工实训、OA 或 wjxt 受限时，切换到校园网或校园 VPN |
+| 账号 | 统一认证 `CA_USER` / `CA_PASS`；OA 账号（与旧系统待阅文件共用）；考勤及教务账号。请直接在 App 内登录，安装脚本不读取这些凭据 |
 
 **Team ID 怎么填：** `cp .secrets/archive.env.example .secrets/archive.env`，把里面的 `XXXXXXXXXX` 改成你的 Team ID 就行（`.secrets/archive.env` 不会进 git；模板 `archive.env.example` 可以提交）。
 
@@ -19,7 +17,7 @@
 - 手机连着电脑：`scripts/run-device.sh`（只有一台真机时自动选择；多台用 `--device <名称或UDID>`）。
 - 想自己拿文件装：`scripts/run-device.sh --ipa`，导出 `build/export/GxuToolApp.ipa`，结束时会打印绝对路径和安装方式（Xcode 的 Devices and Simulators 窗口 / Apple Configurator / `devicectl`）。**手机必须是 development 描述文件里登记过 UDID 的设备**：先用数据线连一次电脑让 Xcode 自动登记，或在 developer.apple.com → Devices 里手动加 UDID。
 
-首次运行 Xcode 会自动注册 App ID、App Group `group.com.gxutool.ios`，这需要账号有权限。Bundle ID 目前固定为 `com.gxutool.ios`，如果提示已被别的团队占用，要先让开发者把它改成可配置的。
+使用自动签名时，开发团队需要有权注册 App ID 和 App Group。安装脚本默认用 `com.gxutool.ios`；如被占用，可设置 `BUNDLE_ID` 覆盖，Widget 与 App Group 标识会随之调整。
 
 ## 0.5 只有免费 Apple 账号：`--personal` 模式
 
@@ -44,13 +42,13 @@
 | 5.1 真实 iOS 18 | ✅（如果手机是 iOS 18） | 需要 iOS 18 的设备 |
 | 5.3 TestFlight、`archive.sh` 上传、`--ipa` 导出 | ❌ | 需要付费的 Apple Developer Program 账号 |
 
-## 1. 小组件、Live Activity、App Intents（PLAN §5.1 (e)）
+## 1. 小组件、Live Activity、App Intents
 
 | # | 步骤 | 预期结果 | 谁 |
 |---|---|---|---|
 | 1.1 | 打开 App 并登录教务账号，等课表加载完；回到主屏，长按 → 添加小组件 →「西大工具箱」，依次添加小 / 中 / 大三个尺寸 | 三个尺寸都能添加，显示今天正在上的课和接下来的课，和 App 里「今天」页一致 | 用户 |
 | 1.2 | 锁屏上添加「矩形」和「行内」小组件 | 显示下一节课（课名、时间、教室）；行内一行不被截断 | 用户 |
-| 1.3 | **App Group 共享（§5.1 (e)）**：在 App 里下拉刷新课表，然后回主屏看小组件 | 小组件内容在几秒到几分钟内与 App 一致，说明小组件读到了 App 写入的 `group.com.gxutool.ios` 数据。如果一直是空白 / 占位，说明扩展没读到同一个容器 | 用户（看屏幕）；A 可以在设备日志里查 `Widget` 读 App Group 的结果 |
+| 1.3 | **App Group 共享**：在 App 里下拉刷新课表，然后回主屏看小组件 | 小组件内容在几秒到几分钟内与 App 一致，说明小组件读到了 App 写入的 `group.<BUNDLE_ID>` 数据。如果一直是空白或占位，检查扩展是否读到同一个容器 | 用户（看屏幕）；可在设备日志里查 `Widget` 读 App Group 的结果 |
 | 1.4 | **切换账号**：设置 → 教务账号 → 退出登录，再用另一个学号登录；回主屏看小组件 | 小组件不再显示上一个账号的课（空白 / 提示去登录，随后变成新账号的课），**不能出现旧账号的数据** | 用户（需要第二个教务账号） |
 | 1.5 | 一天中经过一节课的开始和结束时间前后各几分钟观察小组件 | 在每节课开始和结束的时刻小组件切换到对应条目（时间线条目） | 用户 |
 | 1.6 | **Live Activity / 灵动岛**：在一节课开始前（或按设计的提前量）打开 App，观察锁屏和灵动岛 | 出现「当前课 / 下一节课」的实时活动：倒计时和进度条随时间变化；长按灵动岛展开样式正常；课结束后活动消失 | 用户 |
@@ -70,20 +68,20 @@
 
 | # | 步骤 | 预期结果 | 谁 |
 |---|---|---|---|
-| 3.1 | **CA 统一认证**：设置 → 统一认证账号 → 登录 | 登录成功；服务端明确拒绝时转述它的提示，需要验证码 / 被拒绝访问 / 服务异常时各说各的 | 用户。**✅ 已验证（2026-11-06，用 `.secrets` 里的真实账号，A 的 Swift 代码在模拟器上登录 + 校验接口通过；手机上的登录由用户再点一次确认）** |
-| 3.2 | **PEC 物理实验课**：工具箱 → 实践课 → 物理实验课（需先登录统一认证，在校园网下） | 显示实验课列表；字段和 RN 一致（TODO(verify)：实际响应字段） | 用户；字段不一致写给 B |
+| 3.1 | **CA 统一认证**：设置 → 统一认证账号 → 登录 | 登录成功；服务端明确拒绝时转述它的提示，需要验证码 / 被拒绝访问 / 服务异常时各说各的 | 用户（2026-11-06 已用真实账号通过模拟器登录与校验；仍需在真机确认） |
+| 3.2 | **PEC 物理实验课**：工具箱 → 实践课 → 物理实验课（需先登录统一认证，在校园网下） | 显示实验课列表；字段和 RN 一致（TODO(verify)：实际响应字段） | 用户 |
 | 3.3 | **金工实训**：工具箱 → 实践课 → 金工实训 | 显示金工实训课表；token 有效（xlzxms） | 用户 |
-| 3.4 | **考勤**：设置 → 考勤账号 → 看验证码、输入账号密码和验证码登录；工具箱 → 考勤信息 | 登录成功；验证码错误时换一张并提示；考勤信息按学期显示；token 过期（可等一段时间或在别处登录挤掉）时提示重新登录 | 用户（要人工看验证码）；字段不一致写给 C |
+| 3.4 | **考勤**：设置 → 考勤账号 → 看验证码、输入账号密码和验证码登录；工具箱 → 考勤信息 | 登录成功；验证码错误时换一张并提示；考勤信息按学期显示；token 过期（可等一段时间或在别处登录挤掉）时提示重新登录 | 用户 |
 | 3.5 | **OA 文件**：设置 → OA 账号登录；工具箱 → 学校文件 | 列表、按类型筛选、标题搜索、翻页、详情正文都正常；PDF / DOCX 附件能预览；校外网络时提示「OA 系统拒绝访问，可能需要连接校园网」 | 用户 |
 | 3.6 | **wjxt 待阅文件**：OA 文件页右上角菜单 →「旧系统待阅文件」 | 显示待阅列表，点开能在 WebView 里看到文件；会话过期自动重登 | 用户 |
-| 3.7 | 把 PEC / 工程训练中心的 CAS service 地址换成 https 试一下 | 如果能成功，可以去掉 `project.yml` 里 `pec.gxu.edu.cn` / `xlzxms.gxu.edu.cn` 的 http 例外（收紧 ATS） | A（拿到 3.2 / 3.3 的结果之后） |
+| 3.7 | 验证 PEC 和工程训练中心的完整登录及数据请求能否走 HTTPS，包括 CAS 回跳和后续接口 | 对应主机的全部请求均可走 HTTPS 后，再移除 `project.yml` 里的 HTTP 例外 | 开发者（完成 3.2 / 3.3 后） |
 | 3.8 | 地图导航：点一个地点的导航按钮；教学楼平面图：打开楼层图并缩放 | Apple 地图按全名搜到校内位置；楼层图加载并可双指缩放 | 用户 |
 
 ## 4. Keychain、后台刷新、回前台刷新
 
 | # | 步骤 | 预期结果 | 谁 |
 |---|---|---|---|
-| 4.1 | **Keychain access group**：用真实 Team ID 装好后，登录教务账号；杀掉 App 再打开 | 保持登录（凭据读写正常，没有 `-34018` 之类的错误）。`GxuConfig.keychainAccessGroup` 此时返回 `TEAMID.com.gxutool.ios`，App 和小组件扩展共用同一个分组 | 用户 |
+| 4.1 | **Keychain access group**：用真实 Team ID 装好后，登录教务账号；杀掉 App 再打开 | 保持登录（凭据读写正常，没有 `-34018` 之类的错误）。`GxuConfig.keychainAccessGroup` 此时返回带 App Identifier Prefix 的共享组（默认标识为 `<前缀>.com.gxutool.ios`），App 和小组件扩展共用同一个分组 | 用户 |
 | 4.2 | 卸载 App 后重新安装 | iOS 默认会保留 Keychain：首次启动要正常处理（已保存的账号还在，或者提示重新登录），不能崩溃或卡在错误状态 | 用户 |
 | 4.3 | **回前台刷新**：打开课表，切到别的 App 停留 5 分钟以上，再回来 | 课表自动刷新（顶部没有残留的旧错误），数据是新的 | 用户 |
 | 4.4 | **断网**：开飞行模式后打开 App | 显示缓存数据和「上次更新于 …」提示，不弹空白页；恢复网络后下拉刷新恢复 | 用户 |
@@ -94,9 +92,11 @@
 
 | # | 步骤 | 预期结果 | 谁 |
 |---|---|---|---|
-| 5.1 | **真实 iOS 18 验证（必须）**：另装 Xcode 16.x（约 3–5 GB，需 Apple ID）下载 iOS 18 runtime，或直接用一台 iOS 18 真机，跑一遍本清单第 1、2 节和 `run-e2e-ui.sh` 走查 | 玻璃降级（Material）分支外观正确；标签栏附件不盖住标签栏；没有只在 iOS 26+ 才有的 API 崩溃。目前只用 `-GxuForceLegacy` 在 iOS 27 模拟器上看过 | 用户装环境；A / B 跑走查和修问题 |
-| 5.2 | `scripts/build.sh release` | 输出 `RELEASE BUILD OK`（干净构建的 Release + 真机架构） | A |
-| 5.3 | `DEVELOPMENT_TEAM=<Team ID> scripts/archive.sh --check`，通过后 `scripts/archive.sh`（导出 .ipa）再 `scripts/archive.sh --upload`（上传 TestFlight） | `--check` 通过；archive 成功；构建在 App Store Connect 的 TestFlight 里处理完成。**注意**：Info.plist 里的版本号 / 构建号是写死的，`BUILD_NUMBER` 目前改不动实际版本（见 A 的 status「未验证的发现」），第二次上传前要先解决 | A；账号 / API Key 由用户提供 |
+| 5.1 | **真实 iOS 18 验证（必须）**：在 iOS 18 真机上走查第 1、2 节；若当前 Xcode 可运行 iOS 18 模拟器，配置 E2E 测试账号后，可指定 `SIM_ID` 运行 `bash scripts/run-e2e-ui.sh` 补充自动化检查 | 玻璃降级（Material）分支外观正确；标签栏附件不盖住标签栏；没有只在 iOS 26+ 才有的 API 崩溃。`-GxuForceLegacy` 可预览降级样式，仍需在 iOS 18 上验证兼容性 | 用户 / 开发者 |
+| 5.2 | `scripts/build.sh release` | 输出 `RELEASE BUILD OK`（Release 真机构建） | 开发者 |
+| 5.3 | 配置 `DEVELOPMENT_TEAM` 后运行 `scripts/archive.sh --check`；按需用 `scripts/archive.sh` 导出 .ipa，或用 `scripts/archive.sh --upload` 上传 TestFlight | `--check` 通过；archive 成功；导出时生成 .ipa，上传时确认 TestFlight 处理完成。版本号取自 `project.yml` 的 `MARKETING_VERSION`。构建号默认取 `CURRENT_PROJECT_VERSION`，可用 `BUILD_NUMBER` 覆盖；每次上传前递增并核对 App、Widget 构建号 | 开发者；上传账号由用户提供 |
 | 5.4 | 复核 `PrivacyInfo.xcprivacy` 声明，填写 App Store Connect 隐私营养标签和隐私政策链接 | 声明与实际收集一致 | 用户 |
-| 5.5 | `version.json` 增加 `ios` 通道 | App 启动时能提示新版本并跳转 App Store / TestFlight；没有通道时静默 | 用户 |
-| 5.6 | App 名称和图标 | 用中性名称和自制图标（避免「广西大学」名称和校徽的知识产权问题） | 用户 |
+| 5.5 | 在[发布版本清单](https://file.unde.site/GxuToolApp/version.json)的 `ios` 数组配置版本 | App 启动时能提示新版本并跳转 App Store / TestFlight；没有通道时静默 | 用户 |
+| 5.6 | App 名称和图标 | 上架前确认 Bundle ID、App 名称、图标与素材使用权限 | 用户 |
+
+版本通道条目包含 `versionName`、整数 `versionCode`（与 `CFBundleVersion` 比较）、可选的 `desc`，以及 `ori.appStore` 或 `ori.testFlight` 的 HTTPS 地址。

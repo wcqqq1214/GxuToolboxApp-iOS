@@ -4,7 +4,7 @@ import GxuFoundation
 import Observation
 import SwiftUI
 
-/// 评教总览：列出每门课的评教状态。详情、评语、提交需要直连教务（后端没有代理），暂不做，见 COORDINATION。
+/// 评教总览：列出每门课的评教状态。详情、评语、提交需要直连教务（后端没有代理），暂不接入。
 @MainActor @Observable
 final class EvaluationOverviewModel {
     private(set) var tasks: [EvaluationTask] = []

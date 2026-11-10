@@ -1,6 +1,6 @@
 # RN v2.2 与 iOS 的差距（对齐基准：`origin/v2.2` @ `c7c11bc3`）
 
-用户决定（2026-11-06）：**iOS 对齐最新的 RN 分支**，基准固定为 `c7c11bc3`（比 `main` 多 92 个提交、195 个文件、+20847/−3552 行）。读 RN 代码用 `git show c7c11bc3:<路径>`、`git diff main c7c11bc3 -- <路径>`（所有 worktree 共享这些 ref）。RN 决定功能和数据，界面按 PLAN §6（教师查询页除外，先跟 RN 结构）。绩点重修逻辑不在 RN 里，按 `[gpa-retake]`，不要回退。
+用户决定（2026-11-06）：**iOS 对齐最新的 RN 分支**，基准固定为 `c7c11bc3`（比 `main` 多 92 个提交、195 个文件、+20847/−3552 行）。读 RN 代码用 `git show c7c11bc3:<路径>`、`git diff main c7c11bc3 -- <路径>`（所有 worktree 共享这些 ref）。这份差距表记录当时的对照结果。现行界面规范见 [GxuDesign](../../Packages/GxuDesign/README.md)，迁移决策及待办见[迁移索引](README.md)。
 
 本文件由 A 写，B、C 按它干活。路由核对时间 2026-11-06，**只用只读请求**（未登录的探测，加一次后端登录后的两个只读 GET），不向线上写任何数据。
 
@@ -35,7 +35,7 @@
 |---|---|---|---|
 | `src/core/auth/Jw`：`6c59a755 收拢后端登录并清理旧网关`、`c59ebe5a fix(教务账号)：同步查询账号与认证状态` | 教务登录只走后端，删掉本地 / 远程网关切换；账号页同步查询账号与认证状态 | **已一致**：iOS 一直只走后端；账号状态已按 `[auth-state-fix]` 统一为一个来源 | 无需改 |
 | `1172edb0 提示APP仅本科生可用` | 教务账号页加提示卡片：「全校本科生均可用 / 研究生还请移步至GXU研课表(gxu.app)」 | 没有 | A：教务账号页加这句提示（文案原样） |
-| `4bc024ed 微调教务登录页样式` | 登录页样式 | 按 PLAN §6 自己设计，不照搬 | 不做 |
+| `4bc024ed 微调教务登录页样式` | 登录页样式 | 按 [GxuDesign](../../Packages/GxuDesign/README.md) 设计 | 不做 |
 | `src/core/auth/attendance`（`43f2ef10 适配考勤V2接口`、`eb91acde 重构考勤系统体验`） | v2 captcha / login，`AttendanceSession{token,calendarId,userId}`，token 存本地 | 见上表 | A：`AttendanceSession` 迁到 v2（captcha 的 `text` 可用于自动填充）；账号页配合；完整登录要考勤账号，真实验证标「后续测试」 |
 | `src/features/documents`：`331e3aa8 修复退出文件系统登录的按钮的错误逻辑`（`LoginDialog` 一行） | 「退出登录」按钮的 disabled 条件修正 | iOS 的退出按钮在已登录时显示、未登录时不显示，没有这个问题 | 已一致 |
 | `src/js/jw`、`src/class/jw`、`src/js/nextCourses.ts`、`src/js/mgr` 的小改动 | 清理死代码（教务直连考试接口等）、`dc181ca2 完整化体育课上课地址字段`（已在 iOS：`44c99e8`/B） | — | 无需改 |
@@ -53,17 +53,17 @@
 | 课表分享显式传入数据（`c548f456`）、日期引用修复（`00fe09e1`） | | B 对照 |
 | 工具箱：`ToolboxIndex.tsx` v2.2（「课表」→「个人课表」、加回「空闲教室」） | 仍由 B 改 `ToolboxCatalog` | B |
 | **第 9、10 节合并行** | 用户截图显示「9-10节」；v2.2 实际做法需要对照 `TimeSchedule` 文档和渲染代码 | B 核对后按 RN 对齐显示文字 |
-| 班级课表（`classCourseSchedule`）相关差异 | C 的对照结果里属于 B 的部分写进 B 的请求区 | — |
+| 班级课表（`classCourseSchedule`）相关差异 | 按班级课表功能归属核对 | — |
 
 ### C（考试 / 选课 / 考勤 / 教师）
 | 项 | v2.2 做了什么 | 备注 |
 |---|---|---|
-| **考勤重构**（`src/features/attendance`，8 个文件，`AttendanceScreen`） | v2 登录（`A` 负责认证）、`getMenuData` / `testToken` 判 `code === 200`、数据类型来自 adapters（`RecordPage`、`Schedule`）、「happy path」体验 | 数据形状要看 `docs` 里的 adapters 类型或真实响应（需要考勤账号）→ 后续测试；A 的 v2 认证交付后在 C 的请求区通知 |
-| **校选课查漏**（`src/features/electiveStrategy`，11 个文件 +1000 行）：`8b158170 改用后端结果并保留旧逻辑` | 正式入口转到 `ElectiveProgressScreen`，通过 `useElectiveProgress` 请求 **`GET /jw/elective-progress`**（见上表）；校验 `studentId`；**保留旧的本地算法**作为参考 / 回退 | 路由真实存在、形状已确认；C 用它替换 iOS 的本地计算（保留现有按年级规则的逻辑，不删）；创业学分与 RN 保持一致（PLAN §7） |
+| **考勤重构**（`src/features/attendance`，8 个文件，`AttendanceScreen`） | v2 登录（`A` 负责认证）、`getMenuData` / `testToken` 判 `code === 200`、数据类型来自 adapters（`RecordPage`、`Schedule`）、「happy path」体验 | 数据形状要看 `docs` 里的 adapters 类型或真实响应（需要考勤账号）→ 后续测试；依赖 v2 认证 |
+| **校选课查漏**（`src/features/electiveStrategy`，11 个文件 +1000 行）：`8b158170 改用后端结果并保留旧逻辑` | 正式入口转到 `ElectiveProgressScreen`，通过 `useElectiveProgress` 请求 **`GET /jw/elective-progress`**（见上表）；校验 `studentId`；**保留旧的本地算法**作为参考 / 回退 | 路由真实存在、形状已确认；C 用它替换 iOS 的本地计算（保留现有按年级规则的逻辑，不删）；创业学分按 RN 对照，政策口径见[待办](README.md#待验证) |
 | **教师查询**（`src/features/teachersInfo`） | 类型迁到 `@gxutool/adapters`（`TeacherInfoList`、`TeacherInfoDetail`），多处 import 路径改动；**逻辑变化很小** | **上一轮对照的是旧基准，重新对照 v2.2**（教师查询页先跟 RN 结构） |
 | **考试**（`src/features/examInfo`）：`d277943f 考试查询接口契约文档`、`4f5d5543 考试接口按后端契约转换学期码`、`StoredExam`（缓存只存纯数据，去掉运行时的 date / status） | `/jw/exam` 只接受 1/2，边界统一转换 | iOS 一直用逻辑学期，已一致；对照契约文档里的字段、S0 核查基线 |
 | `src/features/widget`（4 行，`widgetScheduleData.ts`） | 随课表考试数据类型调整 | C 对照 |
-| 绩点（`examScore`） | v2.2 没有变化 | 保持 `[gpa-retake]` 的规则 |
+| 绩点（`examScore`） | v2.2 没有变化 | 保留[重修计算规则](README.md#保留的迁移决策) |
 
 ## 6. 后端待办（iOS 不绕过，只记录）
 
@@ -73,7 +73,7 @@
 CI 与 OTA 流水线（`.gitlab-ci.yml`、`scripts/`、`plan/`、`docs/` 里的发布文档）、RN 的 `drizzle/` 迁移与 `test.ts`、`TestPage`、`un-ui` 组件库改动、`react-native` 依赖锁文件。
 
 ## 5. 顺序和依赖
-1. A：本文件 + PLAN 更新 + `[gap-v22] A`（本次）→ A 自己的部分（本科生提示、考勤 v2 认证）。
+1. A：发布差距表后，处理本科生提示与考勤 v2 认证。
 2. B：空闲教室（路由已确认，可直接做）和工具箱；课表变化逐项对照。
 3. C：校选课查漏接 `/jw/elective-progress`；教师查询、考试、widget 对照；考勤等 A 的 v2 认证。
 4. 真实账号才能验证的（考勤 v2 完整登录、PEC / 实验课、空闲教室需要教务登录的部分用现有测试账号可以验证）标「后续测试」。

@@ -4,7 +4,7 @@
 
 最低系统 iOS 18。iOS 26 才有的 API（`glassEffect`、`GlassEffectContainer`、`glassEffectID`、`tabBarMinimizeBehavior`、`tabViewBottomAccessory`）只出现在 `Glass.swift`，用 `#available(iOS 26, *)` 包装，iOS 18 降级为 Material。
 
-## 五条规则（PLAN §6）
+## 界面设计
 
 1. **玻璃只用在导航层和浮动控件上**：标签栏、工具栏、浮动按钮、sheet、底部附件。课程块、成绩列表、卡片正文**不用玻璃**。
 2. **玻璃上不要再叠玻璃。** 相邻的玻璃控件放进同一个 `GlassGroup`，让它们能合并、变形。
@@ -12,7 +12,7 @@
 4. feature 里**禁止直接写** `.glassEffect`、`.buttonStyle(.glass)`、`GlassEffectContainer`，只能用本包的封装。
 5. 主题色只作强调色（`tint`）；图标只用 SF Symbols；文字用系统字体样式（`.headline`、`.body` …），不要写死字号，以支持 Dynamic Type。
 
-优先用系统控件：`List`、`Form`、`Picker`、`Menu`、`.sheet` + detents、`.contextMenu`、`.swipeActions`、`.refreshable`、`.searchable`。
+RN 用于对照功能、数据和边界行为，界面按 iOS 的交互习惯设计。优先用系统控件：`List`、`Form`、`Picker`、`Menu`、`.sheet` + detents、`.contextMenu`、`.swipeActions`、`.refreshable`、`.searchable`。
 
 ## 用法
 
@@ -88,8 +88,9 @@ GxuStaleBanner(updatedAt: date, message: "网络不可用")  // 刷新失败时�
 2. **不要把列表行的左右内边距设成 0**：文字贴着行容器的圆角边缘，第一个字会被裁掉（首页日期行的 bug）。需要贴 A 线的文字放进分组标题里。
 3. **同一张卡片 / 同一行里，同一个信息只出现一次。** 右边已经写了具体时刻（“明天 09:00”），左边就不再写时间；已有“今天放假”提示就不再显示“今天没有课”。
 4. **座位号**：纯数字写“8 号”，其他写“座位 A12”，没有就不显示——统一用 `Exam.seatText`。
-5. **课程块**：纯底色，**不加竖线**（首页“今日课程”的竖线保留）；课程名用 `.caption`，教室 / 教师用 `.caption2`（比课程名小一号）；深色模式用提高饱和度的暗色底（`CourseTint`）。
+5. **课程块**：纯底色，**不加竖线**（首页“今日课程”和小组件的竖线保留）；课程名用 `.caption`，教室 / 教师用 `.caption2`（比课程名小一号）；深色模式用提高饱和度的暗色底（`CourseTint`）。
 6. **课表时间列**：每节同时显示上课和下课时间；第 9、10 节在显示层合并成一行“9-10”（`PeriodRows`，共 12 行），`ClassPeriods` 的 13 节数据和计算逻辑不变。同行里重叠的课并排分栏显示。
 7. **叠色**：整天色带（假期）上不再叠“今天”列的底色，只保留表头日期的高亮。
 8. **标题**：带下拉箭头的标题，箭头用 overlay，文字和下面的日期范围保持在同一条中轴线上。
-9. **二级页面**（工具箱里点进去的页面）隐藏标签栏和底部附件：`.gxuHidesTabChrome()`。
+9. **页面文案**：省略没有额外信息的学年学期说明。
+10. **二级页面**（工具箱里点进去的页面）隐藏标签栏和底部附件：`.gxuHidesTabChrome()`。

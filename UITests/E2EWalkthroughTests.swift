@@ -94,7 +94,7 @@ final class E2EWalkthroughTests: XCTestCase {
 
     private var reportName = "phase2-report.txt"
 
-    /// 当前页面不允许出现的文字（PLAN §6 用户审查规则里能自动检查的：2「8 号座」、9「……学年第一学期」类说明）
+    /// 当前页面不允许出现的文字（见 Packages/GxuDesign/README.md 的页面文字规则：如「8 号座」或「……学年第一学期」类说明）
     private func scanText(_ screen: String) {
         let labels = app.staticTexts.allElementsBoundByIndex.prefix(150).map { $0.label }
         for label in labels {

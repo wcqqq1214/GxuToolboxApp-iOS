@@ -39,7 +39,7 @@ bash scripts/build.sh
 
 - [接口参考](docs/api-docs/)与[契约记录](docs/contracts/)
 - [脱敏样本与接口参数](Fixtures/sanitized/README.md)
-- [原生 iOS 迁移记录](docs/ios-migration/)
+- [原生 iOS 迁移记录](docs/ios-migration/README.md)
 
 ## 项目来源
 
