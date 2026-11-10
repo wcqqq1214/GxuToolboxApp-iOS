@@ -41,7 +41,7 @@ final class FullScheduleModel {
 
     /// 本人资料（学院 / 年级 / 专业用来给筛选条件设默认值）：先缓存，没有再联网；拿不到就不设默认值
     private static func profile(_ services: AppServices) async -> UserProfile? {
-        guard let studentId = await services.accounts.studentId else { return nil }
+        guard let studentId = services.accounts.studentId else { return nil }
         return try? await services.profiles.profile(studentId: studentId, refresh: false)
     }
 
@@ -97,7 +97,7 @@ final class FullScheduleModel {
                 async let majors = (try? await api.majors(grade: "", school: school)) ?? []
                 let classes = try await api.classes(term: term, school: school)
                 let names = Dictionary(uniqueKeysWithValues: (await majors).map { ($0.majorId, $0.majorName) })
-                guard !Task.isCancelled, await self?.generation == gen else { return }
+                guard !Task.isCancelled, self?.generation == gen else { return }
                 self?.begin(total: classes.count, majorNames: names)
                 await Self.scan(classes: classes, term: term, moment: moment, api: api) { outcome in
                     self?.record(outcome, generation: gen)

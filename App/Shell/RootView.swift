@@ -127,7 +127,7 @@ extension RootView {
     }
 
     /// 考试时间串 “2026-01-23(09:00-11:00)” 里的结束时刻
-    private static func examEnd(_ time: String, start: Date) -> Date? {
+    private nonisolated static func examEnd(_ time: String, start: Date) -> Date? {
         guard let match = time.firstMatch(of: /\((\d{2}):(\d{2})-(\d{2}):(\d{2})\)/), let h = Int(match.3), let m = Int(match.4) else { return nil }
         return Calendar.current.date(bySettingHour: h, minute: m, second: 0, of: start)
     }
