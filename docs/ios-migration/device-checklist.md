@@ -1,6 +1,6 @@
 # 真机验证清单
 
-模拟器验证不了的东西。每项写了**步骤、预期结果、谁来操作**。先跑 `ios-native/scripts/run-device.sh --check` 确认前置条件。
+模拟器验证不了的东西。每项写了**步骤、预期结果、谁来操作**。从仓库根目录运行 `scripts/run-device.sh --check` 确认前置条件。
 
 **操作人说明：** 「用户」= 需要有手机、账号或校园网的人；「A / B / C」= 对应 agent 在用户把设备连好、`run-device.sh` 能跑通之后可以代为执行的步骤（agent 不能碰手机屏幕，需要看屏幕的步骤只能由用户做）。
 
@@ -8,22 +8,22 @@
 
 | 需要什么 | 说明 |
 |---|---|
-| 付费的 Apple Developer Program 账号和 **Team ID** | App Group、Keychain 共享、Live Activities 都需要，免费个人账号做不到。Team ID 写进环境变量 `DEVELOPMENT_TEAM` 或 `ios-native/.secrets/archive.env`（`DEVELOPMENT_TEAM=XXXXXXXXXX`），**不要提交进 git** |
+| 付费的 Apple Developer Program 账号和 **Team ID** | App Group、Keychain 共享、Live Activities 都需要，免费个人账号做不到。Team ID 写进环境变量 `DEVELOPMENT_TEAM` 或 `.secrets/archive.env`（`DEVELOPMENT_TEAM=XXXXXXXXXX`），**不要提交进 git** |
 | 一台 iPhone（iOS 18 或更新，建议再有一台 iOS 18.x 的） | 数据线连接、解锁、信任此电脑；设置 → 隐私与安全性 → 开发者模式打开；Xcode 里登录了 Apple ID |
 | 能在手机上连校园网（或校园 VPN） | CA、PEC、金工实训、OA、wjxt 只有校内网络才能访问 |
-| 账号 | 统一认证 `CA_USER` / `CA_PASS`；OA 账号（与问卷系统共用）；考勤系统账号；教务测试账号（已有）。放进 `ios-native/.secrets/account.env`（不入库）；真机上由用户自己在 App 里登录，脚本不会传递密码 |
+| 账号 | 统一认证 `CA_USER` / `CA_PASS`；OA 账号（与问卷系统共用）；考勤系统账号；教务测试账号（已有）。放进 `.secrets/account.env`（不入库）；真机上由用户自己在 App 里登录，脚本不会传递密码 |
 
-**Team ID 怎么填：** `cd ios-native && cp .secrets/archive.env.example .secrets/archive.env`，把里面的 `XXXXXXXXXX` 改成你的 Team ID 就行（`.secrets/archive.env` 不会进 git；模板 `archive.env.example` 可以提交）。
+**Team ID 怎么填：** `cp .secrets/archive.env.example .secrets/archive.env`，把里面的 `XXXXXXXXXX` 改成你的 Team ID 就行（`.secrets/archive.env` 不会进 git；模板 `archive.env.example` 可以提交）。
 
 **两种装法：**
-- 手机连着电脑：`cd ios-native && scripts/run-device.sh`（只有一台真机时自动选择；多台用 `--device <名称或UDID>`）。
-- 想自己拿文件装：`scripts/run-device.sh --ipa`，导出 `ios-native/build/export/GxuToolApp.ipa`，结束时会打印绝对路径和安装方式（Xcode 的 Devices and Simulators 窗口 / Apple Configurator / `devicectl`）。**手机必须是 development 描述文件里登记过 UDID 的设备**：先用数据线连一次电脑让 Xcode 自动登记，或在 developer.apple.com → Devices 里手动加 UDID。
+- 手机连着电脑：`scripts/run-device.sh`（只有一台真机时自动选择；多台用 `--device <名称或UDID>`）。
+- 想自己拿文件装：`scripts/run-device.sh --ipa`，导出 `build/export/GxuToolApp.ipa`，结束时会打印绝对路径和安装方式（Xcode 的 Devices and Simulators 窗口 / Apple Configurator / `devicectl`）。**手机必须是 development 描述文件里登记过 UDID 的设备**：先用数据线连一次电脑让 Xcode 自动登记，或在 developer.apple.com → Devices 里手动加 UDID。
 
 首次运行 Xcode 会自动注册 App ID、App Group `group.com.gxutool.ios`，这需要账号有权限。Bundle ID 目前固定为 `com.gxutool.ios`，如果提示已被别的团队占用，要先让开发者把它改成可配置的。
 
 ## 0.5 只有免费 Apple 账号：`--personal` 模式
 
-`cd ios-native && scripts/run-device.sh --personal`：
+`scripts/run-device.sh --personal`：
 - **Team ID 自动取**：从 Xcode 登录的账号（优先免费个人团队）或钥匙串里的 Apple Development 证书取，不用手填；多个会列出（打码），用 `DEVELOPMENT_TEAM=<完整 ID>` 指定。取不到会提示怎么做。
 - **Bundle ID 可改**：默认 `com.gxutool.ios`；被别的团队占用（Xcode 报 "cannot be registered … not available"）时，设 `BUNDLE_ID=com.<你的名字>.gxutool`（环境变量，或写进 `.secrets/archive.env`）。Widget 自动用 `<BUNDLE_ID>.widget`，App Group 用 `group.<BUNDLE_ID>`。
 - **先按完整能力签名**（App Group + Keychain 共享），Xcode 说「个人团队不支持」才自动降级成没有这两项的 Debug 构建，并打印实际结论；降级只对这次构建生效，不改 `project.yml` 和正常构建。降级时 App 数据库和偏好存在 App 自己的容器里，小组件读不到 App 的数据（显示「未就绪」），App 本身不受影响。
