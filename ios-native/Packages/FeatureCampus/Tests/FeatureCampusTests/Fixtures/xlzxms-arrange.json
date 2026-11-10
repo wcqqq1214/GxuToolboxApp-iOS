@@ -1,0 +1,62 @@
+{
+ "datas": [
+  [
+   {
+    "startRow": 1,
+    "startCol": 0,
+    "colNumber": 6,
+    "rowNumber": 1,
+    "content": "金工实训周安排（示例）",
+    "id": "h",
+    "type": 1
+   },
+   {
+    "startRow": 2,
+    "startCol": 1,
+    "colNumber": 1,
+    "rowNumber": 1,
+    "content": "10月8日",
+    "id": "d1",
+    "type": 1
+   },
+   {
+    "startRow": 2,
+    "startCol": 2,
+    "colNumber": 2,
+    "rowNumber": 1,
+    "content": "10月9日",
+    "id": "d2",
+    "type": 1
+   },
+   {
+    "startRow": 2,
+    "startCol": 4,
+    "colNumber": 1,
+    "rowNumber": 1,
+    "content": "垃圾日期",
+    "id": "d3",
+    "type": 1
+   },
+   {
+    "startRow": 9,
+    "startCol": 1,
+    "colNumber": 1,
+    "rowNumber": 2,
+    "content": "车工实训",
+    "id": "e1",
+    "type": 2
+   },
+   {
+    "startRow": 9,
+    "startCol": 2,
+    "colNumber": 2,
+    "rowNumber": 2,
+    "content": "数控铣实训",
+    "id": "e2",
+    "type": 2
+   }
+  ]
+ ],
+ "message": "ok",
+ "status": 200
+}

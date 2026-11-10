@@ -41,7 +41,7 @@ export function ToolboxIndex() {
             title: "信息查询",
             data: [
                 {
-                    label: "课表",
+                    label: "个人课表",
                     icon: <Icon name="calendar-month" size={iconSize} />,
                     type: "navigation",
                     navigation: "courseScheduleQuery",
@@ -74,7 +74,7 @@ export function ToolboxIndex() {
                     label: "考勤信息",
                     icon: <Icon name="clock" size={iconSize} />,
                     type: "navigation",
-                    navigation: "AttendanceInfoQueryScreen",
+                    navigation: "AttendanceScreen",
                 },
                 {
                     label: "选课课程列表",
@@ -93,6 +93,12 @@ export function ToolboxIndex() {
                     icon: <Icon type="antdesign" name="user" size={iconSize} />,
                     type: "navigation",
                     navigation: "TeacherInfo",
+                },
+                {
+                    label: "空闲教室",
+                    icon: <Icon name="calendar-search" size={iconSize} />,
+                    type: "navigation",
+                    navigation: "emptyClassroom",
                 },
                 // {
                 //     label: "自主选课",

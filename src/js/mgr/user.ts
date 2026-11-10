@@ -1,5 +1,4 @@
 import {store} from "@/core/store.ts";
-import {AttendanceSystemType as AST} from "@/type/api/auth/attendanceSystem.ts";
 import {Account} from "@/core/auth/auth.type.ts";
 
 export const userMgr = {
@@ -68,22 +67,6 @@ export const userMgr = {
                 return null;
             }
         },
-        storeLoginRes: (res: AST.ResRoot<AST.LoginData>) => {
-            return store.save({
-                key: "attendanceSystemLoginRes",
-                data: res,
-            });
-        },
-        getLoginRes: async () => {
-            try {
-                return await store.load<AST.ResRoot<AST.LoginData>>({
-                    key: "attendanceSystemLoginRes",
-                });
-            } catch (e) {
-                console.warn(e);
-                return null;
-            }
-        },
     },
     //文件系统相关
     wjxt: {
@@ -128,18 +111,18 @@ export const userMgr = {
             }
         },
 
-        clearAccountAndToken: async() => {
+        clearAccountAndToken: async () => {
             try {
                 await store.remove({
-                    key: "wjxtAccount"
+                    key: "wjxtAccount",
                 });
                 await store.remove({
-                    key: "wjxtToken"
+                    key: "wjxtToken",
                 });
             } catch (e) {
                 console.log(e);
                 return null;
             }
-        }
+        },
     },
 };

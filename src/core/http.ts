@@ -1,6 +1,4 @@
 import axios, {AxiosError} from "axios";
-import {userMgr} from "../js/mgr/user.ts";
-import {ToastAndroid} from "react-native";
 
 // 默认导出实例
 export const http = axios.create({
@@ -13,16 +11,16 @@ export const http = axios.create({
 });
 
 http.interceptors.request.use(config => {
-    userMgr.jw
-        .getAccount()
-        .then(data => {
-            if (!data.username || !data.password) {
-                ToastAndroid.show("未正确设置账号，请前往设置设置账号", ToastAndroid.SHORT);
-            }
-        })
-        .catch(() => {
-            ToastAndroid.show("未正确设置账号，请前往设置设置账号", ToastAndroid.SHORT);
-        });
+    // userMgr.jw
+    //     .getAccount()
+    //     .then(data => {
+    //         if (!data.username || !data.password) {
+    //             ToastAndroid.show("未正确设置账号，请前往设置设置账号", ToastAndroid.SHORT);
+    //         }
+    //     })
+    //     .catch(() => {
+    //         ToastAndroid.show("未正确设置账号，请前往设置设置账号", ToastAndroid.SHORT);
+    //     });
 
     return config;
 });

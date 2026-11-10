@@ -1,24 +1,26 @@
-import {userMgr} from "@/js/mgr/user.ts";
 import {AttendanceSystemType as AST} from "@/type/api/auth/attendanceSystem.ts";
 import {store} from "@/core/store.ts";
 import moment from "moment";
-import {AttendanceCourseScheduleClass} from "@/class/auth/attendanceSystem.ts";
 import {SchoolTermValue, SchoolYearValue} from "@/type/global.ts";
 import {backendHttp} from "@/features/backend/api";
+import {mmkv} from "@/store/mmkv.ts";
+import type {AttendanceSession} from "@/core/auth/attendance/attendance.type.ts";
+
+import type {RecordPage, Schedule} from "@gxutool/adapters/attendance";
 
 // ─── helper：统一处理 token + headers ───
 
 async function getAuthHeaders(): Promise<Record<string, string> | null> {
-    const loginRes = await userMgr.attendanceSystem.getLoginRes();
-    if (!loginRes?.data?.token) return null;
-    return {Authorization: "Token " + loginRes.data.token};
+    const session = mmkv.getObject<AttendanceSession>("attendanceSession");
+    if (!session?.token) return null;
+    return {Authorization: "Token " + session.token};
 }
 
 async function authGet<T>(path: string, params?: Record<string, any>): Promise<T | undefined> {
     const headers = await getAuthHeaders();
     if (!headers) return;
     const res = await backendHttp.get(`/attendance${path}`, {headers, params});
-    return res.data.data as T;
+    return res.data as T;
 }
 
 // ─── 数据查询 ───
@@ -49,18 +51,9 @@ const calenderData = {
         return list.find(c => dateM.isBetween(c.firstWeekBegin, c.lastWeekEnd, "d", "[]"));
     },
 
-    async getByTermId(termId: number) {
-        const list = await calenderData.getList();
-        return list.find(c => c.calendarId === termId);
-    },
-
     async getBySchoolTerm(year: SchoolYearValue | number, term: SchoolTermValue | number) {
         const list = await calenderData.getList();
         return list.find(c => c.calendarName === `${year}-${term}`);
-    },
-
-    async getCurrent() {
-        return (await calenderData.getList()).find(c => c.isCurrent);
     },
 };
 
@@ -78,42 +71,36 @@ async function getPersonalData(
         courseId: data?.search?.courseId,
     });
 }
+async function getPersonalDataV2(year: number, term: number): Promise<RecordPage | undefined> {
+    const calendarId = 2 * year + term - 4033;
 
-async function getPersonalDataCount(
-    termId?: AST.Calendar["calendarId"],
-    data?: AST.SearchParam,
-): Promise<AST.ResRoot<AST.AttendanceDataStatistic[]> | undefined> {
-    return authGet<AST.ResRoot<AST.AttendanceDataStatistic[]>>("/personal-data-count", {
-        cal: termId,
-        ksrq: data?.ksrq,
-        jsrq: data?.jsrq,
-        courseId: data?.courseId,
+    const res = await authGet<{data: RecordPage}>("/v2/personal", {
+        calendarId: calendarId,
+        pageSize: 500,
+        orderBy: "day DESC",
     });
+    return res?.data as RecordPage;
 }
 
-async function getAttendanceTable(
-    week: number,
-    termId?: number,
-): Promise<AttendanceCourseScheduleClass | undefined> {
-    const loginRes = await userMgr.attendanceSystem.getLoginRes();
-    if (!loginRes?.data?.token) return;
-    const cal = termId ?? (await calenderData.getCurrent())?.calendarId;
-    const res = await authGet<AST.ResRoot<AST.AttendanceCourseSchedule>>("/schedule", {
-        cal,
-        currentWeek: week,
-        userId: loginRes.data.userInfo.userId,
+async function getTableDataV2(year: number, term: number, currentWeek: number): Promise<Schedule | null> {
+    const session = mmkv.getObject<AttendanceSession>("attendanceSession");
+    if (!session?.userId) return null;
+
+    const calendarId = 2 * year + term - 4033;
+    const res = await authGet<{data: unknown}>("/v2/schedule", {
+        calendarId: calendarId,
+        currentWeek: currentWeek,
+        userId: session.userId,
     });
-    if (!res) return;
-    return new AttendanceCourseScheduleClass(res.data);
+    return res?.data as Schedule;
 }
 
 // ─── 导出 ───
 
 export const attendanceApi = {
-    getAuthHeaders,
     getMenuData,
     calenderData,
     getPersonalData,
-    getPersonalDataCount,
-    getAttendanceTable,
+    getPersonalDataV2,
+    getTableDataV2,
 };

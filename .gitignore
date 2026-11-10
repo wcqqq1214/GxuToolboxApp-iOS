@@ -42,6 +42,9 @@ npm-debug.log
 yarn-error.log
 dist/
 
+# CI 临时 npm 配置（含 token）
+/.ci-npmrc
+
 # fastlane
 #
 # It is recommended to not store the screenshots in the git repo. Instead, use fastlane to re-generate the
@@ -76,6 +79,12 @@ dist/
 # Local debug and release artifacts
 /debug-db/
 /android/app/release/
+
+# Local-only test credentials（test.ts 使用，禁止提交）
+/test-credentials.local.ts
+
+# 本地基准测试缓存（test.ts --bench-sqlite 生成）
+/.bench-cache/
 
 # Yarn
 .yarn/*

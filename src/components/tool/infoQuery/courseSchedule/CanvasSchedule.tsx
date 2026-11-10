@@ -1,4 +1,4 @@
-import React, {useEffect, useMemo, useState} from "react";
+import React, {useEffect, useMemo} from "react";
 import {Dimensions, StyleSheet, View} from "react-native";
 import Canvas, {CanvasRenderingContext2D} from "react-native-canvas";
 import {Color} from "@/shared/color.ts";
@@ -7,21 +7,20 @@ import {CourseScheduleData} from "@/js/jw/course.ts";
 import moment from "moment/moment";
 import {CourseScheduleClass} from "@/class/jw/course.ts";
 import type {Schedule} from "gxu-tool-adapters/jw";
-import {useUserConfig} from "@/hooks/useUserConfig.ts";
 import {useCourseData} from "@/hooks/useCourseData.ts";
 import {useShift} from "@/features/courseSchedule/hooks/detail/useShift.ts";
-import {useBaseCourse} from "@/features/courseSchedule/hooks/detail/useBaseCourse.ts";
 
 type Props = {
     week: number;
     canvasRef: React.RefObject<Canvas | null>;
+    schedule: Schedule | null;
+    startDay: moment.Moment;
 };
 
 const EMPTY_WEEK_LIST: Schedule["theoryList"][] = [[], [], [], [], [], [], []];
 
 export function CanvasSchedule(props: Props) {
     const {theme} = useTheme();
-    const {store: ucStore} = useUserConfig();
     const {store: courseDataStore, courseScheduleStyle} = useCourseData();
     const timeSpanHeight = courseDataStore(s => s.theme.timeSpanHeight);
     const courseItemMargin = courseDataStore(s => s.theme.courseItemMargin);
@@ -37,13 +36,10 @@ export function CanvasSchedule(props: Props) {
         }
         return map;
     }, [timeShift]);
-    const {store: baseCourseStore} = useBaseCourse();
-    const schedule = baseCourseStore(s => s.schedule);
-
-    const [courseSchedule, setCourseSchedule] = useState<CourseScheduleClass>();
+    const {schedule, startDay} = props;
+    const courseSchedule = useMemo(() => schedule ? new CourseScheduleClass(schedule) : undefined, [schedule]);
 
     const {width: screenWidth} = Dimensions.get("window");
-    const startDay = moment(ucStore(s => s.jw.startDay));
     const currentWeek = props.week;
     const styles = StyleSheet.create({
         container: {
@@ -67,12 +63,6 @@ export function CanvasSchedule(props: Props) {
     const spanWidth = (canvasCssWidth - 24) / 8;
     const spanHeight = timeSpanHeight; //一个元素高度
 
-    useEffect(() => {
-        if (schedule) {
-            setCourseSchedule(new CourseScheduleClass(schedule));
-        }
-    }, [schedule]);
-
     const colorMap = useMemo(() => {
         const map: Record<string, string> = {};
         schedule?.theoryList.forEach(item => {
@@ -87,7 +77,7 @@ export function CanvasSchedule(props: Props) {
 
     useEffect(() => {
         initShift();
-    }, [timeSpanHeight, ucStore(s => s.jw.year), ucStore(s => s.jw.term)]);
+    }, [timeSpanHeight]);
 
     /**
      * 通用字体样式和画布字体配置
@@ -333,7 +323,7 @@ export function CanvasSchedule(props: Props) {
 
     useEffect(() => {
         drawSchedule();
-    }, [courseSchedule, timeSpanHeight, currentWeek, shiftMap]);
+    }, [courseSchedule, timeSpanHeight, currentWeek, shiftMap, startDay]);
     return (
         <View style={styles.container}>
             <Canvas ref={handleCanvas} style={styles.canvas} />

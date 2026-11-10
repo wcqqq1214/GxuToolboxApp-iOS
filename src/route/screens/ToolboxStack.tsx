@@ -1,5 +1,6 @@
 import React, {lazy} from "react";
-import {createNativeStackNavigator} from "@react-navigation/native-stack";
+import {createNativeStackNavigator, type NativeStackNavigationProp} from "@react-navigation/native-stack";
+import type {ParamListBase} from "@react-navigation/native";
 import {Color} from "@/shared/color.ts";
 import {Button, useTheme} from "@rneui/themed";
 import {useWebView} from "@/hooks/app.ts";
@@ -7,6 +8,21 @@ import {useUserConfig} from "@/hooks/useUserConfig.ts";
 import {RescheduleNotificationScreen} from "@/features/notification/screen/RescheduleNotificationScreen.tsx";
 
 const Stack = createNativeStackNavigator();
+
+/** 空闲教室第一屏的 header：跳转缓存管理。定义在组件外，避免每次渲染生成新的组件类型。 */
+function emptyClassroomOptions({navigation}: {navigation: NativeStackNavigationProp<ParamListBase>}) {
+    return {
+        title: "空闲教室",
+        headerRight: () => (
+            <Button
+                type="clear"
+                containerStyle={{marginRight: 10}}
+                onPress={() => navigation.navigate("emptyClassroomCache")}>
+                缓存管理
+            </Button>
+        ),
+    };
+}
 
 export function ToolboxStack() {
     const {theme} = useTheme();
@@ -75,10 +91,28 @@ export function ToolboxStack() {
                 options={{title: "班级课表查询"}}
             />
             <Stack.Screen
-                name="AttendanceInfoQueryScreen"
+                name="emptyClassroom"
                 component={lazy(() =>
-                    import("@/screens/tool/auth/attendanceSystem/AttendanceInfoQueryScreen.tsx").then(m => ({
-                        default: m.default,
+                    import("@/features/emptyClassroom/screens/EmptyClassroomScreen.tsx").then(m => ({
+                        default: m.EmptyClassroomScreen,
+                    })),
+                )}
+                options={emptyClassroomOptions}
+            />
+            <Stack.Screen
+                name="emptyClassroomCache"
+                component={lazy(() =>
+                    import("@/features/emptyClassroom/screens/EmptyClassroomCacheScreen.tsx").then(m => ({
+                        default: m.EmptyClassroomCacheScreen,
+                    })),
+                )}
+                options={{title: "缓存管理"}}
+            />
+            <Stack.Screen
+                name="AttendanceScreen"
+                component={lazy(() =>
+                    import("@/features/attendance/screens/AttendanceScreen.tsx").then(m => ({
+                        default: m.AttendanceScreen,
                     })),
                 )}
                 options={{title: "考勤信息查询"}}

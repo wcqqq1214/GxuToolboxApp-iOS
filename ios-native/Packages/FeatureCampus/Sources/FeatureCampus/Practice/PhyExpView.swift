@@ -1,0 +1,147 @@
+import GxuAuth
+import GxuDesign
+import GxuFoundation
+import ScheduleKit
+import SwiftUI
+
+/// 工具箱 → 物理实验课：缓存优先，后台刷新；需要统一认证账号。
+struct PhyExpView: View {
+    @Environment(\.services) private var services
+    @State private var list: [PhyExperiment] = []
+    @State private var updating = false
+    @State private var error: GxuError?
+    @State private var loadedOnce = false
+
+    private static let pecURL = URL(string: "https://pec.gxu.edu.cn/Customer/MasterPage/UserCenterPage.html")!
+
+    var body: some View {
+        Group {
+            if needsAccount, list.isEmpty {
+                GxuEmptyView(
+                    "需要统一认证账号", systemImage: "person.crop.circle.badge.questionmark",
+                    message: "物理实验课来自物理实验教学中心，请先在 设置 → 统一认证账号 登录"
+                )
+            } else if !loadedOnce, list.isEmpty {
+                GxuLoadingView("正在加载实验课…")
+            } else if list.isEmpty {
+                if let error {
+                    GxuErrorView(error.userMessage) { Task { await refresh() } }
+                } else {
+                    GxuEmptyView("当前学期没有实验课", systemImage: "atom", message: "只能查询当前学期的实验课，过往学期的无法查询")
+                }
+            } else {
+                content
+            }
+        }
+        .navigationTitle("物理实验课")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                if updating { ProgressView() } else { Link(destination: Self.pecURL) { Image(systemName: "safari") }.accessibilityLabel("在物理实验中心查看") }
+            }
+        }
+        .task { await load() }
+    }
+
+    private var content: some View {
+        let today = Calendar.current.startOfDay(for: .now)
+        let upcoming = list.filter { ($0.date().map { $0 >= today }) ?? true }
+        let past = list.filter { ($0.date().map { $0 < today }) ?? false }
+        return List {
+            if let error {
+                Section { Label(error.userMessage, systemImage: "exclamationmark.triangle").foregroundStyle(.orange) }
+            }
+            if !upcoming.isEmpty {
+                Section("即将上课") { ForEach(upcoming) { ExperimentRow(item: $0, isPast: false) } }
+            }
+            if !past.isEmpty {
+                Section("已结束") { ForEach(past) { ExperimentRow(item: $0, isPast: true) } }
+            }
+        }
+        .refreshable { await refresh() }
+    }
+
+    private var needsAccount: Bool {
+        #if DEBUG
+        if CommandLine.arguments.contains("-GxuPECDemo") { return false }
+        #endif
+        return services.accounts.states[.unified] == .noAccount
+    }
+
+    private func repository() -> PhyExpRepository {
+        #if DEBUG
+        if CommandLine.arguments.contains("-GxuPECDemo") { return PhyExpRepository(database: services.database, client: DemoPEC()) }
+        #endif
+        return PhyExpRepository(database: services.database, client: LivePECClient(unified: services.accounts.unified))
+    }
+
+    private func load() async {
+        guard let studentId = services.accounts.studentId else { loadedOnce = true; return }
+        list = await repository().cached(studentId: studentId)
+        loadedOnce = !list.isEmpty
+        await refresh()
+        loadedOnce = true
+    }
+
+    private func refresh() async {
+        guard let studentId = services.accounts.studentId else { return }
+        #if DEBUG
+        let demo = CommandLine.arguments.contains("-GxuPECDemo")
+        #else
+        let demo = false
+        #endif
+        guard demo || services.accounts.states[.unified] != .noAccount else { return }
+        updating = true
+        defer { updating = false }
+        do {
+            list = try await repository().refresh(studentId: studentId)
+            error = nil
+        } catch {
+            if error.isCancellation { return }
+            self.error = (error as? GxuError) ?? .network(error.localizedDescription)
+        }
+    }
+}
+
+private struct ExperimentRow: View {
+    let item: PhyExperiment
+    let isPast: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(item.title).font(.body.weight(.medium))
+            Text(dateLine).font(.footnote).foregroundStyle(.secondary)
+            let place = [item.place, item.teacher].filter { !$0.isEmpty }.joined(separator: " · ")
+            if !place.isEmpty { Text(place).font(.footnote).foregroundStyle(.secondary) }
+        }
+        .opacity(isPast ? 0.5 : 1)
+        .accessibilityElement(children: .combine)
+        .accessibilityValue(isPast ? "已结束" : "")
+    }
+
+    private var dateLine: String {
+        let day = item.date().map { $0.formatted(.dateTime.year().month().day().weekday().locale(Locale(identifier: "zh_CN"))) } ?? item.dateText
+        return [day, item.timeText].filter { !$0.isEmpty }.joined(separator: " ")
+    }
+}
+
+#if DEBUG
+/// 截图自查：`-GxuPECDemo`，不连真实 PEC
+private struct DemoPEC: PECClient {
+    func ruleManage() async throws -> Data {
+        func day(_ offset: Int) -> String {
+            let f = DateFormatter()
+            f.dateFormat = "yyyyMMdd"
+            f.locale = Locale(identifier: "en_US_POSIX")
+            return f.string(from: Calendar.current.date(byAdding: .day, value: offset, to: .now)!)
+        }
+        let rows = [
+            ["ID": "D1", "SKRQ": day(-14), "SKSJ": "14:30-17:10", "XMMC": "示波器的使用", "ZJJSXM": "教师甲", "FJBH": "理科楼101"],
+            ["ID": "D2", "SKRQ": day(3), "SKSJ": "14:30-17:10", "XMMC": "光栅衍射", "ZJJSXM": "教师乙", "FJBH": "理科楼203"],
+            ["ID": "D3", "SKRQ": day(17), "SKSJ": "08:30-11:10", "XMMC": "迈克尔逊干涉仪", "ZJJSXM": "教师乙", "FJBH": "理科楼203"],
+        ]
+        let inner = String(data: try JSONSerialization.data(withJSONObject: ["data": rows]), encoding: .utf8)!
+        return try JSONSerialization.data(withJSONObject: ["d": inner])
+    }
+}
+#endif

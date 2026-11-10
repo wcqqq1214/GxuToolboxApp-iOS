@@ -1,0 +1,82 @@
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "pages": 17,
+    "list": [
+      {
+        "id": "b25e8ef8b948a86bac4179a2f3163441edb1",
+        "name": "王测一",
+        "picUrl": "https://example.invalid/avatar/01.jpg",
+        "unit": "校领导"
+      },
+      {
+        "id": "640cf93c25a156f32ae8c6a1a552b2957c33",
+        "name": "王测二",
+        "picUrl": "https://example.invalid/avatar/02.jpg",
+        "unit": "党委办公室、校长办公室（校务督查办公室、法治与法务办公室）"
+      },
+      {
+        "id": "408c767fcf3d2ed2b1c345b0ae9bb67724bf",
+        "name": "王测三",
+        "picUrl": "",
+        "unit": "党委办公室、校长办公室（校务督查办公室、法治与法务办公室）"
+      },
+      {
+        "id": "fc06993733feccac13f8101db8d9a38421f2",
+        "name": "王测四",
+        "picUrl": "https://example.invalid/avatar/04.jpg",
+        "unit": "党委组织部（中共广西大学委员会党校）、党委人才工作办公室"
+      },
+      {
+        "id": "409895446bd805befd3e6f8f767feac1dfce",
+        "name": "王测五",
+        "picUrl": "",
+        "unit": "党委学生工作部、学生工作处、武装部（就业指导中心）"
+      },
+      {
+        "id": "1692c1c84bb2300ed6991482829723cd9925",
+        "name": "王测六",
+        "picUrl": "https://example.invalid/avatar/06.jpg",
+        "unit": "党委学生工作部、学生工作处、武装部（就业指导中心）"
+      },
+      {
+        "id": "918eb720d4b6f4f6def4dd51b40ff21d6678",
+        "name": "王测七",
+        "picUrl": "",
+        "unit": "党委学生工作部、学生工作处、武装部（就业指导中心）"
+      },
+      {
+        "id": "546ee58342a95ef24ec3c52106f5f6c012f2",
+        "name": "王测八",
+        "picUrl": "",
+        "unit": "党委学生工作部、学生工作处、武装部（就业指导中心）"
+      },
+      {
+        "id": "de873ce5b0e64c3410c2d59d948ad6a811cb",
+        "name": "王测九",
+        "picUrl": "",
+        "unit": "党委学生工作部、学生工作处、武装部（就业指导中心）"
+      },
+      {
+        "id": "4eb77a4402ec1820a1d4cdd7c7af52e811cd",
+        "name": "王测十",
+        "picUrl": "",
+        "unit": "校工会"
+      },
+      {
+        "id": "3337b2bdf6dbdeb0059b9ed5399be5769566",
+        "name": "王测11",
+        "picUrl": "",
+        "unit": "机关党委"
+      },
+      {
+        "id": "a522e2c978481f5af38720a2da27a0946df1",
+        "name": "王测12",
+        "picUrl": "",
+        "unit": "自治区纪委监委驻广西大学纪检监察组、中共广西大学纪律检查委员会"
+      }
+    ],
+    "total": 194
+  }
+}

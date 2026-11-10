@@ -22,6 +22,27 @@
       "when": 1787460250718,
       "tag": "0002_magenta_warstar",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1793029351565,
+      "tag": "0003_ambitious_mojo",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1793884168421,
+      "tag": "0004_custom_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1793886545144,
+      "tag": "0005_simplify_custom_events",
+      "breakpoints": true
     }
   ]
 }

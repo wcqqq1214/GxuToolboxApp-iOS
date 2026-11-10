@@ -1,0 +1,80 @@
+{
+ "code": 200,
+ "message": "success",
+ "data": {
+  "practiceList": [
+   {
+    "courseName": "创新创业实践●教师乙(共16周)/1-16周",
+    "time": "",
+    "teacher": "教师乙"
+   }
+  ],
+  "theoryList": [
+   {
+    "building": "",
+    "venueName": "6A-427",
+    "sectionRange": "1-2",
+    "begin": 1,
+    "end": 2,
+    "courseName": "城市道路设计",
+    "weeks": [
+     1,
+     2,
+     3,
+     4,
+     6,
+     7,
+     8
+    ],
+    "teacher": "教师甲",
+    "credits": "2.0",
+    "courseCategory": "",
+    "examMethod": "考试",
+    "weekday": 1,
+    "qqGroup": "",
+    "enrollmentCount": 22,
+    "seatCount": 110
+   },
+   {
+    "building": "",
+    "venueName": "6A-115",
+    "sectionRange": "3-4",
+    "begin": 3,
+    "end": 4,
+    "courseName": "土木工程试验与测试技术(道桥)",
+    "weeks": [
+     1,
+     2
+    ],
+    "teacher": "教师甲",
+    "credits": "1.5",
+    "courseCategory": "",
+    "examMethod": "考查",
+    "weekday": 1,
+    "qqGroup": "",
+    "enrollmentCount": 47,
+    "seatCount": 80
+   },
+   {
+    "building": "",
+    "venueName": "土木实验室",
+    "sectionRange": "3-4",
+    "begin": 3,
+    "end": 4,
+    "courseName": "土木工程试验与测试技术(道桥)",
+    "weeks": [
+     6,
+     7
+    ],
+    "teacher": "教师甲",
+    "credits": "1.5",
+    "courseCategory": "",
+    "examMethod": "未安排",
+    "weekday": 1,
+    "qqGroup": "",
+    "enrollmentCount": 47,
+    "seatCount": 150
+   }
+  ]
+ }
+}

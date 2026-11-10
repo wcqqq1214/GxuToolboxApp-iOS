@@ -83,7 +83,7 @@ export function LoginDialog(props: Props) {
             <Button
                 title="退出登录"
                 color={theme.colors.primary}
-                disabled={props.isLogin}
+                disabled={!props.isLogin}
                 loading={props.isBusy}
                 onPress={() => props.logout()}
             />

@@ -1,8 +1,6 @@
 import {backendHttp} from "@/features/backend/api";
-import {db} from "@/core/db";
-import {and, eq} from "drizzle-orm";
-import {termStartDay} from "@/core/schema";
-import {ensureJwAuthenticated} from "@/core/auth/Jw/JwMachine.ts";
+import dayjs from "dayjs";
+import {useStartDayStore} from "@/features/courseSchedule/stores/startDayStore.ts";
 
 export interface TermStartDay {
     year: number;
@@ -12,79 +10,65 @@ export interface TermStartDay {
     is_current: boolean;
 }
 
-let memoryStartDay: TermStartDay | null = null;
-
-function mapRow(row: typeof termStartDay.$inferSelect): TermStartDay {
-    return {
-        year: row.year,
-        term: row.term,
-        day: row.day.toISOString(),
-        week: row.week,
-        is_current: row.isCurrent,
-    };
-}
+let pendingSync: Promise<void> | null = null;
 
 export async function fetchStartDay(): Promise<TermStartDay[]> {
-    if (!(await ensureJwAuthenticated())) {
-        return [];
-    }
     const res = await backendHttp.get("/jw/profile/startDay");
     return res.data.data;
 }
 
-export async function saveToDB(terms: TermStartDay[]) {
-    // 清理当前标记
-    await db.update(termStartDay).set({isCurrent: false});
+function normalizeTerms(remote: TermStartDay[]): TermStartDay[] {
+    const now = dayjs();
+    const sorted = [...remote]
+        .sort((a, b) => dayjs(a.day).valueOf() - dayjs(b.day).valueOf())
+        .map(term => ({...term, is_current: false}));
+    const current = sorted.find(term => now.isBefore(dayjs(term.day).add(term.week, "week"), "day"));
+    (current ?? sorted[sorted.length - 1]).is_current = true;
+    return sorted;
+}
 
-    // 插入或替换新数据
-    for (const term of terms) {
-        await db
-            .insert(termStartDay)
-            .values({
-                year: term.year,
-                term: term.term,
-                day: new Date(term.day), // 转换为 Date 以适应 timestamp mode
-                week: term.week,
-                isCurrent: term.is_current,
-            })
-            .onConflictDoUpdate({
-                target: [termStartDay.year, termStartDay.term],
-                set: {
-                    day: new Date(term.day),
-                    week: term.week,
-                    isCurrent: term.is_current,
-                },
-            });
+/**
+ * 检查本地MMKV里缓存的开学日期是否有效
+ * @param terms
+ */
+const isLocalValid = (terms: TermStartDay[]): boolean => {
+    if (!terms.length) {
+        return false;
     }
-
-    memoryStartDay = null;
-}
-
-export async function getCurrentStartDay(): Promise<TermStartDay | null> {
-    if (memoryStartDay) return memoryStartDay;
-
-    const result = await db.select().from(termStartDay).where(eq(termStartDay.isCurrent, true)).limit(1);
-
-    if (result && result.length > 0) {
-        const mapped = mapRow(result[0]);
-        memoryStartDay = mapped;
-        return mapped;
+    const current = terms.find(t => t.is_current);
+    if (!current) {
+        return false;
     }
-    return null;
-}
+    // 学期最后一天是开学日+week-1天，如果当前学期没结束就有效
+    return !dayjs().isAfter(dayjs(current.day).add(current.week, "week").subtract(1, "day"), "day");
+};
 
-/** 查询明确学年学期的开学信息；学期使用逻辑码 1/2。 */
-export async function getStartDay(year: number, term: number): Promise<TermStartDay | null> {
-    const result = await db
-        .select()
-        .from(termStartDay)
-        .where(and(eq(termStartDay.year, year), eq(termStartDay.term, term)))
-        .limit(1);
+/**
+ * 确保开学日期已同步：
+ * - 本地有效时直接跳过
+ * - 本地为空或当前学期已结束时，拉取后端并写回Store
+ */
+export const ensureStartDay = async (force = false) => {
+    const {terms, setTerms} = useStartDayStore.getState();
 
-    return result.length > 0 ? mapRow(result[0]) : null;
-}
+    if (!force && isLocalValid(terms)) {
+        return;
+    }
+    if (pendingSync) {
+        return pendingSync;
+    }
+    pendingSync = (async () => {
+        const res = await fetchStartDay();
+        if (!res?.length) {
+            return;
+        }
+        const normalized = normalizeTerms(res);
+        setTerms(normalized);
+    })();
 
-// 从内存中获取
-export function getSyncStartDay(): TermStartDay | null {
-    return memoryStartDay;
-}
+    try {
+        await pendingSync;
+    } finally {
+        pendingSync = null;
+    }
+};

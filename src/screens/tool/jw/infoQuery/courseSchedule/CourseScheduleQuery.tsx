@@ -12,7 +12,7 @@ import Clipboard from "@react-native-clipboard/clipboard";
 import {useUserConfig} from "@/hooks/useUserConfig.ts";
 import {TimeScheduleView} from "@/components/tool/infoQuery/courseSchedule/TimeScheduleView.tsx";
 import {Color} from "@/shared/color.ts";
-import {CourseDetail} from "@/features/courseSchedule/components/CourseDetail.tsx";
+import {CourseDetailSheet} from "@/features/courseSchedule/components/sheets/CourseDetailSheet.tsx";
 import {CourseClass} from "@/class/jw/course.ts";
 import type {Schedule} from "gxu-tool-adapters/jw";
 import {ScheduleTableItem, TimeScheduleItemData} from "@/features/courseSchedule/type/schedule.ts";
@@ -236,7 +236,7 @@ export function CourseScheduleQuery() {
             </View>
             <UnBottomSheet isVisible={sheet.type !== "closed"} onBackdropPress={() => setSheet({type: "closed"})}>
                 {sheet.type === "itemDetail" && sheet.item.raw && (
-                    <CourseDetail course={new CourseClass(sheet.item.raw)} />
+                    <CourseDetailSheet course={new CourseClass(sheet.item.raw)} />
                 )}
                 {sheet.type === "courseConflict" && (
                     <ConflictCourseSheet

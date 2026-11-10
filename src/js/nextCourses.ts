@@ -1,7 +1,8 @@
 import {store} from "@/core/store.ts";
 import {CourseSchema} from "@/type/infoQuery/course/course.ts";
 import moment from "moment/moment";
-import {loadPersonalSchedule} from "@/features/courseSchedule/cache";
+import {mmkv} from "@/store/mmkv.ts";
+import {Schedule} from "gxu-tool-adapters/jw";
 
 export function parseWeeks(weekStr: string): number[] {
     const result: number[] = [];
@@ -56,7 +57,7 @@ export const nextCourses = async () => {
         "20:30\n21:15",
         "21:20\n22:05",
     ];
-    const list = loadPersonalSchedule();
+    const list = mmkv.getObject<Schedule>("personalSchedule");
     if (!list) {
         return;
     }
@@ -74,7 +75,7 @@ export const nextCourses = async () => {
     let next: any = null;
     const startTimes = timeSpanList.map(span => span.split("\n")[0]);
     const endTimes = timeSpanList.map(span => span.split("\n")[1]);
-    list.forEach(raw => {
+    theoryList.forEach(raw => {
         const result = CourseSchema.safeParse(raw);
         if (!result.success) return;
         const course = result.data;

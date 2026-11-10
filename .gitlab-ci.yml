@@ -1,0 +1,80 @@
+stages:
+    - verify
+    - publish
+
+variables:
+    GIT_DEPTH: "0"
+    PNPM_STORE_DIR: "$CI_PROJECT_DIR/.pnpm-store"
+    NPM_CONFIG_USERCONFIG: "$CI_PROJECT_DIR/.ci-npmrc"
+
+workflow:
+    rules:
+        - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+        - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH =~ /^(beta-ota|ota)$/'
+        - when: never
+
+default:
+    image: node:20-bookworm
+    before_script:
+        - test -n "$GITLAB_NPM_TOKEN" || (echo "缺少 GITLAB_NPM_TOKEN" && exit 1)
+        - (umask 077 && printf '//gitlab.unde.site/api/v4/projects/86/packages/npm/:_authToken=%s\n' "$GITLAB_NPM_TOKEN" > "$NPM_CONFIG_USERCONFIG")
+        - corepack enable
+        - corepack prepare pnpm@10.33.0 --activate
+        - pnpm config set store-dir "$PNPM_STORE_DIR"
+        - pnpm install --frozen-lockfile
+    cache:
+        key:
+            files:
+                - pnpm-lock.yaml
+        paths:
+            - .pnpm-store
+
+# MR 阶段只构建和校验，不碰 COS 写接口
+verify_beta_ota:
+    tags:
+        - deploy
+    stage: verify
+    interruptible: true
+    rules:
+        - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "beta-ota"'
+    script:
+        - node scripts/ci/publish-ota.mjs --channel beta --dry-run --base "$CI_MERGE_REQUEST_DIFF_BASE_SHA"
+
+verify_ota:
+    tags:
+        - deploy
+    stage: verify
+    interruptible: true
+    rules:
+        - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "ota"'
+    script:
+        - node scripts/ci/publish-ota.mjs --channel release --dry-run --skip-diff-check
+
+# 合并后发布。首次验证先保留 when: manual，确认无误后删除该行即自动发布。
+publish_beta_ota:
+    tags:
+        - deploy
+    stage: publish
+    resource_group: gxu-cos-publish
+    when: manual
+    rules:
+        - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "beta-ota"'
+    script:
+        - test -n "$COS_SECRET_ID" || (echo "缺少 COS_SECRET_ID" && exit 1)
+        - test -n "$COS_SECRET_KEY" || (echo "缺少 COS_SECRET_KEY" && exit 1)
+        - test -n "$CI_JOB_TOKEN$GITLAB_API_TOKEN" || (echo "缺少 GitLab API 凭证，无法创建 Release" && exit 1)
+        - node scripts/ci/publish-ota.mjs --channel beta --create-release
+
+publish_ota:
+    tags:
+        - deploy
+    stage: publish
+    resource_group: gxu-cos-publish
+    when: manual
+    rules:
+        - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "ota"'
+    script:
+        - test -n "$COS_SECRET_ID" || (echo "缺少 COS_SECRET_ID" && exit 1)
+        - test -n "$COS_SECRET_KEY" || (echo "缺少 COS_SECRET_KEY" && exit 1)
+        - test -n "$CI_JOB_TOKEN$GITLAB_API_TOKEN" || (echo "缺少 GitLab API 凭证，无法创建 Release" && exit 1)
+        - node scripts/ci/publish-ota.mjs --channel release --skip-diff-check --create-release
