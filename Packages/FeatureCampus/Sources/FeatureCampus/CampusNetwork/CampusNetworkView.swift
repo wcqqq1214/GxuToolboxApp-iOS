@@ -161,7 +161,7 @@ struct CampusNetworkView: View {
             let result: CampusNetworkSession.Result
             switch query {
             case .submitCaptcha:
-                result = .usage(try await session.submit(code.trimmingCharacters(in: .whitespacesAndNewlines), credential: account))
+                result = try await session.submit(code.trimmingCharacters(in: .whitespacesAndNewlines), credential: account)
             case .renewCaptcha:
                 result = try await session.renewCaptcha()
             case .usage:
@@ -183,9 +183,10 @@ struct CampusNetworkView: View {
                 usage = snapshot
                 configuring = false
                 password = ""
-            case .captcha(let data):
+            case .captcha(let data, let rejected):
                 guard let image = UIImage(data: data) else { throw CampusNetworkError.unexpectedPage }
                 captcha = image
+                if rejected { error = "验证码未通过，请输入新的验证码。" }
             }
         } catch is CancellationError {
             return

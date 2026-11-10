@@ -28,6 +28,10 @@ enum CampusNetworkError: LocalizedError {
 }
 
 enum CampusNetworkPage {
+    enum CaptchaFeedback {
+        case required, notRequired
+    }
+
     static func usage(in html: String, account: String, now: Date = .now) throws -> CampusNetworkUsage {
         let rows = html.matches(#"<label\b[^>]*>(.*?)</label>(.*?)</div>"#)
         let fields = Dictionary(rows.map { row in
@@ -49,15 +53,28 @@ enum CampusNetworkPage {
     static func form(in html: String) throws -> (action: String, checkcode: String?) {
         guard let action = html.matches(#"<form\b[^>]*\saction\s*=\s*["']([^"']+)["']"#)
             .first?[0] else { throw CampusNetworkError.unexpectedPage }
-        let checkcode = html.matches(#"<input\b[^>]*\bname=["']checkcode["'][^>]*\bvalue=["']([^"']*)["']"#)
-            .first?[0]
-        return (action, checkcode.flatMap { $0.isEmpty ? nil : $0 })
+        for input in html.matches(#"<input\b((?:[^"'<>]|"[^"]*"|'[^']*')*)>"#) {
+            let attributes = input[0].matches(#"\s+([\w:-]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>]+)))?"#)
+            let fields = Dictionary(attributes.map { ($0[0].lowercased(), $0[1...].joined()) }, uniquingKeysWith: { first, _ in first })
+            if fields["name"] == "checkcode", let value = fields["value"], !value.isEmpty {
+                return (action, value)
+            }
+        }
+        return (action, nil)
     }
 
-    static func loginFeedback(in html: String) -> String? {
-        html.matches(#"\}\)\s*\(\s*(['"])(.*?)\1\s*\)\s*;"#)
-            .map { plain($0[1]) }
-            .first { !$0.isEmpty && $0 != "null" }
+    static func captchaFeedback(in html: String) -> CaptchaFeedback? {
+        let messages = html.matches(#"\}\)\s*\(\s*(['"])(.*?)\1\s*\)\s*;"#)
+        for message in messages {
+            let text = plain(message[1]).filter { !$0.isWhitespace }
+            if text.range(of: #"(?:无需|不需(?:要)?|不用|不必|不要求|请勿)(?:再(?:次)?|重新)?(?:输入|填写)?验证码|验证码(?:无需|不用|不必)(?:输入|填写)"#, options: .regularExpression) != nil {
+                return .notRequired
+            }
+            if text.range(of: #"(?:请(?:重新)?(?:输入|填写)|(?:需要|必须)(?:输入|填写)?)(?:正确的)?验证码|验证码(?:错误|有误|不正确|无效|(?:已)?过期|不能为空|必填|校验失败)"#, options: .regularExpression) != nil {
+                return .required
+            }
+        }
+        return nil
     }
 
     private static func plain(_ html: String) -> String {
@@ -82,7 +99,7 @@ private extension String {
 actor CampusNetworkSession {
     enum Result: Sendable {
         case usage(CampusNetworkUsage)
-        case captcha(Data)
+        case captcha(Data, rejected: Bool)
     }
 
     private final class NoRedirect: NSObject, URLSessionTaskDelegate {
@@ -109,12 +126,19 @@ actor CampusNetworkSession {
         let initialPage = try await loadLoginPage()
         let initialForm = try loginForm(in: initialPage)
         let response = try await postLogin(credential, action: initialForm.action)
+        return try await finishLogin(credential, response: response)
+    }
+
+    private func finishLogin(_ credential: Credential, response: String, rejectedCaptcha: Bool = false) async throws -> Result {
         if let usage = try await dashboard(account: credential.username) { return .usage(usage) }
 
+        let feedback = CampusNetworkPage.captchaFeedback(in: response)
+        guard feedback != .notRequired else { throw CampusNetworkError.loginFailed }
         let retryPage = try await loadLoginPage()
-        let feedback = CampusNetworkPage.loginFeedback(in: response) ?? CampusNetworkPage.loginFeedback(in: retryPage)
-        guard feedback?.contains("验证码") == true else { throw CampusNetworkError.loginFailed }
-        return try await requestCaptcha(in: retryPage)
+        guard (feedback ?? CampusNetworkPage.captchaFeedback(in: retryPage)) == .required else {
+            throw CampusNetworkError.loginFailed
+        }
+        return try await requestCaptcha(in: retryPage, rejected: rejectedCaptcha)
     }
 
     func renewCaptcha() async throws -> Result {
@@ -122,14 +146,14 @@ actor CampusNetworkSession {
         return try await requestCaptcha(in: loadLoginPage())
     }
 
-    private func requestCaptcha(in html: String) async throws -> Result {
+    private func requestCaptcha(in html: String, rejected: Bool = false) async throws -> Result {
         challenge = nil
         let form = try loginForm(in: html)
         guard let checkcode = form.checkcode else { throw CampusNetworkError.unexpectedPage }
         let (image, captchaResponse) = try await request(URLRequest(url: base.appending(path: "login/randomCode")))
         guard captchaResponse.statusCode == 200, !image.isEmpty else { throw CampusNetworkError.unexpectedPage }
         challenge = (form.action, checkcode)
-        return .captcha(image)
+        return .captcha(image, rejected: rejected)
     }
 
     private func loadLoginPage() async throws -> String {
@@ -150,12 +174,11 @@ actor CampusNetworkSession {
         return (action, form.checkcode)
     }
 
-    func submit(_ code: String, credential: Credential) async throws -> CampusNetworkUsage {
+    func submit(_ code: String, credential: Credential) async throws -> Result {
         guard let challenge else { throw CampusNetworkError.captchaExpired }
         self.challenge = nil
-        _ = try await postLogin(credential, action: challenge.action, captcha: ["code": code, "checkcode": challenge.checkcode])
-        guard let usage = try await dashboard(account: credential.username) else { throw CampusNetworkError.loginFailed }
-        return usage
+        let response = try await postLogin(credential, action: challenge.action, captcha: ["code": code, "checkcode": challenge.checkcode])
+        return try await finishLogin(credential, response: response, rejectedCaptcha: true)
     }
 
     private func postLogin(_ credential: Credential, action: URL, captcha: [String: String] = [:]) async throws -> String {

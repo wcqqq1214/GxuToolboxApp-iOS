@@ -22,24 +22,30 @@ struct CampusNetworkTests {
     }
 
     @Test func detectsLoginChallenge() throws {
-        let form = try CampusNetworkPage.form(in: """
-        <form method='post' action='/login/verify;jsessionid=demo'>
-          <input name="checkcode" type="hidden" value="demo-challenge">
-          <img src="/login/randomCode">
-        </form>
-        """)
-        #expect(form.action == "/login/verify;jsessionid=demo")
-        #expect(form.checkcode == "demo-challenge")
+        for input in [
+            #"<input name="checkcode" type="hidden" value="demo-challenge">"#,
+            #"<input value = 'demo-challenge' type=hidden NAME = "checkcode">"#,
+        ] {
+            let form = try CampusNetworkPage.form(in: """
+            <form method='post' action='/login/verify;jsessionid=demo'>
+              <input data-name="checkcode" value="unrelated">
+              \(input)
+              <img src="/login/randomCode">
+            </form>
+            """)
+            #expect(form.action == "/login/verify;jsessionid=demo")
+            #expect(form.checkcode == "demo-challenge")
+        }
     }
 
     @Test func triesPasswordBeforeShowingCaptcha() async throws {
         enum Outcome: CaseIterable {
-            case success, captchaRequired, wrongPassword
+            case success, captchaRequired, rejectedCaptcha, wrongPassword
         }
 
         let credential = Credential(username: "demo-123", password: "fixture")
         let html = dashboard
-        let form = #"<form action="/login/verify"><input name="checkcode" value="initial"><img src="/login/randomCode"></form>"#
+        let form = #"<form action="/login/verify"><input value="challenge-COUNT" name="checkcode"><img src="/login/randomCode"></form>"#
         let image = Data([1, 2, 3])
 
         for outcome in Outcome.allCases {
@@ -55,7 +61,13 @@ struct CampusNetworkTests {
                 let body: Data
                 switch (method, url.path) {
                 case ("GET", "/dashboard"):
-                    if count == 2 || (count == 1 && outcome == .success) {
+                    let signedIn = switch outcome {
+                    case .success: count == 1
+                    case .captchaRequired: count == 2
+                    case .rejectedCaptcha: count == 3
+                    case .wrongPassword: false
+                    }
+                    if signedIn {
                         body = Data(html.utf8)
                     } else {
                         status = 302
@@ -65,22 +77,28 @@ struct CampusNetworkTests {
                 case ("GET", "/login"):
                     let feedback = switch (count, outcome) {
                     case (0, _), (_, .success): ""
-                    case (_, .captchaRequired): "<script>(function(tip){})('请输入验证码');</script>"
-                    case (_, .wrongPassword): "<script>(function(tip){})('密码错误');</script>"
+                    case (_, .captchaRequired), (_, .rejectedCaptcha): "<script>(function(tip){})('请输入验证码');</script>"
+                    case (_, .wrongPassword): "<script>(function(tip){})('密码错误，当前无需验证码');</script>"
                     }
-                    body = Data((form.replacingOccurrences(of: "initial", with: count == 0 ? "initial" : "fresh") + feedback).utf8)
+                    body = Data((form.replacingOccurrences(of: "COUNT", with: String(count)) + feedback).utf8)
                 case ("POST", "/login/verify"):
                     let encoded = Self.formBody(request)
                     if count == 0 {
                         #expect(encoded.contains("account=demo-123"))
                         #expect(!encoded.contains("code="))
                     } else {
-                        #expect(encoded.contains("checkcode=fresh"))
-                        #expect(encoded.contains("&code=1234"))
+                        #expect(encoded.contains("checkcode=challenge-\(count)"))
+                        let expectedCode = outcome == .rejectedCaptcha && count == 1 ? "0000" : "1234"
+                        #expect(encoded.contains("&code=\(expectedCode)"))
                     }
                     postCount.withLock { $0 += 1 }
-                    status = 302
-                    body = Data()
+                    let feedback = switch (count, outcome) {
+                    case (0, .captchaRequired): "<script>(function(tip){})('登录未通过');</script>"
+                    case (1, .rejectedCaptcha): "<script>(function(tip){})('验证码错误，请重新输入验证码');</script>"
+                    default: ""
+                    }
+                    status = feedback.isEmpty ? 302 : 200
+                    body = Data(feedback.utf8)
                 case ("GET", "/login/randomCode"):
                     body = image
                 default:
@@ -100,7 +118,7 @@ struct CampusNetworkTests {
                 #expect(usage.account == credential.username)
                 #expect(steps.withLock { $0 } == passwordFlow)
             case .captchaRequired:
-                guard case .captcha(let data) = try await session.refresh(credential) else {
+                guard case .captcha(let data, rejected: false) = try await session.refresh(credential) else {
                     Issue.record("The server required a captcha")
                     continue
                 }
@@ -110,7 +128,25 @@ struct CampusNetworkTests {
                 #expect(steps.withLock { $0 } == passwordFlow + [
                     "GET /login", "GET /login/randomCode", "GET /login", "GET /login/randomCode",
                 ])
-                #expect(try await session.submit("1234", credential: credential).account == credential.username)
+                guard case .usage(let usage) = try await session.submit("1234", credential: credential) else {
+                    Issue.record("Successful captcha login should return usage")
+                    continue
+                }
+                #expect(usage.account == credential.username)
+            case .rejectedCaptcha:
+                guard case .captcha(_, rejected: false) = try await session.refresh(credential),
+                      case .captcha(let data, rejected: true) = try await session.submit("0000", credential: credential),
+                      case .usage(let usage) = try await session.submit("1234", credential: credential) else {
+                    Issue.record("Wrong captcha should allow a second code without restarting login")
+                    continue
+                }
+                #expect(data == image)
+                #expect(usage.account == credential.username)
+                #expect(steps.withLock { $0 } == passwordFlow + [
+                    "GET /login", "GET /login/randomCode",
+                    "POST /login/verify", "GET /dashboard", "GET /login", "GET /login/randomCode",
+                    "POST /login/verify", "GET /dashboard",
+                ])
             case .wrongPassword:
                 await #expect(throws: CampusNetworkError.loginFailed) { try await session.refresh(credential) }
                 #expect(steps.withLock { $0 } == passwordFlow + ["GET /login"])
