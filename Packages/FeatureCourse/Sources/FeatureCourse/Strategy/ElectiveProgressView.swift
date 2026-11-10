@@ -119,7 +119,7 @@ public struct ElectiveStrategyView: View {
                     if let date = data.computedDate {
                         Text("\(model.isCached ? "上次查询" : "更新于") \(date.formatted(Date.FormatStyle(date: .numeric, time: .shortened).locale(Locale(identifier: "zh_CN"))))")
                     }
-                    if !data.complete { Text("部分课程需要核对，以上学分只包含已确认的部分，暂时无法判断总体是否达标。") }
+                    if !data.complete { Text("学分仅统计已确认课程。") }
                 }
             }
             if !data.issues.isEmpty {

@@ -59,11 +59,8 @@ public struct ScoreView: View {
                     if !model.pending.isEmpty {
                         Section {
                             ForEach(model.pending) { course in
-                                HStack {
-                                    Text(course.displayName)
-                                    Spacer()
-                                    Text("未出分").foregroundStyle(.secondary)
-                                }
+                                Text(course.displayName)
+                                    .accessibilityValue("未出分")
                             }
                         } header: {
                             Text("未出分科目")

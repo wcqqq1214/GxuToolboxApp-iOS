@@ -60,7 +60,7 @@ enum ToolboxCatalog {
         item("examScore", "考试成绩", "chart.bar.doc.horizontal", .info, .push { AnyView(ScoreWithPendingView()) }),
         item("attendance", "考勤信息", "person.badge.clock", .info, .push { AnyView(AttendanceView()) }),
         item("electiveStrategy", "校选课查漏", "checklist", .info, .push { AnyView(ElectiveStrategyView()) }),
-        item("teacherInfo", "教师信息查询", "person.text.rectangle", .info, .push { AnyView(TeacherSearchView()) }),
+        item("teacherInfo", "教师查询", "person.text.rectangle", .info, .push { AnyView(TeacherSearchView()) }),
         item("emptyClassroom", "空闲教室", "calendar.badge.clock", .info, .push { AnyView(CampusFeature.makeEmptyClassroomView()) }),
         item("campusNetwork", "校园网用量", "wifi", .info, .push { AnyView(AppComposition.makeCampusNetworkView()) }),
         // 实践课

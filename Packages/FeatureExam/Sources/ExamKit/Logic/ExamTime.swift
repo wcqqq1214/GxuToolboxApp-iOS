@@ -61,10 +61,14 @@ public struct ExamItem: Hashable, Sendable, Identifiable {
     }
 
     /// 卡片上的开考时间，**只表达一次**：今日 / 明日开考时卡片上已经有"今日开考""明日开考"徽章，
-    /// 这里只写钟点（`23:00`）；其他情况写日期加钟点（`11月10日 14:30`）；没有日期用原文，原文也没有写"时间未定"
+    /// 这里只写钟点（`23:00`）；其他情况写日期加钟点（`11月10日 14:30`）。
+    /// 无法解析时保留原文，例如仅有日期；空值或待定占位统一显示「时间待定」。
     public func timeLine(now: Date = .now, calendar: Calendar = .current) -> String {
         let calendar = calendar.gregorianEquivalent
-        guard let date else { return exam.time.isEmpty ? "时间未定" : exam.time }
+        guard let date else {
+            let time = exam.time.trimmingCharacters(in: .whitespacesAndNewlines)
+            return ["", "待定", "时间未定"].contains(time) ? "时间待定" : time
+        }
         let c = calendar.dateComponents([.month, .day, .hour, .minute], from: date)
         let clock = String(format: "%02d:%02d", c.hour ?? 0, c.minute ?? 0)
         return isUrgent(now: now, calendar: calendar) ? clock : "\(c.month ?? 0)月\(c.day ?? 0)日 \(clock)"

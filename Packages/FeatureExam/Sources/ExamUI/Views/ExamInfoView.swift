@@ -92,9 +92,8 @@ private struct ExamRow: View {
         .padding(.vertical, 2)
     }
 
-    /// 徽章只给"今日 / 明日开考"（红）和"时间未知"（橙）；更远的考试日期已写在时间行里，不再重复"N天后"
+    /// 徽章只给今日、明日开考的考试，其余时间直接看时间行。
     private var badge: Text? {
-        if item.status == .tbd { return Text("时间未知").foregroundStyle(.orange) }
         guard item.isUrgent(), let text = item.countdownText() else { return nil }
         return Text(text).foregroundStyle(.red)
     }

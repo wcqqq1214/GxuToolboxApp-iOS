@@ -208,13 +208,18 @@ private struct EventCard: View {
     let colors: [String: UInt32]
 
     var body: some View {
+        let caption = caption
         VStack(alignment: .leading, spacing: GxuDesign.Spacing.s) {
-            HStack {
-                Text(caption).font(.footnote.weight(.semibold)).foregroundStyle(event.isOngoing ? .green : .secondary)
+            HStack(alignment: .firstTextBaseline) {
+                if let caption {
+                    Text(caption).font(.footnote.weight(.semibold)).foregroundStyle(event.isOngoing ? .green : .secondary)
+                } else {
+                    Text(title).font(.title3.weight(.semibold))
+                }
                 Spacer()
                 Text(trailing).font(.footnote.monospacedDigit()).foregroundStyle(.secondary)
             }
-            Text(title).font(.title3.weight(.semibold))
+            if caption != nil { Text(title).font(.title3.weight(.semibold)) }
             if let detail { Text(detail).font(.subheadline).foregroundStyle(.secondary) }
             if case .course(let item, true, _) = event {
                 ProgressView(value: min(max(now.timeIntervalSince(item.startsAt) / item.endsAt.timeIntervalSince(item.startsAt), 0), 1))
@@ -225,12 +230,12 @@ private struct EventCard: View {
         .accessibilityElement(children: .combine)
     }
 
-    private var caption: String {
+    private var caption: String? {
         switch event {
         case .course(let item, true, _): item.course.isCustom ? "正在上实验课" : "正在上课"
         case .course(let item, false, _) where item.course.isCustom: "下节实验课"
         case .course(_, false, true): "明天第一节课"
-        case .course: "下一节课"
+        case .course: nil
         case .exam(_, true): "考试进行中"
         case .exam: "即将考试"
         case .holiday: "下个假期"

@@ -69,7 +69,7 @@ public struct EvaluationOverviewView: View {
                 Section {
                     NavigationLink { EvaluationTemplatesView() } label: { Label("评教模板", systemImage: "doc.text") }
                 } footer: {
-                    Text("评教的填写和提交需要直连教务系统，暂不支持，请在教务系统里完成。")
+                    Text("请在教务系统填写并提交评教。")
                 }
             }
             .navigationTitle("期末评教")

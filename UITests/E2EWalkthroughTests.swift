@@ -214,7 +214,7 @@ final class E2EWalkthroughTests: XCTestCase {
         app.swipeDown(); app.swipeDown()
         let entries: [([String], Bool)] = [
             (["课表"], false), (["班级课表"], false), (["导出课表"], false), (["考试考场"], false), (["考试成绩"], false), (["考勤信息"], false),
-            (["选课课程列表"], true), (["校选课查漏"], false), (["教师信息查询"], false),
+            (["选课课程列表"], true), (["校选课查漏"], false), (["教师查询"], false),
             (["物理实验课"], false), (["金工实训"], false),
             (["调课信息"], true), (["调休信息"], false), (["法定节假日"], false), (["学校文件"], false),
             (["期末学生评价"], false),
