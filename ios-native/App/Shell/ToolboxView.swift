@@ -30,8 +30,7 @@ struct ToolboxView: View {
                         let items = filtered.filter { $0.section == section }
                         if !items.isEmpty {
                             VStack(alignment: .leading, spacing: GxuDesign.Spacing.s) {
-                                // 分组标题在 B 线，卡片在 A 线，卡片里的图标也在 B 线
-                                Text(section.rawValue).gxuSectionHeader()
+                                Text(section.rawValue).gxuSectionHeader(leadingInset: 0)
                                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: GxuDesign.Spacing.m)], spacing: GxuDesign.Spacing.m) {
                                     ForEach(items) { ToolboxCell(item: $0, onSelectTab: onSelectTab) }
                                 }

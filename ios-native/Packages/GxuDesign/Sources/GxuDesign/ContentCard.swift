@@ -22,11 +22,11 @@ public struct ContentCard<Content: View>: View {
 }
 
 public extension View {
-    /// 自拼页面（非 `List`）里的分组标题：文字落在 B 线，和系统列表的分组标题、卡片内文字对齐。
-    func gxuSectionHeader() -> some View {
+    /// 自拼页面（非 `List`）里的分组标题，默认和卡片内文字对齐。
+    func gxuSectionHeader(leadingInset: CGFloat = GxuDesign.Layout.cardInset) -> some View {
         font(.footnote.weight(.semibold))
             .foregroundStyle(.secondary)
-            .padding(.leading, GxuDesign.Layout.cardInset)
+            .padding(.leading, leadingInset)
             .accessibilityAddTraits(.isHeader)
     }
 }
