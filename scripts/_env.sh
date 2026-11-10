@@ -27,7 +27,7 @@ if [ -z "${SIM_ID:-}" ]; then
   # 名字只保留字母数字和 ._-，并去掉首尾的 -；清洗后是空的（例如分支名 / 目录名解析成了 "/"）就报错退出，绝不新建 "gxu--" 这种模拟器
   SUFFIX="$(printf '%s' "$BRANCH" | tr -c 'A-Za-z0-9._' '-' | sed -e 's/^-*//' -e 's/-*$//')"
   if [ -z "$SUFFIX" ] || ! [[ "$SUFFIX" =~ [A-Za-z0-9] ]] || [ ! -f "$ROOT/project.yml" ]; then
-    echo "无法确定本 worktree 的专属模拟器名（分支名「$BRANCH」，目录「$ROOT」）。请在 ios-native 所在的 worktree 里运行，或用 SIM_ID=<udid> 指定模拟器。" >&2
+    echo "无法确定本 worktree 的专属模拟器名（分支名「$BRANCH」，目录「$ROOT」）。请在 iOS 工程所在的工作区运行，或用 SIM_ID=<udid> 指定模拟器。" >&2
     exit 1
   fi
   SIM_NAME="gxu-$SUFFIX"

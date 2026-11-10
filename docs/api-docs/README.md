@@ -1,6 +1,6 @@
 # GxuToolApp — 网络 API 接口文档
 
-> 历史 RN 接口索引（v2.1.3 beta）。其中的 `src/` 路径对应上游 RN 源码。iOS 的接口调用以 `ios-native/Packages/` 中的 Swift 实现为准。
+> 历史 RN 接口索引（v2.1.3 beta）。其中的 `src/` 路径对应上游 RN 源码。iOS 的接口调用以 `Packages/` 中的 Swift 实现为准。
 > 文档生成日期：2026-07-31
 
 ---
