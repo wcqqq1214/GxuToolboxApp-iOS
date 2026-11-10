@@ -205,17 +205,10 @@ private struct CourseSection: View {
         case "credits": course.credits
         case "category": course.courseCategory
         case "examMethod": course.examMethod
-        case "enrollment":
-            "\(course.enrollmentCount) 人 / \(course.seatCount) 座位 · 理论满座率 \(occupancy)"
+        case "enrollment": "\(course.enrollmentCount) 人"
         case "qqGroup": qqGroup
         default: ""
         }
-    }
-
-    private var occupancy: String {
-        guard course.seatCount > 0, course.enrollmentCount >= 0 else { return "暂无" }
-        let ratio = Double(course.enrollmentCount) / Double(course.seatCount)
-        return ratio.formatted(.percent.precision(.fractionLength(2)))
     }
 
     /// 优先打开 QQ 群名片，无法跳转时复制群号。

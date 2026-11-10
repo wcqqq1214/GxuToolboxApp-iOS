@@ -258,7 +258,7 @@ private struct RoomResultRow: View {
                 Spacer()
                 Text("空闲 \(result.freePeriodCount) 节").font(.footnote.weight(.semibold)).foregroundStyle(.green)
             }
-            let detail = [result.room.placeType, result.room.seatCount.map { "\($0) 座" }].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
+            let detail = result.room.placeType
             if !detail.isEmpty { Text(detail).font(.footnote).foregroundStyle(.secondary) }
             PeriodStrip(freeRuns: result.freeRuns, highlight: range)
             Text(runText(result.freeRuns)).font(.caption).foregroundStyle(.secondary)
@@ -484,7 +484,7 @@ private struct RoomPickRow: View {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(room.name).foregroundStyle(Color.primary)
-                    let detail = [room.placeType, room.seatCount.map { "\($0) 座" }].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
+                    let detail = room.placeType
                     if !detail.isEmpty { Text(detail).font(.footnote).foregroundStyle(Color.secondary) }
                 }
                 Spacer()
