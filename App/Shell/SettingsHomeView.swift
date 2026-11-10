@@ -7,6 +7,8 @@ import SwiftUI
 
 /// 设置首页骨架。账号相关页面由 FeatureAccount 提供，这里只放入口；外观设置在这里。
 struct SettingsHomeView: View {
+    private static let sourceRepositoryURL = URL(string: "https://github.com/wcqqq1214/GxuToolboxApp-iOS")!
+
     @Environment(GxuTheme.self) private var theme
     @Environment(\.services) private var services
 
@@ -64,6 +66,26 @@ struct SettingsHomeView: View {
                         AppVersionListView()
                     } label: {
                         LabeledContent("软件版本", value: appVersion)
+                    }
+                    Link(destination: Self.sourceRepositoryURL) {
+                        HStack {
+                            Label {
+                                VStack(alignment: .leading) {
+                                    Text("开源地址")
+                                        .foregroundStyle(Color(uiColor: .label))
+                                    Text(verbatim: "wcqqq1214/GxuToolboxApp-iOS")
+                                        .font(.footnote)
+                                        .foregroundStyle(Color(uiColor: .secondaryLabel))
+                                }
+                            } icon: {
+                                Image(systemName: "chevron.left.forwardslash.chevron.right")
+                            }
+                            Spacer()
+                            Image(systemName: "arrow.up.right")
+                                .font(.footnote)
+                                .foregroundStyle(Color(uiColor: .secondaryLabel))
+                                .accessibilityHidden(true)
+                        }
                     }
                     NavigationLink {
                         AccountFeature.makeErrorLogView()
