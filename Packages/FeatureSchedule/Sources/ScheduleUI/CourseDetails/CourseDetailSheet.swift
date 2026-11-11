@@ -16,7 +16,7 @@ struct CourseDetailSheet: View {
     var loadReschedules: (@MainActor (String) async throws -> [CourseReschedule])?
     @Environment(SchedulePreferencesStore.self) private var preferences
     @Environment(\.dismiss) private var dismiss
-    @State private var chosenID: String?
+    @State private var chosen: CourseOccurrence?
     @Environment(\.scheduleMapPlan) private var mapPlan
     @Environment(\.openURL) private var openURL
     @State private var pendingMap: PendingMap?
@@ -35,11 +35,10 @@ struct CourseDetailSheet: View {
         var id: String { keyword }
     }
 
-    private var currentID: String { chosenID ?? selected.id }
+    private var current: CourseOccurrence { chosen ?? selected }
 
     private var rescheduleRequest: RescheduleRequest? {
-        guard loadReschedules != nil,
-              let classId = group.items.first(where: { $0.id == currentID })?.course.rescheduleClassId else { return nil }
+        guard loadReschedules != nil, let classId = current.course.rescheduleClassId else { return nil }
         return RescheduleRequest(classId: classId, attempt: rescheduleAttempt)
     }
 
@@ -58,8 +57,8 @@ struct CourseDetailSheet: View {
                 ForEach(group.items) { item in
                     CourseSection(
                         item: item, tint: CourseTint(hex: colors[item.course.courseName] ?? 0xC7CEEA),
-                        choice: group.isConflict ? (isSelected: item.id == currentID, choose: {
-                            chosenID = item.id
+                        choice: group.isConflict ? (isSelected: item.id == current.id, choose: {
+                            chosen = item
                             onChoose(item)
                         }) : nil,
                         fields: preferences.value.courseDetail.filter(\.isShown),
@@ -68,7 +67,7 @@ struct CourseDetailSheet: View {
                         onEditActivity: onEditActivity,
                         onNavigate: navigateAction
                     )
-                    if item.id == currentID, let request {
+                    if item.id == current.id, let request {
                         CourseRescheduleSection(phase: reschedulePhase(for: request), retry: { rescheduleAttempt += 1 })
                     }
                 }

@@ -39,7 +39,12 @@ public struct TheoryCourse: Codable, Sendable, Hashable, Identifiable {
     public var classId: String?
     public var isRescheduled: Bool
 
-    public var id: String { "\(customID ?? "")|\(courseName)|\(weekday)|\(sectionRange)|\(venueName)|\(teacher)" }
+    public var id: String {
+        guard !isCustom, let classId, !classId.isEmpty else { return legacyID }
+        return "\(legacyID)\u{1E}\(classId)"
+    }
+
+    var legacyID: String { "\(customID ?? "")|\(courseName)|\(weekday)|\(sectionRange)|\(venueName)|\(teacher)" }
     public var isCustom: Bool { customID != nil }
 
     package var rescheduleClassId: String? {

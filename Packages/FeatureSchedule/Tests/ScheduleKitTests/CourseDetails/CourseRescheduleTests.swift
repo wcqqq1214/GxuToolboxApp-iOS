@@ -16,6 +16,44 @@ struct CourseRescheduleTests {
         #expect(course.rescheduleClassId == nil)
     }
 
+    @Test func conflictSelectionRequestsReschedulesForTheChosenTeachingClass() async throws {
+        let original = TheoryCourse(courseName: "高等数学", weeks: [1], weekday: 1, classId: "class-a")
+        var adjusted = original
+        adjusted.classId = "class-b"
+        adjusted.isRescheduled = true
+        let schedule = Schedule(theoryList: [original, adjusted])
+        let occurrences = ScheduleExpander.occurrences(of: schedule, in: term)
+        let group = try #require(ScheduleExpander.conflictGroups(occurrences).first)
+
+        #expect(group.items.count == 2)
+        #expect(Set(group.items.map(\.id)).count == 2)
+        #expect(group.selected(choices: [group.key: ScheduleExpander.selectionKey(original)]).course.rescheduleClassId == nil)
+        let selected = group.selected(choices: [group.key: ScheduleExpander.selectionKey(adjusted)])
+        let classId = try #require(selected.course.rescheduleClassId)
+
+        let backend = MockBackendAPI()
+        backend.stub("GET /jw/schedule/personal/reschedules", json: #"{"data":[]}"#)
+        let repository = ScheduleRepository(backend: backend, database: try .inMemory(features: [ScheduleKit.migrations]))
+        _ = try await repository.reschedules(classId: classId)
+        #expect(backend.getRequests.map(\.query) == [["classId": "class-b"]])
+    }
+
+    @Test func existingConflictChoiceSurvivesWhenCachedCoursesGainTeachingClassIds() throws {
+        let math = TheoryCourse(courseName: "高等数学", weeks: [1], weekday: 1)
+        let english = TheoryCourse(courseName: "大学英语", weeks: [1], weekday: 1)
+        let legacyOccurrences = ScheduleExpander.occurrences(of: Schedule(theoryList: [math, english]), in: term)
+        let legacyGroup = try #require(ScheduleExpander.conflictGroups(legacyOccurrences).first)
+        let savedChoices = [legacyGroup.key: ScheduleExpander.selectionKey(math)]
+
+        var refreshedMath = math
+        var refreshedEnglish = english
+        refreshedMath.classId = "class-a"
+        refreshedEnglish.classId = "class-b"
+        let refreshedOccurrences = ScheduleExpander.occurrences(of: Schedule(theoryList: [refreshedMath, refreshedEnglish]), in: term)
+        let refreshedGroup = try #require(ScheduleExpander.conflictGroups(refreshedOccurrences).first)
+        #expect(refreshedGroup.selected(choices: savedChoices).course.classId == "class-a")
+    }
+
     @Test func refreshedSchedulePersistsTeachingClassAndRescheduleFlag() async throws {
         let backend = MockBackendAPI()
         backend.stub("GET /jw/schedule/personal", json: """

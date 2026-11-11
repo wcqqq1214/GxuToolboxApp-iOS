@@ -6,8 +6,14 @@ extension ConflictGroup {
     public var key: String { ScheduleExpander.conflictKey(self).joined(separator: "\u{1F}") }
 
     public func selected(choices: [String: String]) -> CourseOccurrence {
-        if let choice = choices[key], let hit = items.first(where: { ScheduleExpander.selectionKey($0.course) == choice }) { return hit }
-        return items[0]
+        guard isConflict, !choices.isEmpty else { return items[0] }
+        if let choice = choices[key] {
+            return items.first { ScheduleExpander.selectionKey($0.course) == choice } ?? items[0]
+        }
+        let legacyKey = items.map(\.course.legacyID).sorted().joined(separator: "\u{1F}")
+        guard let choice = choices[legacyKey] else { return items[0] }
+        let matches = items.filter { $0.course.legacyID == choice }
+        return matches.count == 1 ? matches[0] : items[0]
     }
 }
 
