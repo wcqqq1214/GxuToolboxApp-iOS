@@ -17,6 +17,10 @@ public struct ScheduleRepository: Sendable {
         self.database = database
     }
 
+    package func reschedules(classId: String) async throws -> [CourseReschedule] {
+        try await backend.getData("/jw/schedule/personal/reschedules", query: ["classId": classId], auth: .jw, as: [CourseReschedule].self)
+    }
+
 
     public func cachedSchedule(studentId: String, term: AcademicTerm) async throws -> CachedSchedule? {
         try await database.writer.read { db in

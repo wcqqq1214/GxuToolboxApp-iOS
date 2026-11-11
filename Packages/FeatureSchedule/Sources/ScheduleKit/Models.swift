@@ -36,9 +36,16 @@ public struct TheoryCourse: Codable, Sendable, Hashable, Identifiable {
     public var enrollmentCount: Int
     public var seatCount: Int
     public var customID: String?
+    public var classId: String?
+    public var isRescheduled: Bool
 
     public var id: String { "\(customID ?? "")|\(courseName)|\(weekday)|\(sectionRange)|\(venueName)|\(teacher)" }
     public var isCustom: Bool { customID != nil }
+
+    package var rescheduleClassId: String? {
+        guard isRescheduled, !isCustom, let classId, !classId.isEmpty else { return nil }
+        return classId
+    }
 
     public var locationText: String { LocationFormatter.display(building: building, venue: venueName) }
 
@@ -50,7 +57,7 @@ public struct TheoryCourse: Codable, Sendable, Hashable, Identifiable {
         building: String = "", venueName: String = "", sectionRange: String = "1-2", begin: Int = 1, end: Int = 2,
         courseName: String, weeks: [Int], teacher: String = "", credits: String = "", courseCategory: String = "",
         examMethod: String = "", weekday: Int, qqGroup: String = "", enrollmentCount: Int = 0, seatCount: Int = 0,
-        customID: String? = nil
+        customID: String? = nil, classId: String? = nil, isRescheduled: Bool = false
     ) {
         self.customID = customID
         self.building = building
@@ -68,11 +75,13 @@ public struct TheoryCourse: Codable, Sendable, Hashable, Identifiable {
         self.qqGroup = qqGroup
         self.enrollmentCount = enrollmentCount
         self.seatCount = seatCount
+        self.classId = classId
+        self.isRescheduled = isRescheduled
     }
 
     private enum CodingKeys: String, CodingKey {
         case building, venueName, sectionRange, begin, end, courseName, weeks, teacher, credits
-        case courseCategory, examMethod, weekday, qqGroup, enrollmentCount, seatCount, customID
+        case courseCategory, examMethod, weekday, qqGroup, enrollmentCount, seatCount, customID, classId, isRescheduled
     }
 
     public init(from decoder: Decoder) throws {
@@ -96,6 +105,9 @@ public struct TheoryCourse: Codable, Sendable, Hashable, Identifiable {
         enrollmentCount = c.lenientInt(.enrollmentCount) ?? 0
         seatCount = c.lenientInt(.seatCount) ?? 0
         customID = (try? c.decodeIfPresent(String.self, forKey: .customID)) ?? nil
+        let classId = c.lenientString(.classId)
+        self.classId = classId.isEmpty ? nil : classId
+        isRescheduled = (try? c.decodeIfPresent(Bool.self, forKey: .isRescheduled)) ?? false
     }
 }
 
