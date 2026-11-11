@@ -13,7 +13,7 @@ struct CourseDetailSheet: View {
     var attendance: AttendanceIndex?
     let onChoose: (CourseOccurrence) -> Void
     let onEditActivity: (String?) -> Void
-    var loadReschedules: (@MainActor (String) async throws -> [CourseReschedule])?
+    var reschedules: (CourseOccurrence) -> [CourseReschedule] = { _ in [] }
     @Environment(SchedulePreferencesStore.self) private var preferences
     @Environment(\.dismiss) private var dismiss
     @State private var chosen: CourseOccurrence?
@@ -21,13 +21,6 @@ struct CourseDetailSheet: View {
     @Environment(\.openURL) private var openURL
     @State private var pendingMap: PendingMap?
     @State private var toast: String?
-    @State private var rescheduleAttempt = 0
-    @State private var rescheduleResult: (request: RescheduleRequest, phase: CourseRescheduleSection.Phase)?
-
-    private struct RescheduleRequest: Equatable {
-        let classId: String
-        let attempt: Int
-    }
 
     private struct PendingMap: Identifiable {
         let keyword: String
@@ -37,13 +30,7 @@ struct CourseDetailSheet: View {
 
     private var current: CourseOccurrence { chosen ?? selected }
 
-    private var rescheduleRequest: RescheduleRequest? {
-        guard loadReschedules != nil, let classId = current.course.rescheduleClassId else { return nil }
-        return RescheduleRequest(classId: classId, attempt: rescheduleAttempt)
-    }
-
     var body: some View {
-        let request = rescheduleRequest
         NavigationStack {
             List {
                 if group.isConflict {
@@ -67,12 +54,11 @@ struct CourseDetailSheet: View {
                         onEditActivity: onEditActivity,
                         onNavigate: navigateAction
                     )
-                    if item.id == current.id, let request {
-                        CourseRescheduleSection(phase: reschedulePhase(for: request), retry: { rescheduleAttempt += 1 })
+                    if item.id == current.id {
+                        CourseRescheduleSection(records: reschedules(item))
                     }
                 }
             }
-            .task(id: request) { await loadReschedule(request) }
             .navigationTitle(group.isConflict ? "冲突课程" : group.items[0].course.courseName)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -88,27 +74,6 @@ struct CourseDetailSheet: View {
         }
         .presentationDetents(Self.detents)
         .presentationDragIndicator(.visible)
-    }
-
-    private func reschedulePhase(for request: RescheduleRequest) -> CourseRescheduleSection.Phase {
-        guard let rescheduleResult, rescheduleResult.request == request else { return .loading }
-        return rescheduleResult.phase
-    }
-
-    private func loadReschedule(_ request: RescheduleRequest?) async {
-        guard !Task.isCancelled, request == rescheduleRequest else { return }
-        rescheduleResult = nil
-        guard let request, let loadReschedules else { return }
-        do {
-            let records = try await loadReschedules(request.classId)
-            guard !Task.isCancelled, request == rescheduleRequest else { return }
-            rescheduleResult = (request, .loaded(records))
-        } catch is CancellationError {
-            return
-        } catch {
-            guard !Task.isCancelled, request == rescheduleRequest else { return }
-            rescheduleResult = (request, .failed)
-        }
     }
 
     #if DEBUG

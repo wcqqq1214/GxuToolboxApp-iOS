@@ -20,8 +20,12 @@ struct RescheduleBadgeTests {
         ]}}
         """)
         backend.stub("GET \(reschedulesPath)", json: """
-        {"data":[{"before":{"weeks":"2","weekday":"一","sections":"3-4"},
-                   "after":{"weeks":"2","weekday":"二","sections":"3-4"}}]}
+        {"data":[
+            {"reason":"调整教学安排","reasonCategory":"教学",
+             "before":{"weeks":"2","weekday":"一","sections":"3-4"},
+             "after":{"weeks":"2","weekday":"二","sections":"3-4"}},
+            {"reason":"其他课次的原因","before":{},"after":{"weeks":"4","weekday":"二","sections":"3-4"}}
+        ]}
         """)
         let services = AppServices.preview(backend: backend, features: [ScheduleKit.migrations], studentId: "demo")
         let model = ScheduleViewModel(refreshCoordinator: ScheduleRefreshCoordinator(
@@ -29,7 +33,7 @@ struct RescheduleBadgeTests {
         ))
         await model.load(services: services)
         let request = try #require(model.rescheduleRequest)
-        await model.loadRescheduleBadges(for: request)
+        await model.loadReschedules(for: request)
         #expect(backend.getRequests.filter { $0.path == reschedulesPath }.map(\.query) == [["classId": "class-a"]])
 
         let occurrences = model.index.occurrences
@@ -45,13 +49,16 @@ struct RescheduleBadgeTests {
         #expect(adjusted.week == 2)
         #expect(adjusted.weekday == 2)
         #expect(adjusted.begin == 3 && adjusted.end == 4)
+        #expect(model.reschedules(for: adjusted).map(\.reason) == ["调整教学安排"])
+        #expect(model.reschedules(for: adjusted).map(\.reasonCategory) == ["教学"])
+        #expect(occurrences.filter { $0.id != adjusted.id }.allSatisfy { model.reschedules(for: $0).isEmpty })
 
         backend.stub("GET \(reschedulesPath)", error: .network("offline"))
-        await model.loadRescheduleBadges(for: request)
+        await model.loadReschedules(for: request)
         #expect(model.showsRescheduleBadge(for: adjusted))
 
         backend.stub("GET \(reschedulesPath)", json: #"{"data":[]}"#)
-        await model.loadRescheduleBadges(for: request)
+        await model.loadReschedules(for: request)
         #expect(!model.showsRescheduleBadge(for: adjusted))
     }
 }

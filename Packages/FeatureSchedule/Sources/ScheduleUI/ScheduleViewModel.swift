@@ -57,7 +57,7 @@ final class ScheduleViewModel {
     private(set) var overrides: [OccurrenceOverride] = []
     private(set) var attendance: AttendanceIndex?
     private var attendanceMarks: [AttendanceMark] = []
-    private var rescheduledSlots: [String: Set<CourseReschedule.Slot>] = [:]
+    private var reschedulesByClass: [String: [CourseReschedule.Slot: [CourseReschedule]]] = [:]
 
     var selectedWeek = 1
     var palette: CoursePalette = .macaron
@@ -251,7 +251,7 @@ final class ScheduleViewModel {
         return RescheduleRequest(generation: generation, term: term, updatedAt: updatedAt)
     }
 
-    func loadRescheduleBadges(for request: RescheduleRequest) async {
+    func loadReschedules(for request: RescheduleRequest) async {
         guard let services, let studentId, let jwSessionID, !Task.isCancelled, request == rescheduleRequest,
               services.accounts.studentId == studentId, services.accounts.jwSessionID == jwSessionID else { return }
         let repository = makeRepository(services)
@@ -260,14 +260,27 @@ final class ScheduleViewModel {
             let records = try? await repository.reschedules(classId: classId)
             guard !Task.isCancelled, request == rescheduleRequest, services.accounts.studentId == studentId,
                   services.accounts.jwSessionID == jwSessionID else { return }
-            if let records { rescheduledSlots[classId] = Set(records.flatMap(\.after.slots)) }
+            if let records {
+                var bySlot: [CourseReschedule.Slot: [CourseReschedule]] = [:]
+                for record in records {
+                    for slot in record.after.slots {
+                        bySlot[slot, default: []].append(record)
+                    }
+                }
+                reschedulesByClass[classId] = bySlot
+            }
         }
     }
 
     func showsRescheduleBadge(for occurrence: CourseOccurrence) -> Bool {
-        guard let classId = occurrence.course.rescheduleClassId, let slots = rescheduledSlots[classId] else { return false }
+        !reschedules(for: occurrence).isEmpty
+    }
+
+    func reschedules(for occurrence: CourseOccurrence) -> [CourseReschedule] {
+        guard let classId = occurrence.course.rescheduleClassId, let bySlot = reschedulesByClass[classId] else { return [] }
         let week = occurrence.shiftedFrom.flatMap { termCalendar?.week(containing: $0) } ?? occurrence.week
-        return slots.contains(.init(week: week, weekday: occurrence.course.weekday, sections: occurrence.begin...occurrence.end))
+        let slot = CourseReschedule.Slot(week: week, weekday: occurrence.course.weekday, sections: occurrence.begin...occurrence.end)
+        return bySlot[slot] ?? []
     }
 
     private func cancelLayerLoad() {
@@ -386,7 +399,7 @@ final class ScheduleViewModel {
         overrides = []
         attendanceMarks = []
         attendance = nil
-        rescheduledSlots = [:]
+        reschedulesByClass = [:]
         refreshError = nil
         pinnedTerm = nil
         studentId = nil
@@ -414,7 +427,7 @@ final class ScheduleViewModel {
             overrides = []
             attendanceMarks = []
             attendance = nil
-            rescheduledSlots = [:]
+            reschedulesByClass = [:]
         }
         term = target
         termCalendar = calendar

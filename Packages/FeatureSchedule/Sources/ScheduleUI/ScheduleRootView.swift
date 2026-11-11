@@ -90,7 +90,7 @@ public struct ScheduleRootView: View {
             if !Task.isCancelled { await model.refreshExamLayer() }
         }
         .task(id: rescheduleRequest) {
-            if let rescheduleRequest { await model.loadRescheduleBadges(for: rescheduleRequest) }
+            if let rescheduleRequest { await model.loadReschedules(for: rescheduleRequest) }
         }
         #if DEBUG
         .task(id: model.phase) { await debugPresentSheet() }
@@ -101,7 +101,6 @@ public struct ScheduleRootView: View {
         }
         .onChange(of: services.accounts.studentId) { detail = nil }
         .sheet(item: $detail) { group in
-            let studentId = services.accounts.studentId
             CourseDetailSheet(
                 group: group, colors: model.colors, selected: group.selected(choices: model.choices), exams: model.exams, term: model.term, attendance: model.attendance,
                 onChoose: { item in Task { await model.choose(item, in: group) } },
@@ -109,7 +108,7 @@ public struct ScheduleRootView: View {
                     detail = nil
                     if let activity = model.activity(id: id) { editor = ActivityEditorRequest(activity: activity, isNew: false) }
                 },
-                loadReschedules: { classId in try await loadCourseReschedules(classId, studentId: studentId) }
+                reschedules: model.reschedules(for:)
             )
         }
         .sheet(item: $editor) { request in
@@ -132,15 +131,6 @@ public struct ScheduleRootView: View {
                 onDelete: { activity in Task { await model.delete(activity) } }
             )
         }
-    }
-
-    private func loadCourseReschedules(_ classId: String, studentId: String?) async throws -> [CourseReschedule] {
-        let accounts = services.accounts
-        guard let studentId, accounts.studentId == studentId else { throw CancellationError() }
-        let repository = ScheduleRepository(backend: services.backend, database: services.database)
-        let records = try await repository.reschedules(classId: classId)
-        guard accounts.studentId == studentId else { throw CancellationError() }
-        return records
     }
 
     @ViewBuilder
