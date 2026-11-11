@@ -320,22 +320,14 @@ struct RoomModeView: View {
                     }
                 }
             }
-            content
+            if model.room != nil { content }
         }
         .sheet(isPresented: $showPicker) { RoomPickerSheet(model: model, selection: .single) }
     }
 
     @ViewBuilder
     private var content: some View {
-        if model.room == nil {
-            Section { Text("选择一间教室，查看它这一周的空闲时段").foregroundStyle(.secondary) }
-        } else if model.snapshot(week: model.roomWeek) == nil {
-            Section {
-                Text("这一周还没有缓存，无法显示空闲时段").foregroundStyle(.secondary)
-                NavigationLink("去缓存管理") { CacheManagerView(model: model, cache: cache) }
-            }
-        } else {
-            let snapshot = model.snapshot(week: model.roomWeek)
+        if let snapshot = model.snapshot(week: model.roomWeek) {
             Section {
                 ForEach(1...EmptyClassroomConstants.days, id: \.self) { day in
                     let runs = model.roomRuns.filter { $0.day == day }
@@ -353,9 +345,14 @@ struct RoomModeView: View {
             } header: {
                 Text("空闲时段")
             } footer: {
-                if let snapshot, !snapshot.complete { Text("这一周只缓存了 \(snapshot.completedDays)/7 天，没缓存的日期不会显示空闲。") }
+                if !snapshot.complete { Text("这一周只缓存了 \(snapshot.completedDays)/7 天，没缓存的日期不会显示空闲。") }
             }
             if let error = model.roomError { Section { Label(error, systemImage: "exclamationmark.triangle").foregroundStyle(.orange) } }
+        } else {
+            Section {
+                Text("这一周还没有缓存，无法显示空闲时段").foregroundStyle(.secondary)
+                NavigationLink("去缓存管理") { CacheManagerView(model: model, cache: cache) }
+            }
         }
     }
 }

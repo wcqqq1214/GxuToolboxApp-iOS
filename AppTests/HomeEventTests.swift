@@ -28,7 +28,7 @@ struct HomeEventTests {
         #expect(pick(at: loadedAt) == .exam(cachedExam, isOngoing: false))
         #expect(try pick(at: at(9)) == .exam(cachedExam, isOngoing: true))
         #expect(try pick(at: at(10)) == .exam(cachedExam, isOngoing: true))
-        #expect(try pick(at: at(11)) == .course(afternoon, isOngoing: false, isTomorrow: false))
-        #expect(try pick(at: at(12)) == .course(afternoon, isOngoing: false, isTomorrow: false))
+        #expect(try pick(at: at(11)) == .course(afternoon, isOngoing: false))
+        #expect(try pick(at: at(12)) == .course(afternoon, isOngoing: false))
     }
 }

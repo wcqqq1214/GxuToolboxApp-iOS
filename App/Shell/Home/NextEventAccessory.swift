@@ -47,7 +47,7 @@ struct NextEventAccessory: View {
 
     private func title(_ event: HomeEvent) -> String {
         switch event {
-        case .course(let item, _, _): item.course.courseName
+        case .course(let item, _): item.course.courseName
         case .exam(let item, _): "考试 · \(item.exam.course)"
         case .holiday(let holiday): "下个假期 · \(holiday.title)"
         }
@@ -55,7 +55,7 @@ struct NextEventAccessory: View {
 
     private func detail(_ event: HomeEvent, now: Date) -> String {
         switch event {
-        case .course(let item, _, _):
+        case .course(let item, _):
             [RelativeTime.showsClock(in: trailing(event, now: now)) ? "" : item.timeRangeText, item.course.locationText]
                 .filter { !$0.isEmpty }.joined(separator: " · ")
         case .exam(let item, _):
@@ -66,7 +66,7 @@ struct NextEventAccessory: View {
 
     private func trailing(_ event: HomeEvent, now: Date) -> String {
         switch event {
-        case .course(let item, true, _): RelativeTime.remaining(until: item.endsAt, now: now)
+        case .course(let item, true): RelativeTime.remaining(until: item.endsAt, now: now)
         case .exam: event.isOngoing ? "进行中" : RelativeTime.untilStart(event.startsAt, now: now)
         case .holiday(let holiday): holiday.dayText(now: now, calendar: .current)
         case .course: RelativeTime.untilStart(event.startsAt, now: now)

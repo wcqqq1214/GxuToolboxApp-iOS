@@ -61,16 +61,13 @@ private struct HomeList: View {
     private var todayCoursesSection: some View {
         Section(header: Text("今日课程"), footer: coursesFooter) {
             if plan.courses.isEmpty {
-                StatusRow(systemImage: plan.note == nil ? "cup.and.saucer" : "sun.max", title: "今天没有课", subtitle: nil)
+                StatusRow(systemImage: "cup.and.saucer", title: "没有课", subtitle: nil)
             } else {
-                if remaining.isEmpty {
-                    StatusRow(systemImage: "checkmark.circle", title: "今天的课已结束", subtitle: "共 \(plan.courses.count) 节课")
-                }
                 ForEach(remaining) { item in
                     CourseRow(item: item, status: plan.status(of: item, now: now), colors: model.colors)
                 }
                 if !finished.isEmpty {
-                    DisclosureGroup("已结束的课（\(finished.count)）") {
+                    DisclosureGroup(remaining.isEmpty ? "全部结束（\(finished.count) 节）" : "已结束的课（\(finished.count)）") {
                         ForEach(finished) { item in CourseRow(item: item, status: .finished, colors: model.colors) }
                     }
                     .foregroundStyle(.secondary)
@@ -107,7 +104,7 @@ private struct HomeList: View {
                         }
                     }
                 } else if remaining.isEmpty {
-                    Section("明天") { StatusRow(systemImage: "cup.and.saucer", title: "明天没有课", subtitle: nil) }
+                    Section("明天") { StatusRow(systemImage: "cup.and.saucer", title: "没有课", subtitle: nil) }
                 }
             }
 
@@ -210,7 +207,7 @@ private struct EventCard: View {
             }
             if caption != nil { Text(title).font(.title3.weight(.semibold)) }
             if let detail { Text(detail).font(.subheadline).foregroundStyle(.secondary) }
-            if case .course(let item, true, _) = event {
+            if case .course(let item, true) = event {
                 ProgressView(value: min(max(now.timeIntervalSince(item.startsAt) / item.endsAt.timeIntervalSince(item.startsAt), 0), 1))
                     .tint(.green)
             }
@@ -221,18 +218,17 @@ private struct EventCard: View {
 
     private var caption: String? {
         switch event {
-        case .course(_, true, _): "正在上课"
-        case .course(_, false, true): "明天第一节课"
+        case .course(_, true): "正在上课"
         case .course: nil
         case .exam(_, true): "考试进行中"
-        case .exam: "即将考试"
-        case .holiday: "下个假期"
+        case .exam: "考试"
+        case .holiday: "假期"
         }
     }
 
     private var trailing: String {
         switch event {
-        case .course(let item, true, _): RelativeTime.remaining(until: item.endsAt, now: now)
+        case .course(let item, true): RelativeTime.remaining(until: item.endsAt, now: now)
         case .exam(_, true): ""
         case .holiday(let holiday): holiday.dayText(now: now, calendar: .current)
         default: RelativeTime.untilStart(event.startsAt, now: now)
@@ -241,7 +237,7 @@ private struct EventCard: View {
 
     private var title: String {
         switch event {
-        case .course(let item, _, _): item.course.courseName
+        case .course(let item, _): item.course.courseName
         case .exam(let item, _): item.exam.course
         case .holiday(let holiday): holiday.title
         }
@@ -249,7 +245,7 @@ private struct EventCard: View {
 
     private var detail: String? {
         switch event {
-        case .course(let item, _, _):
+        case .course(let item, _):
             [item.sectionText, RelativeTime.showsClock(in: trailing) ? "" : item.timeRangeText, item.course.locationText, item.course.teacher]
                 .filter { !$0.isEmpty }.joined(separator: " · ")
         case .exam(let item, _):

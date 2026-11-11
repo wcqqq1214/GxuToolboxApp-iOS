@@ -3,13 +3,13 @@ import Foundation
 import ScheduleKit
 
 enum HomeEvent: Equatable {
-    case course(CourseOccurrence, isOngoing: Bool, isTomorrow: Bool)
+    case course(CourseOccurrence, isOngoing: Bool)
     case exam(ExamItem, isOngoing: Bool)
     case holiday(NextHoliday)
 
     var startsAt: Date {
         switch self {
-        case .course(let item, _, _): item.startsAt
+        case .course(let item, _): item.startsAt
         case .exam(let item, _): item.date ?? .distantFuture
         case .holiday(let holiday): holiday.startsAt
         }
@@ -17,7 +17,7 @@ enum HomeEvent: Equatable {
 
     var isOngoing: Bool {
         switch self {
-        case .course(_, let ongoing, _), .exam(_, let ongoing): ongoing
+        case .course(_, let ongoing), .exam(_, let ongoing): ongoing
         case .holiday: false
         }
     }
@@ -43,9 +43,9 @@ enum HomeEvent: Equatable {
             return start <= now && now < end
         }
         if let ongoingExam { return .exam(ongoingExam, isOngoing: true) }
-        if let current = plan.current { return .course(current, isOngoing: true, isTomorrow: false) }
+        if let current = plan.current { return .course(current, isOngoing: true) }
 
-        let course = plan.next.map { HomeEvent.course($0, isOngoing: false, isTomorrow: plan.nextIsTomorrow) }
+        let course = plan.next.map { HomeEvent.course($0, isOngoing: false) }
         let exam = exams.first { ($0.date ?? .distantPast) > now }.map { HomeEvent.exam($0, isOngoing: false) }
         let base: HomeEvent?
         switch (course, exam) {

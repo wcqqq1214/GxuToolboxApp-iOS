@@ -141,8 +141,6 @@ private struct FocusView: View {
 private struct CourseRow: View {
     var course: WidgetCourse
     var highlighted = false
-    var showsDay = false
-    var date: Date
 
     var body: some View {
         HStack(spacing: 8) {
@@ -151,7 +149,7 @@ private struct CourseRow: View {
                 .frame(width: 3)
             VStack(alignment: .leading, spacing: 0) {
                 Text(course.name).font(.subheadline.weight(highlighted ? .semibold : .regular)).lineLimit(1)
-                Text([showsDay ? dayPrefixed(course, relativeTo: date) : timeRange(course), course.room].filter { !$0.isEmpty }.joined(separator: " · "))
+                Text([timeRange(course), course.room].filter { !$0.isEmpty }.joined(separator: " · "))
                     .font(.caption).foregroundStyle(.secondary).lineLimit(1)
             }
             if highlighted {
@@ -181,28 +179,31 @@ private struct MediumView: View {
     var entry: ScheduleWidgetEntry
 
     private var rest: [WidgetCourse] {
-        var list = entry.upcoming
-        if entry.current == nil, !list.isEmpty { list.removeFirst() }
-        return list
+        entry.upcoming.filter { $0.id != entry.focus?.id }
+    }
+
+    private var tomorrowPreview: WidgetCourse? {
+        entry.tomorrow.first { $0.id != entry.focus?.id }
     }
 
     var body: some View {
         if entry.message != nil {
             MessageView(entry: entry)
+        } else if entry.phase == .finished, tomorrowPreview == nil {
+            FocusView(entry: entry)
         } else {
             HStack(alignment: .top, spacing: 14) {
                 FocusView(entry: entry)
                 Divider()
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(rest.isEmpty ? "之后" : "接下来").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-                    if rest.isEmpty {
-                        Text(entry.tomorrow.isEmpty ? "今天没有更多课程" : "今天没有更多课程")
-                            .font(.subheadline).foregroundStyle(.secondary)
-                        if let first = entry.tomorrow.first {
-                            CourseRow(course: first, showsDay: true, date: entry.date)
-                        }
+                    if !rest.isEmpty {
+                        Text("接下来").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                        ForEach(rest.prefix(3)) { CourseRow(course: $0) }
+                    } else if let tomorrowPreview {
+                        Text("明天").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                        CourseRow(course: tomorrowPreview)
                     } else {
-                        ForEach(rest.prefix(3)) { CourseRow(course: $0, date: entry.date) }
+                        Text("今天没有更多课程").font(.subheadline).foregroundStyle(.secondary)
                     }
                     Spacer(minLength: 0)
                 }
@@ -228,21 +229,18 @@ private struct LargeView: View {
             MessageView(entry: entry)
         } else {
             VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    StatusLabel(entry: entry)
-                    Spacer()
-                    Text(Self.dateText(entry.date))
-                        .font(.caption).foregroundStyle(.secondary)
-                }
+                Text(Self.dateText(entry.date))
+                    .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                    .accessibilityAddTraits(.isHeader)
                 if today.isEmpty {
                     Text(entry.hadClassesToday ? "今天的课都上完了" : "今天没有课").font(.subheadline).foregroundStyle(.secondary)
                 } else {
-                    ForEach(today.prefix(5)) { CourseRow(course: $0, highlighted: $0.id == entry.current?.id, date: entry.date) }
+                    ForEach(today.prefix(5)) { CourseRow(course: $0, highlighted: $0.id == entry.current?.id) }
                 }
                 if !entry.tomorrow.isEmpty {
                     Divider()
                     Text("明天").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-                    ForEach(entry.tomorrow.prefix(today.count > 3 ? 2 : 3)) { CourseRow(course: $0, date: entry.date) }
+                    ForEach(entry.tomorrow.prefix(today.count > 3 ? 2 : 3)) { CourseRow(course: $0) }
                 }
                 Spacer(minLength: 0)
             }

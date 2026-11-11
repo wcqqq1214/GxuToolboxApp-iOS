@@ -44,7 +44,7 @@ struct MapNavigationView: View {
                     .accessibilityHint("在地图中打开")
                 }
             } footer: {
-                if places.isEmpty { Text("没有符合条件的地点") } else { Text("点击后在“地图”中搜索这个地点。") }
+                if places.isEmpty { Text("没有符合条件的地点") }
             }
         }
         .searchable(text: $query, prompt: "搜索地点")
