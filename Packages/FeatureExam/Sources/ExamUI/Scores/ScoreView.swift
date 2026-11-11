@@ -90,7 +90,10 @@ public struct ScoreView: View {
         private var status: Text {
             let count = "共 \(model.scores.count) 门"
             guard let date = model.lastSyncedAt else { return Text(count) }
-            return Text("\(count) · 上次同步 \(syncText(date))")
+            let sync = Text("上次同步 \(syncText(date))")
+                .textScale(.secondary)
+                .foregroundStyle(Color.secondary.opacity(0.9))
+            return Text("\(count) · \(sync)")
         }
 
         private var yearBinding: Binding<Int> {
