@@ -11,7 +11,7 @@ struct NextEventAccessory: View {
         TimelineView(.everyMinute) { context in
             let now = context.date
             if let snapshot = model.snapshot,
-               let event = HomeEvent.pick(snapshot: snapshot, exams: model.exams, now: now) {
+               let event = HomeEvent.pick(snapshot: snapshot, exams: model.exams(at: now), now: now) {
                 row(event, now: now)
             }
         }

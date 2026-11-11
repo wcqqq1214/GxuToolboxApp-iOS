@@ -17,12 +17,19 @@ enum AppTab: Hashable {
 struct RootView: View {
     @State private var theme = GxuTheme()
     @State private var selection: AppTab = Self.initialTab
-    @State private var home = HomeModel()
+    @State private var home: HomeModel
+    @State private var scheduleRefresh: ScheduleRefreshCoordinator
     @State private var clock = Date.now
     @State private var toolboxPushed = false
     @State private var preferences = SchedulePreferencesStore(shared: RootView.makeSharedStore())
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.services) private var services
+
+    init() {
+        let refresh = ScheduleRefreshCoordinator()
+        _scheduleRefresh = State(initialValue: refresh)
+        _home = State(initialValue: HomeModel(refreshCoordinator: refresh))
+    }
 
     private static var initialTab: AppTab {
         #if DEBUG
@@ -46,7 +53,8 @@ struct RootView: View {
             }
             Tab("课表", systemImage: "calendar", value: AppTab.schedule) {
                 ScheduleRootView(onRequestLogin: { selection = .settings }, layers: layersProvider,
-                                 exportDestination: { AnyView(JwScheduleExportView()) }) { studentId, term in
+                                 exportDestination: { AnyView(JwScheduleExportView()) },
+                                 refreshCoordinator: scheduleRefresh) { studentId, term in
                     let services = resolvedServices
                     guard services.accounts.studentId == studentId, (1...2).contains(term.term) else { return }
                     await AttendanceRecordCache.refresh(services: services, year: term.year, term: term.term)
@@ -72,11 +80,13 @@ struct RootView: View {
                 clock = .now
             }
         }
-        .task(id: AccountKey(studentId: services.accounts.studentId, state: services.accounts.states[.jw])) {
+        .task(id: accountKey) {
             await home.load(services: resolvedServices)
         }
-        .onChange(of: services.accounts.unifiedUsername) { _, _ in Task { await home.reloadFromCache(services: resolvedServices) } }
-        .onChange(of: selection) { _, _ in Task { await home.reloadFromCache(services: resolvedServices) } }
+        .task(id: HomeCacheKey(account: accountKey, unifiedUsername: resolvedServices.accounts.unifiedUsername,
+                               day: Calendar.current.startOfDay(for: clock))) {
+            await home.observeCache(services: resolvedServices)
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { Task { await home.load(services: resolvedServices) } }
         }
@@ -130,6 +140,18 @@ extension RootView {
     private struct AccountKey: Hashable {
         var studentId: String?
         var state: AuthState?
+        var sessionID: UUID
+    }
+
+    private struct HomeCacheKey: Hashable {
+        var account: AccountKey
+        var unifiedUsername: String?
+        var day: Date
+    }
+
+    private var accountKey: AccountKey {
+        let accounts = resolvedServices.accounts
+        return AccountKey(studentId: accounts.studentId, state: accounts.states[.jw], sessionID: accounts.jwSessionID)
     }
 
     private var resolvedServices: AppServices {

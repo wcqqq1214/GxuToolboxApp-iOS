@@ -6,7 +6,7 @@ import SwiftUI
 
 public struct ScheduleRootView: View {
     @Environment(\.services) private var services
-    @State private var model = ScheduleViewModel()
+    @State private var model: ScheduleViewModel
     @State private var detail: ConflictGroup?
     @State private var editor: ActivityEditorRequest?
     @State private var showActivityList = false
@@ -22,7 +22,9 @@ public struct ScheduleRootView: View {
 
     public init(onRequestLogin: @escaping @MainActor () -> Void = {}, layers: ScheduleExtraLayersProvider? = nil,
                 exportDestination: (@MainActor () -> AnyView)? = nil,
+                refreshCoordinator: ScheduleRefreshCoordinator = ScheduleRefreshCoordinator(),
                 refreshAttendance: (@MainActor (String, AcademicTerm) async -> Void)? = nil) {
+        _model = State(initialValue: ScheduleViewModel(refreshCoordinator: refreshCoordinator))
         self.onRequestLogin = onRequestLogin
         self.layers = layers
         self.exportDestination = exportDestination
@@ -31,6 +33,7 @@ public struct ScheduleRootView: View {
 
     private struct AccountKey: Hashable {
         var studentId: String?
+        var sessionID: UUID
         var state: AuthState?
         var unifiedUsername: String?
     }
@@ -56,7 +59,7 @@ public struct ScheduleRootView: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar { toolbar }
         }
-        .task(id: AccountKey(studentId: services.accounts.studentId, state: services.accounts.states[.jw],
+        .task(id: AccountKey(studentId: services.accounts.studentId, sessionID: services.accounts.jwSessionID, state: services.accounts.states[.jw],
                              unifiedUsername: services.accounts.unifiedUsername)) {
             model.layersProvider = layers
             await model.load(services: services)

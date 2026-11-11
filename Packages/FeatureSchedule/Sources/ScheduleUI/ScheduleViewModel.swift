@@ -46,6 +46,7 @@ final class ScheduleViewModel {
 
     @ObservationIgnored private var services: AppServices?
     @ObservationIgnored private var studentId: String?
+    @ObservationIgnored private var jwSessionID: UUID?
     @ObservationIgnored private var unifiedUsername: String?
     @ObservationIgnored private var startDays: [TermStartDay] = []
     @ObservationIgnored private var pinnedTerm: AcademicTerm?
@@ -53,6 +54,11 @@ final class ScheduleViewModel {
     @ObservationIgnored private var generation = 0
     @ObservationIgnored private var refreshingGeneration: Int?
     @ObservationIgnored private var layerLoad: (request: LayerRequest, task: Task<Void, Never>)?
+    private let refreshCoordinator: ScheduleRefreshCoordinator
+
+    init(refreshCoordinator: ScheduleRefreshCoordinator = ScheduleRefreshCoordinator()) {
+        self.refreshCoordinator = refreshCoordinator
+    }
 
     var weekCount: Int { max(termCalendar?.weekCount ?? 1, index.maxWeek, 1) }
     var currentWeek: Int { termCalendar?.clampedWeek(at: .now) ?? 1 }
@@ -99,8 +105,9 @@ final class ScheduleViewModel {
             phase = .needsLogin
             return
         }
-        if studentId != self.studentId { reset() }
+        if studentId != self.studentId || jwSessionID != accounts.jwSessionID { reset() }
         self.studentId = studentId
+        jwSessionID = accounts.jwSessionID
         if unifiedUsername != accounts.unifiedUsername {
             cancelLayerLoad()
             unifiedUsername = accounts.unifiedUsername
@@ -120,7 +127,7 @@ final class ScheduleViewModel {
         guard gen == generation else { return }
         await reloadExams(generation: gen)
         guard gen == generation else { return }
-        await refresh()
+        await refresh(force: false)
     }
 
     func loadStatic(schedule: Schedule, termCalendar: TermCalendar, campus: CampusCalendar) {
@@ -139,11 +146,12 @@ final class ScheduleViewModel {
     func refreshIfDue(minimumInterval: TimeInterval = 30) async {
         guard phase == .content else { return }
         if let lastRefreshStartedAt, Date.now.timeIntervalSince(lastRefreshStartedAt) < minimumInterval { return }
-        await refresh()
+        await refresh(force: false)
     }
 
-    func refresh() async {
-        guard let services, let studentId, refreshingGeneration != generation else { return }
+    func refresh(force: Bool = true) async {
+        guard let services, let studentId, jwSessionID == services.accounts.jwSessionID,
+              refreshingGeneration != generation else { return }
         let gen = generation
         refreshingGeneration = gen
         isRefreshing = true
@@ -155,7 +163,7 @@ final class ScheduleViewModel {
             }
         }
         let repository = makeRepository(services)
-        let campusRefresh = Task { try? await CampusCalendarRepository(database: services.database).refresh() }
+        let campusRefresh = Task { try? await refreshCoordinator.refreshCampusCalendar(database: services.database, force: force) }
         defer {
             Task { @MainActor in
                 if let updated = await campusRefresh.value, gen == generation, updated != campusCalendar {
@@ -165,14 +173,14 @@ final class ScheduleViewModel {
             }
         }
         do {
-            let fetchedStartDays = try await repository.refreshStartDays()
+            let fetchedStartDays = try await refreshCoordinator.refreshStartDays(services: services, studentId: studentId, force: force)
             guard gen == generation else { return }
             updateStartDays(fetchedStartDays)
             let previous = term
             guard let target = resolvedTerm, let calendar = calendar(for: target) else {
                 throw GxuError.invalidData("暂时无法获取学期信息")
             }
-            let fresh = try await repository.refreshSchedule(studentId: studentId, term: target)
+            let fresh = try await refreshCoordinator.refreshSchedule(services: services, studentId: studentId, term: target, force: force)
             guard !Task.isCancelled, gen == generation else { return }
             if previous != target {
                 let newChoices = await repository.conflictChoices(studentId: studentId, term: target)
@@ -306,7 +314,7 @@ final class ScheduleViewModel {
         guard gen == generation else { return }
         await reloadExams(generation: gen)
         guard gen == generation else { return }
-        await refresh()
+        await refresh(force: false)
     }
 
 
@@ -333,6 +341,7 @@ final class ScheduleViewModel {
         refreshError = nil
         pinnedTerm = nil
         studentId = nil
+        jwSessionID = nil
         unifiedUsername = nil
     }
 

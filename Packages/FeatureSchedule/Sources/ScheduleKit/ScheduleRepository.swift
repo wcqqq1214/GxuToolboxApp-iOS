@@ -37,12 +37,17 @@ public struct ScheduleRepository: Sendable {
 
     @discardableResult
     public func refreshSchedule(studentId: String, term: AcademicTerm, now: Date = .now) async throws -> CachedSchedule {
+        try await refreshSchedule(studentId: studentId, term: term, now: now, validate: {})
+    }
+
+    func refreshSchedule(studentId: String, term: AcademicTerm, now: Date = .now, validate: @MainActor @Sendable () throws -> Void) async throws -> CachedSchedule {
         let remote = try await backend.getData(
             "/jw/schedule/personal",
             query: ["year": String(term.year), "term": String(term.term)],
             auth: .jw,
             as: Schedule?.self
         )
+        try await validate()
         guard let schedule = remote else { throw GxuError.invalidData("课表数据暂时无法解析，请稍后重试") }
         let data = try JSONEncoder().encode(schedule)
         try await database.writer.write { db in
@@ -68,8 +73,13 @@ public struct ScheduleRepository: Sendable {
 
     @discardableResult
     public func refreshStartDays() async throws -> [TermStartDay] {
+        try await refreshStartDays(validate: {})
+    }
+
+    func refreshStartDays(validate: @MainActor @Sendable () throws -> Void) async throws -> [TermStartDay] {
         let terms = try await backend.getData("/jw/profile/startDay", auth: .jw, as: [TermStartDay].self)
             .filter { (1...TermCalendar.maximumWeeks).contains($0.week) }
+        try await validate()
         guard !terms.isEmpty else { return try await cachedStartDays() }
         try await database.writer.write { db in
             for term in terms {

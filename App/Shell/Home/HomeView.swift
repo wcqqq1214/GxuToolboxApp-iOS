@@ -47,7 +47,7 @@ private struct HomeList: View {
     let now: Date
 
     private var plan: TodayPlan { snapshot.todayPlan(now: now) }
-    private var event: HomeEvent? { HomeEvent.pick(snapshot: snapshot, exams: model.exams, now: now) }
+    private var event: HomeEvent? { HomeEvent.pick(snapshot: snapshot, exams: model.exams(at: now), now: now) }
     private var shownEvent: HomeEvent? { plan.phase == .inTerm ? event : nil }
     private var remaining: [CourseOccurrence] { plan.courses.filter { plan.status(of: $0, now: now) != .finished } }
     private var finished: [CourseOccurrence] { plan.courses.filter { plan.status(of: $0, now: now) == .finished } }
@@ -111,7 +111,7 @@ private struct HomeList: View {
                 }
             }
 
-            let otherExams = model.exams.filter { exam in
+            let otherExams = model.exams(at: now).filter { exam in
                 guard let end = exam.endsAt, now < end else { return false }
                 if case .exam(let shown, _) = shownEvent { return shown.id != exam.id }
                 return true

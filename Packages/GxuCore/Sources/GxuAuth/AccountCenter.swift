@@ -6,6 +6,7 @@ import Observation
 public final class AccountCenter {
     public private(set) var states: [AuthSystem: AuthState]
     public private(set) var studentId: String?
+    public private(set) var jwSessionID = UUID()
     public private(set) var unifiedUsername: String?
 
     @ObservationIgnored private var unifiedChange = UUID()
@@ -114,6 +115,7 @@ public final class AccountCenter {
         guard !username.isEmpty, !password.isEmpty else { throw GxuError.invalidData("请输入学号和密码") }
         try await jw.login(username: username, password: password)
         try credentials.save(Credential(username: username, password: password), for: .jw)
+        jwSessionID = UUID()
         studentId = username
         states[.jw] = .authenticated
         onLogin?(.jw)
@@ -141,8 +143,9 @@ public final class AccountCenter {
 
     public func logout(_ system: AuthSystem) async {
         if system == .jw {
-            await jw.logout()
             studentId = nil
+            jwSessionID = UUID()
+            await jw.logout()
         }
         if system == .attendance { attendance?.clear() }
         if system == .unified {
