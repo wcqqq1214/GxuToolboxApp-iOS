@@ -154,10 +154,12 @@ struct WeekBody: View {
                         let rows = PeriodRows.rows(begin: group.begin, end: group.end)
                         let placed = lanes[group.id] ?? (lane: 0, count: 1)
                         let laneWidth = columnWidth / CGFloat(placed.count)
+                        let selected = group.selected(choices: model.choices)
                         CourseBlock(
-                            group: group, selected: group.selected(choices: model.choices), colors: model.colors, rowHeight: rowHeight,
+                            group: group, selected: selected, colors: model.colors, rowHeight: rowHeight,
+                            showsRescheduleBadge: model.showsRescheduleBadge(for: selected),
                             showVenue: preferences.value.showVenueInBlock, showTeacher: preferences.value.showTeacherInBlock,
-                            attendance: model.attendance?.status(for: group.selected(choices: model.choices))
+                            attendance: model.attendance?.status(for: selected)
                         )
                             .frame(width: laneWidth - 3, height: CGFloat(rows.count) * rowHeight - 3)
                             .offset(

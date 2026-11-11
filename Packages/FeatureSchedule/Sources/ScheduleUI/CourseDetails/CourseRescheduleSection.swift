@@ -9,6 +9,21 @@ struct CourseRescheduleSection: View {
         case failed
     }
 
+    private struct Field: Identifiable {
+        let title: String
+        let value: String
+        var id: String { title }
+    }
+
+    private struct Notice {
+        let type: String?
+        let current: [Field]
+        let original: [Field]
+        let details: [Field]
+    }
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     let phase: Phase
     let retry: () -> Void
 
@@ -18,11 +33,12 @@ struct CourseRescheduleSection: View {
             case .loading:
                 ProgressView("正在加载调课记录…")
             case .loaded(let records):
-                if records.isEmpty {
+                let notices = records.compactMap(notice(for:))
+                if notices.isEmpty {
                     Text("暂无调课记录").foregroundStyle(.secondary)
                 } else {
-                    ForEach(records.indices, id: \.self) { index in
-                        recordDetails(records[index])
+                    ForEach(notices.indices, id: \.self) { index in
+                        recordDetails(notices[index])
                     }
                 }
             case .failed:
@@ -32,33 +48,101 @@ struct CourseRescheduleSection: View {
         }
     }
 
-    private func recordDetails(_ record: CourseReschedule) -> some View {
-        VStack(alignment: .leading, spacing: GxuDesign.Spacing.s) {
-            field("类型", record.type)
-            field("原因", record.reason)
-            field("类别", record.reasonCategory)
-            arrangement("原安排", record.before)
-            arrangement("现安排", record.after)
-        }
+    private func notice(for record: CourseReschedule) -> Notice? {
+        let type = content(record.type)
+        let current = fields(for: record.after)
+        let original = fields(for: record.before)
+        let reason = content(record.reason)
+        let category = content(record.reasonCategory)
+        let details = [
+            fieldValue("调整原因", reason),
+            fieldValue("原因类别", category == "其他" || category == reason ? nil : category),
+        ].compactMap { $0 }
+        guard type != nil || !current.isEmpty || !original.isEmpty || !details.isEmpty else { return nil }
+        return Notice(type: type, current: current, original: original, details: details)
     }
 
-    private func arrangement(_ title: String, _ value: CourseReschedule.Arrangement) -> some View {
-        VStack(alignment: .leading, spacing: GxuDesign.Spacing.xs) {
-            Text(title).font(.subheadline.weight(.semibold)).accessibilityAddTraits(.isHeader)
-            field("周次", value.weeks)
-            field("星期", value.weekday)
-            field("节次", value.sections)
-            field("教师", value.teacher)
-            field("教室", value.venueName)
+    private func recordDetails(_ notice: Notice) -> some View {
+        VStack(alignment: .leading, spacing: GxuDesign.Spacing.m) {
+            if let type = notice.type {
+                Text(type)
+                    .font(.headline)
+                    .accessibilityAddTraits(.isHeader)
+            }
+            if !notice.current.isEmpty {
+                VStack(alignment: .leading, spacing: GxuDesign.Spacing.s) {
+                    Text("调整后安排")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Color.accentColor)
+                        .accessibilityAddTraits(.isHeader)
+                    fieldGrid(notice.current)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(GxuDesign.Spacing.m)
+                .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: GxuDesign.Radius.block))
+            }
+            if !notice.details.isEmpty {
+                fieldGrid(notice.details)
+            }
+            if !notice.original.isEmpty {
+                DisclosureGroup("查看原安排") {
+                    fieldGrid(notice.original)
+                        .padding(.top, GxuDesign.Spacing.s)
+                }
+            }
+        }
+        .padding(.vertical, GxuDesign.Spacing.s)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func fields(for arrangement: CourseReschedule.Arrangement) -> [Field] {
+        [
+            fieldValue("周次", arrangement.weeks),
+            fieldValue("星期", arrangement.weekday),
+            fieldValue("节次", arrangement.sections),
+            fieldValue("教室", arrangement.venueName),
+            fieldValue("教师", arrangement.teacher),
+        ].compactMap { $0 }
+    }
+
+    private func fieldGrid(_ fields: [Field]) -> some View {
+        Grid(alignment: .topLeading, horizontalSpacing: GxuDesign.Spacing.m, verticalSpacing: GxuDesign.Spacing.s) {
+            ForEach(fields) { field in
+                fieldRow(field)
+            }
         }
     }
 
     @ViewBuilder
-    private func field(_ title: String, _ value: String?) -> some View {
-        if let value, !value.isEmpty {
-            LabeledContent(title) {
-                Text(value).multilineTextAlignment(.trailing)
+    private func fieldRow(_ field: Field) -> some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: GxuDesign.Spacing.xs) {
+                Text(field.title).font(.subheadline).foregroundStyle(.secondary)
+                Text(field.value).font(.body)
             }
+            .fixedSize(horizontal: false, vertical: true)
+            .accessibilityElement(children: .combine)
+        } else {
+            GridRow(alignment: .top) {
+                Text(field.title)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize()
+                Text(field.value)
+                    .font(.body)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .accessibilityElement(children: .combine)
         }
+    }
+
+    private func fieldValue(_ title: String, _ value: String?) -> Field? {
+        content(value).map { Field(title: title, value: $0) }
+    }
+
+    private func content(_ value: String?) -> String? {
+        guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else { return nil }
+        return value
     }
 }

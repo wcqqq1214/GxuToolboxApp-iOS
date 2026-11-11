@@ -56,6 +56,7 @@ public struct ScheduleRootView: View {
     }
 
     public var body: some View {
+        let rescheduleRequest = model.rescheduleRequest
         NavigationStack {
             content
                 .gxuPageBackground()
@@ -87,6 +88,9 @@ public struct ScheduleRootView: View {
             guard model.phase == .content else { return }
             try? await Task.sleep(for: .seconds(3))
             if !Task.isCancelled { await model.refreshExamLayer() }
+        }
+        .task(id: rescheduleRequest) {
+            if let rescheduleRequest { await model.loadRescheduleBadges(for: rescheduleRequest) }
         }
         #if DEBUG
         .task(id: model.phase) { await debugPresentSheet() }

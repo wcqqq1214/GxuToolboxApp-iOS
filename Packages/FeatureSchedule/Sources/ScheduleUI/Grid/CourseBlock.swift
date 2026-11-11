@@ -7,6 +7,7 @@ struct CourseBlock: View {
     let selected: CourseOccurrence
     let colors: [String: UInt32]
     let rowHeight: CGFloat
+    let showsRescheduleBadge: Bool
     var showVenue = true
     var showTeacher = true
     var attendance: AttendanceStatus?
@@ -39,7 +40,7 @@ struct CourseBlock: View {
         .overlay(alignment: .topLeading) {
             HStack(spacing: 2) {
                 if selected.isMakeup { scheduleBadge("补") }
-                if course.isRescheduled { scheduleBadge("调") }
+                if showsRescheduleBadge { scheduleBadge("调") }
             }
             .offset(x: -3, y: -3)
         }
@@ -70,11 +71,11 @@ struct CourseBlock: View {
             .background(tint.text, in: Circle())
     }
 
-    private var accessibilityText: String {
+    var accessibilityText: String {
         let place = course.locationText.isEmpty ? "" : "，\(course.locationText)"
         let conflict = group.isConflict ? "，另有 \(group.items.count - 1) 门课冲突" : ""
         let makeup = selected.isMakeup ? "，补班" : ""
-        let rescheduled = course.isRescheduled ? "，已调课" : ""
+        let rescheduled = showsRescheduleBadge ? "，已调课" : ""
         let attend = attendance.map { "，\($0.label)" } ?? ""
         return "\(course.courseName)\(place)，\(WeekdayName.full(selected.weekday)) 第\(group.begin)到\(group.end)节\(makeup)\(rescheduled)\(attend)\(conflict)"
     }

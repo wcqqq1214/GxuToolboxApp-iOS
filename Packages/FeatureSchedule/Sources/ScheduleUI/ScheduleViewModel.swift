@@ -31,6 +31,12 @@ final class ScheduleViewModel {
         let holidays: [HolidayRange]
     }
 
+    struct RescheduleRequest: Hashable {
+        let generation: Int
+        let term: AcademicTerm
+        let updatedAt: Date
+    }
+
     private(set) var phase: Phase = .loading
     private(set) var term: AcademicTerm?
     private(set) var termCalendar: TermCalendar?
@@ -51,6 +57,7 @@ final class ScheduleViewModel {
     private(set) var overrides: [OccurrenceOverride] = []
     private(set) var attendance: AttendanceIndex?
     private var attendanceMarks: [AttendanceMark] = []
+    private var rescheduledSlots: [String: Set<CourseReschedule.Slot>] = [:]
 
     var selectedWeek = 1
     var palette: CoursePalette = .macaron
@@ -239,6 +246,30 @@ final class ScheduleViewModel {
         await reloadExams(generation: generation, afterCacheWrite: afterCacheWrite)
     }
 
+    var rescheduleRequest: RescheduleRequest? {
+        guard phase == .content, let term, let updatedAt else { return nil }
+        return RescheduleRequest(generation: generation, term: term, updatedAt: updatedAt)
+    }
+
+    func loadRescheduleBadges(for request: RescheduleRequest) async {
+        guard let services, let studentId, let jwSessionID, !Task.isCancelled, request == rescheduleRequest,
+              services.accounts.studentId == studentId, services.accounts.jwSessionID == jwSessionID else { return }
+        let repository = makeRepository(services)
+        let classIDs = Set(schedule?.theoryList.compactMap(\.rescheduleClassId) ?? [])
+        for classId in classIDs.sorted() {
+            let records = try? await repository.reschedules(classId: classId)
+            guard !Task.isCancelled, request == rescheduleRequest, services.accounts.studentId == studentId,
+                  services.accounts.jwSessionID == jwSessionID else { return }
+            if let records { rescheduledSlots[classId] = Set(records.flatMap(\.after.slots)) }
+        }
+    }
+
+    func showsRescheduleBadge(for occurrence: CourseOccurrence) -> Bool {
+        guard let classId = occurrence.course.rescheduleClassId, let slots = rescheduledSlots[classId] else { return false }
+        let week = occurrence.shiftedFrom.flatMap { termCalendar?.week(containing: $0) } ?? occurrence.week
+        return slots.contains(.init(week: week, weekday: occurrence.course.weekday, sections: occurrence.begin...occurrence.end))
+    }
+
     private func cancelLayerLoad() {
         layerLoad?.task.cancel()
         layerLoad = nil
@@ -355,6 +386,7 @@ final class ScheduleViewModel {
         overrides = []
         attendanceMarks = []
         attendance = nil
+        rescheduledSlots = [:]
         refreshError = nil
         pinnedTerm = nil
         studentId = nil
@@ -382,6 +414,7 @@ final class ScheduleViewModel {
             overrides = []
             attendanceMarks = []
             attendance = nil
+            rescheduledSlots = [:]
         }
         term = target
         termCalendar = calendar
