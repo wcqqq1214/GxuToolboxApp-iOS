@@ -1,3 +1,4 @@
+import ClassWidgetKit
 import ExamKit
 import FeatureAccount
 import FeatureCampus
@@ -54,7 +55,10 @@ struct RootView: View {
             Tab("课表", systemImage: "calendar", value: AppTab.schedule) {
                 ScheduleRootView(onRequestLogin: { selection = .settings }, layers: layersProvider,
                                  exportDestination: { AnyView(JwScheduleExportView()) },
-                                 refreshCoordinator: scheduleRefresh) { studentId, term in
+                                 refreshCoordinator: scheduleRefresh,
+                                 onCustomActivitiesChanged: { services in
+                    await WidgetBridge.refresh(services: services)
+                }) { studentId, term in
                     let services = resolvedServices
                     guard services.accounts.studentId == studentId, (1...2).contains(term.term) else { return }
                     await AttendanceRecordCache.refresh(services: services, year: term.year, term: term.term)

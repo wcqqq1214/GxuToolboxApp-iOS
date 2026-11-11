@@ -104,6 +104,38 @@ struct ScheduleScopeTests {
         #expect(!model.index.occurrences.contains(where: { $0.course.courseName == "A-PRIVATE-LAB" }))
     }
 
+    @Test func customActivityChangesNotifyAfterPublishingTheNewSchedule() async throws {
+        let weekdayOffset = (Calendar.current.component(.weekday, from: .now) + 5) % 7
+        let term = TermStartDay(year: 2026, term: 1, day: day(-7 - weekdayOffset), week: 20)
+        let backend = MockBackendAPI()
+        try seed(backend, days: [term], name: "BASE")
+        let services = AppServices.preview(backend: backend, features: [ScheduleKit.migrations], studentId: "A")
+        let fetchCalendar: CampusCalendarRepository.Fetch = { _ in Data(#"{"holidays":[],"timeShift":[]}"#.utf8) }
+        try await CampusCalendarRepository(database: services.database, fetch: fetchCalendar).refresh()
+        let model = ScheduleViewModel(refreshCoordinator: ScheduleRefreshCoordinator(campusFetch: fetchCalendar))
+        await model.load(services: services)
+        let key = ScheduleKit.widgetSnapshotKey(studentId: "A")
+        var published: [[String]] = []
+        model.onCustomActivitiesChanged = { services in
+            let snapshot = services.shared.value(key)
+            published.append(snapshot?.tomorrow.map(\.name) ?? [])
+        }
+
+        let calendar = try #require(model.termCalendar)
+        let tomorrow = try #require(calendar.calendar.date(byAdding: .day, value: 1, to: .now))
+        let week = calendar.week(containing: tomorrow)
+        var activity = CustomActivity(id: "lab", name: "实验", weekday: calendar.weekday(of: tomorrow), begin: 5, end: 6, weeks: [week])
+        await model.save(activity)
+        activity.name = "实验改名"
+        await model.save(activity)
+        await model.delete(activity)
+
+        #expect(published.count == 3)
+        #expect(published.first?.contains("实验") == true)
+        #expect(published.dropFirst().first?.contains("实验改名") == true)
+        #expect(published.last?.contains("实验改名") == false)
+    }
+
     @Test func historicalTermMustNotReplaceCurrentWidget() async throws {
         let cal = Calendar.current
         let weekday = (cal.component(.weekday, from: .now) + 5) % 7 + 1

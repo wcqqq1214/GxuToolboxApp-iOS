@@ -60,12 +60,41 @@ private func at(_ s: String) -> Date {
         #expect(other.state == .missingSchedule)
     }
 
+    @Test func widgetTimelineMatchesAppAcrossMidnightBeforeMakeupClass() async throws {
+        let (db, repo) = try await database()
+        let campus = CampusCalendarRepository(database: db, fetch: { _ in
+            Data(#"{"timeShift":[["2026-11-03","2026-11-02"]],"holidays":[]}"#.utf8)
+        })
+        _ = try await campus.refresh()
+        let night = at("2026-11-02 22:00")
+        let midnight = at("2026-11-03 00:00")
+        let snapshot = await SnapshotProvider.compute(studentId: "s1", database: db, now: night, calendar: cal)
+        let app = try #require(await repo.cachedSnapshot(studentId: "s1", now: night, calendar: cal))
+        let nightPlan = app.todayPlan(now: night)
+        let morningPlan = app.todayPlan(now: midnight)
+        let timeline = ScheduleTimeline.entries(snapshot: snapshot, now: night, calendar: cal)
+        let overnight = try #require(timeline.entries.first { $0.date == midnight })
+
+        #expect(nightPlan.nextIsTomorrow)
+        #expect(nightPlan.next?.isMakeup == true)
+        #expect(snapshot.next?.startsAt == nightPlan.next?.startsAt)
+        #expect(snapshot.next?.name == nightPlan.next?.course.courseName)
+        #expect(overnight.focus?.startsAt == morningPlan.next?.startsAt)
+        #expect(overnight.focus?.name == morningPlan.next?.course.courseName)
+    }
+
     @Test func widgetKnowsTodayHadClassesAfterTheLastOneEnds() async throws {
-        let (db, _) = try await database()
-        let monday = await SnapshotProvider.dailySnapshot(studentId: "s1", database: db, unifiedUsername: nil, now: at("2026-11-02 22:00"), calendar: cal)
+        let (db, repo) = try await database()
+        let afterClass = at("2026-11-02 22:00")
+        let app = try #require(await repo.cachedSnapshot(studentId: "s1", now: afterClass, calendar: cal))
+        let plan = app.todayPlan(now: afterClass)
+        let monday = await SnapshotProvider.dailySnapshot(studentId: "s1", database: db, unifiedUsername: nil, now: afterClass, calendar: cal)
         #expect(monday.courses.state == .ready)
         #expect(monday.courses.today.isEmpty)
         #expect(monday.hasClassesToday)
+        #expect(plan.courses.allSatisfy { plan.status(of: $0, now: afterClass) == .finished })
+        #expect(plan.current == nil && plan.next == nil)
+        #expect(monday.courses.next == nil)
 
         let tuesday = await SnapshotProvider.dailySnapshot(studentId: "s1", database: db, unifiedUsername: nil, now: at("2026-11-03 22:00"), calendar: cal)
         #expect(tuesday.courses.state == .ready)

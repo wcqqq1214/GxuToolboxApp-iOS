@@ -202,15 +202,33 @@ struct TimeQueryView: View {
 
     @ViewBuilder
     private var resultSections: some View {
-        if let error = model.queryError {
+        if model.queryDay == nil {
+            Section {
+                Text("这一周还没有可查询的日期")
+                NavigationLink("去缓存管理") { CacheManagerView(model: model, cache: cache) }
+            }
+        } else if let error = model.queryError {
             Section {
                 Label("查询失败：\(error)", systemImage: "exclamationmark.triangle").foregroundStyle(.orange)
-                Button("重试") { Task { await model.runQuery(reset: true) } }
+                if model.isQuerying {
+                    ProgressView("正在重新查询…")
+                } else {
+                    Button("重试") { Task { await model.runQuery(reset: true) } }
+                }
             }
-        } else if model.queryDay == nil {
-            Section { Text("先在缓存管理里缓存这一周的数据").foregroundStyle(.secondary) }
         } else if model.results.isEmpty, !model.isQuerying {
-            Section { Text("这个时间段没有符合条件的空闲教室").foregroundStyle(.secondary) }
+            Section {
+                Text("这个时间段没有符合条件的空闲教室")
+                if model.hasRoomFilters {
+                    Button("清除楼栋和教室筛选") { Task { await model.clearRoomFilters() } }
+                }
+            } footer: {
+                if !model.keyword.isEmpty {
+                    Text("可以缩短或清除搜索关键词。")
+                } else if !model.hasRoomFilters {
+                    Text("可以换个日期或缩短节次范围。")
+                }
+            }
         } else {
             let range = min(model.startPeriod, model.endPeriod)...max(model.startPeriod, model.endPeriod)
             ForEach(EmptyClassroomLogic.group(model.results), id: \.title) { group in

@@ -37,6 +37,7 @@ final class ScheduleViewModel {
     private(set) var activities: [CustomActivity] = []
     private(set) var exams: [GridExam] = []
     @ObservationIgnored var layersProvider: ScheduleExtraLayersProvider?
+    @ObservationIgnored var onCustomActivitiesChanged: (@MainActor (AppServices) async -> Void)?
     private(set) var overrides: [OccurrenceOverride] = []
     private(set) var attendance: AttendanceIndex?
     private var attendanceMarks: [AttendanceMark] = []
@@ -257,7 +258,7 @@ final class ScheduleViewModel {
         guard (try? await makeRepository(services).saveCustomActivity(activity, studentId: studentId, term: term)) != nil,
               gen == generation, self.term == term, services.accounts.studentId == studentId else { return }
         if let i = activities.firstIndex(where: { $0.id == activity.id }) { activities[i] = activity } else { activities.append(activity) }
-        activitiesChanged()
+        await activitiesChanged(services: services, term: term)
     }
 
     func delete(_ activity: CustomActivity) async {
@@ -266,7 +267,7 @@ final class ScheduleViewModel {
         guard (try? await makeRepository(services).deleteCustomActivity(id: activity.id, studentId: studentId, term: term)) != nil,
               gen == generation, self.term == term, services.accounts.studentId == studentId else { return }
         activities.removeAll { $0.id == activity.id }
-        activitiesChanged()
+        await activitiesChanged(services: services, term: term)
     }
 
     func activity(id: String?) -> CustomActivity? { id.flatMap { id in activities.first { $0.id == id } } }
@@ -276,10 +277,13 @@ final class ScheduleViewModel {
         colors = CourseColorAssigner.assign(courses: mergedSchedule?.theoryList.filter(\.isValid) ?? [], palette: palette, custom: customColors)
     }
 
-    private func activitiesChanged() {
+    private func activitiesChanged(services: AppServices, term: AcademicTerm) async {
         activities.sort { ($0.weekFrom, $0.weekday, $0.begin, $0.id) < ($1.weekFrom, $1.weekday, $1.begin, $1.id) }
         rebuildIndex()
         recolor()
+        if TermResolver.current(in: startDays, now: .now)?.academicTerm == term {
+            await onCustomActivitiesChanged?(services)
+        }
     }
 
     private var customColors: [String: UInt32] {

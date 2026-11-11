@@ -137,7 +137,10 @@ final class ScoreViewModel {
     }
 
     func loadUsual(for score: Score) async {
-        if case .loaded = usual[score.id] { return }
+        switch usual[score.id] {
+        case .loading, .loaded: return
+        case .failed, nil: break
+        }
         guard let studentId = accounts.studentId else { return }
         usual[score.id] = .loading
         if let cached = try? await repo.usualScores(studentId: studentId, scoreId: score.id) {

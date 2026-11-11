@@ -44,12 +44,17 @@ public struct ScoreView: View {
                     if !model.scores.isEmpty {
                     Section {
                         ForEach(model.scores) { score in
-                            ScoreRow(score: score, showsTerm: model.query.term == nil, isExpanded: expanded == score.id, usual: model.usual[score.id])
-                                .contentShape(Rectangle())
-                                .onTapGesture {
+                            ScoreRow(
+                                score: score,
+                                showsTerm: model.query.term == nil,
+                                isExpanded: expanded == score.id,
+                                usual: model.usual[score.id],
+                                onToggle: {
                                     expanded = expanded == score.id ? nil : score.id
                                     if expanded != nil { Task { await model.loadUsual(for: score) } }
-                                }
+                                },
+                                onRetry: { Task { await model.loadUsual(for: score) } }
+                            )
                         }
                     } header: {
                         status
@@ -103,6 +108,8 @@ private struct ScoreRow: View {
     let showsTerm: Bool
     let isExpanded: Bool
     let usual: UsualScoreState?
+    let onToggle: () -> Void
+    let onRetry: () -> Void
 
     private var failed: Bool { (score.score ?? 100) < 60 }
 
@@ -118,6 +125,9 @@ private struct ScoreRow: View {
                     .font(.title3.bold())
                     .foregroundStyle(failed ? Color.red : Color.primary)
             }
+            .contentShape(Rectangle())
+            .onTapGesture(perform: onToggle)
+            .accessibilityAction { onToggle() }
 
             if isExpanded {
                 VStack(spacing: 6) {
@@ -143,7 +153,17 @@ private struct ScoreRow: View {
         case .loading:
             detail("平时成绩", "正在加载中……")
         case .failed(let message):
-            Text(message).foregroundStyle(.red)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(message).foregroundStyle(.red)
+                Button("重试", action: onRetry)
+                    .buttonStyle(.borderless)
+                    .accessibilityLabel("重试加载平时成绩")
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        case .loaded(let items) where items.isEmpty:
+            Text("暂无平时成绩")
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
         case .loaded(let items):
             ForEach(items, id: \.self) { item in
                 detail(

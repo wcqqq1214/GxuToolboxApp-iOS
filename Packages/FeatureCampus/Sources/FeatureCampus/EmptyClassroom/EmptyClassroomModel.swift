@@ -144,12 +144,20 @@ final class EmptyClassroomModel {
     }
 
 
+    var hasRoomFilters: Bool { !selectedBuildings.isEmpty || !selectedRooms.isEmpty }
+
+    func clearRoomFilters() async {
+        selectedBuildings = []
+        selectedRooms = []
+        await runQuery(reset: true)
+    }
+
     func runQuery(reset: Bool) async {
+        if reset { queryGeneration += 1; page = 1 }
         guard let repository, let term, let week = queryWeek, let day = queryDay else {
-            results = []; totalCount = 0; hasMore = false; isQuerying = false
+            results = []; totalCount = 0; hasMore = false; isQuerying = false; queryError = nil
             return
         }
-        if reset { queryGeneration += 1; page = 1 }
         let generation = queryGeneration
         let requestedPage = page
         var query = AvailableRoomsQuery(year: term.year, term: term.term, week: week, day: day, startPeriod: min(startPeriod, endPeriod), endPeriod: max(startPeriod, endPeriod))

@@ -4,6 +4,7 @@ import GxuFoundation
 import GxuNetworking
 import GxuStorage
 import GxuTestSupport
+import ScheduleKit
 import Testing
 @testable import FeatureCampus
 
@@ -166,6 +167,38 @@ struct EmptyClassroomRepositoryTests {
             f[key] = ps
         }
         return DayPayload(day: day, rooms: r, freePeriods: f)
+    }
+
+    @MainActor
+    @Test func clearingRoomFiltersKeepsDatePeriodsAndKeyword() async throws {
+        let backend = MockBackendAPI()
+        let term = TermStartDay(year: 2026, term: 1, day: "2026-09-07", week: 20)
+        backend.stub("GET /jw/profile/startDay", json: try JSONEncoder().encode(["data": [term]]))
+        let services = AppServices.preview(backend: backend, features: [CampusFeature.migrations, ScheduleKit.migrations])
+        let repo = EmptyClassroomRepository(database: services.database)
+        try await repo.saveDay(year: 2026, term: 1, week: 3, day: 2, payload: payload(day: 2, [
+            ("A楼", "101", [1]), ("B楼", "101", [3, 4]), ("B楼", "102", [3, 4])
+        ]))
+        let defaultsName = UUID().uuidString
+        let defaults = try #require(UserDefaults(suiteName: defaultsName))
+        defer { defaults.removePersistentDomain(forName: defaultsName) }
+        let model = EmptyClassroomModel(context: CampusContext(), defaults: defaults)
+        await model.start(services: services)
+        model.startPeriod = 3
+        model.endPeriod = 4
+        model.keyword = "101"
+        model.selectedBuildings = ["A楼"]
+        model.selectedRooms = try await repo.listRooms(inBuilding: "A楼")
+        await model.runQuery(reset: true)
+        #expect(model.queryError == nil)
+        #expect(model.results.isEmpty)
+
+        await model.clearRoomFilters()
+
+        #expect(!model.hasRoomFilters)
+        #expect(model.queryWeek == 3 && model.queryDay == 2)
+        #expect(model.startPeriod == 3 && model.endPeriod == 4 && model.keyword == "101")
+        #expect(model.results.map(\.room.building) == ["B楼"])
     }
 
     @Test func lookupByIdDistinguishesRoomsWithTheSameName() async throws {

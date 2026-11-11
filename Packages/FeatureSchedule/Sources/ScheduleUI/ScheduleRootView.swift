@@ -18,16 +18,19 @@ public struct ScheduleRootView: View {
     private let layers: ScheduleExtraLayersProvider?
 
     private let exportDestination: (@MainActor () -> AnyView)?
+    private let onCustomActivitiesChanged: (@MainActor (AppServices) async -> Void)?
     private let refreshAttendance: (@MainActor (String, AcademicTerm) async -> Void)?
 
     public init(onRequestLogin: @escaping @MainActor () -> Void = {}, layers: ScheduleExtraLayersProvider? = nil,
                 exportDestination: (@MainActor () -> AnyView)? = nil,
                 refreshCoordinator: ScheduleRefreshCoordinator = ScheduleRefreshCoordinator(),
+                onCustomActivitiesChanged: (@MainActor (AppServices) async -> Void)? = nil,
                 refreshAttendance: (@MainActor (String, AcademicTerm) async -> Void)? = nil) {
         _model = State(initialValue: ScheduleViewModel(refreshCoordinator: refreshCoordinator))
         self.onRequestLogin = onRequestLogin
         self.layers = layers
         self.exportDestination = exportDestination
+        self.onCustomActivitiesChanged = onCustomActivitiesChanged
         self.refreshAttendance = refreshAttendance
     }
 
@@ -62,6 +65,7 @@ public struct ScheduleRootView: View {
         .task(id: AccountKey(studentId: services.accounts.studentId, sessionID: services.accounts.jwSessionID, state: services.accounts.states[.jw],
                              unifiedUsername: services.accounts.unifiedUsername)) {
             model.layersProvider = layers
+            model.onCustomActivitiesChanged = onCustomActivitiesChanged
             await model.load(services: services)
         }
         .task(id: attendanceKey) {
