@@ -158,7 +158,8 @@ final class ScoreViewModel {
         }
     }
 
-    var resolved: RetakeResolution { RetakeRule.resolve(scores) }
-
-    var gpa: GpaResult { GpaCalculator.calculate(resolved.counted) }
+    var gpaSummary: (resolution: RetakeResolution, result: GpaResult) {
+        let resolution = RetakeRule.resolve(scores)
+        return (resolution, GpaCalculator.calculate(resolution.counted))
+    }
 }

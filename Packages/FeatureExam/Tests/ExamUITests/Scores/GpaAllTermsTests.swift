@@ -23,8 +23,9 @@ import Testing
         let model = ScoreViewModel(services: services(mock), query: .all)
         await model.load()
         #expect(model.scores.count == 100)
-        #expect(model.resolved.counted.count == 79)
-        #expect(abs(model.gpa.gpa - 2.037255) < 1e-5 && abs(model.gpa.wam - 69.679739) < 1e-5)
+        let (resolution, result) = model.gpaSummary
+        #expect(resolution.counted.count == 79)
+        #expect(abs(result.gpa - 2.037255) < 1e-5 && abs(result.wam - 69.679739) < 1e-5)
         #expect(abs(GpaCalculator.calculate(model.scores).gpa - 1.397758) < 1e-5)
         #expect(model.error == nil && model.lastSyncedAt != nil && model.pending.isEmpty)
         #expect(mock.calls == ["GET /jw/score"])
@@ -40,7 +41,7 @@ import Testing
         await model.load()
         #expect(model.scores.count == 100)
         #expect(model.error != nil)
-        #expect(abs(model.gpa.gpa - 2.037255) < 1e-5)
+        #expect(abs(model.gpaSummary.result.gpa - 2.037255) < 1e-5)
 
         let empty = ScoreViewModel(services: services(MockBackendAPI().failing()), query: .all)
         await empty.load()
@@ -89,7 +90,7 @@ private extension MockBackendAPI {
         let single = ScoreViewModel(services: services, query: .init(year: 2024, term: 1))
         await single.load()
         #expect(single.scores.count == items.count && !items.isEmpty)
-        #expect(items.count == 18 && single.resolved.counted.count == 18)
+        #expect(items.count == 18 && single.gpaSummary.resolution.counted.count == 18)
     }
 
     @Test func accountsDoNotMix() async throws {
@@ -101,6 +102,7 @@ private extension MockBackendAPI {
         let shared = AppServices(backend: MockBackendAPI(), database: a.database, shared: other.shared, accounts: other.accounts)
         let model = ScoreViewModel(services: shared, query: .all)
         await model.load()
-        #expect(model.scores.isEmpty && model.resolved.counted.isEmpty && model.gpa == .zero)
+        let (resolution, result) = model.gpaSummary
+        #expect(model.scores.isEmpty && resolution.counted.isEmpty && result == .zero)
     }
 }

@@ -39,7 +39,7 @@ public struct GpaView: View {
         }
 
         var body: some View {
-            let result = model.gpa
+            let (resolution, result) = model.gpaSummary
             List {
                 Section {
                     TermMenu(
@@ -76,7 +76,6 @@ public struct GpaView: View {
                 }
                 }
                 if !model.scores.isEmpty {
-                    let resolution = model.resolved
                     if grouped {
                         ForEach(Array(ScoreGroup.group(resolution.counted).enumerated()), id: \.element.id) { index, group in
                             Section {
