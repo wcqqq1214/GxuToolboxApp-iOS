@@ -17,7 +17,7 @@ struct EmptyClassroomView: View {
 
     var body: some View {
         Group {
-            if !model.isReady {
+            if !model.hasFinishedSetup {
                 GxuLoadingView("正在加载…")
             } else if let error = model.setupError, model.term == nil {
                 GxuErrorView(error) { Task { await model.start(services: services) } }

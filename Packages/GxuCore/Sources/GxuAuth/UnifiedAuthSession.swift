@@ -26,7 +26,7 @@ public actor UnifiedAuthSession {
     private var session: URLSession
     private var loginTarget: String?
     private var isLoggingIn = false
-    private var pending: Task<Void, Error>?
+    private var renewalTask: Task<Void, Error>?
     private let generation = Mutex(UUID())
     private var observer: (@Sendable (AuthState, UUID) -> Void)?
 
@@ -41,8 +41,8 @@ public actor UnifiedAuthSession {
     private func advanceGeneration() -> UUID {
         let id = UUID()
         generation.withLock { $0 = id }
-        pending?.cancel()
-        pending = nil
+        renewalTask?.cancel()
+        renewalTask = nil
         loginTarget = nil
         isLoggingIn = false
         return id
@@ -86,16 +86,16 @@ public actor UnifiedAuthSession {
 
     private func verifyLogin(username: String, password: String, generation: UUID) async throws {
         _ = try await casLogin(username: username, password: password, service: nil, generation: generation)
-        guard try await testToken(generation: generation) else {
+        guard try await checkSessionAccess(generation: generation) else {
             throw GxuError.invalidData("统一认证接受了登录，但校验接口没有返回预期内容（可能是校园网限制或服务暂时异常）。详情见「设置 → 诊断日志」。")
         }
     }
 
-    public func testToken() async throws -> Bool {
-        try await testToken(generation: currentGeneration)
+    public func checkSessionAccess() async throws -> Bool {
+        try await checkSessionAccess(generation: currentGeneration)
     }
 
-    private func testToken(generation: UUID) async throws -> Bool {
+    private func checkSessionAccess(generation: UUID) async throws -> Bool {
         var request = URLRequest(url: URL(string: "http://ca.gxu.edu.cn:81/zfim/application/home/getYyfz.zf")!)
         request.httpMethod = "GET"
         let landing = try await follow(request, generation: generation)
@@ -120,14 +120,14 @@ public actor UnifiedAuthSession {
     }
 
     public func renew() async throws {
-        if let pending { return try await pending.value }
+        if let renewalTask { return try await renewalTask.value }
         let id = currentGeneration
         let task = Task<Void, Error> {
             let credential = try savedCredential()
             try await verifyLogin(username: credential.username, password: credential.password, generation: id)
         }
-        pending = task
-        defer { if isCurrent(id) { pending = nil } }
+        renewalTask = task
+        defer { if isCurrent(id) { renewalTask = nil } }
         try await task.value
     }
 

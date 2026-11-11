@@ -37,33 +37,33 @@ USAGE
 done
 
 errors=()
-fail() { errors+=("$1"); }
+record_error() { errors+=("$1"); }
 
-command -v xcodegen >/dev/null || fail "找不到 xcodegen（brew install xcodegen）"
-xcrun --find xcodebuild >/dev/null 2>&1 || fail "找不到 xcodebuild：请安装 Xcode"
+command -v xcodegen >/dev/null || record_error "找不到 xcodegen（brew install xcodegen）"
+xcrun --find xcodebuild >/dev/null 2>&1 || record_error "找不到 xcodebuild：请安装 Xcode"
 
 PROJECT_TEAM="$(sed -n 's/^ *DEVELOPMENT_TEAM: *"\{0,1\}\([^"]*\)"\{0,1\} *\(#.*\)\{0,1\}$/\1/p' project.yml | head -1)"
 TEAM="${DEVELOPMENT_TEAM:-$PROJECT_TEAM}"
 if [ -z "$TEAM" ] || [ "$TEAM" = "YOUR_TEAM_ID" ]; then
-  fail "还没有填写 Apple Developer Team ID。请设置环境变量 DEVELOPMENT_TEAM=<10 位 Team ID>，或写进 .secrets/archive.env（DEVELOPMENT_TEAM=...），或把 project.yml 里的 DEVELOPMENT_TEAM 占位符 YOUR_TEAM_ID 换成真实值（Team ID 在 developer.apple.com → Membership 里查看）"
+  record_error "还没有填写 Apple Developer Team ID。请设置环境变量 DEVELOPMENT_TEAM=<10 位 Team ID>，或写进 .secrets/archive.env（DEVELOPMENT_TEAM=...），或把 project.yml 里的 DEVELOPMENT_TEAM 占位符 YOUR_TEAM_ID 换成真实值（Team ID 在 developer.apple.com → Membership 里查看）"
 elif ! [[ "$TEAM" =~ ^[A-Z0-9]{10}$ ]]; then
-  fail "Team ID 格式不对：应为 10 位大写字母或数字，现在是「${TEAM}」"
+  record_error "Team ID 格式不对：应为 10 位大写字母或数字，现在是「${TEAM}」"
 fi
 
 VERSION="$(sed -n 's/^ *MARKETING_VERSION: *"\{0,1\}\([^"]*\)"\{0,1\}.*/\1/p' project.yml | head -1)"
 BUILD="${BUILD_NUMBER:-$(sed -n 's/^ *CURRENT_PROJECT_VERSION: *"\{0,1\}\([^"]*\)"\{0,1\}.*/\1/p' project.yml | head -1)}"
-[ -n "$VERSION" ] || fail "project.yml 里找不到 MARKETING_VERSION"
-[[ "$BUILD" =~ ^[0-9]+$ ]] || fail "构建号必须是整数：现在是「${BUILD:-空}」"
+[ -n "$VERSION" ] || record_error "project.yml 里找不到 MARKETING_VERSION"
+[[ "$BUILD" =~ ^[0-9]+$ ]] || record_error "构建号必须是整数：现在是「${BUILD:-空}」"
 
 for f in App/Resources/PrivacyInfo.xcprivacy Widget/PrivacyInfo.xcprivacy; do
-  if [ ! -f "$f" ]; then fail "缺少隐私清单 $f"
-  elif ! plutil -lint "$f" >/dev/null 2>&1; then fail "隐私清单格式错误：${f}（运行 plutil -lint $f 查看）"; fi
+  if [ ! -f "$f" ]; then record_error "缺少隐私清单 $f"
+  elif ! plutil -lint "$f" >/dev/null 2>&1; then record_error "隐私清单格式错误：${f}（运行 plutil -lint $f 查看）"; fi
 done
 
 AUTH_ARGS=()
 if [ "$MODE" = upload ] && [ -n "${ASC_KEY_PATH:-}" ]; then
-  [ -f "$ASC_KEY_PATH" ] || fail "ASC_KEY_PATH 指向的文件不存在：$ASC_KEY_PATH"
-  [ -n "${ASC_KEY_ID:-}" ] && [ -n "${ASC_ISSUER_ID:-}" ] || fail "使用 API Key 上传需要同时设置 ASC_KEY_ID 和 ASC_ISSUER_ID"
+  [ -f "$ASC_KEY_PATH" ] || record_error "ASC_KEY_PATH 指向的文件不存在：$ASC_KEY_PATH"
+  [ -n "${ASC_KEY_ID:-}" ] && [ -n "${ASC_ISSUER_ID:-}" ] || record_error "使用 API Key 上传需要同时设置 ASC_KEY_ID 和 ASC_ISSUER_ID"
   AUTH_ARGS=(-authenticationKeyPath "$ASC_KEY_PATH" -authenticationKeyID "${ASC_KEY_ID:-}" -authenticationKeyIssuerID "${ASC_ISSUER_ID:-}")
 fi
 

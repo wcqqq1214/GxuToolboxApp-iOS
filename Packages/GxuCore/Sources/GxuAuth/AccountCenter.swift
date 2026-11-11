@@ -161,7 +161,7 @@ public final class AccountCenter {
         states[system] = .noAccount
     }
 
-    public func ensureAuthenticated(_ system: AuthSystem) async throws {
+    public func requireAuthenticatedState(_ system: AuthSystem) async throws {
         switch states[system] ?? .noAccount {
         case .authenticated: return
         case .noAccount: throw GxuError.notLoggedIn(system)

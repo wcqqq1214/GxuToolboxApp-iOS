@@ -92,7 +92,7 @@ struct AttendanceTests {
         #expect(header.withLock { $0 } == "Token abc")
     }
 
-    @Test func unauthorizedClearsTokenAndMarksSignedOut() async throws {
+    @Test func unauthorizedClearsTokenAndRequiresRelogin() async throws {
         let host = "att-\(UUID().uuidString).test"
         StubURLProtocol.register(host: host) { json($0, status: 401, #"{"code":401,"message":"考勤系统拒绝了该请求，请重新登录","data":null}"#) }
         struct Ok: Decodable, Sendable { let ok: Bool }
@@ -106,7 +106,7 @@ struct AttendanceTests {
         try await Task.sleep(for: .milliseconds(100))
         #expect(tokens.load() == nil)
         #expect(center.states[.attendance] == .needsRelogin)
-        await #expect(throws: GxuError.sessionExpired(.attendance)) { try await center.ensureAuthenticated(.attendance) }
+        await #expect(throws: GxuError.sessionExpired(.attendance)) { try await center.requireAuthenticatedState(.attendance) }
     }
 
     @Test func unauthorizedResponseForOldTokenPreservesReplacementSession() async throws {

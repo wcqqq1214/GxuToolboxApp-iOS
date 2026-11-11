@@ -24,7 +24,7 @@ final class EmptyClassroomModel {
     private(set) var term: AcademicTerm?
     private(set) var snapshots: [WeekSnapshot] = []
     private(set) var setupError: String?
-    private(set) var isReady = false
+    private(set) var hasFinishedSetup = false
     private(set) var cacheRevision = 0
 
     var queryWeek: Int?
@@ -71,7 +71,7 @@ final class EmptyClassroomModel {
         await context.load(services: services)
         guard let defaultTerm = context.defaultTerm else {
             setupError = context.failure ?? "暂时无法获取学期信息"
-            isReady = true
+            hasFinishedSetup = true
             return
         }
         restoreSelection(defaultTerm: defaultTerm)
@@ -79,7 +79,7 @@ final class EmptyClassroomModel {
         if CommandLine.arguments.contains("-GxuEmptyDemo") { await seedDemo(services: services) }
         #endif
         await reloadSnapshots()
-        isReady = true
+        hasFinishedSetup = true
     }
 
     func select(term newTerm: AcademicTerm) async {

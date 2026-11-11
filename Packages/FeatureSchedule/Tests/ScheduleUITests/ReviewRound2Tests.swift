@@ -40,7 +40,7 @@ struct TermsBackend: BackendAPI {
 struct ReviewRound2Tests {
     init() { URLProtocol.registerClass(StubURLProtocol.self) }
 
-    @Test func loadOverlapAcrossAccountsLeaksCachedScheduleOfA() async throws {
+    @Test func overlappingAccountLoadsKeepPreviousScheduleOutOfViewAndWidget() async throws {
         let a = AppServices.preview(backend: MockBackendAPI(), features: [ScheduleKit.migrations], studentId: "A")
         let b = AppServices.preview(backend: MockBackendAPI(), studentId: "B")
         let seed = ScheduleRepository(backend: GatedBackend(gate: 0), database: a.database)
@@ -67,7 +67,7 @@ struct ReviewRound2Tests {
         return String(format: "%04d-%02d-%02d", c.year!, c.month!, c.day!)
     }
 
-    @Test func termRolloverDuringRefreshKeepsPreviousTermsActivities() async throws {
+    @Test func termRolloverDropsPreviousTermActivitiesFromView() async throws {
         let old = TermStartDay(year: 2025, term: 1, day: ymd(daysAgo: 400), week: 20)
         let new = TermStartDay(year: 2026, term: 1, day: ymd(daysAgo: 10), week: 20)
         let a = AppServices.preview(backend: MockBackendAPI(), features: [ScheduleKit.migrations], studentId: "A")

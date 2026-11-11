@@ -94,11 +94,11 @@ public final class BackendClient: BackendAPI {
     private func send(_ request: URLRequest, auth: AuthSystem?) async throws -> Data {
         let requestToken = auth.flatMap { tokenProvider?($0) }
         var (data, response) = try await perform(authorized(request, token: requestToken))
-        if let auth, SessionExpiry.isExpired(response, data: data) {
+        if let auth, SessionExpiry.isIndicatedBy(response, data: data) {
             guard let renewer else { throw GxuError.sessionExpired(auth) }
             try await renewer.renew(auth, rejectedToken: requestToken)
             (data, response) = try await perform(authorized(request, token: tokenProvider?(auth)))
-            if SessionExpiry.isExpired(response, data: data) { throw GxuError.sessionExpired(auth) }
+            if SessionExpiry.isIndicatedBy(response, data: data) { throw GxuError.sessionExpired(auth) }
         }
         guard (200..<300).contains(response.statusCode) else {
             ErrorLog.shared.recordRequest(method: request.httpMethod ?? "GET", url: request.url, failure: "HTTP \(response.statusCode)")
@@ -127,7 +127,7 @@ public final class BackendClient: BackendAPI {
 }
 
 public enum SessionExpiry {
-    public static func isExpired(_ response: HTTPURLResponse, data: Data) -> Bool {
+    public static func isIndicatedBy(_ response: HTTPURLResponse, data: Data) -> Bool {
         if response.statusCode == 401 { return true }
         if (300..<400).contains(response.statusCode) {
             let location = response.value(forHTTPHeaderField: "Location")?.lowercased() ?? ""

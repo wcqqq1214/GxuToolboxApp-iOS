@@ -6,9 +6,9 @@ MODE="${1:-light}"
 CASE="${2:-phase1}"
 [ "${3:-}" = legacy ] && export TEST_RUNNER_GXU_FORCE_LEGACY=1 && TAG="-legacy" || TAG=""
 case "$CASE" in
-  phase3) ONLY="GxuToolAppUITests/E2EWalkthroughTests/testPhase3" ;;
-  phase2) ONLY="GxuToolAppUITests/E2EWalkthroughTests/testPhase2" ;;
-  *)      ONLY="GxuToolAppUITests/E2EWalkthroughTests/testWalkthrough" ;;
+  phase3) ONLY="GxuToolAppUITests/E2EWalkthroughTests/testScheduleToolboxGroupsAndHiddenEntries" ;;
+  phase2) ONLY="GxuToolAppUITests/E2EWalkthroughTests/testToolboxEntriesAndSettingsPages" ;;
+  *)      ONLY="GxuToolAppUITests/E2EWalkthroughTests/testScheduleExamsScoresAndAcademicAccount" ;;
 esac
 xcodegen generate --quiet
 xcrun simctl boot "$SIM_ID" 2>/dev/null || true

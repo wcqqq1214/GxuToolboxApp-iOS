@@ -37,14 +37,14 @@ private func at(_ s: String) -> Date {
 
     @Test func beforeDuringAfterExam() {
         let before = ExamTimeParser.parse(time, now: at("2026-07-14 20:00"), calendar: calendar)
-        #expect(before.status == .upcoming)
+        #expect(before.status == .notEnded)
         #expect(before.date == at("2026-07-15 09:00"))
-        #expect(ExamTimeParser.parse(time, now: at("2026-07-15 10:00"), calendar: calendar).status == .upcoming)
+        #expect(ExamTimeParser.parse(time, now: at("2026-07-15 10:00"), calendar: calendar).status == .notEnded)
         #expect(ExamTimeParser.parse(time, now: at("2026-07-15 11:01"), calendar: calendar).status == .past)
     }
 
-    @Test func endingExactlyNowIsStillUpcoming() {
-        #expect(ExamTimeParser.parse(time, now: at("2026-07-15 11:00"), calendar: calendar).status == .upcoming)
+    @Test func examAtItsExactEndTimeIsNotPast() {
+        #expect(ExamTimeParser.parse(time, now: at("2026-07-15 11:00"), calendar: calendar).status == .notEnded)
     }
 
     @Test(arguments: ["", "待定", "2026-07-15", "2026-07-15 09:00-11:00", "2026-07-15(0900-1100)"])
@@ -77,7 +77,7 @@ private func at(_ s: String) -> Date {
         ]
         #expect(ExamSorting.sorted(items).map(\.id) == ["up-early", "up-late", "tbd", "past-late", "past-early"])
         let sections = ExamSorting.sections(items)
-        #expect(sections.upcoming.map(\.id) == ["up-early", "up-late", "tbd"])
+        #expect(sections.notPast.map(\.id) == ["up-early", "up-late", "tbd"])
         #expect(sections.past.map(\.id) == ["past-late", "past-early"])
     }
 

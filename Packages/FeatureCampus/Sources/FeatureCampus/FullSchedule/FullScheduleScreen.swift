@@ -34,8 +34,8 @@ final class FullScheduleModel {
 
     private var api: CampusAPI?
     private var runTask: Task<Void, Never>?
-    private var generation = 0
-    private nonisolated static let concurrency = 6
+    private var scanRevision = 0
+    private nonisolated static let maxConcurrentScheduleRequests = 6
 
     private static func profile(_ services: AppServices) async -> UserProfile? {
         guard let studentId = services.accounts.studentId else { return nil }
@@ -79,8 +79,8 @@ final class FullScheduleModel {
     func run() {
         guard let api, let term, !schoolId.isEmpty else { return }
         runTask?.cancel()
-        generation += 1
-        let gen = generation
+        scanRevision += 1
+        let requestRevision = scanRevision
         let (school, moment) = (schoolId, moment)
         results = []
         total = 0
@@ -92,14 +92,14 @@ final class FullScheduleModel {
                 async let majors = (try? await api.majors(grade: "", school: school)) ?? []
                 let classes = try await api.classes(term: term, school: school)
                 let names = Dictionary(uniqueKeysWithValues: (await majors).map { ($0.majorId, $0.majorName) })
-                guard !Task.isCancelled, self?.generation == gen else { return }
+                guard !Task.isCancelled, self?.scanRevision == requestRevision else { return }
                 self?.begin(total: classes.count, majorNames: names)
                 await Self.scan(classes: classes, term: term, moment: moment, api: api) { outcome in
-                    self?.record(outcome, generation: gen)
+                    self?.record(outcome, scanRevision: requestRevision)
                 }
-                if !Task.isCancelled, self?.generation == gen { self?.phase = .finished }
+                if !Task.isCancelled, self?.scanRevision == requestRevision { self?.phase = .finished }
             } catch {
-                if error.isCancellation || self?.generation != gen { return }
+                if error.isCancellation || self?.scanRevision != requestRevision { return }
                 self?.phase = .failed(((error as? GxuError) ?? .network(error.localizedDescription)).userMessage)
             }
         }
@@ -116,8 +116,8 @@ final class FullScheduleModel {
         case failed
     }
 
-    private func record(_ outcome: Outcome, generation gen: Int) {
-        guard gen == generation else { return }
+    private func record(_ outcome: Outcome, scanRevision requestRevision: Int) {
+        guard requestRevision == scanRevision else { return }
         checked += 1
         switch outcome {
         case .inSession(let item): results.append(item)
@@ -146,7 +146,7 @@ final class FullScheduleModel {
                 }
                 return true
             }
-            for _ in 0..<concurrency where addNext() {}
+            for _ in 0..<maxConcurrentScheduleRequests where addNext() {}
             while await group.next() != nil {
                 if Task.isCancelled { group.cancelAll(); break }
                 _ = addNext()

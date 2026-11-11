@@ -68,7 +68,7 @@ struct AuthStateRegressionTests {
         #expect(center.states[.jw]?.showsLoginForm == true)
         #expect(center.studentId == "9")
         #expect(store.load(.jw)?.username == "9")
-        await #expect(throws: GxuError.sessionExpired(.jw)) { try await center.ensureAuthenticated(.jw) }
+        await #expect(throws: GxuError.sessionExpired(.jw)) { try await center.requireAuthenticatedState(.jw) }
     }
 
     @Test func upstreamFailureReturning401DoesNotChangeTheStateAndIsNotBlamedOnThePassword() async throws {

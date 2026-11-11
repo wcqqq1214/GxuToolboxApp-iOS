@@ -44,7 +44,7 @@ final class FeedbackListModel {
     private(set) var error: GxuError?
     private(set) var hasMore = true
     private var page = 1
-    private var generation = 0
+    private var listRevision = 0
 
     private let services: AppServices
 
@@ -53,7 +53,7 @@ final class FeedbackListModel {
     }
 
     func reload() async {
-        generation += 1
+        listRevision += 1
         page = 1
         hasMore = true
         await load(reset: true)
@@ -66,12 +66,12 @@ final class FeedbackListModel {
 
     private func load(reset: Bool) async {
         guard let studentId = services.accounts.studentId else { error = .notLoggedIn(.jw); return }
-        let mine = generation
+        let requestRevision = listRevision
         isLoading = true
-        defer { if mine == generation { isLoading = false } }
+        defer { if requestRevision == listRevision { isLoading = false } }
         do {
             let fetched = try await FeedbackRepository(backend: services.backend).myList(studentId: studentId, page: page)
-            guard mine == generation else { return }
+            guard requestRevision == listRevision else { return }
             if reset { items = fetched } else { items += fetched.filter { new in !items.contains { $0.id == new.id } } }
             hasMore = fetched.count >= FeedbackRepository.pageSize
             page += 1

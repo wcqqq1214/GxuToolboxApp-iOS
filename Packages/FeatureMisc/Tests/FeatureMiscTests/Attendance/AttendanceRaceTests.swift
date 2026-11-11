@@ -36,7 +36,7 @@ final class AttendanceGateBackend: BackendAPI, @unchecked Sendable {
         let creds = InMemoryCredentialStore()
         let accounts = AccountCenter(credentials: creds, jw: JwSessionManager(credentials: creds, transport: client), states: [.attendance: .authenticated], studentId: "1")
         let m = AttendanceViewModel(services: AppServices(backend: backend, database: p.database, shared: p.shared, accounts: accounts))
-        m.isReady = true
+        m.hasResolvedTermContext = true
         m.selection = .init(year: 2025, term: 1)
         return m
     }
@@ -75,7 +75,7 @@ final class AttendanceGateBackend: BackendAPI, @unchecked Sendable {
         #expect(m.records.count == 1 && m.error == nil && !m.isLoading && m.access == .ok)
     }
 
-    @Test func signedOutAccountSeesLoginPrompt() async {
+    @Test func missingAndExpiredAttendanceSessionsShowDistinctAccessStates() async {
         let p = AppServices.preview()
         let client = BackendClient(session: BackendClient.makeSession(configuration: .ephemeral))
         let creds = InMemoryCredentialStore()
@@ -84,7 +84,7 @@ final class AttendanceGateBackend: BackendAPI, @unchecked Sendable {
             if let state { states[.attendance] = state }
             let accounts = AccountCenter(credentials: creds, jw: JwSessionManager(credentials: creds, transport: client), states: states, studentId: "1")
             let m = AttendanceViewModel(services: AppServices(backend: AttendanceGateBackend(), database: p.database, shared: p.shared, accounts: accounts))
-            m.isReady = true
+            m.hasResolvedTermContext = true
             await m.load()
             #expect(m.access == access && m.records.isEmpty)
         }

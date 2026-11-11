@@ -25,8 +25,8 @@ public actor JwSessionManager: SessionRenewer {
     private let credentials: any CredentialStore
     private let transport: BackendClient
     nonisolated private let cookies: HTTPCookieStorage
-    private var pending: Task<Void, Error>?
-    private var epoch = 0
+    private var renewalTask: Task<Void, Error>?
+    private var logoutRevision = 0
     private var observer: (@Sendable (AuthState) -> Void)?
 
     public init(credentials: any CredentialStore, transport: BackendClient) {
@@ -45,9 +45,9 @@ public actor JwSessionManager: SessionRenewer {
 
     public func login(username: String, password: String) async throws {
         clearSession()
-        let startEpoch = epoch
+        let revisionAtLoginStart = logoutRevision
         let (data, response) = try await transport.rawPost("/jw/login", body: JwLoginBody(username: username, password: password))
-        guard startEpoch == epoch else { throw CancellationError() }
+        guard revisionAtLoginStart == logoutRevision else { throw CancellationError() }
         guard (200..<300).contains(response.statusCode) else {
             let message = Self.message(in: data)
             if response.statusCode == 401, Self.isCredentialRejectionMessage(message) {
@@ -82,13 +82,13 @@ public actor JwSessionManager: SessionRenewer {
 
     public func renew(_ system: AuthSystem) async throws {
         guard system == .jw else { throw GxuError.sessionExpired(system) }
-        if let pending { return try await pending.value }
+        if let renewalTask { return try await renewalTask.value }
         let task = Task<Void, Error> {
             guard let credential = credentials.load(.jw) else { throw GxuError.notLoggedIn(.jw) }
             try await login(username: credential.username, password: credential.password)
         }
-        pending = task
-        defer { pending = nil }
+        renewalTask = task
+        defer { renewalTask = nil }
         do { try await task.value } catch is CancellationError {
             throw CancellationError()
         } catch {
@@ -98,9 +98,9 @@ public actor JwSessionManager: SessionRenewer {
     }
 
     public func logout() {
-        epoch += 1
-        pending?.cancel()
-        pending = nil
+        logoutRevision += 1
+        renewalTask?.cancel()
+        renewalTask = nil
         clearSession()
     }
 

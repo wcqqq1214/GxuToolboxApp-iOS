@@ -13,7 +13,7 @@ final class OAFilesModel {
     var keyword = ""
 
     private var page = 1
-    private var generation = 0
+    private var listRevision = 0
     private let services: AppServices
 
     init(services: AppServices) {
@@ -36,7 +36,7 @@ final class OAFilesModel {
 
     func reload() async {
         guard hasAccount, let oa = services.accounts.oa else { error = .notLoggedIn(.oa); return }
-        generation += 1
+        listRevision += 1
         page = 1
         await load(OAFilesAPI(session: oa), reset: true)
     }
@@ -47,12 +47,12 @@ final class OAFilesModel {
     }
 
     private func load(_ api: OAFilesAPI, reset: Bool) async {
-        let mine = generation
+        let requestRevision = listRevision
         isLoading = true
-        defer { if mine == generation { isLoading = false } }
+        defer { if requestRevision == listRevision { isLoading = false } }
         do {
             let result = try await api.list(page: page, typeId: typeId, keyword: keyword)
-            guard mine == generation else { return }
+            guard requestRevision == listRevision else { return }
             rows = reset ? result.rows : rows + result.rows.filter { new in !rows.contains { $0.id == new.id } }
             hasMore = result.hasNext
             page += 1
@@ -60,11 +60,11 @@ final class OAFilesModel {
         } catch is CancellationError {
             return
         } catch let error as GxuError {
-            guard mine == generation else { return }
+            guard requestRevision == listRevision else { return }
             if reset { rows = [] }
             self.error = error
         } catch {
-            guard mine == generation else { return }
+            guard requestRevision == listRevision else { return }
             self.error = .network("加载失败")
         }
     }

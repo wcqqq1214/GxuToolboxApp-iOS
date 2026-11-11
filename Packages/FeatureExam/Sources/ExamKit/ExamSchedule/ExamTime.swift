@@ -3,7 +3,8 @@ import Foundation
 import GxuFoundation
 
 public enum ExamStatus: String, Sendable, Equatable {
-    case upcoming, past, tbd
+    case notEnded = "upcoming"
+    case past, tbd
 }
 
 public struct ParsedExamTime: Equatable, Sendable {
@@ -28,7 +29,7 @@ public enum ExamTimeParser {
               let start = makeDate(y, mo, d, sh, sm, calendar),
               let end = makeDate(y, mo, d, eh, em, calendar)
         else { return ParsedExamTime(date: nil, status: .tbd) }
-        return ParsedExamTime(date: start, endsAt: end, status: end < now ? .past : .upcoming)
+        return ParsedExamTime(date: start, endsAt: end, status: end < now ? .past : .notEnded)
     }
 
     private static func makeDate(_ y: Int, _ mo: Int, _ d: Int, _ h: Int, _ mi: Int, _ calendar: Calendar) -> Date? {
@@ -73,7 +74,7 @@ public struct ExamItem: Hashable, Sendable, Identifiable {
 
     public func countdownText(now: Date = .now, calendar: Calendar = .current) -> String? {
         let calendar = calendar.gregorianEquivalent
-        guard status == .upcoming, let date else { return nil }
+        guard status == .notEnded, let date else { return nil }
         let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: now), to: calendar.startOfDay(for: date)).day ?? -1
         switch days {
         case ..<0: return nil
@@ -85,11 +86,11 @@ public struct ExamItem: Hashable, Sendable, Identifiable {
 }
 
 public struct ExamSections: Equatable, Sendable {
-    public var upcoming: [ExamItem]
+    public var notPast: [ExamItem]
     public var past: [ExamItem]
 
-    public init(upcoming: [ExamItem] = [], past: [ExamItem] = []) {
-        self.upcoming = upcoming
+    public init(notPast: [ExamItem] = [], past: [ExamItem] = []) {
+        self.notPast = notPast
         self.past = past
     }
 }
@@ -98,7 +99,7 @@ public enum ExamSorting {
     public static func sorted(_ items: [ExamItem]) -> [ExamItem] {
         func rank(_ s: ExamStatus) -> Int {
             switch s {
-            case .upcoming: 0
+            case .notEnded: 0
             case .tbd: 1
             case .past: 2
             }
@@ -115,17 +116,17 @@ public enum ExamSorting {
 
     public static func sections(_ items: [ExamItem]) -> ExamSections {
         let all = sorted(items)
-        return ExamSections(upcoming: all.filter { $0.status != .past }, past: all.filter { $0.status == .past })
+        return ExamSections(notPast: all.filter { $0.status != .past }, past: all.filter { $0.status == .past })
     }
 }
 
 public enum NextExam {
-    public static func upcoming(in items: [ExamItem]) -> [ExamItem] {
-        items.filter { $0.status == .upcoming && $0.date != nil }
+    public static func notEnded(in items: [ExamItem]) -> [ExamItem] {
+        items.filter { $0.status == .notEnded && $0.date != nil }
             .sorted { ($0.date ?? .distantFuture) < ($1.date ?? .distantFuture) }
     }
 
-    public static func pick(from items: [ExamItem]) -> ExamItem? { upcoming(in: items).first }
+    public static func pick(from items: [ExamItem]) -> ExamItem? { notEnded(in: items).first }
 }
 
 public enum ExamSeat {

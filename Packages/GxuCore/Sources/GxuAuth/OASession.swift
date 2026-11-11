@@ -8,7 +8,7 @@ public actor OASession {
     private let credentials: any CredentialStore
     private let tokens: any TokenStore
     private let session: URLSession
-    private var pending: Task<Void, Error>?
+    private var renewalTask: Task<Void, Error>?
     private var generation = 0
     private var observer: (@Sendable (AuthState) -> Void)?
 
@@ -64,8 +64,8 @@ public actor OASession {
 
     public func clear() {
         generation &+= 1
-        pending?.cancel()
-        pending = nil
+        renewalTask?.cancel()
+        renewalTask = nil
         tokens.save(nil)
         let storage = session.configuration.httpCookieStorage
         for cookie in storage?.cookies(for: Self.loginURL) ?? [] where cookie.name == "token" {
@@ -159,8 +159,8 @@ public actor OASession {
 
     private func renew() async throws {
         let generation = self.generation
-        if let pending {
-            try await pending.value
+        if let renewalTask {
+            try await renewalTask.value
             return try checkGeneration(generation)
         }
         let task = Task<Void, Error> {
@@ -168,8 +168,8 @@ public actor OASession {
             guard let credential = credentials.load(.oa) else { throw GxuError.notLoggedIn(.oa) }
             try await login(username: credential.username, password: credential.password)
         }
-        pending = task
-        defer { if generation == self.generation { pending = nil } }
+        renewalTask = task
+        defer { if generation == self.generation { renewalTask = nil } }
         do {
             try await task.value
             try checkGeneration(generation)

@@ -17,10 +17,10 @@ struct NextExamTests {
         let items = [exam("c", "2026-01-23(09:00-11:00)"), exam("a", "2026-01-12(14:00-16:00)"), exam("past", "2026-01-05(09:00-11:00)"), exam("tbd", "待定")]
             .map { ExamItem($0, now: now, calendar: cal) }
         #expect(NextExam.pick(from: items)?.id == "a")
-        #expect(NextExam.upcoming(in: items).map(\.id) == ["a", "c"])
+        #expect(NextExam.notEnded(in: items).map(\.id) == ["a", "c"])
     }
 
-    @Test func inProgressStillCounts() {
+    @Test func nextExamIncludesAnExamInProgress() {
         let now = date("2026-01-12 15:00")
         let items = [exam("a", "2026-01-12(14:00-16:00)")].map { ExamItem($0, now: now, calendar: cal) }
         #expect(NextExam.pick(from: items)?.id == "a")
@@ -40,7 +40,7 @@ struct NextExamTests {
         try await repo.replaceExams([exam("near", "2026-01-15(09:00-11:00)")], studentId: "s1", term: AcademicTerm(year: 2025, term: 1), now: now)
         try await repo.replaceExams([exam("other", "2026-01-11(09:00-11:00)")], studentId: "s2", term: AcademicTerm(year: 2025, term: 1), now: now)
         #expect(try await repo.nextExam(studentId: "s1", now: now, calendar: cal)?.id == "near")
-        #expect(try await repo.upcomingExams(studentId: "s1", limit: 5, now: now, calendar: cal).map(\.id) == ["near", "far"])
+        #expect(try await repo.examsNotEnded(studentId: "s1", limit: 5, now: now, calendar: cal).map(\.id) == ["near", "far"])
         #expect(try await repo.nextExam(studentId: "none", now: now, calendar: cal) == nil)
     }
 }
@@ -133,7 +133,7 @@ struct NonGregorianCalendarTests {
         let f = DateFormatter(); f.calendar = g; f.timeZone = g.timeZone; f.dateFormat = "yyyy-MM-dd HH:mm"
         let now = f.date(from: "2026-07-01 12:00")!
         let item = ExamItem(Exam(id: "x", course: "x", classroom: "", time: "2026-07-15(09:00-11:00)", type: ""), now: now, calendar: device)
-        #expect(item.status == .upcoming)
+        #expect(item.status == .notEnded)
         #expect(item.date == f.date(from: "2026-07-15 09:00"))
         #expect(item.countdownText(now: now, calendar: device) == "14天后")
         #expect(item.timeLine(now: now, calendar: device) == "7月15日 09:00")

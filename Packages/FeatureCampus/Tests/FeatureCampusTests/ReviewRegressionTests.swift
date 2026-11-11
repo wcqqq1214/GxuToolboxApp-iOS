@@ -40,7 +40,7 @@ struct ReviewRegressionTests {
     private var cal: Calendar { var c = Calendar(identifier: .gregorian); c.timeZone = TimeZone(identifier: "Asia/Shanghai")!; return c }
     private func d(_ y: Int, _ m: Int, _ day: Int) -> Date { cal.date(from: DateComponents(year: y, month: m, day: day))! }
 
-    @MainActor @Test func staleRunMixesIntoNewRun() async throws {
+    @MainActor @Test func supersededScanCannotUpdateCurrentProgressOrResults() async throws {
         let mock = MockBackendAPI()
         let dir = Bundle.module.resourceURL!.appendingPathComponent("Fixtures")
         func fx(_ n: String) throws -> Data { try Data(contentsOf: dir.appendingPathComponent(n + ".json")) }
@@ -75,14 +75,14 @@ struct ReviewRegressionTests {
         #expect(bad == nil)
     }
 
-    @Test func duplicateDateHeaderBreaksRefresh() async throws {
+    @Test func refreshAcceptsDuplicateDateHeaders() async throws {
         let raw = #"{"datas":[[{"startRow":2,"startCol":1,"colNumber":1,"content":"10月8日"},{"startRow":2,"startCol":2,"colNumber":1,"content":"10月8日"}]]}"#
         let db = try AppDatabase.inMemory(features: [CampusFeature.migrations])
         let repo = EngTrainingRepository(database: db, client: FakeEng2(data: Data(raw.utf8)))
         do { _ = try await repo.refresh(unifiedUsername: "A", now: d(2026, 10, 1)); print("DUP ok") } catch { print("DUP threw:", error) ; throw error }
     }
 
-    @Test func emptyOrRenamedPayloadWipesCache() async throws {
+    @Test func unexpectedPracticePayloadsKeepCachedEntries() async throws {
         let db = try AppDatabase.inMemory(features: [CampusFeature.migrations])
         let good = #"{"datas":[[{"startRow":2,"startCol":1,"colNumber":1,"content":"10月8日"}]]}"#
         _ = try await EngTrainingRepository(database: db, client: FakeEng2(data: Data(good.utf8))).refresh(unifiedUsername: "A", now: d(2026, 10, 1))
@@ -99,7 +99,7 @@ struct ReviewRegressionTests {
         #expect(phy == 1)
     }
 
-    @Test func nullFieldsRenderAsNullString() throws {
+    @Test func nullExperimentFieldsUseFallbacksAndNullDatesAreSkipped() throws {
         let raw = #"{"d":"{\"data\":[{\"id\":\"1\",\"skrq\":\"20261008\",\"xmmc\":null,\"kcmc\":\"大学物理实验\",\"fjbh\":null,\"sysmc\":\"实验室A\"}]}"}"#
         let e = try PhyExpParser.parse(Data(raw.utf8))[0]
         #expect(e.title == "大学物理实验")
@@ -108,7 +108,7 @@ struct ReviewRegressionTests {
         #expect(try PhyExpParser.parse(Data(nullDate.utf8)).isEmpty)
     }
 
-    @Test func cacheDuplicateFetches() async throws {
+    @Test func concurrentRequestsForSameClassShareOneFetch() async throws {
         let mock = MockBackendAPI()
         let dir = Bundle.module.resourceURL!.appendingPathComponent("Fixtures")
         mock.stub("GET /jw/schedule/class-schedule", json: try Data(contentsOf: dir.appendingPathComponent("campus-class-schedule.json")))

@@ -193,7 +193,7 @@ extension ExamRepository {
         NextExam.pick(from: try await allExams(studentId: studentId, now: now, calendar: calendar))
     }
 
-    public func upcomingExams(studentId: String, limit: Int = 3, now: Date = .now, calendar: Calendar = .current) async throws -> [ExamItem] {
-        Array(NextExam.upcoming(in: try await allExams(studentId: studentId, now: now, calendar: calendar)).prefix(limit))
+    public func examsNotEnded(studentId: String, limit: Int = 3, now: Date = .now, calendar: Calendar = .current) async throws -> [ExamItem] {
+        Array(NextExam.notEnded(in: try await allExams(studentId: studentId, now: now, calendar: calendar)).prefix(limit))
     }
 }

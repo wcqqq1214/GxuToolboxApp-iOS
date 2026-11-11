@@ -42,7 +42,7 @@ final class ScheduleViewModel {
     @ObservationIgnored private var unifiedUsername: String?
     @ObservationIgnored private var startDays: [TermStartDay] = []
     @ObservationIgnored private var pinnedTerm: AcademicTerm?
-    @ObservationIgnored private var lastRefresh: Date?
+    @ObservationIgnored private var lastRefreshStartedAt: Date?
     @ObservationIgnored private var generation = 0
     @ObservationIgnored private var refreshingGeneration: Int?
 
@@ -127,9 +127,9 @@ final class ScheduleViewModel {
         phase = .content
     }
 
-    func refreshIfStale(minimumInterval: TimeInterval = 30) async {
+    func refreshIfDue(minimumInterval: TimeInterval = 30) async {
         guard phase == .content else { return }
-        if let lastRefresh, Date.now.timeIntervalSince(lastRefresh) < minimumInterval { return }
+        if let lastRefreshStartedAt, Date.now.timeIntervalSince(lastRefreshStartedAt) < minimumInterval { return }
         await refresh()
     }
 
@@ -138,7 +138,7 @@ final class ScheduleViewModel {
         let gen = generation
         refreshingGeneration = gen
         isRefreshing = true
-        lastRefresh = .now
+        lastRefreshStartedAt = .now
         defer {
             if refreshingGeneration == gen {
                 refreshingGeneration = nil

@@ -25,7 +25,7 @@ import Testing
         mock.stub("GET /attendance/v2/personal", json: body("高数"))
         let s = services(mock)
         let m = AttendanceViewModel(services: s)
-        m.isReady = true
+        m.hasResolvedTermContext = true
         m.selection = .init(year: 2025, term: 1)
         await m.load()
         let cached = AttendanceRecordCache.cached(store: s.shared, studentId: "2025000001", year: 2025, term: 1)

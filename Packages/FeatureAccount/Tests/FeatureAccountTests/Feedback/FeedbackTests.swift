@@ -47,11 +47,11 @@ struct FeedbackTests {
         #expect(model.submittedID == 77)
         #expect(model.draft.content.isEmpty)
 
-        let signedOut = FeedbackFormModel(services: AppServices.preview(signedIn: false))
-        signedOut.draft = model.draft
-        signedOut.draft.content = "考试倒计时显示的时间不对啊"
-        await signedOut.submit()
-        #expect(signedOut.errorMessage == "请先到设置里登录教务账号")
+        let formWithoutAcademicAccount = FeedbackFormModel(services: AppServices.preview(signedIn: false))
+        formWithoutAcademicAccount.draft = model.draft
+        formWithoutAcademicAccount.draft.content = "考试倒计时显示的时间不对啊"
+        await formWithoutAcademicAccount.submit()
+        #expect(formWithoutAcademicAccount.errorMessage == "请先到设置里登录教务账号")
     }
 
     @Test func listShowsFriendlyMessageWhenServerReturns401() async {

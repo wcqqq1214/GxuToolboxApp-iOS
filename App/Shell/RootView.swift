@@ -75,8 +75,8 @@ struct RootView: View {
         .task(id: AccountKey(studentId: services.accounts.studentId, state: services.accounts.states[.jw])) {
             await home.load(services: resolvedServices)
         }
-        .onChange(of: services.accounts.unifiedUsername) { _, _ in Task { await home.reload(services: resolvedServices) } }
-        .onChange(of: selection) { _, _ in Task { await home.reload(services: resolvedServices) } }
+        .onChange(of: services.accounts.unifiedUsername) { _, _ in Task { await home.reloadFromCache(services: resolvedServices) } }
+        .onChange(of: selection) { _, _ in Task { await home.reloadFromCache(services: resolvedServices) } }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { Task { await home.load(services: resolvedServices) } }
         }

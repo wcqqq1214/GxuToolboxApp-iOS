@@ -29,7 +29,7 @@ public struct ExamInfoView: View {
                         .listRowBackground(Color.clear)
                 }
                 if model.hasData {
-                    section("即将开考", model.sections.upcoming)
+                    section("即将开考", model.sections.notPast)
                     section("已结束", model.sections.past)
                 } else if model.isLoading {
                     GxuLoadingView("正在查询考试安排…")
@@ -43,7 +43,7 @@ public struct ExamInfoView: View {
             .navigationBarTitleDisplayMode(.inline)
             .gxuHidesTabChrome()
             .task { await model.resolveInitialTerm() }
-            .task(id: LoadKey(value: model.term, ready: model.isReady)) { await model.load() }
+            .task(id: LoadKey(value: model.term, ready: model.hasResolvedInitialTerm)) { await model.load() }
             .refreshable { await model.load() }
         }
 

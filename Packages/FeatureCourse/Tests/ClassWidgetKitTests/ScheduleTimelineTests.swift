@@ -186,7 +186,7 @@ private func snapshot(now: String, today: [WidgetCourse], tomorrow: [WidgetCours
         #expect(e.phase == .finished && !e.hadClassesToday)
     }
 
-    @Test func hintKeepsTodayClassesAfterRefreshFollowingLastClass() {
+    @Test func classDayHintMarksOnlyItsOwnDayAfterLastClass() {
         let day = cal.startOfDay(for: at("2026-11-05 11:00"))
         let e = ScheduleTimeline.entry(at: at("2026-11-05 12:00"), snapshot: snapshotAfterLastClass(), calendar: cal, hadClassesOn: day)
         #expect(e.hadClassesToday)

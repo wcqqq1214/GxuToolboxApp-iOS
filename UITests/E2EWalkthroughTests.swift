@@ -36,7 +36,7 @@ final class E2EWalkthroughTests: XCTestCase {
         if option.waitForExistence(timeout: 5) { option.tap() } else { XCTFail("没有学年选项 \(text)") }
     }
 
-    func testWalkthrough() {
+    func testScheduleExamsScoresAndAcademicAccount() {
         app.launch()
         let tabs = app.tabBars.firstMatch
         XCTAssertTrue(tabs.waitForExistence(timeout: 30))
@@ -144,7 +144,7 @@ final class E2EWalkthroughTests: XCTestCase {
         }
     }
 
-    func testPhase2() {
+    func testToolboxEntriesAndSettingsPages() {
         reportName = "phase2-report.txt"
         app.launch()
         let tabs = app.tabBars.firstMatch
@@ -175,7 +175,7 @@ final class E2EWalkthroughTests: XCTestCase {
         }
     }
 
-    func testPhase3() {
+    func testScheduleToolboxGroupsAndHiddenEntries() {
         reportName = "phase3-report.txt"
         app.launch()
         let tabs = app.tabBars.firstMatch

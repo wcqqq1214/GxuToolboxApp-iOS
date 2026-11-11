@@ -26,7 +26,7 @@ final class GateBackend: BackendAPI, @unchecked Sendable {
 }
 
 @MainActor @Suite struct TeacherSearchRaceTests {
-    @Test func loadMoreSupersededBySearchDoesNotKillPagination() async throws {
+    @Test func supersededPageDoesNotBlockPaginationForNewQuery() async throws {
         let b = GateBackend()
         let services = AppServices(backend: b, database: AppServices.preview().database, shared: AppServices.preview().shared, accounts: AppServices.preview().accounts)
         let m = TeacherSearchModel(services: services)

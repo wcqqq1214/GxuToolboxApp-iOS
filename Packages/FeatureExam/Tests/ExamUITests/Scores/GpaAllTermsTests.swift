@@ -47,7 +47,7 @@ import Testing
         #expect(empty.scores.isEmpty && empty.error != nil)
     }
 
-    @Test func signedOutAccountSeesNothing() async {
+    @Test func missingAcademicAccountShowsLoginErrorAndNoScores() async {
         let model = ScoreViewModel(services: .preview(signedIn: false), query: .all)
         await model.load()
         #expect(model.scores.isEmpty && model.error == .notLoggedIn(.jw))

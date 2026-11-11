@@ -102,7 +102,7 @@ public struct GpaView: View {
             }
             .sheet(isPresented: $showsMethod) { GpaMethodSheet() }
             .task { await model.resolveInitialTerm() }
-            .task(id: LoadKey(value: model.query, ready: model.isReady)) { await model.load() }
+            .task(id: LoadKey(value: model.query, ready: model.isQueryReady)) { await model.load() }
             .refreshable { await model.load() }
         }
     }

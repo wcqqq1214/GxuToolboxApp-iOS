@@ -27,10 +27,10 @@ import Testing
         let now = DateComponents(calendar: cal, year: 2025, month: 12, day: 20, hour: 12).date!
         let exams = try await ExamAPI(backend: backend()).exams(AcademicTerm(year: 2025, term: 1))
         let sections = ExamSorting.sections(exams.map { ExamItem($0, now: now, calendar: cal) })
-        #expect(sections.upcoming.map(\.exam.course) == ["土力学", "材料力学", "岩体力学"])
+        #expect(sections.notPast.map(\.exam.course) == ["土力学", "材料力学", "岩体力学"])
         #expect(sections.past.count == 6)
         #expect(sections.past.first?.exam.course == "混凝土结构基本原理")
-        #expect(sections.upcoming.first?.countdownText(now: now, calendar: cal) == "明日开考")
+        #expect(sections.notPast.first?.countdownText(now: now, calendar: cal) == "明日开考")
     }
 
     @Test func scoreDecodesIgnoringCamelCaseCopies() async throws {
@@ -94,7 +94,7 @@ import Testing
         #expect(abs(without.gpa - 1.386937) < 1e-5 && abs(without.wam - 52.754505) < 1e-5)
     }
 
-    @Test func wholeAcademicYearIsAutumnPlusSpring() throws {
+    @Test func gpaMatchesReferenceForAutumnAndSpringScores() throws {
         let year2023 = try scores().filter { $0.year == 2023 && ($0.term == 1 || $0.term == 2) }
         let r = GpaCalculator.calculate(year2023)
         #expect(year2023.count == 12)

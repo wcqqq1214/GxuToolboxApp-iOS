@@ -23,7 +23,7 @@ public enum SnapshotProvider {
 }
 
 extension SnapshotProvider {
-    public static func hadClasses(on day: Date, studentId: String, database: AppDatabase, unifiedUsername: String? = nil, calendar: Calendar = .current) async -> Bool {
+    public static func hasScheduledClasses(on day: Date, studentId: String, database: AppDatabase, unifiedUsername: String? = nil, calendar: Calendar = .current) async -> Bool {
         ((try? await ScheduleQuery.courses(on: day, studentId: studentId, database: database, unifiedUsername: unifiedUsername, calendar: calendar)) ?? []).isEmpty == false
     }
 }

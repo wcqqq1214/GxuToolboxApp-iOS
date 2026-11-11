@@ -44,7 +44,7 @@ public struct AttendanceView: View {
             .navigationBarTitleDisplayMode(.inline)
             .gxuHidesTabChrome()
             .task { await model.resolveContext() }
-            .task(id: LoadKey(mode: model.mode, selection: model.selection, week: model.week, ready: model.isReady)) { await model.load() }
+            .task(id: LoadKey(mode: model.mode, selection: model.selection, week: model.week, ready: model.hasResolvedTermContext)) { await model.load() }
             .refreshable { await model.load() }
         }
 

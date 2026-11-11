@@ -56,7 +56,7 @@ USAGE
   shift
 done
 errors=()
-fail() { errors+=("$1"); }
+record_error() { errors+=("$1"); }
 mask() { local t="$1"; printf '%s' "${t:0:2}********"; }
 
 if [ "$SELF_TEST" = 1 ]; then
@@ -88,12 +88,12 @@ file_value() {
   sed -n "s/^ *$1 *= *\"\{0,1\}\([A-Za-z0-9._-]*\)\"\{0,1\} *\(#.*\)\{0,1\}$/\1/p" .secrets/archive.env | tail -1
 }
 
-command -v xcodegen >/dev/null || fail "找不到 xcodegen（brew install xcodegen）"
-xcrun --find devicectl >/dev/null 2>&1 || fail "找不到 devicectl：请安装 Xcode 15 或更新版本"
+command -v xcodegen >/dev/null || record_error "找不到 xcodegen（brew install xcodegen）"
+xcrun --find devicectl >/dev/null 2>&1 || record_error "找不到 devicectl：请安装 Xcode 15 或更新版本"
 
 BUNDLE_ID="${BUNDLE_ID:-$(file_value BUNDLE_ID)}"; BUNDLE_ID="${BUNDLE_ID:-com.gxutool.ios}"
 if ! [[ "$BUNDLE_ID" =~ ^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$ ]]; then
-  fail "BUNDLE_ID 格式不对：应为反向域名，例如 com.alice.gxutool，现在是「${BUNDLE_ID}」"
+  record_error "BUNDLE_ID 格式不对：应为反向域名，例如 com.alice.gxutool，现在是「${BUNDLE_ID}」"
 fi
 
 TEAM="${DEVELOPMENT_TEAM:-$(file_value DEVELOPMENT_TEAM)}"
@@ -103,22 +103,22 @@ if [ -z "$TEAM" ] && [ "$PERSONAL" = 1 ]; then
   COUNT="$(printf '%s' "$CANDIDATES" | grep -c . || true)"
   FREE_COUNT="$(printf '%s' "$CANDIDATES" | awk -F'\t' '$2=="free"' | grep -c . || true)"
   if [ "$COUNT" -eq 0 ]; then
-    fail "没有从 Xcode 账号或钥匙串里找到 Apple 开发团队。请：① 打开 Xcode → Settings → Accounts，用 Apple ID 登录；② 在 Xcode 里随便新建一个 iOS 项目，Signing 里选你的 Personal Team，连着手机运行一次（会生成 Apple Development 证书）；③ 再运行本脚本。也可以直接设置 DEVELOPMENT_TEAM=<10 位 Team ID>"
+    record_error "没有从 Xcode 账号或钥匙串里找到 Apple 开发团队。请：① 打开 Xcode → Settings → Accounts，用 Apple ID 登录；② 在 Xcode 里随便新建一个 iOS 项目，Signing 里选你的 Personal Team，连着手机运行一次（会生成 Apple Development 证书）；③ 再运行本脚本。也可以直接设置 DEVELOPMENT_TEAM=<10 位 Team ID>"
   elif [ "$FREE_COUNT" -eq 1 ]; then
     TEAM="$(printf '%s' "$CANDIDATES" | awk -F'\t' '$2=="free"{print $1}')"; TEAM_NOTE="（自动检测：免费个人团队）"
   elif [ "$COUNT" -eq 1 ]; then
     TEAM="$(printf '%s' "$CANDIDATES" | cut -f1)"; TEAM_NOTE="（自动检测：唯一的团队）"
   else
     LIST="$(printf '%s\n' "$CANDIDATES" | while IFS=$'\t' read -r id kind src; do printf '%s[%s] ' "$(mask "$id")" "$kind"; done)"
-    fail "找到多个团队：${LIST}。请用 DEVELOPMENT_TEAM=<完整 Team ID> 指定一个（完整 ID 在 Xcode → Settings → Accounts → 选中团队，或 developer.apple.com → Membership）"
+    record_error "找到多个团队：${LIST}。请用 DEVELOPMENT_TEAM=<完整 Team ID> 指定一个（完整 ID 在 Xcode → Settings → Accounts → 选中团队，或 developer.apple.com → Membership）"
   fi
 fi
 if [ -z "$TEAM" ]; then
   if [ "$PERSONAL" != 1 ]; then
-    fail "还没有填写 Apple Developer Team ID。请设置环境变量 DEVELOPMENT_TEAM=<10 位 Team ID>，或写进 .secrets/archive.env（可以从 .secrets/archive.env.example 复制）。Team ID 在 developer.apple.com → Membership 里查看；只有免费账号请加 --personal 让脚本自动检测。真实 Team ID 不会写进 git。"
+    record_error "还没有填写 Apple Developer Team ID。请设置环境变量 DEVELOPMENT_TEAM=<10 位 Team ID>，或写进 .secrets/archive.env（可以从 .secrets/archive.env.example 复制）。Team ID 在 developer.apple.com → Membership 里查看；只有免费账号请加 --personal 让脚本自动检测。真实 Team ID 不会写进 git。"
   fi
 elif ! [[ "$TEAM" =~ ^[A-Z0-9]{10}$ ]]; then
-  fail "Team ID 格式不对：应为 10 位大写字母或数字（长度 ${#TEAM}）"
+  record_error "Team ID 格式不对：应为 10 位大写字母或数字（长度 ${#TEAM}）"
 fi
 
 DEVICES_JSON="$(mktemp)"; trap 'rm -f "$DEVICES_JSON"' EXIT
@@ -164,7 +164,7 @@ for d in devices:
 PY
 )"
   else
-    fail "devicectl list devices 失败（Xcode 命令行工具异常？）"
+    record_error "devicectl list devices 失败（Xcode 命令行工具异常？）"
   fi
 fi
 DEVICE_LINES="$(printf '%s\n' "$ALL_LINES" | awk -F'\t' '$5=="connected"')"
@@ -174,20 +174,20 @@ if [ "$IPA" = 1 ]; then
   :
 elif [ -z "$DEVICE_LINES" ]; then
   if [ -n "$OFFLINE_NAMES" ]; then
-    fail "设备已配对但现在是离线状态：${OFFLINE_NAMES}。请解锁手机、点「信任」、换一根数据线 / 接口；Xcode → Window → Devices and Simulators 里应该显示 Connected（第一次连接要等 Xcode 处理完「准备设备」）；无线连接的设备要在同一个 Wi-Fi"
+    record_error "设备已配对但现在是离线状态：${OFFLINE_NAMES}。请解锁手机、点「信任」、换一根数据线 / 接口；Xcode → Window → Devices and Simulators 里应该显示 Connected（第一次连接要等 Xcode 处理完「准备设备」）；无线连接的设备要在同一个 Wi-Fi"
   else
-    fail "没有找到已连接的 iPhone：请用数据线连接、解锁、信任此电脑，并在「设置 → 隐私与安全性」里开启开发者模式"
+    record_error "没有找到已连接的 iPhone：请用数据线连接、解锁、信任此电脑，并在「设置 → 隐私与安全性」里开启开发者模式"
   fi
 else
   COUNT="$(printf '%s\n' "$DEVICE_LINES" | wc -l | tr -d ' ')"
   LINE=""
   if [ -n "$WANT_DEVICE" ]; then
     LINE="$(printf '%s\n' "$DEVICE_LINES" | awk -F'\t' -v w="$WANT_DEVICE" '$1==w || $2==w {print; exit}')"
-    [ -n "$LINE" ] || fail "没有名为或 UDID 为「${WANT_DEVICE}」的已连接设备。已连接：$(printf '%s\n' "$DEVICE_LINES" | awk -F'\t' '{printf "%s(%s) ", $2, $1}')"
+    [ -n "$LINE" ] || record_error "没有名为或 UDID 为「${WANT_DEVICE}」的已连接设备。已连接：$(printf '%s\n' "$DEVICE_LINES" | awk -F'\t' '{printf "%s(%s) ", $2, $1}')"
   elif [ "$COUNT" -eq 1 ]; then
     LINE="$DEVICE_LINES"
   else
-    fail "有 ${COUNT} 台设备，请用 --device 指定：$(printf '%s\n' "$DEVICE_LINES" | awk -F'\t' '{printf "%s(%s) ", $2, $1}')"
+    record_error "有 ${COUNT} 台设备，请用 --device 指定：$(printf '%s\n' "$DEVICE_LINES" | awk -F'\t' '{printf "%s(%s) ", $2, $1}')"
   fi
   if [ -n "$LINE" ]; then CHOSEN_UDID="$(printf '%s' "$LINE" | cut -f1)"; CHOSEN_NAME="$(printf '%s' "$LINE" | cut -f2)"; fi
 fi

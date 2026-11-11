@@ -88,9 +88,9 @@ struct AuthTests {
         #expect(!jw.hasSessionCookie())
     }
 
-    @Test func ensureAuthenticatedWithoutAccountThrows() async {
+    @Test func requiringAuthenticatedStateWithoutAccountThrows() async {
         let (center, _, _) = makeCenter(host: makeHost())
-        await #expect(throws: GxuError.notLoggedIn(.jw)) { try await center.ensureAuthenticated(.jw) }
+        await #expect(throws: GxuError.notLoggedIn(.jw)) { try await center.requireAuthenticatedState(.jw) }
     }
 
     @Test func accountWithoutCookieStartsAuthenticatedAndRenewsSilently() async throws {
@@ -103,7 +103,7 @@ struct AuthTests {
         for _ in 0..<50 where !jw.hasSessionCookie() { try await Task.sleep(for: .milliseconds(50)) }
         #expect(jw.hasSessionCookie())
         #expect(center.states[.jw] == .authenticated)
-        try await center.ensureAuthenticated(.jw)
+        try await center.requireAuthenticatedState(.jw)
     }
 
     @Test func concurrentRenewalsShareOneLogin() async throws {

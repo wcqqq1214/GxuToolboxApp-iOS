@@ -21,7 +21,7 @@ struct HomeRaceTests {
         _ = try await repository.refreshStartDays()
         _ = try await repository.refreshSchedule(studentId: "review-student-A", term: term.academicTerm)
         let model = HomeModel()
-        await model.reload(services: services)
+        await model.reloadFromCache(services: services)
         #expect(model.phase == .ready)
 
         let release = DispatchSemaphore(value: 0)
@@ -38,12 +38,12 @@ struct HomeRaceTests {
         let (started, reloadStarted) = AsyncStream<Void>.makeStream()
         let staleReload = Task {
             reloadStarted.yield(())
-            await model.reload(services: services)
+            await model.reloadFromCache(services: services)
         }
         var starts = started.makeAsyncIterator()
         _ = await starts.next()
         await services.accounts.logout(.jw)
-        await model.reload(services: services)
+        await model.reloadFromCache(services: services)
         #expect(model.phase == .needsLogin)
         release.signal()
         try await blocker.value

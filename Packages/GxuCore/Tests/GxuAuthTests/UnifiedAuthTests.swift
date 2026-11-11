@@ -169,19 +169,19 @@ struct UnifiedAuthTests {
         }
     }
 
-    @Test func loginSucceedsWhenTheTokenCheckNeedsToFollowRedirects() async throws {
+    @Test func loginSucceedsWhenTheSessionCheckFollowsRedirects() async throws {
         registerCAFlow()
         try await makeSession().login(username: "2025001", password: "pw")
     }
 
-    @Test func testTokenFollowsTheCASRedirectChain() async throws {
+    @Test func sessionCheckFollowsTheCASRedirectChain() async throws {
         registerCAFlow()
-        #expect(try await makeSession().testToken())
+        #expect(try await makeSession().checkSessionAccess())
     }
 
-    @Test func tokenCheckLandingOnTheLoginPageMeansNotLoggedIn() async throws {
+    @Test func sessionCheckRejectsLandingOnTheLoginPage() async throws {
         registerCAFlow(tokenCheckWorks: false)
-        #expect(try await makeSession().testToken() == false)
+        #expect(try await makeSession().checkSessionAccess() == false)
         do { try await makeSession().login(username: "2025001", password: "pw"); Issue.record("应该失败") } catch {
             let message = (error as? GxuError)?.userMessage ?? ""
             #expect(message.contains("校验接口"))
@@ -267,7 +267,7 @@ struct UnifiedAuthTests {
     }
 
     @MainActor
-    @Test func lateServiceRejectionDoesNotSignOutReplacementAccount() async throws {
+    @Test func lateServiceRejectionKeepsReplacementAccountAuthenticated() async throws {
         defer { DeferredUnifiedRejection.release() }
         StubURLProtocol.register(host: "ca.gxu.edu.cn") { request in
             let path = request.url!.path
@@ -295,20 +295,20 @@ struct UnifiedAuthTests {
         #expect(accounts.states[.unified] == .authenticated)
     }
 
-    @Test func tokenCheckAcceptsAJSONArrayLikeTheRealResponse() async throws {
+    @Test func sessionCheckAcceptsAJSONArrayLikeTheRealResponse() async throws {
         tokenCheckBody.value = TokenCheckBody.realShape
         registerCAFlow()
         try await makeSession().login(username: "2025001", password: "pw")
     }
 
-    @Test func tokenCheckAcceptsAJSONObjectToo() async throws {
+    @Test func sessionCheckAcceptsAJSONObjectToo() async throws {
         defer { tokenCheckBody.value = TokenCheckBody.realShape }
         tokenCheckBody.value = #"{"apps":[]}"#
         registerCAFlow()
-        #expect(try await makeSession().testToken())
+        #expect(try await makeSession().checkSessionAccess())
     }
 
-    @Test func tokenCheckStillRejectsHTMLAndScalars() {
+    @Test func sessionCheckRejectsHTMLAndScalars() {
         #expect(UnifiedAuthSession.isJSONContainer(Data("[]".utf8)))
         #expect(UnifiedAuthSession.isJSONContainer(Data("{}".utf8)))
         #expect(UnifiedAuthSession.isJSONContainer(Data(#"[{"a":1}]"#.utf8)))

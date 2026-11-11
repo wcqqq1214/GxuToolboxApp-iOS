@@ -24,8 +24,8 @@ final class ScoreViewModel {
     private(set) var scores: [Score] = []
     private(set) var lastSyncedAt: Date?
     private(set) var isLoading = false
-    private(set) var isReady = false
-    private var hasContext = false
+    private(set) var isQueryReady = false
+    private var hasStartedResolvingTermContext = false
     private(set) var years = TermOptions.years(enrollmentYear: nil)
     private(set) var error: GxuError?
     private(set) var usual: [String: UsualScoreState] = [:]
@@ -40,7 +40,7 @@ final class ScoreViewModel {
     init(services: AppServices, query: Query? = nil, pendingSource: (any PendingCourseSource)? = nil) {
         self.services = services
         self.pendingSource = pendingSource
-        self.isReady = query != nil
+        self.isQueryReady = query != nil
         self.api = ScoreAPI(backend: services.backend)
         self.repo = ExamRepository(database: services.database)
         self.accounts = services.accounts
@@ -49,18 +49,18 @@ final class ScoreViewModel {
     }
 
     func resolveInitialTerm() async {
-        guard !hasContext else { return }
-        hasContext = true
+        guard !hasStartedResolvingTermContext else { return }
+        hasStartedResolvingTermContext = true
         let context = await resolveTermContext(services: services)
         years = context.years
-        if !isReady {
+        if !isQueryReady {
             query = Query(year: context.term.year, term: context.term.term)
-            isReady = true
+            isQueryReady = true
         }
     }
 
     func load() async {
-        guard isReady else { return }
+        guard isQueryReady else { return }
         guard let studentId = accounts.studentId else {
             error = .notLoggedIn(.jw)
             return

@@ -55,7 +55,7 @@ private func at(_ s: String) -> Date {
         let intent = try await ScheduleQuery.courses(on: day, studentId: "s1", database: db, calendar: cal)
         #expect(intent.map(\.name) == ["BBB", "CUSTOM"])
         #expect(ScheduleQuery.describe(dayName: "今天", courses: intent).hasPrefix("今天有 2 节课"))
-        #expect(await SnapshotProvider.hadClasses(on: day, studentId: "s1", database: db, calendar: cal))
+        #expect(await SnapshotProvider.hasScheduledClasses(on: day, studentId: "s1", database: db, calendar: cal))
         let other = await SnapshotProvider.compute(studentId: "s2", database: db, now: day, calendar: cal)
         #expect(other.state == .missingSchedule)
     }

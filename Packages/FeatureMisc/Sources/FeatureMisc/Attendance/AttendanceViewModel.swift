@@ -23,7 +23,7 @@ final class AttendanceViewModel {
     private(set) var isLoading = false
     private(set) var error: GxuError?
     private(set) var access: Access = .ok
-    var isReady = false
+    var hasResolvedTermContext = false
 
     private var startDays: [TermStartDay] = []
     private var loadVersion = 0
@@ -42,13 +42,13 @@ final class AttendanceViewModel {
     }
 
     func resolveContext() async {
-        guard !isReady else { return }
+        guard !hasResolvedTermContext else { return }
         let context = await resolveTermContext(services: services)
         years = context.years
         startDays = (try? await ScheduleRepository(backend: services.backend, database: services.database).cachedStartDays()) ?? []
         selection = Selection(year: context.term.year, term: context.term.term)
         week = AttendanceWeek.initial(year: selection.year, term: selection.term, startDays: startDays)
-        isReady = true
+        hasResolvedTermContext = true
     }
 
     var summary: AttendanceSummary { AttendanceSummary(records) }
@@ -79,7 +79,7 @@ final class AttendanceViewModel {
     }
 
     func load() async {
-        guard isReady, checkAccess() else { return }
+        guard hasResolvedTermContext, checkAccess() else { return }
         error = nil
         loadVersion += 1
         let version = loadVersion

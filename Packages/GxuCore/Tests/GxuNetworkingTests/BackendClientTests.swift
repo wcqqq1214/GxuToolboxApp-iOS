@@ -87,15 +87,15 @@ struct BackendClientTests {
 
     @Test func redirectToLoginIsExpiry() {
         let url = URL(string: "http://x.test/a")!
-        #expect(SessionExpiry.isExpired(response(url, status: 302, headers: ["Location": "https://jw/xtgl/login_slogin.html"]), data: Data()))
-        #expect(!SessionExpiry.isExpired(response(url, status: 302, headers: ["Location": "/other"]), data: Data()))
+        #expect(SessionExpiry.isIndicatedBy(response(url, status: 302, headers: ["Location": "https://jw/xtgl/login_slogin.html"]), data: Data()))
+        #expect(!SessionExpiry.isIndicatedBy(response(url, status: 302, headers: ["Location": "/other"]), data: Data()))
     }
 
     @Test func loginHtmlIsExpiry() {
         let url = URL(string: "http://x.test/a")!
         let html = Data("<html><title>用户登录</title></html>".utf8)
-        #expect(SessionExpiry.isExpired(response(url, headers: ["Content-Type": "text/html"]), data: html))
-        #expect(!SessionExpiry.isExpired(response(url, headers: ["Content-Type": "application/json"]), data: html))
+        #expect(SessionExpiry.isIndicatedBy(response(url, headers: ["Content-Type": "text/html"]), data: html))
+        #expect(!SessionExpiry.isIndicatedBy(response(url, headers: ["Content-Type": "application/json"]), data: html))
     }
 }
 

@@ -70,7 +70,7 @@ public struct ScheduleRootView: View {
             if !Task.isCancelled { await model.refreshExamLayer() }
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { Task { await model.refreshIfStale(); await model.refreshExamLayer() } }
+            if phase == .active { Task { await model.refreshIfDue(); await model.refreshExamLayer() } }
         }
         .onAppear {
             model.palette = preferences.value.palette

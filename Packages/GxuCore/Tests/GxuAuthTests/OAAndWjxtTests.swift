@@ -147,7 +147,7 @@ struct OASessionTests {
         await settle()
         #expect(rejected.states[.oa] == .needsRelogin)
         #expect(rejected.states[.oa]?.displayText == "需要重新登录")
-        await #expect(throws: GxuError.sessionExpired(.oa)) { try await rejected.ensureAuthenticated(.oa) }
+        await #expect(throws: GxuError.sessionExpired(.oa)) { try await rejected.requireAuthenticatedState(.oa) }
         await rejected.logout(.oa)
         #expect(rejected.states[.oa] == .noAccount)
     }

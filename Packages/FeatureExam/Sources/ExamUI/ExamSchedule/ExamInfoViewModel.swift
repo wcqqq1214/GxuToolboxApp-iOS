@@ -11,9 +11,9 @@ func asGxuError(_ error: Error) -> GxuError {
 @MainActor @Observable
 final class ExamInfoViewModel {
     var term: AcademicTerm
-    private(set) var sections = ExamSections(upcoming: [], past: [])
+    private(set) var sections = ExamSections(notPast: [], past: [])
     private(set) var isLoading = false
-    private(set) var isReady = false
+    private(set) var hasResolvedInitialTerm = false
     private(set) var years = TermOptions.years(enrollmentYear: nil)
     private(set) var error: GxuError?
 
@@ -30,19 +30,19 @@ final class ExamInfoViewModel {
         self.term = term
     }
 
-    var totalCount: Int { sections.upcoming.count + sections.past.count }
+    var totalCount: Int { sections.notPast.count + sections.past.count }
     var hasData: Bool { totalCount > 0 }
 
     func resolveInitialTerm() async {
-        guard !isReady else { return }
+        guard !hasResolvedInitialTerm else { return }
         let context = await resolveTermContext(services: services)
         term = context.term
         years = context.years
-        isReady = true
+        hasResolvedInitialTerm = true
     }
 
     func load() async {
-        guard isReady else { return }
+        guard hasResolvedInitialTerm else { return }
         guard let studentId = accounts.studentId else {
             error = .notLoggedIn(.jw)
             return
