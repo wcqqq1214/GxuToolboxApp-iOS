@@ -1,7 +1,6 @@
 import FeatureAccount
 import SwiftUI
 
-/// 教务原站提供个人课表与班级课表，用户可以将当前页面保存为 HTML。
 struct JwScheduleExportView: View {
     private enum Tab: String, CaseIterable {
         case personal = "个人课表"

@@ -7,7 +7,6 @@ import Synchronization
 import Testing
 @testable import GxuAuth
 
-/// 对抗审查（第 1 轮）里被证实的问题的回归测试。每个测试在修复前都会失败。
 struct RedactionRegressionTests {
     @Test func commonSecretFormatsAreMasked() {
         let cases: [(input: String, secret: String)] = [
@@ -36,7 +35,7 @@ struct QueryEncodingRegressionTests {
     @Test func plusAndReservedCharactersAreEncoded() {
         #expect(QueryString.encode(["q": "C++ a&b=c/d"]) == "q=C%2B%2B%20a%26b%3Dc%2Fd")
         #expect(QueryString.encode(["q": "王"]) == "q=%E7%8E%8B")
-        #expect(QueryString.encode(["b": "2", "a": "1"]) == "a=1&b=2")   // 稳定顺序
+        #expect(QueryString.encode(["b": "2", "a": "1"]) == "a=1&b=2")
     }
 
     @Test func backendClientSendsEncodedPlus() async throws {
@@ -91,6 +90,6 @@ struct ProfileOverflowRegressionTests {
         await #expect(throws: GxuError.invalidData("用户资料中的入学年份或学制异常")) { try await repo.load(studentId: "1") }
         backend.stub("POST /jw/profile", json: #"{"code":200,"data":{"student_id":"1","name":"n","grade":"2022","study_years":"999999"}}"#)
         await #expect(throws: GxuError.invalidData("用户资料中的入学年份或学制异常")) { try await repo.load(studentId: "1") }
-        #expect(repo.cached(studentId: "1") == nil)   // 异常数据不能写进缓存
+        #expect(repo.cached(studentId: "1") == nil)
     }
 }

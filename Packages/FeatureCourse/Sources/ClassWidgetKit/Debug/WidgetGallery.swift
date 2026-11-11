@@ -5,9 +5,6 @@ import ScheduleKit
 import SwiftUI
 import WidgetKit
 
-/// DEBUG 设计自查：把小组件和 Live Activity 视图按真实点尺寸渲染成 PNG。
-/// 启动参数 `-GxuWidgetGallery <输出目录>`。系统的 accented 合成（染色、去色）无法在进程内复现，
-/// 这里的 accented 图是去色近似，只用来检查层级和对比；真实效果要在设备上确认。
 @MainActor
 enum WidgetGallery {
     static func outputDirectory() -> URL? {
@@ -73,7 +70,6 @@ enum WidgetGallery {
         }
     }
 
-    // MARK: Live Activity / 灵动岛
 
     private static func state(startOffset: TimeInterval, length: TimeInterval = 100 * 60, following: Bool = true) -> ClassActivityAttributes.ContentState {
         let now = Date.now
@@ -96,7 +92,6 @@ enum WidgetGallery {
                 save(view, "activity-lock-\(label)-\(scheme == .dark ? "dark" : "light")", directory)
             }
         }
-        // 灵动岛始终是黑底
         for (label, st) in [("during", during), ("before", before)] {
             save(island(compact: st), "island-compact-\(label)", directory)
             save(island(minimal: st), "island-minimal-\(label)", directory)

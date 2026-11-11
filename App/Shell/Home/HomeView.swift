@@ -4,7 +4,6 @@ import GxuDesign
 import ScheduleKit
 import SwiftUI
 
-/// 首页：今天的课、下一节课、临近的考试、明天预览。用系统的分组列表，卡片内容不用玻璃。
 struct HomeView: View {
     let model: HomeModel
     let onRequestLogin: () -> Void
@@ -49,17 +48,12 @@ private struct HomeList: View {
 
     private var plan: TodayPlan { snapshot.todayPlan(now: now) }
     private var event: HomeEvent? { HomeEvent.pick(snapshot: snapshot, exams: model.exams, now: now) }
-    /// “接下来”卡片只在学期内显示（学期结束 / 未开学时不显示），所以只有真的显示了才从“近期考试”里去重，
-    /// 否则这场考试在首页上就哪里都看不到
     private var shownEvent: HomeEvent? { plan.phase == .inTerm ? event : nil }
-    /// 正在上或还没上的课
     private var remaining: [CourseOccurrence] { plan.courses.filter { plan.status(of: $0, now: now) != .finished } }
     private var finished: [CourseOccurrence] { plan.courses.filter { plan.status(of: $0, now: now) == .finished } }
 
-    /// 今日课程：没上完的直接列出；上完的折叠起来，全部结束时给一句明确的状态
     @ViewBuilder
     private var todaySection: some View {
-        // 放假 / 调休休息日已经有“今天放假…”的提示，不再重复一张“今天没有课”
         if !(plan.courses.isEmpty && plan.note != nil) { todayCoursesSection }
     }
 
@@ -87,8 +81,6 @@ private struct HomeList: View {
 
     var body: some View {
         List {
-            // 日期行和大标题、卡片共用 A 线（左边缘）。放在分组标题里而不是列表行里：
-            // 列表行的圆角容器会把贴着左边缘的文字裁掉第一个字；分组标题没有这个问题，系统默认缩进到 B 线，这里往回挪一个 cardInset
             Section {} header: {
                 DateHeader(plan: plan, termCalendar: snapshot.termCalendar)
                     .padding(.leading, -GxuDesign.Layout.cardInset)
@@ -119,7 +111,6 @@ private struct HomeList: View {
                 }
             }
 
-            // 已经在“接下来”里展示的那场考试不再重复
             let otherExams = model.exams.filter { exam in
                 guard let end = exam.endsAt, now < end else { return false }
                 if case .exam(let shown, _) = shownEvent { return shown.id != exam.id }
@@ -142,7 +133,6 @@ private struct HomeList: View {
     }
 }
 
-// MARK: 各区块
 
 private struct DateHeader: View {
     let plan: TodayPlan
@@ -201,7 +191,6 @@ private struct StatusRow: View {
     }
 }
 
-/// 正在上的课 / 下一节课 / 临近考试的大卡片
 private struct EventCard: View {
     let event: HomeEvent
     let now: Date
@@ -241,7 +230,6 @@ private struct EventCard: View {
         }
     }
 
-    /// 右上角：“什么时候”，只在这里说一次
     private var trailing: String {
         switch event {
         case .course(let item, true, _): RelativeTime.remaining(until: item.endsAt, now: now)
@@ -261,7 +249,6 @@ private struct EventCard: View {
 
     private var detail: String? {
         switch event {
-        // 右上角如果已经写了具体时刻（“明天 08:00”），这里就不再写时间；同一张卡片里同一个信息只出现一次
         case .course(let item, _, _):
             [item.sectionText, RelativeTime.showsClock(in: trailing) ? "" : item.timeRangeText, item.course.locationText, item.course.teacher]
                 .filter { !$0.isEmpty }.joined(separator: " · ")

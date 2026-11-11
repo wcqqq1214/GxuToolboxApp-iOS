@@ -41,7 +41,6 @@ private func snapshot(now: String, today: [WidgetCourse], tomorrow: [WidgetCours
 
     @Test func inClassAndBoundaries() {
         let snap = snapshot(now: "2026-11-05 07:00", today: [math, phys, net], tomorrow: [tmr])
-        // 开始时刻算上课中；结束时刻算已下课
         #expect(ScheduleTimeline.entry(at: at("2026-11-05 08:00"), snapshot: snap, calendar: cal).current?.name == "高等数学")
         let atEnd = ScheduleTimeline.entry(at: at("2026-11-05 09:40"), snapshot: snap, calendar: cal)
         #expect(atEnd.current == nil)
@@ -163,7 +162,6 @@ private func snapshot(now: String, today: [WidgetCourse], tomorrow: [WidgetCours
     }
 
     @Test func coursesOnDayFiltersByDate() {
-        // 第 1 周周一 = 2026-11-02
         let term = TermCalendar(startDate: at("2026-11-02 00:00"), weekCount: 18, calendar: cal)
         let schedule = Schedule(theoryList: [
             TheoryCourse(venueName: "A1", sectionRange: "1-2", begin: 1, end: 2, courseName: "周一课", weeks: [1, 2], weekday: 1),
@@ -180,20 +178,18 @@ private func snapshot(now: String, today: [WidgetCourse], tomorrow: [WidgetCours
     private func snapshotAfterLastClass() -> NextCourses {
         let term = TermCalendar(startDate: at("2026-11-02 00:00"), weekCount: 20, calendar: cal)
         let schedule = Schedule(theoryList: [TheoryCourse(sectionRange: "1-2", begin: 1, end: 2, courseName: "高数", weeks: [1], weekday: 4)])
-        // 11:00 刷新：08:00–09:40 的课已经结束，快照的 today 为空
         return NextCourseCalculator.compute(schedule: schedule, term: term, now: at("2026-11-05 11:00"))
     }
 
     @Test func withoutHintFinishedDayLooksEmpty() {
         let e = ScheduleTimeline.entry(at: at("2026-11-05 12:00"), snapshot: snapshotAfterLastClass(), calendar: cal)
-        #expect(e.phase == .finished && !e.hadClassesToday)   // 快照本身丢了信息
+        #expect(e.phase == .finished && !e.hadClassesToday)
     }
 
     @Test func hintKeepsTodayClassesAfterRefreshFollowingLastClass() {
         let day = cal.startOfDay(for: at("2026-11-05 11:00"))
         let e = ScheduleTimeline.entry(at: at("2026-11-05 12:00"), snapshot: snapshotAfterLastClass(), calendar: cal, hadClassesOn: day)
         #expect(e.hadClassesToday)
-        // 提示只对那一天有效，第二天不能沿用
         let next = ScheduleTimeline.entry(at: at("2026-11-06 09:00"), snapshot: snapshotAfterLastClass(), calendar: cal, hadClassesOn: day)
         #expect(!next.hadClassesToday)
         let (entries, _) = ScheduleTimeline.entries(snapshot: snapshotAfterLastClass(), now: at("2026-11-05 12:00"), calendar: cal, hadClassesOn: day)

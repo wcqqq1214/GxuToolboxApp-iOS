@@ -4,7 +4,6 @@ import GxuFoundation
 import Observation
 import ScheduleKit
 
-/// 班级课表 / 全校课表共用：可查询的学期和各学期的周历（周网格需要开学日）
 @MainActor @Observable
 final class CampusContext {
     private(set) var terms: [AcademicTerm] = []
@@ -25,7 +24,6 @@ final class CampusContext {
         }
         var calendars: [AcademicTerm: TermCalendar] = [:]
         for day in startDays {
-            // 后端只接受逻辑学期 1 / 2
             if day.academicTerm.isBackendQueryable, let calendar = TermCalendar(day) { calendars[day.academicTerm] = calendar }
         }
         self.calendars = calendars
@@ -33,7 +31,6 @@ final class CampusContext {
         let current = TermResolver.current(in: startDays, now: .now)?.academicTerm
         defaultTerm = current.flatMap { calendars[$0] != nil ? $0 : nil } ?? terms.first
         #if DEBUG
-        // 截图自查：`-GxuCampusYear 2025` 默认选这一学年的第 1 学期
         let args = CommandLine.arguments
         if let i = args.firstIndex(of: "-GxuCampusYear"), i + 1 < args.count, let year = Int(args[i + 1]) {
             defaultTerm = terms.first { $0.year == year && $0.term == 1 } ?? defaultTerm
@@ -43,11 +40,9 @@ final class CampusContext {
     }
 }
 
-/// 班级课表的内存缓存（一次 App 运行内有效）。全校课表要查几百个班，翻回来看同一个班时不重复请求。
 actor ClassScheduleCache {
     static let shared = ClassScheduleCache()
     private var store: [String: Schedule] = [:]
-    /// 正在请求中的 key：同一个班级被并发请求（例如上一轮扫描还没取消完、新一轮已经开始）时共用一个请求
     private var inFlight: [String: Task<Schedule, Error>] = [:]
 
     func schedule(term: AcademicTerm, of info: ClassInfo, api: CampusAPI) async throws -> Schedule {

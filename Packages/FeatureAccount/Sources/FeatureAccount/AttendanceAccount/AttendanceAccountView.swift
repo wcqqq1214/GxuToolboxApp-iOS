@@ -1,7 +1,6 @@
 import GxuAuth
 import SwiftUI
 
-/// 设置 → 考勤账号
 public struct AttendanceAccountView: View {
     @Environment(\.services) private var services
 

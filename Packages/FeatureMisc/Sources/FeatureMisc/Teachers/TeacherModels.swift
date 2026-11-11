@@ -2,8 +2,6 @@ import Foundation
 import GxuFoundation
 import GxuNetworking
 
-// 教师信息：后端 `GET /teachers/search?q=&page=`、`GET /teachers/profile?name=&school=`（`{code, data, message}`，`getData` 解掉外层）。
-// 已用真实脱敏响应核对（`Fixtures/sanitized/teachers-*.json`，测试见 `TeacherRealFixtureTests`）；真实响应里空字段是 "" 不是 null，解码对缺字段也宽容。
 
 public enum TeacherAvatarURL {
     public static func url(_ text: String) -> URL? {
@@ -22,12 +20,8 @@ public struct TeacherSummary: Decodable, Sendable, Hashable, Identifiable {
     public var unit: String
     public var picURL: String
 
-    /// 头像地址：后端给的是 `http://prof.gxu.edu.cn/teacher-info/user-images/…`。真机上明文 http 会被 ATS 拦掉，
-    /// 而该站点同路径的 https 能取到同一张图（已用只读请求确认，不需要 Referer 等请求头）：gxu.edu.cn 的 http 地址升级成 https。
-    /// 空串 / 无法解析时为 nil，界面用姓名占位
     public var avatarURL: URL? { TeacherAvatarURL.url(picURL) }
 
-    /// 学校领导没有搜索结果项：用 RN 同样的查询方式——单位写"校领导"（搜索这些人时后端返回的 `unit`）去查详情
     public static func leader(_ leader: SchoolLeader) -> TeacherSummary {
         TeacherSummary(id: leader.id, name: leader.name, unit: SchoolLeaders.unit, picURL: leader.photoURL?.absoluteString ?? "")
     }
@@ -80,7 +74,6 @@ public struct TeacherDetail: Decodable, Sendable, Hashable {
 
     public struct Base: Decodable, Sendable, Hashable {
         public var name = "", sex = "", pic = "", politicalAffiliation = "", title = "", position = "", highestEducation = "", highestDegree = ""
-        /// 毫秒时间戳；没有为 nil
         public var updatedAt: Int64?
         public var telephone = "", postalCode = "", email = "", qq = "", wechat = "", address = "", supervisor = ""
         public var disciplines: [Discipline] = []
@@ -139,19 +132,15 @@ public struct TeacherDetail: Decodable, Sendable, Hashable {
     }
 }
 
-/// 详情页的「标题 + 文本」分组。**没有值的行和分组整行不显示**（不写"暂无信息"、不留空标题）。
 public struct TeacherSection: Equatable, Sendable, Identifiable {
     public var id: String
     public var title: String
     public var text: String
 }
 
-/// 详情页头部：头像之外的文字信息，同样只含有值的项
 public struct TeacherHeader: Equatable, Sendable {
     public var name: String
-    /// 职称、工号
     public var badges: [String]
-    /// 性别、政治面貌、职务
     public var infoLine: [String]
     public var address: String
     public var updatedAt: String
@@ -177,7 +166,6 @@ public struct TeacherHeader: Equatable, Sendable {
 }
 
 extension Calendar {
-    /// 公历（同时区）：设备日历为佛历 / 农历时，年份不能直接显示
     var gregorianLike: Calendar {
         if identifier == .gregorian { return self }
         var c = Calendar(identifier: .gregorian); c.timeZone = timeZone; c.locale = locale; return c
@@ -224,7 +212,6 @@ public struct TeacherAPI: Sendable {
         try await backend.getData("/teachers/search", query: ["q": keyword, "page": String(page)], auth: nil, as: TeacherSearchPage.self)
     }
 
-    /// `data` 为 null 返回 nil（"暂无教师信息"）
     func profile(name: String, unit: String) async throws -> TeacherDetail? {
         try await backend.getData("/teachers/profile", query: ["name": name, "school": unit], auth: nil, as: TeacherDetail?.self)
     }

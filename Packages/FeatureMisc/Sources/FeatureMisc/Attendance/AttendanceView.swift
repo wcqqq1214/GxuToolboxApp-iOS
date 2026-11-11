@@ -55,7 +55,6 @@ public struct AttendanceView: View {
             var ready: Bool
         }
 
-        // MARK: 需要登录
 
         @ViewBuilder
         private var needsLogin: some View {
@@ -70,7 +69,6 @@ public struct AttendanceView: View {
             }
         }
 
-        // MARK: 记录
 
         @ViewBuilder
         private var records: some View {
@@ -108,7 +106,6 @@ public struct AttendanceView: View {
             }
         }
 
-        // MARK: 课表
 
         @ViewBuilder
         private var schedule: some View {
@@ -140,7 +137,6 @@ public struct AttendanceView: View {
     }
 }
 
-/// 学年 + 学期（和考试 / 成绩页同样的一行，点开是菜单）
 private struct TermRow: View {
     @Bindable var model: AttendanceViewModel
 
@@ -196,7 +192,7 @@ private struct RecordRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: record.state.symbol).foregroundStyle(record.state.tint).font(.title3)
-                .accessibilityHidden(true)   // 右侧有文字状态
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(record.courseName).font(.headline)
                 Text([record.periodText, record.roomName].filter { !$0.isEmpty }.joined(separator: " · "))

@@ -10,11 +10,9 @@ final class OAFilesModel {
     private(set) var error: GxuError?
     private(set) var hasMore = false
     var typeId = 0
-    /// 已提交的搜索词（提交搜索后才请求，避免每敲一个字就请求）
     var keyword = ""
 
     private var page = 1
-    /// 每次 reload 加一：慢的旧请求回来时发现代数变了就丢弃，避免覆盖新筛选 / 新搜索的结果，也避免页码被旧请求推进
     private var generation = 0
     private let services: AppServices
 
@@ -25,7 +23,6 @@ final class OAFilesModel {
     private(set) var isDemo = false
     var hasAccount: Bool { isDemo || services.accounts.states[.oa] != .noAccount }
 
-    /// DEBUG 截图用：不联网，直接显示示例数据
     static func demo(services: AppServices) -> OAFilesModel {
         let model = OAFilesModel(services: services)
         model.isDemo = true
@@ -55,7 +52,7 @@ final class OAFilesModel {
         defer { if mine == generation { isLoading = false } }
         do {
             let result = try await api.list(page: page, typeId: typeId, keyword: keyword)
-            guard mine == generation else { return }   // 已经有更新的 reload，这个结果作废
+            guard mine == generation else { return }
             rows = reset ? result.rows : rows + result.rows.filter { new in !rows.contains { $0.id == new.id } }
             hasMore = result.hasNext
             page += 1
@@ -83,7 +80,6 @@ final class OAFileDetailModel {
     var previewURL: URL?
     private(set) var previewError: String?
 
-    /// DEBUG 截图用：不联网，直接显示示例详情
     static func demo(row: OAFileRow, services: AppServices) -> OAFileDetailModel {
         let model = OAFileDetailModel(row: row, services: services)
         model.detail = OAFileDetail(
@@ -122,7 +118,6 @@ final class OAFileDetailModel {
         }
     }
 
-    /// 下载 PDF / DOCX 到临时目录并交给 QuickLook
     func preview(_ url: URL, preferredExtension: String?) async {
         guard let oa = services.accounts.oa, !isPreparingPreview else { return }
         isPreparingPreview = true

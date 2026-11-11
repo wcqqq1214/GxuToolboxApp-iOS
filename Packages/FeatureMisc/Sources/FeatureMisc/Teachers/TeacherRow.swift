@@ -1,6 +1,5 @@
 import SwiftUI
 
-/// 教师查询结果的一行：竖版头像 + 姓名 + 单位（单位可换行，最多两行）
 struct TeacherRow: View {
     let teacher: TeacherSummary
 

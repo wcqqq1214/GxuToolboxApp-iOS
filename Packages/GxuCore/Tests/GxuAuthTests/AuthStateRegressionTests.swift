@@ -5,8 +5,6 @@ import GxuTestSupport
 import Testing
 @testable import GxuAuth
 
-/// 账号状态前后矛盾（首页「已退出」、详情页「已登录」）的回归测试。
-/// 规则：有保存的账号 = 已登录（会话缺失、断网、超时、5xx 都不改）；服务器明确拒绝 = 需要重新登录；主动退出 = 未登录。
 @MainActor
 struct AuthStateRegressionTests {
     private func make(host: String, credentials: [AuthSystem: Credential] = [.jw: Credential(username: "9", password: "p")])
@@ -17,7 +15,6 @@ struct AuthStateRegressionTests {
         return (AccountCenter(credentials: store, jw: jw), jw, store)
     }
 
-    /// 注册假服务并统计请求次数（静默续期在并行跑很多测试时可能晚一点才发出请求，所以按「请求真的发生了」来等，而不是固定延时）
     private func serve(_ host: String, _ handler: @escaping @Sendable (URLRequest) throws -> (HTTPURLResponse, Data)) -> Counter {
         let hits = Counter()
         StubURLProtocol.register(host: host) { request in
@@ -27,7 +24,6 @@ struct AuthStateRegressionTests {
         return hits
     }
 
-    /// 等到至少来过一次请求（最多 5 秒），再多等一会儿让结果落到状态上
     private func settle(_ hits: Counter) async {
         for _ in 0..<100 where hits.value == 0 { try? await Task.sleep(for: .milliseconds(50)) }
         try? await Task.sleep(for: .milliseconds(300))
@@ -37,9 +33,9 @@ struct AuthStateRegressionTests {
         let host = "as-\(UUID().uuidString).test"
         let hits = serve(host) { _ in throw URLError(.notConnectedToInternet) }
         let (center, jw, _) = make(host: host)
-        #expect(center.states[.jw] == .authenticated)       // 启动时没有 Cookie 也是已登录，不是「已退出」
+        #expect(center.states[.jw] == .authenticated)
         await settle(hits)
-        #expect(center.states[.jw] == .authenticated)       // 断网续期失败，状态不变
+        #expect(center.states[.jw] == .authenticated)
         #expect(center.states[.jw]?.displayText == "已登录")
         #expect(!jw.hasSession())
     }
@@ -70,12 +66,11 @@ struct AuthStateRegressionTests {
         #expect(center.states[.jw]?.displayText == "需要重新登录")
         #expect(center.states[.jw]?.displayText.contains("已退出") == false)
         #expect(center.states[.jw]?.showsLoginForm == true)
-        #expect(center.studentId == "9")                     // 账号还在，详情页可以预填
+        #expect(center.studentId == "9")
         #expect(store.load(.jw)?.username == "9")
-        await #expect(throws: GxuError.sessionExpired(.jw)) { try await center.ensureAuthenticated(.jw) }   // 不再自动重试
+        await #expect(throws: GxuError.sessionExpired(.jw)) { try await center.ensureAuthenticated(.jw) }
     }
 
-    /// 回归：后端也会返回 401（例如「无法获取初始登录cookie」），那不是账号密码的问题，不能变成「需要重新登录」
     @Test func upstreamFailureReturning401DoesNotChangeTheStateAndIsNotBlamedOnThePassword() async throws {
         let host = "as-\(UUID().uuidString).test"
         let hits = serve(host) { respond($0, status: 401, #"{"code":401,"message":"无法获取初始登录cookie","data":null}"#) }
@@ -83,7 +78,6 @@ struct AuthStateRegressionTests {
         await settle(hits)
         #expect(center.states[.jw] == .authenticated)
         #expect(center.states[.jw]?.displayText == "已登录")
-        // 手动登录遇到同样的故障：报错文案如实说是服务问题，状态不变
         do { try await center.login(.jw, username: "9", password: "p"); Issue.record("应该失败") } catch {
             let message = (error as? GxuError)?.userMessage ?? ""
             #expect(message.contains("暂时不可用") && message.contains("无法获取初始登录cookie"))
@@ -127,7 +121,7 @@ struct AuthStateRegressionTests {
             return respond(request, status: 201, headers: ["Set-Cookie": "JSESSIONID=a, route=b"])
         }
         let (center, jw, store) = make(host: host)
-        for _ in 0..<100 where hits.value == 0 { try await Task.sleep(for: .milliseconds(50)) }   // 登录请求已经在路上
+        for _ in 0..<100 where hits.value == 0 { try await Task.sleep(for: .milliseconds(50)) }
         await center.logout(.jw)
         try await Task.sleep(for: .milliseconds(900))
         #expect(center.states[.jw] == .noAccount)
@@ -146,7 +140,7 @@ struct AuthStateRegressionTests {
         for _ in 0..<100 where hits.value == 0 { try await Task.sleep(for: .milliseconds(50)) }
         await center.logout(.jw)
         try await Task.sleep(for: .milliseconds(800))
-        #expect(center.states[.jw] == .noAccount)             // 迟到的「被拒绝」也不能把它改成需要重新登录
+        #expect(center.states[.jw] == .noAccount)
     }
 
     @Test func noAccountIsLoggedOutAndShowsTheLoginForm() {
@@ -169,7 +163,7 @@ struct AuthStateRegressionTests {
         let client = BackendClient(session: BackendClient.makeSession(configuration: StubURLProtocol.makeConfiguration()))
         let attendance = AttendanceSession(transport: client, tokens: InMemoryTokenStore(), defaults: UserDefaults(suiteName: UUID().uuidString)!)
         let center = AccountCenter(credentials: store, jw: JwSessionManager(credentials: store, transport: client), attendance: attendance)
-        #expect(center.states[.attendance] == .signedOut)     // 不能静默续期（要验证码），所以是「需要重新登录」
+        #expect(center.states[.attendance] == .signedOut)
         #expect(center.states[.attendance]?.displayText == "需要重新登录")
     }
 }

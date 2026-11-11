@@ -1,13 +1,9 @@
 import GxuFoundation
 import Foundation
 
-/// 考勤图层（RN v2.2 `normalizeAttendanceRecords` + 课表上的状态图标）。考勤数据来自别的模块（FeatureMisc），由 Shell 转成字符串形式注入。
 public struct AttendanceMark: Sendable, Hashable {
-    /// `yyyy-MM-dd` 或 `yyyy-M-d`
     public var date: String
-    /// 节次范围，如 `1,2`
     public var periodRange: String
-    /// 考勤系统的状态码：1 正常、2 迟到、4 缺勤、5 未开始、100 无需打卡
     public var statusCode: Int?
 
     public init(date: String, periodRange: String, statusCode: Int?) {
@@ -42,7 +38,6 @@ public enum AttendanceStatus: Sendable, Hashable {
     }
 }
 
-/// 按“日期 + 起止节次”对上课程。无效日期 / 节次（不是 1–13 的整数、止早于起）的记录不参与；同一键有多条时以后出现的为准
 public struct AttendanceIndex: Sendable {
     private struct Key: Hashable { var day: Date; var begin: Int; var end: Int }
     private var statuses: [Key: AttendanceStatus] = [:]
@@ -80,7 +75,7 @@ public struct AttendanceIndex: Sendable {
         let gregorian = calendar.gregorianEquivalent
         guard let date = gregorian.date(from: DateComponents(year: y, month: m, day: d)) else { return nil }
         let back = gregorian.dateComponents([.year, .month, .day], from: date)
-        guard back.year == y, back.month == m, back.day == d else { return nil }   // 2026-02-30 之类不顺延
+        guard back.year == y, back.month == m, back.day == d else { return nil }
         return gregorian.startOfDay(for: date)
     }
 }

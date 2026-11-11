@@ -3,9 +3,6 @@ import Foundation
 import Testing
 @testable import FeatureCourse
 
-// 用 A 的真实脱敏样本（elective-progress.json + score.json）。样本里后端把《海洋与人类文明》记成 year=2022 term=3、score=null、
-// status=review，issues 有 missing_identity；成绩接口里同一门课是 year=2022 term=0、88 分、1 学分（后端小学期映射不一致）。
-// 期望值由 Python 对同一份数据独立算出：核对后总学分 11.5→12.5，ocean 1 分 1 门→2 分 2 门，其余统计不变。
 @Suite struct ElectiveReviewResolverTests {
     private struct Envelope<T: Decodable>: Decodable { var data: T }
     private struct Page: Decodable { var items: [Score] }
@@ -39,12 +36,10 @@ import Testing
         #expect(r.progress.complete && r.progress.isQualified == true && r.progress.qualified == true)
         #expect(r.progress.requirements.map(\.passed) == Array(repeating: true, count: 7))
         #expect(r.progress.requirements.first { $0.key == "totalCredits" }?.actual == 12.5)
-        // 没动的课程原样
         #expect(r.progress.courses.filter { $0.courseName != ocean } == before.courses.filter { $0.courseName != ocean })
     }
 
     @Test func recomputeOnUnchangedDataMatchesBackendNumbers() throws {
-        // 去掉待核对的课：重算出的统计必须和后端原来的数一致，证明重算口径没有偏差
         var p = try progress()
         p.courses.removeAll { $0.status == .review }
         p.issues = []
@@ -105,7 +100,6 @@ import Testing
     }
 
     @Test func newlyCoveredSpecialModuleNeedsBackend() throws {
-        // 核对出的课让 asean/ethnic/ocean 里原来没有的模块得到学分：后端的"特色模块数"已过期，不自己判断
         var p = try progress()
         p.stats.modules.ocean = .init(credits: 0, courseCount: 0)
         let r = ElectiveReviewResolver.resolve(p, scores: try scores())

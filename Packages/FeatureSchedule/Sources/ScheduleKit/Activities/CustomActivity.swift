@@ -2,22 +2,16 @@ import Foundation
 import GxuFoundation
 import GxuStorage
 
-/// 自定义课程（RN v2.2 `customEvent`：用户在本地添加的课表项，名称 / 教学周 / 星期 / 节次 / 地点 / 教师 / 备注）。
-/// 显示上和课程一样占课表的格子，带“自定义课程”标记；整条存 JSON，按 学号 + 学期 隔离。
-/// 旧版本存的是起止周（`weekFrom` / `weekTo`），解码时转成教学周列表；编码时仍写出这两个字段，旧数据不丢。
 public struct CustomActivity: Codable, Sendable, Hashable, Identifiable {
     public var id: String
     public var name: String
     public var note: String
     public var location: String
     public var teacher: String
-    /// 1 = 周一 … 7 = 周日
     public var weekday: Int
     public var begin: Int
     public var end: Int
-    /// 教学周，升序去重，可以不连续（如 1-8、10、12）
     public var weeks: [Int] { didSet { weeks = Self.normalized(weeks) } }
-    /// 0xRRGGBB
     public var colorHex: UInt32
 
     public var weekFrom: Int { weeks.first ?? 1 }
@@ -51,7 +45,6 @@ public struct CustomActivity: Codable, Sendable, Hashable, Identifiable {
             location: try c.decodeIfPresent(String.self, forKey: .location) ?? "",
             teacher: try c.decodeIfPresent(String.self, forKey: .teacher) ?? "",
             weekday: try c.decode(Int.self, forKey: .weekday), begin: try c.decode(Int.self, forKey: .begin), end: try c.decode(Int.self, forKey: .end),
-            // 旧数据没有 `weeks`：用起止周；起止周写反或过大时不展开（`isValid` 会判为无效），避免巨大的区间
             weeks: try c.decodeIfPresent([Int].self, forKey: .weeks) ?? (from >= 1 && from <= to && to <= 60 ? Array(from...to) : []),
             colorHex: try c.decode(UInt32.self, forKey: .colorHex)
         )
@@ -75,7 +68,6 @@ public struct CustomActivity: Codable, Sendable, Hashable, Identifiable {
 
     static func normalized(_ weeks: [Int]) -> [Int] { Array(Set(weeks)).sorted() }
 
-    /// RN `customEventSchema`：名称 1–100 字、地点 ≤200、教师 ≤100、备注 ≤2000、教学周 1–53 且至少一周、星期 1–7、节次 1–13 且结束不早于开始
     public var isValid: Bool { validationMessage == nil }
 
     public var validationMessage: String? {
@@ -93,13 +85,10 @@ public struct CustomActivity: Codable, Sendable, Hashable, Identifiable {
         return nil
     }
 
-    /// 周次文案：“第 1-8,10 周”
     public var weekText: String { "第 \(TeachingWeeks.format(weeks)) 周" }
 
-    /// 教学周输入框里的文本：连续的合并成区间，如 “1-8,10,12”（可以被 `TeachingWeeks.parse` 读回）
     public var weeksInputText: String { TeachingWeeks.format(weeks) }
 
-    /// 转成一门“课”，让展开、冲突、节假日叠加、今日 / 下一节课全部沿用课程的逻辑
     public var course: TheoryCourse {
         TheoryCourse(
             venueName: location.trimmingCharacters(in: .whitespacesAndNewlines), sectionRange: "\(begin)-\(end)", begin: begin, end: end,
@@ -110,7 +99,6 @@ public struct CustomActivity: Codable, Sendable, Hashable, Identifiable {
     }
 }
 
-/// RN `parseTeachingWeeks` / 输入框文本：支持 `1-8,10,12`（中文逗号也行）；拒绝空项、倒序区间和超出学期的周次
 public enum TeachingWeeks {
     public enum ParseError: Error, Equatable, LocalizedError {
         case format
@@ -136,7 +124,6 @@ public enum TeachingWeeks {
         return weeks.sorted()
     }
 
-    /// `[1,2,3,4,5,6,7,8,10,12]` → "1-8,10,12"
     public static func format(_ weeks: [Int]) -> String {
         let sorted = Array(Set(weeks)).sorted()
         var parts: [String] = []
@@ -163,7 +150,6 @@ extension ScheduleRepository {
             .sorted { ($0.weekFrom, $0.weekday, $0.begin, $0.id) < ($1.weekFrom, $1.weekday, $1.begin, $1.id) }
     }
 
-    /// 新增或覆盖（按 id）
     public func saveCustomActivity(_ activity: CustomActivity, studentId: String, term: AcademicTerm) async throws {
         let json = try JSONEncoder().encode(activity)
         try await database.writer.write { db in

@@ -2,7 +2,6 @@ import GxuDesign
 import ScheduleKit
 import SwiftUI
 
-/// 工具箱 → 地图导航：校内地点列表，按类型筛选、可搜索；点一个地点在地图 App 里搜索它。
 struct MapNavigationView: View {
     @Environment(\.openURL) private var openURL
     @State private var flow = MapOpenFlow()
@@ -22,7 +21,6 @@ struct MapNavigationView: View {
                         ForEach(CampusPlaces.types, id: \.self) { chip($0, value: $0) }
                     }
                 }
-                // 筛选条是和卡片同级的整行控件：左边缘在 A 线（卡片边）。行容器本身已经从卡片边开始，所以内部不再加边距
                 .contentMargins(.horizontal, 0, for: .scrollContent)
                 .listRowInsets(EdgeInsets())
                 .listRowBackground(Color.clear)
@@ -31,7 +29,6 @@ struct MapNavigationView: View {
             Section {
                 ForEach(places) { place in
                     Button {
-                        // RN `BuildingListItem`：`openMap(building.fullName)`，同样先解析再打开
                         flow.open(text: place.fullName, openURL: openURL)
                     } label: {
                         HStack {
@@ -79,10 +76,8 @@ struct MapNavigationView: View {
     }
 }
 
-/// 工具箱 → 教学楼平面图：教学楼列表 → 楼层列表 → 可缩放的楼层图
 struct TeachBuildingListView: View {
     #if DEBUG
-    /// 截图自查：`-GxuFloorDemo` 直接打开第一栋楼的一张楼层图
     @State private var debugFloor = CommandLine.arguments.contains("-GxuFloorDemo")
     #endif
 
@@ -119,7 +114,6 @@ private struct FloorListView: View {
     }
 }
 
-/// 楼层图：双指缩放、拖动、双击在适合屏幕和放大之间切换
 private struct FloorMapView: View {
     let building: TeachBuilding
     let floor: TeachBuilding.Floor

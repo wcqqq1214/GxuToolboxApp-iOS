@@ -44,7 +44,7 @@ final class FeedbackListModel {
     private(set) var error: GxuError?
     private(set) var hasMore = true
     private var page = 1
-    private var generation = 0   // 同 OAFilesModel：旧请求回来时发现代数变了就丢弃
+    private var generation = 0
 
     private let services: AppServices
 
@@ -80,7 +80,6 @@ final class FeedbackListModel {
             return
         } catch let error as GxuError {
             if case .http(status: 401, _) = error {
-                // 服务端接口目前对所有人返回 401（见 FeedbackRepository 注释）
                 self.error = .invalidData("「我的反馈」暂时无法查看（服务端限制）。已提交的反馈开发者仍然能收到。")
             } else {
                 self.error = error

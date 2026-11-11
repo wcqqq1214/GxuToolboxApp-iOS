@@ -2,7 +2,6 @@ import GxuDesign
 import ScheduleKit
 import SwiftUI
 
-/// 同一段连续的假期（同名、相邻的几天）。周网格里画成一条横跨这几列的色带。
 struct DayRun: Identifiable {
     let blocks: [DayBlock]
     var id: String { "\(blocks[0].id)+\(blocks.count)" }
@@ -24,7 +23,6 @@ struct DayRun: Identifiable {
     }
 }
 
-/// 假期 / 调休休息日的整天色带。内容层，不用玻璃；用系统绿色的淡色底，深浅色自动适配。
 struct DayBlockView: View {
     let run: DayRun
 
@@ -44,7 +42,6 @@ struct DayBlockView: View {
                 .multilineTextAlignment(.center)
         }
         .foregroundStyle(Color.green.mix(with: .primary, by: 0.35))
-        // 居中而不是贴顶：课表默认滚到当前时间，贴顶的标题会被滚出屏幕
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         .background(Color.green.opacity(0.12), in: RoundedRectangle(cornerRadius: GxuDesign.Radius.block, style: .continuous))
         .accessibilityElement(children: .ignore)
@@ -52,7 +49,6 @@ struct DayBlockView: View {
     }
 }
 
-/// 网格下方的实践课列表（RN 也有）：课程名、周次、教师
 struct PracticeSection: View {
     let courses: [PracticeCourse]
 

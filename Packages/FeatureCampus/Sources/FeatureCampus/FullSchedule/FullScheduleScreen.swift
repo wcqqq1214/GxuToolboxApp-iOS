@@ -5,7 +5,6 @@ import Observation
 import ScheduleKit
 import SwiftUI
 
-/// 某一时刻某个班正在上的课
 struct ClassInSession: Identifiable, Sendable {
     let info: ClassInfo
     let course: TheoryCourse
@@ -35,11 +34,9 @@ final class FullScheduleModel {
 
     private var api: CampusAPI?
     private var runTask: Task<Void, Never>?
-    /// 每次 `run()` 加一。上一轮还在飞的请求回来时，generation 对不上就丢弃，不能混进新一轮的结果
     private var generation = 0
     private nonisolated static let concurrency = 6
 
-    /// 本人资料（学院 / 年级 / 专业用来给筛选条件设默认值）：先缓存，没有再联网；拿不到就不设默认值
     private static func profile(_ services: AppServices) async -> UserProfile? {
         guard let studentId = services.accounts.studentId else { return nil }
         return try? await services.profiles.profile(studentId: studentId, refresh: false)
@@ -52,7 +49,6 @@ final class FullScheduleModel {
         term = context.defaultTerm
         if let term, let calendar = context.termCalendar(for: term) { moment = .now(term: calendar) }
         do {
-            // 和 RN 一致：只列“…学院”
             schools = try await api.schools().filter { $0.name.hasSuffix("学院") }
         } catch {
             phase = .failed(((error as? GxuError) ?? .network(error.localizedDescription)).userMessage)
@@ -61,7 +57,6 @@ final class FullScheduleModel {
         let profile = await Self.profile(services)
         schoolId = schools.first { $0.name == profile?.college }?.id ?? schools.first?.id ?? ""
         #if DEBUG
-        // 截图自查：`-GxuCampusMoment 3,2,3`（周,星期,节）和 `-GxuCampusAutoRun`
         let args = CommandLine.arguments
         if let i = args.firstIndex(of: "-GxuCampusMoment"), i + 1 < args.count {
             let parts = args[i + 1].split(separator: ",").compactMap { Int($0) }
@@ -131,7 +126,6 @@ final class FullScheduleModel {
         }
     }
 
-    /// 并发度受限地逐个查班级课表。单个班级失败不影响整体。
     private nonisolated static func scan(
         classes: [ClassInfo], term: AcademicTerm, moment: ClassMoment, api: CampusAPI,
         report: @escaping @Sendable @MainActor (Outcome) -> Void
@@ -160,7 +154,6 @@ final class FullScheduleModel {
         }
     }
 
-    /// 按专业分组，组内按班级名排序；组按专业名排序
     var grouped: [(major: String, items: [ClassInSession])] {
         Dictionary(grouping: results, by: \.info.majorId)
             .map { id, items in
@@ -174,7 +167,6 @@ struct FullScheduleView: View {
     @Environment(\.services) private var services
     @State private var context = CampusContext()
     @State private var model = FullScheduleModel()
-    /// 出结果后查询条件折叠成一行，点“修改”再展开
     @State private var editingFilters = false
 
     var body: some View {
@@ -240,7 +232,6 @@ struct FullScheduleView: View {
         }
     }
 
-    /// 出结果（或正在查询）后条件折叠，结果成为页面主体
     private var showFilters: Bool {
         switch model.phase {
         case .idle, .failed: true
@@ -308,7 +299,6 @@ private struct SessionRow: View {
     }
 }
 
-/// 学期 + 周次 + 星期 + 节次；“现在”一键回到当前时刻
 private struct MomentPickers: View {
     @Bindable var model: FullScheduleModel
     let context: CampusContext

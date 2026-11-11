@@ -1,6 +1,5 @@
 import SwiftUI
 
-/// 加载中
 public struct GxuLoadingView: View {
     private let message: LocalizedStringKey
     public init(_ message: LocalizedStringKey = "加载中…") { self.message = message }
@@ -15,7 +14,6 @@ public struct GxuLoadingView: View {
     }
 }
 
-/// 空状态。`action` 不为空时显示一个按钮（例如“去登录”）
 public struct GxuEmptyView: View {
     private let title: LocalizedStringKey
     private let systemImage: String
@@ -47,7 +45,6 @@ public struct GxuEmptyView: View {
     }
 }
 
-/// 错误状态。`message` 直接传 `GxuError.userMessage`
 public struct GxuErrorView: View {
     private let message: String
     private let retry: (() -> Void)?
@@ -68,12 +65,10 @@ public struct GxuErrorView: View {
     }
 }
 
-/// 离线 / 刷新失败时，贴在内容上方的非阻塞提示：“上次更新于 …”
 public struct GxuStaleBanner: View {
     private let updatedAt: Date?
     private let message: String?
 
-    /// App 只有中文界面：固定成 “11月5日 20:10”，不随系统语言变成英文
     private static let timestampStyle = Date.FormatStyle(locale: Locale(identifier: "zh_Hans_CN")).month().day().hour().minute()
 
     public init(updatedAt: Date?, message: String? = nil) {

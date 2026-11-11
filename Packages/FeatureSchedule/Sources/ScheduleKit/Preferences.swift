@@ -2,7 +2,6 @@ import Foundation
 import GxuStorage
 import Observation
 
-/// 详情页里的一个字段：可显示 / 隐藏、可改标签，顺序即数组顺序
 public struct DetailFieldSetting: Codable, Sendable, Hashable, Identifiable {
     public var id: String
     public var label: String
@@ -15,15 +14,11 @@ public struct DetailFieldSetting: Codable, Sendable, Hashable, Identifiable {
     }
 }
 
-/// 课表和考试的显示偏好（设备级，存在 App Group，小组件也能读）。
 public struct SchedulePreferences: Codable, Sendable, Equatable {
     public var palette: CoursePalette
-    /// 周网格的课程块里是否显示地点 / 教师
     public var showVenueInBlock: Bool
     public var showTeacherInBlock: Bool
-    /// 课程详情的字段
     public var courseDetail: [DetailFieldSetting]
-    /// 考试详情的字段（C 的考试页读取）
     public var examDetail: [DetailFieldSetting]
 
     public static let courseFieldDefaults: [DetailFieldSetting] = [
@@ -32,7 +27,6 @@ public struct SchedulePreferences: Codable, Sendable, Equatable {
         .init(id: "examMethod", label: "考核"), .init(id: "enrollment", label: "选课人数"), .init(id: "qqGroup", label: "QQ 群"),
     ]
 
-    /// 考试卡片的字段：课程名始终显示，不在列表里
     public static let examFieldDefaults: [DetailFieldSetting] = [
         .init(id: "time", label: "时间"), .init(id: "classroom", label: "考场"), .init(id: "seat", label: "座位"),
         .init(id: "type", label: "类型"), .init(id: "countdown", label: "倒计时"),
@@ -52,7 +46,6 @@ public struct SchedulePreferences: Codable, Sendable, Equatable {
 
     private enum CodingKeys: String, CodingKey { case palette, showVenueInBlock, showTeacherInBlock, courseDetail, examDetail }
 
-    /// 宽容解码：缺字段用默认值；版本升级新增的字段补到末尾，已下线的字段丢掉
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         palette = (try? c.decodeIfPresent(CoursePalette.self, forKey: .palette)) ?? .macaron
@@ -73,7 +66,6 @@ public struct SchedulePreferences: Codable, Sendable, Equatable {
     public static let key = SharedKey<SchedulePreferences>("schedule.preferences")
 }
 
-/// 可观察的偏好存储。App 在根视图创建一个，设置页和课表页共用。
 @MainActor @Observable
 public final class SchedulePreferencesStore {
     public var value: SchedulePreferences {

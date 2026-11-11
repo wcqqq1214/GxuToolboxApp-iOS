@@ -7,12 +7,10 @@ import GxuStorage
 import ScheduleKit
 import Synchronization
 
-/// 调试用演示数据：启动参数带 `-GxuDemo` 时，不连后端，用内置的假课表跑完整界面（截图自查用）。
 @MainActor
 enum DemoMode {
     nonisolated static func attendanceMarks(now: Date = .now) -> [AttendanceMark] { DemoBackend.attendanceMarks(now: now) }
     static var isEnabled: Bool { ProcessInfo.processInfo.arguments.contains("-GxuDemo") }
-    /// `-GxuDemoOffline`：前两次请求（开学日 + 课表）成功，之后全部失败，用来看离线 / 刷新失败的状态
     static var simulatesOffline: Bool { ProcessInfo.processInfo.arguments.contains("-GxuDemoOffline") }
 
     static let services: AppServices = {
@@ -76,10 +74,9 @@ private struct DemoBackend: BackendAPI {
         return try JSONDecoder().decode(type, from: Data(profile.utf8))
     }
 
-    /// 今天落在第 6 周；再附一个已结束的上学期，用来试学期菜单
     private static var startDays: String {
         let calendar = Calendar.current
-        let weekStart = calendar.dateInterval(of: .weekOfYear, for: .now)!.start   // 系统周从周日算，下面转成周一
+        let weekStart = calendar.dateInterval(of: .weekOfYear, for: .now)!.start
         let monday = calendar.date(byAdding: .day, value: calendar.component(.weekday, from: weekStart) == 1 ? 1 : 0, to: weekStart)!
         let current = calendar.date(byAdding: .day, value: -5 * 7, to: monday)!
         let previous = calendar.date(byAdding: .day, value: -26 * 7, to: current)!
@@ -93,13 +90,12 @@ private struct DemoBackend: BackendAPI {
         """
     }
 
-    /// 演示用考勤标记：高等数学 / 大学英语最近三周每次上课，状态轮流是 正常 / 迟到 / 缺勤，今天之后是未开始
     nonisolated static func attendanceMarks(now: Date = .now) -> [AttendanceMark] {
         let calendar = Calendar.current
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd"
         f.locale = Locale(identifier: "en_US_POSIX")
-        let slots: [(weekday: Int, periods: String)] = [(2, "1,2"), (3, "1,2"), (4, "3,4")]   // Calendar 的星期：2 = 周一
+        let slots: [(weekday: Int, periods: String)] = [(2, "1,2"), (3, "1,2"), (4, "3,4")]
         var marks: [AttendanceMark] = []
         for offset in -21...7 {
             guard let date = calendar.date(byAdding: .day, value: offset, to: now),
@@ -110,7 +106,6 @@ private struct DemoBackend: BackendAPI {
         return marks
     }
 
-    /// 两场考试：明天和 5 天后（相对今天）
     private static var exams: String {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd"

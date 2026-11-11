@@ -34,10 +34,9 @@ private func decode<T: Decodable>(_ type: T.Type, _ json: String) throws -> T {
         """)
         let sections = TeacherSections.build(d)
         #expect(sections.map(\.id) == ["education", "subjects", "papers", "patents"])
-        #expect(sections[0].text == "最后学位：博士")                 // 只有有值的行
-        #expect(sections[1].text == "门类：工学")                      // 空的学科项整条丢弃
+        #expect(sections[0].text == "最后学位：博士")
+        #expect(sections[1].text == "门类：工学")
         #expect(sections.allSatisfy { !$0.text.isEmpty && !$0.text.contains("暂无") && !$0.text.contains("无") })
-        // 什么都没有：一个分组也不显示
         #expect(TeacherSections.build(TeacherDetail()).isEmpty)
     }
 
@@ -46,7 +45,7 @@ private func decode<T: Decodable>(_ type: T.Type, _ json: String) throws -> T {
         #expect(SchoolLeaders.all.map { $0.leaders.count } == [1, 4, 1, 5, 1, 12, 4])
         let all = SchoolLeaders.all.flatMap(\.leaders)
         #expect(all.allSatisfy { !$0.name.isEmpty && !$0.position.isEmpty && !$0.duties.isEmpty })
-        #expect(Set(all.map(\.id)).count == 16)   // 兼任多个栏目的人重复出现，但一共 16 位
+        #expect(Set(all.map(\.id)).count == 16)
     }
 }
 
@@ -76,16 +75,15 @@ private func fixtureData(_ name: String) throws -> Data {
 
 private struct Envelope<T: Decodable>: Decodable { var data: T }
 
-/// 真实脱敏响应（A 抓取）：第 1 页 12 条，共 194 条 / 17 页；姓名、联系方式等已替换，结构不变。
 @Suite struct TeacherRealFixtureTests {
     @Test func searchPageMatchesRealShape() throws {
         let page = try JSONDecoder().decode(Envelope<TeacherSearchPage>.self, from: fixtureData("teachers-search")).data
         #expect(page.list.count == 12 && page.pages == 17 && page.total == 194)
         #expect(page.list.allSatisfy { !$0.id.isEmpty && !$0.name.isEmpty && !$0.unit.isEmpty })
-        #expect(page.list.filter { $0.picURL.isEmpty }.count == 8)   // 没有头像的是空串，不是 null
+        #expect(page.list.filter { $0.picURL.isEmpty }.count == 8)
         #expect(Set(page.list.map(\.id)).count == 12)
         #expect(page.list[0].unit == "校领导")
-        #expect(page.list[1].unit.contains("（"))                   // 单位名里有括号和顿号
+        #expect(page.list[1].unit.contains("（"))
     }
 
     @Test func profileMatchesRealShape() throws {
@@ -104,7 +102,6 @@ private struct Envelope<T: Decodable>: Decodable { var data: T }
     @Test func sectionsFromRealProfile() throws {
         let d = try JSONDecoder().decode(Envelope<TeacherDetail>.self, from: fixtureData("teachers-profile")).data
         let sections = TeacherSections.build(d)
-        // 真实样本里项目、荣誉、著作、专利、QQ、微信、电话、职务都是空串：对应的行 / 分组整个不出现
         #expect(sections.map(\.id) == ["education", "subjects", "contact", "introduction", "courses", "research", "papers", "admissions", "partTime"])
         #expect(sections[0].text == "最后学位：博士\n学历信息：研究生\n导师类别：博士后合作导师、博士研究生导师、硕士研究生导师")
         #expect(sections[1].text == "门类：理学，一级学科：物理学\n门类：理学，一级学科：天文学")
@@ -120,7 +117,6 @@ private struct Envelope<T: Decodable>: Decodable { var data: T }
         let h = TeacherHeader.make(d, fallbackName: "备用名", calendar: cal)
         #expect(h.name == "王测一" && h.badges == ["教授", "90009999"] && h.infoLine == ["男", "中共党员"])
         #expect(h.address == "示例路 1 号" && h.updatedAt == "2026-04-03 09:36")
-        // 性别代码 / 缺失字段：不显示占位文字
         let sparse = try decode(TeacherDetail.self, #"{"baseInfo":{"name":"","sex":"2","title":"","employed":"1"},"academicProfile":{"employeeNumber":"900"}}"#)
         let s = TeacherHeader.make(sparse, fallbackName: "备用名", calendar: cal)
         #expect(s.name == "备用名" && s.badges == ["900"] && s.infoLine == ["女"] && s.address.isEmpty && s.updatedAt.isEmpty)
@@ -128,7 +124,6 @@ private struct Envelope<T: Decodable>: Decodable { var data: T }
         #expect(TeacherHeader.make(unknown, fallbackName: "x", calendar: cal).infoLine.isEmpty)
     }
 
-    /// 校领导在教师库里只有很少的资料（姓名、性别、职称、工号），其余都是空串
     @Test func sparseLeaderProfileDoesNotProduceEmptyBlocks() throws {
         let d = try decode(TeacherDetail.self, #"{"baseInfo":{"name":"领导甲","sex":"1","title":"教授","pic":"","employed":"1","updatedAt":1775180200000,"supervisedDisciplines":[]},"academicProfile":{"employeeNumber":"9001","biography":"","achievements":{"summary":"","papers":"","books":"","patents":""}}}"#)
         #expect(TeacherSections.build(d).isEmpty)
@@ -138,13 +133,12 @@ private struct Envelope<T: Decodable>: Decodable { var data: T }
     @Test func avatarURLsAreUpgradedToHTTPSOnlyForSchoolHosts() {
         #expect(TeacherAvatarURL.url("http://prof.gxu.edu.cn/teacher-info/user-images/a.jpg")?.absoluteString == "https://prof.gxu.edu.cn/teacher-info/user-images/a.jpg")
         #expect(TeacherAvatarURL.url("https://www.gxu.edu.cn/__local/a.png")?.absoluteString == "https://www.gxu.edu.cn/__local/a.png")
-        #expect(TeacherAvatarURL.url("http://other.example.com/a.jpg")?.scheme == "http")   // 别的站点不擅自改
+        #expect(TeacherAvatarURL.url("http://other.example.com/a.jpg")?.scheme == "http")
         #expect(TeacherAvatarURL.url("") == nil && TeacherAvatarURL.url("  ") == nil && TeacherAvatarURL.url("not a url") == nil)
         #expect(TeacherSummary(id: "1", name: "甲", unit: "u", picURL: "http://prof.gxu.edu.cn/x.jpg").avatarURL?.scheme == "https")
         #expect(TeacherSummary(id: "1", name: "甲", unit: "u", picURL: "").avatarURL == nil)
     }
 
-    /// 领导点击进入详情所需的参数：和搜索结果一样用 姓名 + 单位 去查 /teachers/profile，单位是教师库里领导的"校领导"
     @Test func leaderNavigationParameters() async throws {
         #expect(SchoolLeaders.unit == "校领导")
         for leader in SchoolLeaders.all.flatMap(\.leaders) {

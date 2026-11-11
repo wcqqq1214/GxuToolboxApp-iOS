@@ -1,8 +1,6 @@
 import Foundation
 
 public enum WeekParser {
-    /// 把教务的周次文案展开成升序去重的周次数组。
-    /// `"1-4周,6-9周(双)"` → `[1,2,3,4,6,8]`；`"5周"` → `[5]`；无法识别的段落被跳过。
     public static func parse(_ text: String) -> [Int] {
         var result = Set<Int>()
         for segment in text.split(separator: ",") {

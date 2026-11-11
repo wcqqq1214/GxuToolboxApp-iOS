@@ -3,7 +3,6 @@ import ExamKit
 import Foundation
 import ScheduleKit
 
-/// 节假日页 / 调休页用的纯逻辑：把 `CampusCalendar`（B 的 ScheduleKit）整理成可展示的条目。
 enum DayText {
     static func parse(_ text: String, calendar: Calendar) -> Date? {
         let calendar = calendar.gregorianEquivalent
@@ -11,23 +10,20 @@ enum DayText {
         guard parts.count == 3 else { return nil }
         let comps = DateComponents(year: parts[0], month: parts[1], day: parts[2])
         guard let date = calendar.date(from: comps) else { return nil }
-        // Calendar 会把 2026-02-30 悄悄变成 3 月 2 日：往回取一次，对不上就是无效日期，不"编造"日期
         let back = calendar.dateComponents([.year, .month, .day], from: date)
         guard back.year == parts[0], back.month == parts[1], back.day == parts[2] else { return nil }
         return date
     }
 
-    /// `2月15日`
     static func monthDay(_ date: Date, calendar: Calendar) -> String {
         let calendar = calendar.gregorianEquivalent
         let c = calendar.dateComponents([.month, .day], from: date)
         return "\(c.month ?? 0)月\(c.day ?? 0)日"
     }
 
-    /// `1月4日（周日）`
     static func monthDayWeekday(_ date: Date, calendar: Calendar) -> String {
         let calendar = calendar.gregorianEquivalent
-        let weekday = (calendar.component(.weekday, from: date) + 5) % 7   // 0 = 周一
+        let weekday = (calendar.component(.weekday, from: date) + 5) % 7
         return "\(monthDay(date, calendar: calendar))（周\(["一", "二", "三", "四", "五", "六", "日"][weekday])）"
     }
 }
@@ -39,24 +35,19 @@ struct HolidayEntry: Equatable, Identifiable {
     var from: Date
     var to: Date
     var status: Status
-    /// 含首尾
     var days: Int
-    /// 为这段假期补班的日期（`restDate` 落在假期内的 `workDate`），升序
     var makeupDays: [Date]
-    /// 距开始还有几天（仅 upcoming）
     var daysUntil: Int?
 
     var id: String { "\(holiday.title)@\(holiday.from)" }
 
     var rangeText: String {
-        // 日历在 build 时已固定；这里只用于展示，用 gregorian 即可
         let cal = Calendar(identifier: .gregorian)
         return from == to ? DayText.monthDay(from, calendar: cal) : "\(DayText.monthDay(from, calendar: cal))–\(DayText.monthDay(to, calendar: cal))"
     }
 }
 
 enum HolidayPresentation {
-    /// 进行中和即将到来的在前（按开始日期升序），已结束的在后（最近结束的在前）。起止日期无法解析的条目被丢弃。
     static func build(
         _ campus: CampusCalendar, now: Date, calendar: Calendar = .current
     ) -> (current: [HolidayEntry], past: [HolidayEntry]) {
@@ -88,7 +79,6 @@ struct TimeShiftEntry: Equatable, Identifiable {
 }
 
 enum TimeShiftPresentation {
-    /// 补班日升序；已过去的放在后面（最近的在前）
     static func build(_ campus: CampusCalendar, now: Date, calendar: Calendar = .current) -> (current: [TimeShiftEntry], past: [TimeShiftEntry]) {
         let today = calendar.startOfDay(for: now)
         let all = campus.timeShift.compactMap { rule -> TimeShiftEntry? in

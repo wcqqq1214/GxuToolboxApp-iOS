@@ -6,7 +6,6 @@ import ScheduleKit
 import ScheduleUI
 import SwiftUI
 
-// MARK: 模型
 
 @MainActor @Observable
 final class ClassScheduleModel {
@@ -18,9 +17,7 @@ final class ClassScheduleModel {
 
     var term: AcademicTerm?
     var schoolId = ""
-    /// 空串 = 全部年级
     var grade = ""
-    /// 空串 = 全部专业
     var majorId = ""
 
     private var api: CampusAPI?
@@ -31,7 +28,6 @@ final class ClassScheduleModel {
         return (0..<8).map { String(year - $0) }
     }
 
-    /// 本人资料（学院 / 年级 / 专业用来给筛选条件设默认值）：先缓存，没有再联网；拿不到就不设默认值
     private static func profile(_ services: AppServices) async -> UserProfile? {
         guard let studentId = services.accounts.studentId else { return nil }
         return try? await services.profiles.profile(studentId: studentId, refresh: false)
@@ -48,7 +44,6 @@ final class ClassScheduleModel {
             fail(error)
             return
         }
-        // 默认选中用户自己的学院 / 年级 / 专业（和 RN 一致）
         let profile = await Self.profile(services)
         let school = schools.first { $0.name == profile?.college } ?? schools.first { $0.name.contains("学院") }
         schoolId = school?.id ?? ""
@@ -103,7 +98,6 @@ final class ClassScheduleModel {
     }
 }
 
-// MARK: 班级课表
 
 struct ClassScheduleView: View {
     let exportDestination: (@MainActor () -> AnyView)?
@@ -206,7 +200,6 @@ struct ClassScheduleView: View {
     }
 }
 
-/// 一个班级的课表：只读周网格
 struct ClassScheduleDetailView: View {
     let info: ClassInfo
     let term: AcademicTerm

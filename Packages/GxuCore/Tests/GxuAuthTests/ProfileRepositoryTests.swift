@@ -6,7 +6,6 @@ import Testing
 @testable import GxuStorage
 
 struct ProfileRepositoryTests {
-    // 与脱敏后的 Fixtures/sanitized/profile.json 同构
     private let json = #"{"code":200,"message":"success","data":{"student_id":"2200000001","name":"测试同学","id_card":"450000200001010019","grade":"2022","college":"土木建筑工程学院","major":"土木工程(0311)","class_name":"示例专业221","study_years":"4"}}"#
 
     private func makeRepo(_ mock: MockBackendAPI = MockBackendAPI()) -> (ProfileRepository, MockBackendAPI, InMemorySharedStore) {

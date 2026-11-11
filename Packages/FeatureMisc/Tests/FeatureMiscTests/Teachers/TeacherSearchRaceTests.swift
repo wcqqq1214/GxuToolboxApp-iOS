@@ -34,7 +34,7 @@ final class GateBackend: BackendAPI, @unchecked Sendable {
         b.hang("a#2")
         let t = Task { await m.loadMore() }
         while !b.arrived.contains("a#2") { await Task.yield() }
-        m.keyword = "b"; await m.search()      // user starts a new search while "load more" is in flight
+        m.keyword = "b"; await m.search()
         b.release("a#2"); await t.value
         #expect(!m.isLoadingMore)
         await m.loadMore()

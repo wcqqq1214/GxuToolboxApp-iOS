@@ -7,7 +7,6 @@ import SwiftUI
 public struct GpaView: View {
     @Environment(\.services) private var services
 
-    /// 默认显示全部学期的总绩点（无论从哪里进入，都不沿用成绩页选的学期）；在本页切换学年 / 学期只在本页生效
     public init() {}
 
     public var body: some View {
@@ -23,7 +22,6 @@ public struct GpaView: View {
             _model = State(initialValue: ScoreViewModel(services: services, query: .all))
         }
 
-        /// 全部学期、某学年的全学年：按学期分组；单个学期：平铺
         private var grouped: Bool { model.query.isAll || model.query.term == nil }
 
         private var summaryTitle: String {
@@ -31,7 +29,6 @@ public struct GpaView: View {
             return model.query.isAll ? "全部学期 · \(metric)" : metric
         }
 
-        /// 第一个分组的标题行右侧标出两列的含义
         private func header(_ title: String) -> some View {
             HStack {
                 Text(title)
@@ -60,7 +57,6 @@ public struct GpaView: View {
                     
                     .listRowBackground(Color.clear)
                 }
-                // 请求失败又没有缓存时不显示数字（0.000 会被当成真的绩点）
                 if !(model.error != nil && model.scores.isEmpty) {
                 Section {
                     VStack(spacing: 4) {
@@ -80,9 +76,8 @@ public struct GpaView: View {
                 }
                 }
                 if !model.scores.isEmpty {
-                    let resolution = model.resolved   // 被重修覆盖的旧记录不再列出，覆盖它的那条标"重修"
+                    let resolution = model.resolved
                     if grouped {
-                        // 汇总范围课程多：按学期分组，每门课属于哪个学期一目了然，行内不再重复学期
                         ForEach(Array(ScoreGroup.group(resolution.counted).enumerated()), id: \.element.id) { index, group in
                             Section {
                                 ForEach(group.scores) { ScoreLine(score: $0, isRetake: resolution.retakeIDs.contains($0.id)) }
@@ -153,7 +148,6 @@ private struct GpaMethodSheet: View {
 }
 
 enum GpaMethodText {
-    /// 工具箱自己的算法说明（不是学校文件的原文）
     static let retakeNote = """
     重复修读同一门课的处理（工具箱的算法）：
 

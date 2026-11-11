@@ -3,8 +3,6 @@ import Foundation
 import GxuAuth
 import GxuFoundation
 
-/// 仅 DEBUG：从启动环境变量 GXU_TEST_USER / GXU_TEST_PASS 自动登录教务（供 scripts/run-e2e.sh 使用）。
-/// 密码不写日志，只记录成功或失败。
 enum DebugAutoLogin {
     @MainActor
     static func runIfRequested(_ accounts: AccountCenter) async {

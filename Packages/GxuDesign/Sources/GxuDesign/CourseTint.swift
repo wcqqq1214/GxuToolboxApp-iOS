@@ -1,8 +1,6 @@
 import SwiftUI
 import UIKit
 
-/// 课程块配色。课程块是内容层，不用玻璃：用纯色铺底，浅色 / 深色各自校准对比度（文字对底 ≥ 4.5:1）。
-/// 传入的是色盘里的基色，不要自己再调透明度。
 public struct CourseTint: Sendable {
     public struct RGB: Sendable, Equatable {
         public var r: Double, g: Double, b: Double
@@ -13,7 +11,6 @@ public struct CourseTint: Sendable {
         func mixed(with other: RGB, _ amount: Double) -> RGB {
             RGB(r: r + (other.r - r) * amount, g: g + (other.g - g) * amount, b: b + (other.b - b) * amount)
         }
-        /// 色相 / 饱和度 / 明度，各 0...1
         var hsb: (h: Double, s: Double, b: Double) {
             var (h, sat, br): (CGFloat, CGFloat, CGFloat) = (0, 0, 0)
             uiColor.getHue(&h, saturation: &sat, brightness: &br, alpha: nil)
@@ -24,7 +21,6 @@ public struct CourseTint: Sendable {
             UIColor(hue: h, saturation: s, brightness: b, alpha: 1).getRed(&r, green: &g, blue: &bl, alpha: nil)
             self.init(r: Double(r), g: Double(g), b: Double(bl))
         }
-        /// WCAG 相对亮度
         public var luminance: Double {
             func lin(_ c: Double) -> Double { c <= 0.03928 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4) }
             return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
@@ -35,7 +31,6 @@ public struct CourseTint: Sendable {
     public struct Resolved: Sendable, Equatable {
         public var fill: RGB
         public var text: RGB
-        /// 左侧竖条 / 小标记，介于基色与文字色之间
         public var marker: RGB
         public var contrast: Double { Self.contrast(fill, text) }
         static func contrast(_ a: RGB, _ b: RGB) -> Double {
@@ -50,9 +45,6 @@ public struct CourseTint: Sendable {
     private static let white = RGB(r: 1, g: 1, b: 1)
     private static let black = RGB(r: 0, g: 0, b: 0)
 
-    /// 基色极端（纯黑 / 纯白，用户自定义颜色时可能出现）时，逐步减淡底色 / 加深文字，保证文字对底 ≥ 4.5:1。
-    /// 深色模式不能把基色直接和深灰底混合（会变成发灰的泥色）：保留色相、提高饱和度，用较暗但鲜明的底色；
-    /// 文字取同色相的浅色，左侧竖条取同色相的亮色。
     public func resolved(dark: Bool) -> Resolved {
         let base = RGB(hex: hex)
         if dark { return resolvedDark(base) }
@@ -76,7 +68,7 @@ public struct CourseTint: Sendable {
 
     private func resolvedDark(_ base: RGB) -> Resolved {
         let (hue, sat, _) = base.hsb
-        let isGray = sat < 0.05   // 灰色基色没有色相，不要硬染成红色
+        let isGray = sat < 0.05
         var fillBrightness = 0.36
         var textBrightness = 0.97
         func make() -> Resolved {

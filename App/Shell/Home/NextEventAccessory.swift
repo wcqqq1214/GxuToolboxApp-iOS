@@ -3,13 +3,11 @@ import GxuDesign
 import ScheduleKit
 import SwiftUI
 
-/// 标签栏上方的“下一节课”附件。内容层只放文字和图标，玻璃由系统附件容器提供。
 struct NextEventAccessory: View {
     let model: HomeModel
     @Environment(\.gxuAccessoryCompact) private var compact
 
     var body: some View {
-        // 每分钟重算一次相对时间，也会在上课 / 下课的整分更新“还剩 / 之后”
         TimelineView(.everyMinute) { context in
             let now = context.date
             if let snapshot = model.snapshot,
@@ -29,7 +27,6 @@ struct NextEventAccessory: View {
             Image(systemName: icon(event)).foregroundStyle(.tint)
             VStack(alignment: .leading, spacing: 0) {
                 Text(title(event)).font(.subheadline.weight(.semibold)).lineLimit(1)
-                // 没有副标题时不留空行（空 Text 也会占一行高度，会把标题顶到上面）
                 if !subtitle.isEmpty { Text(subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
             }
             Spacer(minLength: GxuDesign.Spacing.s)
@@ -58,7 +55,6 @@ struct NextEventAccessory: View {
 
     private func detail(_ event: HomeEvent, now: Date) -> String {
         switch event {
-        // 右侧已经写了具体时刻时（“明天 09:00”），左侧不再重复时间
         case .course(let item, _, _):
             [RelativeTime.showsClock(in: trailing(event, now: now)) ? "" : item.timeRangeText, item.course.locationText]
                 .filter { !$0.isEmpty }.joined(separator: " · ")

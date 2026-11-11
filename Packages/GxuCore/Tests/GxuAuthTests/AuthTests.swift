@@ -11,7 +11,6 @@ private func makeHost() -> String { "auth-\(UUID().uuidString).test" }
 private func stubLogin(host: String, status: Int = 200, cookies: [String] = ["JSESSIONID=abc123; Path=/", "route=r1; Path=/"]) {
     StubURLProtocol.register(host: host) { request in
         var headers = ["Content-Type": "application/json"]
-        // 多个 Set-Cookie 在真实响应里会被合并成一个头
         if !cookies.isEmpty { headers["Set-Cookie"] = cookies.joined(separator: ", ") }
         return (HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: headers)!, Data("{}".utf8))
     }
@@ -94,16 +93,15 @@ struct AuthTests {
         await #expect(throws: GxuError.notLoggedIn(.jw)) { try await center.ensureAuthenticated(.jw) }
     }
 
-    /// 有保存的账号但没有会话 Cookie（例如重装后）：状态是「已登录」，启动时静默续期一次（不再显示「已退出」）
     @Test func accountWithoutCookieStartsAuthenticatedAndRenewsSilently() async throws {
         let host = makeHost()
         stubLogin(host: host)
         let store = InMemoryCredentialStore([.jw: Credential(username: "9", password: "p")])
         let (center, jw, _) = makeCenter(host: host, store: store)
-        #expect(center.states[.jw] == .authenticated)          // 立即就是已登录，不是「已退出」
+        #expect(center.states[.jw] == .authenticated)
         #expect(center.states[.jw]?.displayText == "已登录")
         for _ in 0..<50 where !jw.hasSession() { try await Task.sleep(for: .milliseconds(50)) }
-        #expect(jw.hasSession())                                // 静默续期拿到了会话
+        #expect(jw.hasSession())
         #expect(center.states[.jw] == .authenticated)
         try await center.ensureAuthenticated(.jw)
     }

@@ -22,13 +22,11 @@ import Testing
         mock.stub("GET /jw/score", json: try fixture())
         let model = ScoreViewModel(services: services(mock), query: .all)
         await model.load()
-        #expect(model.scores.count == 100)  // 成绩查询保留全部原始记录
+        #expect(model.scores.count == 100)
         #expect(model.resolved.counted.count == 79)
-        // 绩点页按"同一门课只计一次、取最高成绩"合并后计算（2.037255 / 69.679739）；不处理重修时是 1.397758 / 52.912556
         #expect(abs(model.gpa.gpa - 2.037255) < 1e-5 && abs(model.gpa.wam - 69.679739) < 1e-5)
         #expect(abs(GpaCalculator.calculate(model.scores).gpa - 1.397758) < 1e-5)
         #expect(model.error == nil && model.lastSyncedAt != nil && model.pending.isEmpty)
-        // 只发了一次请求（不是逐学年、逐学期循环）
         #expect(mock.calls == ["GET /jw/score"])
     }
 
@@ -40,11 +38,10 @@ import Testing
         await model.load()
         mock.stub("GET /jw/score", error: GxuError.network("offline"))
         await model.load()
-        #expect(model.scores.count == 100)                    // 有缓存：保留
-        #expect(model.error != nil)                            // 并提示
+        #expect(model.scores.count == 100)
+        #expect(model.error != nil)
         #expect(abs(model.gpa.gpa - 2.037255) < 1e-5)
 
-        // 没有缓存又失败：没有任何成绩，界面据此隐藏数字
         let empty = ScoreViewModel(services: services(MockBackendAPI().failing()), query: .all)
         await empty.load()
         #expect(empty.scores.isEmpty && empty.error != nil)
@@ -61,12 +58,12 @@ import Testing
         mock.stub("GET /jw/score", json: Data(#"{"data":{"items":[]}}"#.utf8))
         let model = ScoreViewModel(services: services(mock), query: .init(year: 2025, term: 1))
         await model.load()
-        #expect(mock.calls == ["GET /jw/score"])   // 单个学期：一次请求
+        #expect(mock.calls == ["GET /jw/score"])
         #expect(!model.query.isAll)
         let wholeYear = MockBackendAPI()
         wholeYear.stub("GET /jw/score", json: Data(#"{"data":{"items":[]}}"#.utf8))
         await ScoreViewModel(services: services(wholeYear), query: .init(year: 2025, term: nil)).load()
-        #expect(wholeYear.calls == ["GET /jw/score", "GET /jw/score"])   // 全学年：秋、春各一次
+        #expect(wholeYear.calls == ["GET /jw/score", "GET /jw/score"])
     }
 }
 
@@ -84,16 +81,15 @@ private extension MockBackendAPI {
     }
 
     @Test func singleTermQueryIsNotRewrittenByLaterTerms() async throws {
-        // 单个学期只有该学期的记录：即使缓存里有后面学期的重修成绩，也不用它改写
         let mock = MockBackendAPI()
         mock.stub("GET /jw/score", json: try fixture())
         let services = AppServices.preview(backend: mock, features: [ExamRepository.migrations])
-        await ScoreViewModel(services: services, query: .all).load()                 // 缓存里有全部学期
+        await ScoreViewModel(services: services, query: .all).load()
         let items = (try await ExamRepository(database: services.database).scores(studentId: "2025000000", year: 2024, term: 1))
         let single = ScoreViewModel(services: services, query: .init(year: 2024, term: 1))
         await single.load()
         #expect(single.scores.count == items.count && !items.isEmpty)
-        #expect(items.count == 18 && single.resolved.counted.count == 18)             // 2024 秋季自己的 18 条，一条不少
+        #expect(items.count == 18 && single.resolved.counted.count == 18)
     }
 
     @Test func accountsDoNotMix() async throws {
@@ -101,7 +97,6 @@ private extension MockBackendAPI {
         mock.stub("GET /jw/score", json: try fixture())
         let a = AppServices.preview(backend: mock, features: [ExamRepository.migrations], studentId: "s1")
         await ScoreViewModel(services: a, query: .all).load()
-        // 另一个账号用同一个数据库：自己没有缓存、请求又失败 → 什么都看不到，更不会算到 s1 的成绩
         let other = AppServices.preview(backend: MockBackendAPI(), studentId: "s2")
         let shared = AppServices(backend: MockBackendAPI(), database: a.database, shared: other.shared, accounts: other.accounts)
         let model = ScoreViewModel(services: shared, query: .all)

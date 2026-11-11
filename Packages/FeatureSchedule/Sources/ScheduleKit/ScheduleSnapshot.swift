@@ -1,7 +1,6 @@
 import Foundation
 import GxuFoundation
 
-/// 一份可直接使用的课表：课表 + 学期周历 + 节假日 / 补班叠加 + 冲突选择。首页、小组件、App Intent 用。
 public struct ScheduleSnapshot: Sendable {
     public var term: AcademicTerm
     public var termCalendar: TermCalendar
@@ -9,12 +8,10 @@ public struct ScheduleSnapshot: Sendable {
     public var campus: CampusCalendar
     public var choices: [String: String]
     public var activities: [CustomActivity]
-    /// 已叠加节假日 / 补班，冲突组里的课都在
     public var occurrences: [CourseOccurrence]
     public var dayBlocks: [DayBlock]
     public var updatedAt: Date
 
-    /// 自定义日程的颜色（按名字），传给 `CourseColorAssigner.assign(custom:)`
     public var customColors: [String: UInt32] { Dictionary(activities.map { ($0.name, $0.colorHex) }, uniquingKeysWith: { first, _ in first }) }
 
     public func todayPlan(now: Date = .now) -> TodayPlan {
@@ -23,8 +20,6 @@ public struct ScheduleSnapshot: Sendable {
 }
 
 extension ScheduleRepository {
-    /// 只读本地缓存（不联网）的当前学期课表。没有缓存的课表 / 学期开始日时返回 nil。
-    /// - Parameter overrides: 按日期覆盖教师 / 地点（实验课，来自别的模块），先于节假日叠加应用，和课表页一致
     public func cachedSnapshot(studentId: String, now: Date = .now, calendar: Calendar = .current, overrides: [OccurrenceOverride] = []) async -> ScheduleSnapshot? {
         let startDays = (try? await cachedStartDays()) ?? []
         guard

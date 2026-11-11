@@ -10,7 +10,6 @@ struct PreferencesAndActivityTests {
         let empty = try JSONDecoder().decode(SchedulePreferences.self, from: Data("{}".utf8))
         #expect(empty == SchedulePreferences())
 
-        // 旧版本只存了一部分字段、含已下线字段：保留顺序和开关，补上新字段
         let old = #"{"palette":"vivid","courseDetail":[{"id":"teacher","label":"老师","isShown":false},{"id":"gone","label":"x","isShown":true},{"id":"time","label":"时间","isShown":true}]}"#
         let decoded = try JSONDecoder().decode(SchedulePreferences.self, from: Data(old.utf8))
         #expect(decoded.palette == .vivid)
@@ -32,7 +31,6 @@ struct PreferencesAndActivityTests {
         #expect(SchedulePreferencesStore(shared: shared).value == SchedulePreferences())
     }
 
-    // MARK: 自定义日程
 
     @Test func activityBecomesCourse() {
         let activity = CustomActivity(name: " 社团例会 ", weekday: 3, begin: 9, end: 10, weekFrom: 2, weekTo: 4)
@@ -64,7 +62,7 @@ struct PreferencesAndActivityTests {
         var a = CustomActivity(name: "A", weekFrom: 1, weekTo: 2)
         try await repository.saveCustomActivity(a, studentId: "S", term: t1)
         a.name = "A2"
-        try await repository.saveCustomActivity(a, studentId: "S", term: t1)   // 覆盖
+        try await repository.saveCustomActivity(a, studentId: "S", term: t1)
         try await repository.saveCustomActivity(CustomActivity(name: "B"), studentId: "S", term: t1)
         #expect(await repository.customActivities(studentId: "S", term: t1).map(\.name).sorted() == ["A2", "B"])
         #expect(await repository.customActivities(studentId: "T", term: t1).isEmpty)
@@ -74,7 +72,6 @@ struct PreferencesAndActivityTests {
     }
 }
 
-// MARK: 实验课（RN v2.2 customEvent）
 
 struct CustomActivityLabTests {
     @Test func weeksCanBeDiscontinuousAndFeedTheCourse() {
@@ -122,7 +119,6 @@ struct CustomActivityLabTests {
     }
 
     @Test func labsOnMakeupWorkDaysAreHiddenButRegularCoursesStay() {
-        // RN：实验课图层 needShift 为真、没有 showPreShiftItems。9-21 周一补 9-25（周五）的课
         let lab = CustomActivity(name: "实验", weekday: 1, begin: 5, end: 6, weeks: Array(1...18))
         let campus = CampusCalendar(timeShift: [ShiftRule(workDate: "2026-09-21", restDate: "2026-09-25")])
         let all = ScheduleExpander.occurrences(of: Schedule(theoryList: [course("大学英语", weekday: 1, 3, 4, weeks: Array(1...18)), lab.course]), in: term)

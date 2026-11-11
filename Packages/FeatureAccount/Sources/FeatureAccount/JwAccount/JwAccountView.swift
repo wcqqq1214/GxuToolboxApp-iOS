@@ -34,7 +34,6 @@ public struct JwAccountView: View {
             .onChange(of: model.needsRelogin) { model.prefillUsernameIfNeeded() }
         }
 
-        /// RN v2.2 教务账号页的提示（`1172edb0`），文案原样。
         private var undergraduateTip: some View {
             Section {
                 Label {

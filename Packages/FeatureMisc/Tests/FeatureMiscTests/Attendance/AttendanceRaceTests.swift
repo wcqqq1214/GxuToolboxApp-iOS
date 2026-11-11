@@ -7,7 +7,6 @@ import GxuTestSupport
 import Testing
 @testable import FeatureMisc
 
-/// 按学期（calendarId）区分的假后端：可以让某个学期的请求挂起，再手动放行，用来复现"旧响应晚到"
 final class AttendanceGateBackend: BackendAPI, @unchecked Sendable {
     private let lock = NSLock()
     private var cont: CheckedContinuation<Void, Never>?
@@ -45,11 +44,11 @@ final class AttendanceGateBackend: BackendAPI, @unchecked Sendable {
     @Test func staleLoadDoesNotOverwriteNewerTerm() async throws {
         let b = AttendanceGateBackend()
         let m = model(b)
-        await m.load()                                              // 2025 秋（calendarId 18）
+        await m.load()
         b.hang(calendarId: AttendanceCalendarID.id(year: 2025, term: 1))
-        let stale = Task { await m.load() }                        // 下拉刷新：不会被 .task(id:) 取消
+        let stale = Task { await m.load() }
         while !b.arrived { await Task.yield() }
-        m.selection = .init(year: 2025, term: 2)                   // 用户切到春季（calendarId 19）
+        m.selection = .init(year: 2025, term: 2)
         await m.load()
         b.release(); await stale.value
         #expect(m.records.map(\.courseName) == ["CAL19"])

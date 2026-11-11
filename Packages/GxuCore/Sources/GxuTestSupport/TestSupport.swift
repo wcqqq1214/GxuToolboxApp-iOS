@@ -5,7 +5,6 @@ import GxuNetworking
 import GxuStorage
 import Synchronization
 
-/// 按 "METHOD path" 返回预设的 JSON 或错误，例如 `stub("GET /jw/exam", json: data)`
 public final class MockBackendAPI: BackendAPI {
     public struct GetRequest: Sendable {
         public let path: String
@@ -26,7 +25,6 @@ public final class MockBackendAPI: BackendAPI {
     public func stub(_ key: String, json: String) { stub(key, json: Data(json.utf8)) }
     public func stub(_ key: String, error: GxuError) { state.withLock { $0.responses[key] = .failure(error) } }
 
-    /// 已经发生过的调用，格式同 key
     public var calls: [String] { state.withLock { $0.calls } }
     public var getRequests: [GetRequest] { state.withLock { $0.getRequests } }
 
@@ -76,7 +74,6 @@ public final class InMemorySharedStore: SharedStore {
     }
 }
 
-/// 拦截 URLSession 请求，用于测试网络层。按 host 注册 handler，不同测试使用不同 host 即可并行。
 public final class StubURLProtocol: URLProtocol, @unchecked Sendable {
     public typealias Handler = @Sendable (URLRequest) throws -> (HTTPURLResponse, Data)
     private static let handlers = Mutex<[String: Handler]>([:])
@@ -85,7 +82,6 @@ public final class StubURLProtocol: URLProtocol, @unchecked Sendable {
         handlers.withLock { $0[host] = handler }
     }
 
-    /// 带本协议的 ephemeral configuration（独立的 Cookie 存储）
     public static func makeConfiguration() -> URLSessionConfiguration {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [StubURLProtocol.self]
@@ -115,7 +111,6 @@ public final class StubURLProtocol: URLProtocol, @unchecked Sendable {
 }
 
 extension AppServices {
-    /// 内存数据库 + Mock 后端，已登录状态；用于 SwiftUI 预览和测试
     @MainActor
     public static func preview(
         backend: MockBackendAPI = MockBackendAPI(),
@@ -134,7 +129,6 @@ extension AppServices {
         )
     }
 
-    /// 契约里的 `AppServices.preview`
     public static var preview: AppServices {
         MainActor.assumeIsolated { preview() }
     }

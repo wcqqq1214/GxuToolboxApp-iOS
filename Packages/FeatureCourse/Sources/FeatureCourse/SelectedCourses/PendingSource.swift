@@ -3,7 +3,6 @@ import GxuFoundation
 import GxuNetworking
 import GxuStorage
 
-/// "未出分科目"：同学期已选课程里没有成绩的。先用本地缓存，缓存没有这个学期时联网取一次（失败就当没有，不打扰成绩页）。
 public struct SelectedCoursePendingSource: PendingCourseSource {
     private let api: SelectedCourseAPI
     private let repo: SelectedCourseRepository

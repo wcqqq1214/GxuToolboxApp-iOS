@@ -5,35 +5,28 @@ import ScheduleKit
 import Testing
 @testable import FeatureCampus
 
-/// RN `parseBuilding`（`src/features/map/utils/parseBuilding.ts`，基准 74462dd4）的移植测试。
-/// 期望值由 Python 按同一算法对同一份数据（RN `buildings.ts` 导出的 123 条）独立算出；教室来自 A 脱敏的真实响应（`schedule-personal.json`、`exam.json`）。
 struct MapParseTests {
     private func name(_ text: String) -> String? { CampusPlaces.parse(text)?.name }
 
     @Test func dataIsTheRNListWithUniqueNames() {
         #expect(CampusPlaces.all.count == 123)
-        #expect(Set(CampusPlaces.all.map(\.name)).count == 123)          // RN：name 唯一（列表拿它当 key）
+        #expect(Set(CampusPlaces.all.map(\.name)).count == 123)
         #expect(CampusPlaces.all.first?.name == "西体育馆")
-        // 74462dd4 修正过的三条
         #expect(CampusPlaces.all.first { $0.name == "行健图书馆" }?.pattern == "^行健图书馆")
         #expect(CampusPlaces.all.first { $0.name == "行健田径场、体育馆" }?.fullName == "广西大学北校区体育馆")
         #expect(CampusPlaces.all.first { $0.name == "行健篮球场" }?.fullName == "广西大学北校区体育馆")
     }
 
     @Test func threeStagesInRNOrder() {
-        // ① 强匹配规则
         #expect(name("6A-427") == "东校园第六教学楼")
         #expect(name("东10-B406") == "东校园第十教学楼")
         #expect(name("西3-406") == "西校园第三教学楼")
         #expect(name("大礼堂") == "西校园大礼堂")
         #expect(name("西综合511") == "西校园综合楼")
-        // ② 文案里包含全称 / 名称
         #expect(name("广西大学西校园第三教学楼") == "西校园第三教学楼")
         #expect(name("去 西校园第二教学楼 上课") == "西校园第二教学楼")
-        // ③ 俗称，取最长
         #expect(name("东六教 | 6A-113") == "东校园第六教学楼")
         #expect(name("西二教 | 西2-202") == "西校园第二教学楼")
-        // 解析不到
         #expect(name("不存在的教室") == nil)
     }
 
@@ -41,11 +34,10 @@ struct MapParseTests {
         #expect(name("") == nil)
         #expect(name("  \n ") == nil)
         #expect(name("  西3-406  ") == "西校园第三教学楼")
-        #expect(name("西3\u{3000}406") == "西校园第三教学楼")        // 全角空格也是空白
-        #expect(name(" | 6A-113") == "东校园第六教学楼")               // 楼名为空时 RN 的文案是 " | 教室"，靠俗称 6A 命中
+        #expect(name("西3\u{3000}406") == "西校园第三教学楼")
+        #expect(name(" | 6A-113") == "东校园第六教学楼")
     }
 
-    // MARK: 真实教室（脱敏 fixture）
 
     private func fixtureData(_ file: String) throws -> [String: Any] {
         let data = try loadFixture(file, bundle: .module)
@@ -56,7 +48,6 @@ struct MapParseTests {
     @Test func realCourseRoomsResolveLikeRN() throws {
         let data = try fixtureData("schedule-personal")
         let courses = try #require(data["theoryList"] as? [[String: Any]])
-        // 课程详情传给解析的文案（RN `displayLocation`）：楼名含“体育学院”只用教室，否则 `楼名 | 教室`
         var resolved: [String: String] = [:]
         for course in courses {
             let building = course["building"] as? String ?? ""
@@ -92,7 +83,6 @@ struct MapParseTests {
     }
 
     @MainActor @Test func sportsCollegeKeywordSkipsParsing() throws {
-        // RN：体育学院的课直接用场馆关键词搜，不解析教学楼
         let target = try #require(CourseNavigation.target(building: "体育学院", venue: "西体育馆"))
         #expect(target.mapKeyword == "广西大学西校园综合体育馆")
         #expect(MapNavigation.plan(text: target.text, keyword: target.mapKeyword, installed: [.apple])

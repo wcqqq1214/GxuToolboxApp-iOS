@@ -1,7 +1,6 @@
 import SwiftUI
 import WebKit
 
-/// 在隔离的 WebView 中加载 OA 原站模板。令牌只写入 OA 域，关闭页面后随 WebView 会话释放。
 struct OAOriginalDocumentView: UIViewRepresentable {
     let fileID: Int
     let token: String
@@ -80,7 +79,6 @@ struct OAOriginalDocumentView: UIViewRepresentable {
         """
     }
 
-    // 与 RN 文件查看器使用相同的内容区样式，保留 OA 对正文自身的排版。
     private static let contentCSS = """
     .layout-header,
     .layout-aside,

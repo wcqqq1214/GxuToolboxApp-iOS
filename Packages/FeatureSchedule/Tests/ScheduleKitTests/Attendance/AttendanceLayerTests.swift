@@ -3,7 +3,6 @@ import Testing
 @testable import ScheduleKit
 
 struct AttendanceLayerTests {
-    // term：2026-09-07（周一）开学；9-21 周一，第 3 周
     private let monday = course("大学英语", weekday: 1, 3, 4, weeks: Array(1...18))
 
     private func occurrence() throws -> CourseOccurrence {
@@ -35,13 +34,13 @@ struct AttendanceLayerTests {
 
     @Test func invalidRecordsAreIgnored() throws {
         let bad = [
-            AttendanceMark(date: "2026-02-30", periodRange: "3,4", statusCode: 1),     // 无效日期不顺延
+            AttendanceMark(date: "2026-02-30", periodRange: "3,4", statusCode: 1),
             AttendanceMark(date: "2026-09-21", periodRange: "", statusCode: 1),
             AttendanceMark(date: "2026-09-21", periodRange: "3,x", statusCode: 1),
-            AttendanceMark(date: "2026-09-21", periodRange: "4,3", statusCode: 1),     // 止早于起
-            AttendanceMark(date: "2026-09-21", periodRange: "0,4", statusCode: 1),     // 超出 1–13
+            AttendanceMark(date: "2026-09-21", periodRange: "4,3", statusCode: 1),
+            AttendanceMark(date: "2026-09-21", periodRange: "0,4", statusCode: 1),
             AttendanceMark(date: "2026-09-21", periodRange: "3,14", statusCode: 1),
-            AttendanceMark(date: "2026-09-21", periodRange: "3,4", statusCode: 7),     // 未知状态码
+            AttendanceMark(date: "2026-09-21", periodRange: "3,4", statusCode: 7),
             AttendanceMark(date: "2026-09-21", periodRange: "3,4", statusCode: nil),
         ]
         #expect(AttendanceIndex(bad, calendar: shanghai).isEmpty)

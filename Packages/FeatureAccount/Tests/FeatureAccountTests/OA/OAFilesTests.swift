@@ -7,7 +7,6 @@ import GxuTestSupport
 import Testing
 @testable import FeatureAccount
 
-/// 按请求顺序返回不同内容的 OA 假服务；第 1 个请求故意慢，用来复现「旧请求后到达」
 private final class SlowFirstProtocol: URLProtocol, @unchecked Sendable {
     nonisolated(unsafe) static var calls = 0
     nonisolated(unsafe) static var bodies: [String] = []
@@ -46,7 +45,6 @@ struct OAFilesModelRaceTests {
         return AppServices(backend: MockBackendAPI(), database: try! AppDatabase.inMemory(features: []), shared: InMemorySharedStore(), accounts: accounts)
     }
 
-    /// 回归：切换文件类型时，慢的旧请求不能覆盖新结果，也不能把页码推进（否则「加载更多」会跳过第 2 页）
     @Test func staleReloadIsDiscardedAndPaginationStaysConsistent() async throws {
         let model = OAFilesModel(services: services())
         model.typeId = 102
@@ -118,7 +116,6 @@ struct OAFilesParsingTests {
             #expect(!OAHTML.isPlainText(body), "\(body)")
             #expect(OAHTML.wrap(body).contains(#"<body class="rich">"#))
         }
-        // 行内标签不算块级：<span> / <b> 里的纯文本换行仍然要保留
         #expect(OAHTML.isPlainText("<b>通知</b>\n正文"))
     }
 }

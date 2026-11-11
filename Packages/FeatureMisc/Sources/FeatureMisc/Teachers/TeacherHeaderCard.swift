@@ -1,7 +1,5 @@
 import SwiftUI
 
-/// 教师详情头部：左边照片，右边姓名（主题色）、职称 / 工号标签、性别 / 政治面貌 / 职务、通讯地址、更新时间。
-/// 布局沿用 RN 版（照片在左、文字在右），没有值的项不显示。
 struct TeacherHeaderCard: View {
     let info: TeacherHeader?
     let name: String

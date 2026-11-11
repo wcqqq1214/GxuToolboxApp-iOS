@@ -8,7 +8,6 @@ public struct CachedSchedule: Sendable, Equatable {
     public var updatedAt: Date
 }
 
-/// 课表和学期开始日的“后端 + 本地缓存”。先读缓存，再 `refresh`；缓存按 studentId 隔离。
 public struct ScheduleRepository: Sendable {
     private let backend: any BackendAPI
     let database: AppDatabase
@@ -18,7 +17,6 @@ public struct ScheduleRepository: Sendable {
         self.database = database
     }
 
-    // MARK: 课表
 
     public func cachedSchedule(studentId: String, term: AcademicTerm) async throws -> CachedSchedule? {
         try await database.writer.read { db in
@@ -33,7 +31,6 @@ public struct ScheduleRepository: Sendable {
         }
     }
 
-    /// 拉取并覆盖缓存。后端返回 `null`（解析失败）视为错误，不覆盖已有缓存。
     @discardableResult
     public func refreshSchedule(studentId: String, term: AcademicTerm, now: Date = .now) async throws -> CachedSchedule {
         let remote = try await backend.getData(
@@ -56,7 +53,6 @@ public struct ScheduleRepository: Sendable {
         return CachedSchedule(schedule: schedule, updatedAt: now)
     }
 
-    // MARK: 学期开始日
 
     public func cachedStartDays() async throws -> [TermStartDay] {
         try await database.writer.read { db in
@@ -85,9 +81,7 @@ public struct ScheduleRepository: Sendable {
         return terms
     }
 
-    // MARK: 当前学期
 
-    /// 当前学期及开学状态。优先用缓存；没有缓存或当前学期已结束时尝试联网刷新（失败则用缓存，仍没有就返回 nil）。
     public func currentTermInfo(now: Date = .now, calendar: Calendar = .current) async -> CurrentTermInfo? {
         var terms = (try? await cachedStartDays()) ?? []
         let cachedCurrent = TermResolver.current(in: terms, now: now, calendar: calendar)
@@ -108,9 +102,7 @@ public struct ScheduleRepository: Sendable {
 
 public struct CurrentTermInfo: Sendable, Equatable {
     public var term: AcademicTerm
-    /// 今天是否已开学（开学日当天算已开学）
     public var isStarted: Bool
-    /// 今天是否已超过本学期最后一周（没有后续学期数据时才会为 true）
     public var isEnded: Bool
     public var calendar: TermCalendar
 }

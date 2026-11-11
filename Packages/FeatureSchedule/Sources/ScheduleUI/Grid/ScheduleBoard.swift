@@ -3,7 +3,6 @@ import GxuFoundation
 import ScheduleKit
 import SwiftUI
 
-/// 周课表主体：星期表头 + 横向分页的周网格 + 底部浮动的周切换玻璃控件。个人课表和班级课表共用。
 struct ScheduleBoard: View {
     let model: ScheduleViewModel
     let onSelect: (ConflictGroup) -> Void
@@ -19,7 +18,6 @@ struct ScheduleBoard: View {
         .animation(.smooth, value: model.isViewingCurrentWeek)
     }
 
-    /// 横向分页。不用 `TabView(.page)`：它的 UIKit 容器会让内部滚动视图重复计算顶部安全区。
     private var pager: some View {
         ScrollView(.horizontal) {
             LazyHStack(spacing: 0) {
@@ -44,7 +42,6 @@ struct ScheduleBoard: View {
         )
     }
 
-    /// 滑动切周；不在本周时只在底部放一个小的“回到本周”玻璃按钮
     @ViewBuilder
     private var returnToCurrent: some View {
         if !model.isViewingCurrentWeek {
@@ -59,10 +56,8 @@ struct ScheduleBoard: View {
     }
 }
 
-/// 导航栏中间的“第 N 周 + 日期范围”。标题本身就是菜单：选周次，有多个学期时还能选学期。
 struct ScheduleWeekTitle: View {
     @Bindable var model: ScheduleViewModel
-    /// 学期菜单。只读课表（班级课表）不传
     var terms: [AcademicTerm] = []
     var term: Binding<AcademicTerm>?
 
@@ -77,7 +72,6 @@ struct ScheduleWeekTitle: View {
                 }
             }
         } label: {
-            // 标题和日期范围在同一条中轴线上：箭头做成 overlay，不占布局宽度，不会把文字挤偏
             VStack(spacing: 0) {
                 Text("第 \(model.selectedWeek) 周")
                     .font(.headline)

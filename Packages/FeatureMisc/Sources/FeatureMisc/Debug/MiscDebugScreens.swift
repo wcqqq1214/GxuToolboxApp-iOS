@@ -6,8 +6,6 @@ import GxuNetworking
 import GxuStorage
 import SwiftUI
 
-/// DEBUG：`-GxuScreen c-attendance | c-attendance-expired | c-attendance-nologin`，用内置假数据打开考勤页，截图自查用。
-/// 有 `-GxuAttendanceSchedule` 时默认打开"考勤课表"页签（需要和 -GxuScreen 一起用）。
 public enum MiscDebugScreens {
     public static func handles(_ name: String) -> Bool { name.hasPrefix("c-attendance") || name.hasPrefix("c-teacher") }
 
@@ -16,7 +14,6 @@ public enum MiscDebugScreens {
         PushedScreen(name: name)
     }
 
-    /// 带返回按钮地"推"进去，和真实导航一致
     private struct PushedScreen: View {
         let name: String
         @State private var path = [String]()
@@ -62,7 +59,6 @@ public enum MiscDebugScreens {
 
 private extension AttendanceLoginInfo {
     static var debug: AttendanceLoginInfo {
-        // 没有公开构造器：经 JSON 往返
         try! JSONDecoder().decode(AttendanceLoginInfo.self, from: Data(#"{"userId":1,"userNo":"2025000000","userName":"演示同学","currentWeek":10}"#.utf8))
     }
 }
@@ -76,7 +72,6 @@ private struct StubBackend: BackendAPI {
         case "/teachers/search":
             return try JSONDecoder().decode(type, from: Data(Self.teacherSearch.utf8))
         case "/teachers/profile":
-            // 学校领导的资料很少（真实响应也是这样：只有姓名、性别、职称、工号和更新时间）
             let json = query["school"] == "校领导" ? Self.leaderProfile : Self.teacherProfile
             return try JSONDecoder().decode(type, from: Data(json.utf8))
         default: throw GxuError.network("调试数据不支持 \(path)")
@@ -117,7 +112,7 @@ private struct StubBackend: BackendAPI {
         func r(_ off: Int, _ name: String, _ room: String, _ range: String, _ label: String, _ code: Int, _ status: String) -> String {
             #"{"date":"\#(day(off))","courseName":"\#(name)","roomName":"\#(room)","periodRange":"\#(range)","periodLabel":"\#(label)","statusCode":\#(code),"statusName":"\#(status)"}"#
         }
-        let wd = (Calendar.current.component(.weekday, from: .now) + 5) % 7   // 0 = 周一
+        let wd = (Calendar.current.component(.weekday, from: .now) + 5) % 7
         let list = [
             r(-wd + 3, "程序设计基础", "东1-201", "5,6", "第5-6节", 1, "正常"),
             r(-wd + 2, "大学英语", "西2-302", "3,4", "第3-4节", 2, "迟到"),
@@ -129,14 +124,12 @@ private struct StubBackend: BackendAPI {
         return #"{"items":[\#(list.joined(separator: ","))]}"#
     }
 
-    /// 本周：周一 1–2 节高数、周三 3–4 节英语、周四 5–6 节程序设计
     private static var schedule: String {
         let weekday = (Calendar.current.component(.weekday, from: .now) + 5) % 7
         func date(_ d: Int) -> String { day(-weekday + d - 1) }
         func cell(_ d: Int, _ id: Int, _ name: String, _ room: String, _ a: Int, _ b: Int) -> String {
             #"{"date":"\#(date(d))","subjectId":\#(id),"subjectName":"\#(name)","periods":[\#(a),\#(b)],"connectedCount":1,"roomName":"\#(room)"}"#
         }
-        // 周一 1–2 节高数，周三 3–4 节英语，周四 5–6 节程序设计（和上面的记录日期对得上，状态按 `<日期>-<节次>` 对应）
         let rows = [
             #"{"date":"\#(date(1))","courses":[\#(cell(1, 11, "高等数学", "西3-406", 1, 2))]}"#,
             #"{"date":"\#(date(3))","courses":[\#(cell(3, 12, "大学英语", "西2-302", 3, 4))]}"#,

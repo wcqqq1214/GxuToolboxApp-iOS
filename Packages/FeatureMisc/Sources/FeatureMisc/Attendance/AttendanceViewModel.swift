@@ -5,8 +5,6 @@ import GxuFoundation
 import Observation
 import ScheduleKit
 
-/// 考勤页（RN v2.2 `AttendanceScreen`）：学年 + 学期，考勤课表（按周）+ 考勤记录。登录要验证码，不能静默重登：
-/// 没登录 / token 过期时 `access` 不是 `.ok`，界面引导去 设置 → 考勤账号。
 @MainActor @Observable
 final class AttendanceViewModel {
     enum Mode: Hashable { case records, schedule }
@@ -25,7 +23,7 @@ final class AttendanceViewModel {
     private(set) var isLoading = false
     private(set) var error: GxuError?
     private(set) var access: Access = .ok
-    var isReady = false   // 测试里直接置位，跳过 resolveContext 的网络请求
+    var isReady = false
 
     private var startDays: [TermStartDay] = []
     private var loadVersion = 0
@@ -43,7 +41,6 @@ final class AttendanceViewModel {
         #endif
     }
 
-    /// 默认学期：已开学看当前学期；假期看刚结束的学期（RN `vacationDefault: "past"`，和考试页一致）；学年范围来自个人信息
     func resolveContext() async {
         guard !isReady else { return }
         let context = await resolveTermContext(services: services)
@@ -92,7 +89,6 @@ final class AttendanceViewModel {
         isLoading = true
         defer { if version == loadVersion { isLoading = false } }
         do {
-            // 课表里每节课的出勤状态要对着记录，所以两个页签都取记录
             let loadedRecords = try await api.records(year: selection.year, term: selection.term)
             guard version == loadVersion, !Task.isCancelled,
                   services.accounts.studentId == studentId,
@@ -108,18 +104,16 @@ final class AttendanceViewModel {
                 self.week = min(max(self.week, 1), totalWeeks)
             }
         } catch {
-            guard version == loadVersion else { return }   // 过期请求的失败不能盖在新数据上
+            guard version == loadVersion else { return }
             handle(error)
         }
     }
 
-    /// 课表里这节课的考勤状态：同一天、同一节次范围的记录（RN 的 statusMap：`<date>-<periodRange>`）
     func state(of course: AttendanceCourse) -> AttendanceState? {
         records.first { "\($0.date)-\($0.periodRange)" == course.id }?.state
     }
 }
 
-/// 初始周次：所选学期开学日起算，限制在 1…总周数（取不到开学日就是第 1 周）
 enum AttendanceWeek {
     static func initial(year: Int, term: Int, startDays: [TermStartDay], now: Date = .now, calendar: Calendar = .current) -> Int {
         guard let start = startDays.first(where: { $0.year == year && $0.term == term }),
@@ -141,14 +135,13 @@ enum AttendanceFilter: Hashable {
             let cutoff = calendar.date(byAdding: .day, value: -7, to: calendar.startOfDay(for: now)) ?? now
             return records.filter { record in
                 if record.isAbnormal { return true }
-                guard let day = AttendanceDay.parse(record.date, calendar: calendar) else { return true }   // 日期解析不了就不藏
+                guard let day = AttendanceDay.parse(record.date, calendar: calendar) else { return true }
                 return day >= cutoff
             }
         }
     }
 }
 
-/// 记录按日期分组，日期降序
 struct AttendanceDayGroup: Equatable, Identifiable {
     var day: String
     var records: [AttendanceRecord]
@@ -160,7 +153,6 @@ struct AttendanceDayGroup: Equatable, Identifiable {
             .sorted { $0.day > $1.day }
     }
 
-    /// `11月3日 周一`
     var title: String { Self.title(of: day) }
 
     static func title(of day: String) -> String {
@@ -172,7 +164,6 @@ struct AttendanceDayGroup: Equatable, Identifiable {
     }
 }
 
-/// 课表按日期分组（日期升序，组标题和记录页一致）
 struct AttendanceCourseGroup: Equatable, Identifiable {
     var day: String
     var courses: [AttendanceCourse]

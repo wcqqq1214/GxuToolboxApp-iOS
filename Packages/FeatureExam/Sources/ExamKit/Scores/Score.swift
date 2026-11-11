@@ -1,19 +1,13 @@
 import Foundation
 
-/// `GET /jw/score` 返回的一门课成绩
 public struct Score: Codable, Hashable, Sendable, Identifiable {
-    /// 教学班 ID（jxb_id），同时是平时分接口的 `id`
     public var id: String
     public var year: Int
-    /// 1 秋 / 2 春；小学期等其他学期为 0
     public var term: Int
     public var courseName: String
-    /// 无法解析时为 nil
     public var credit: Double?
-    /// 等级制成绩由后端换算成数字；两者都不是数字时为 nil
     public var score: Double?
     public var teacherName: String
-    /// `yyyy-MM-dd HH:mm:ss`
     public var uploadAt: String
 
     public init(
@@ -35,7 +29,6 @@ public struct Score: Codable, Hashable, Sendable, Identifiable {
         case courseName = "course_name"
         case teacherName = "teacher_name"
         case uploadAt = "upload_at"
-        // TODO(verify): 后端是否同时返回 camelCase 副本；这里只在 snake_case 缺失时回退
         case courseNameCamel = "courseName"
         case teacherNameCamel = "teacherName"
         case uploadAtCamel = "uploadAt"
@@ -69,16 +62,12 @@ public struct Score: Codable, Hashable, Sendable, Identifiable {
     }
 }
 
-/// `GET /jw/score` 的 `data`
 struct ScorePage: Decodable, Sendable {
     var items: [Score]
 }
 
-/// 平时成绩明细的一项（`GET /jw/score/usual`）
 public struct UsualScoreItem: Codable, Hashable, Sendable {
-    /// 如"平时成绩""期末成绩""总评"
     public var name: String
-    /// 不带 % 的字符串；总评等没有比例时为 "N/A"
     public var ratio: String
     public var score: String
 
@@ -91,7 +80,6 @@ public struct UsualScoreItem: Codable, Hashable, Sendable {
     public var hasRatio: Bool { ratio != "N/A" }
 }
 
-/// 成绩按学期分组（绩点计算器的"全学年 / 全部学期"汇总用）。学年、学期降序：同学年里小学期（term 0，发生在春季之后）最前，其次春、秋
 public struct ScoreGroup: Equatable, Identifiable, Sendable {
     public var year: Int
     public var term: Int

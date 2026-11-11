@@ -20,7 +20,6 @@ private func day(_ s: String) -> Date { AttendanceDay.parse(s, calendar: cal)! }
 
 @Suite struct AttendanceDecodingTests {
     @Test func calendarIdFormulaMatchesRN() {
-        // RN：2 * year + term - 4033；2025 秋 = 18（和 v1 校历里 `2025-1` 的 calendarId 一致）
         #expect(AttendanceCalendarID.id(year: 2025, term: 1) == 18)
         #expect(AttendanceCalendarID.id(year: 2025, term: 2) == 19)
         #expect(AttendanceCalendarID.id(year: 2026, term: 1) == 20)
@@ -30,7 +29,6 @@ private func day(_ s: String) -> Date { AttendanceDay.parse(s, calendar: cal)! }
         let r = try decode(AttendanceRecord.self, #"{"date":"2025-11-03","courseName":"高等数学","roomName":"西3-406","periodRange":"1,2","periodLabel":"第1-2节","statusCode":2,"statusName":"迟到"}"#)
         #expect(r.date == "2025-11-03" && r.periodText == "第1-2节" && r.periodRange == "1,2")
         #expect(r.state == .late && r.isAbnormal)
-        // periodLabel 缺失用 periodRange；statusCode 是字符串也认；缺字段不崩
         let b = try decode(AttendanceRecord.self, #"{"date":"2025-11-04","courseName":"英语","periodRange":"3,4","statusCode":"1"}"#)
         #expect(b.periodText == "3,4" && b.state == .normal && !b.isAbnormal && b.roomName == "")
         #expect(try decode(AttendanceRecord.self, #"{}"#).state == .unknown)
@@ -79,8 +77,8 @@ private func day(_ s: String) -> Date { AttendanceDay.parse(s, calendar: cal)! }
         let courses = table.courses()
         #expect(courses.map(\.name) == ["高等数学", "用行日期", "没有节次"])
         #expect(courses[0].id == "2025-11-03-1,2" && courses[0].room == "西3-406")
-        #expect(courses[1].day == "2025-11-03" && courses[1].firstPeriod == 3 && courses[1].lastPeriod == 4)   // 格子没有日期，用行的日期
-        #expect(courses[2].firstPeriod == 1 && courses[2].lastPeriod == 3)                                      // 没有 periods：行号 + 连续节数
+        #expect(courses[1].day == "2025-11-03" && courses[1].firstPeriod == 3 && courses[1].lastPeriod == 4)
+        #expect(courses[2].firstPeriod == 1 && courses[2].lastPeriod == 3)
     }
 
     @Test func emptyAndMalformed() throws {
@@ -110,7 +108,6 @@ private func day(_ s: String) -> Date { AttendanceDay.parse(s, calendar: cal)! }
         let now = day("2025-11-20")
         let list = [r("2025-11-20", 1), r("2025-11-13", 1), r("2025-11-12", 1), r("2025-09-01", 2), r("2025-09-02", 4), r("2025-09-03", 1), r("bad", 1)]
         let visible = AttendanceFilter.abnormalAndRecent.visible(list, now: now, calendar: cal).map(\.date)
-        // 今天、7 天前（含）保留；8 天前的正常记录隐藏；迟到 / 缺勤不论多久都保留；日期解析不了的不藏
         #expect(visible == ["2025-11-20", "2025-11-13", "2025-09-01", "2025-09-02", "bad"])
         #expect(AttendanceFilter.abnormal.visible(list, now: now, calendar: cal).map(\.date) == ["2025-09-01", "2025-09-02"])
         #expect(AttendanceFilter.all.visible(list, now: now, calendar: cal) == list)
@@ -127,9 +124,9 @@ private func day(_ s: String) -> Date { AttendanceDay.parse(s, calendar: cal)! }
     }
 
     @Test func clampedAndMissingStartDay() {
-        #expect(AttendanceWeek.initial(year: 2025, term: 1, startDays: days, now: day("2025-08-01"), calendar: cal) == 1)       // 开学前
-        #expect(AttendanceWeek.initial(year: 2025, term: 1, startDays: days, now: day("2026-06-01"), calendar: cal) == 20)      // 学期结束后
-        #expect(AttendanceWeek.initial(year: 2030, term: 1, startDays: days, now: day("2025-11-05"), calendar: cal) == 1)       // 没有这个学期的开学日
+        #expect(AttendanceWeek.initial(year: 2025, term: 1, startDays: days, now: day("2025-08-01"), calendar: cal) == 1)
+        #expect(AttendanceWeek.initial(year: 2025, term: 1, startDays: days, now: day("2026-06-01"), calendar: cal) == 20)
+        #expect(AttendanceWeek.initial(year: 2030, term: 1, startDays: days, now: day("2025-11-05"), calendar: cal) == 1)
     }
 }
 

@@ -31,8 +31,8 @@ import Testing
         let cached = AttendanceRecordCache.cached(store: s.shared, studentId: "2025000001", year: 2025, term: 1)
         #expect(cached.count == 1 && cached[0].courseName == "高数" && cached[0].periodRange == "1,2" && cached[0].statusCode == 2)
         #expect(cached[0].periodText == "第1-2节" && cached[0].statusName == "迟到")
-        #expect(AttendanceRecordCache.cached(store: s.shared, studentId: "2025000002", year: 2025, term: 1).isEmpty)   // 别的账号
-        #expect(AttendanceRecordCache.cached(store: s.shared, studentId: "2025000001", year: 2025, term: 2).isEmpty)   // 别的学期
+        #expect(AttendanceRecordCache.cached(store: s.shared, studentId: "2025000002", year: 2025, term: 1).isEmpty)
+        #expect(AttendanceRecordCache.cached(store: s.shared, studentId: "2025000001", year: 2025, term: 2).isEmpty)
         #expect(AttendanceRecordCache.cached(store: s.shared, studentId: nil, year: 2025, term: 1).isEmpty)
     }
 
@@ -46,7 +46,7 @@ import Testing
         let failing = MockBackendAPI()
         failing.stub("GET /attendance/v2/personal", error: .network("boom"))
         let second = await AttendanceRecordCache.refresh(services: services(failing, shared: shared), year: 2025, term: 1)
-        #expect(second.map(\.courseName) == ["高数"])   // 失败：保留缓存，不抛错
+        #expect(second.map(\.courseName) == ["高数"])
     }
 
     @Test func cacheIsIsolatedWhenAttendanceAccountChanges() async throws {

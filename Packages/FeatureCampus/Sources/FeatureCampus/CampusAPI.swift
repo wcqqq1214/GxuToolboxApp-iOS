@@ -3,7 +3,6 @@ import GxuFoundation
 import GxuNetworking
 import ScheduleKit
 
-/// 学院（后端写死的列表，不含年级）
 public struct School: Decodable, Sendable, Hashable, Identifiable {
     public let id: String
     public let name: String
@@ -15,7 +14,6 @@ public struct Major: Decodable, Sendable, Hashable, Identifiable {
     public var id: String { majorId }
 }
 
-/// 一个教学班；自带完整的定位参数（专业、年级、班级号），年级选“全部”时也能直接查到课表
 public struct ClassInfo: Decodable, Sendable, Hashable, Identifiable {
     public let schoolId: String
     public let majorId: String
@@ -25,7 +23,6 @@ public struct ClassInfo: Decodable, Sendable, Hashable, Identifiable {
     public var id: String { classId }
 }
 
-/// 班级课表相关接口（后端 `/jw/schedule/*`，需要教务登录）。学期只接受逻辑学期 1 / 2。
 public struct CampusAPI: Sendable {
     private let backend: any BackendAPI
 
@@ -35,7 +32,6 @@ public struct CampusAPI: Sendable {
         try await backend.getData("/jw/schedule/schools", as: [School].self)
     }
 
-    /// 空串的 `grade` / `school` 表示“全部”，不会发给后端
     public func majors(grade: String, school: String) async throws -> [Major] {
         try await backend.getData("/jw/schedule/majors", query: Self.clean(["grade": grade, "school": school]), as: [Major].self)
     }
@@ -48,7 +44,6 @@ public struct CampusAPI: Sendable {
         return try await backend.getData("/jw/schedule/class-schedules", query: query, as: [ClassInfo].self)
     }
 
-    /// 后端解析失败（教务返回异常）时是 `null`，视为错误
     public func schedule(term: AcademicTerm, of info: ClassInfo) async throws -> Schedule {
         try Self.requireQueryable(term)
         let schedule = try await backend.getData(

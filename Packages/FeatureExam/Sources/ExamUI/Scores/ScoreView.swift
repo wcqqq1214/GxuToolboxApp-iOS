@@ -8,7 +8,6 @@ public struct ScoreView: View {
     @Environment(\.services) private var services
     private let pendingSource: (any PendingCourseSource)?
 
-    /// `pendingSource` 提供"未出分科目"（已选课程在 FeatureCourse，由 App 注入）；不传则不显示
     public init(pendingSource: (any PendingCourseSource)? = nil) { self.pendingSource = pendingSource }
 
     public var body: some View {

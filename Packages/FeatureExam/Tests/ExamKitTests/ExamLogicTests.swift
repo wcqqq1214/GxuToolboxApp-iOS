@@ -27,7 +27,6 @@ private func at(_ s: String) -> Date {
         #expect(GpaCalculator.format(0) == "0.00")
         #expect(GpaCalculator.format(.nan) == "N/A")
         #expect(GpaCalculator.format(80.125) == "80.13")
-        // 总绩点 (4.0×2 + 3.5×3) / 5 = 3.7；加权平均 (90×2 + 85×3) / 5 = 87
         let r = GpaCalculator.calculate([Score(id: "a", year: 2025, term: 1, courseName: "a", credit: 2, score: 90), Score(id: "b", year: 2025, term: 1, courseName: "b", credit: 3, score: 85)])
         #expect(GpaCalculator.format(r.gpa) == "3.70" && GpaCalculator.format(r.wam) == "87.00")
     }
@@ -55,7 +54,6 @@ private func at(_ s: String) -> Date {
         #expect(r.date == nil)
     }
 
-    /// 与 RN 有意不同：dayjs 会滚动进位，这里判 tbd
     @Test(arguments: ["2026-02-30(09:00-11:00)", "2026-13-01(09:00-11:00)", "2026-07-15(25:00-26:00)"])
     func outOfRangeIsTbd(_ s: String) {
         #expect(ExamTimeParser.parse(s, now: at("2026-07-14 20:00"), calendar: calendar).status == .tbd)
@@ -103,7 +101,6 @@ private func at(_ s: String) -> Date {
         Score(id: UUID().uuidString, year: 2025, term: 1, courseName: "c", credit: credit, score: score)
     }
 
-    /// 期望值由 RN `useGpa` 的同一公式在 node 里算出
     @Test func mixedPassAndFail() {
         let r = GpaCalculator.calculate([s(90, 3), s(75, 2), s(59, 1), s(60, 2)])
         #expect(r.gpa == 2.375)
@@ -127,7 +124,6 @@ private func at(_ s: String) -> Date {
         #expect(GpaCalculator.calculate([s(90, 0)]) == .zero)
     }
 
-    /// 与 RN 不同：RN 会算出 NaN
     @Test func unparsableEntriesAreSkipped() {
         let r = GpaCalculator.calculate([s(nil, 2), s(80, nil), s(90, 3)])
         #expect(r.gpa == 4)
@@ -154,7 +150,6 @@ private func at(_ s: String) -> Date {
         #expect(TermOptions.initialTerm(current: autumn, isStarted: true, now: at("2026-10-01 12:00"), calendar: calendar) == autumn)
     }
 
-    /// 假期：B 的 current 指向即将开始的学期，默认看刚结束的那个
     @Test func vacationUsesPrevious() {
         #expect(TermOptions.initialTerm(current: autumn, isStarted: false, now: at("2026-08-20 12:00"), calendar: calendar)
             == AcademicTerm(year: 2025, term: 2))
@@ -186,7 +181,6 @@ private func at(_ s: String) -> Date {
         #expect(TermOptions.years(enrollmentYear: 2022, studyYears: 4, now: now, calendar: calendar) == [2022, 2023, 2024, 2025])
         #expect(TermOptions.years(enrollmentYear: 2022, studyYears: 5, now: now, calendar: calendar) == [2022, 2023, 2024, 2025, 2026])
         #expect(TermOptions.years(enrollmentYear: 2030, studyYears: 4, now: now, calendar: calendar).isEmpty)
-        // 3 月仍属上一学年
         #expect(TermOptions.years(enrollmentYear: 2023, studyYears: 4, now: at("2026-03-05 12:00"), calendar: calendar) == [2023, 2024, 2025])
     }
 }

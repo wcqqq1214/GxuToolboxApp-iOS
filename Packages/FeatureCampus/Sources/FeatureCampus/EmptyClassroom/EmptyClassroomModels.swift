@@ -1,29 +1,21 @@
 import Foundation
 
-/// 空闲教室（RN `src/features/emptyClassroom`）的模型和纯逻辑。数据是全校公共数据（不是个人数据），所以表里没有 studentId。
 public enum EmptyClassroomConstants {
-    /// 首选页大小；后端升级后可一次取回一个节次的全部教室
     public static let pageSize = 10_000
-    /// 单次节次查询最多翻页数
     public static let maxPages = 10
     public static let days = 7
     public static let periods = 13
-    /// 按时间查询结果每页的教室数
     public static let availableRoomPageSize = 40
-    /// 周选择固定展示 1–20 周
     public static let maxWeeks = 20
-    /// 两次缓存“开始”之间的最小间隔（秒）
     public static let cooldown: TimeInterval = 60
     public static let slotRowBytes = 38
     public static let roomRowBytes = 130
 }
 
-/// 教室业务键：楼栋 + NUL + 教室名。接口没有稳定的教室编号，只能这样标识。
 public func emptyRoomKey(_ building: String, _ name: String) -> String {
     "\(building.trimmingCharacters(in: .whitespaces))\u{0}\(name.trimmingCharacters(in: .whitespaces))"
 }
 
-/// 后端清洗后的一页空闲教室数据（`GET /jw/emptyClassroom`）。字段宽容解码：数字 / 字符串 / null 都接受。
 public struct ClassroomPage: Decodable, Sendable, Equatable {
     public struct Item: Decodable, Sendable, Equatable {
         public var classroomName: String
@@ -48,7 +40,6 @@ public struct ClassroomPage: Decodable, Sendable, Equatable {
 
         public init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
-            // classroomName / building 接口必填
             classroomName = try c.decode(String.self, forKey: .classroomName)
             building = try c.decode(String.self, forKey: .building)
             placeType = c.text(.placeType)
@@ -75,13 +66,11 @@ public struct ClassroomPage: Decodable, Sendable, Equatable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         totalPage = c.count(.totalPage)
         totalCount = c.count(.totalCount)
-        // items 不是数组：不能当成“没有空教室”，由调用方当成异常（通常是教务登录失效）
         items = try c.decode([Item].self, forKey: .items)
     }
 }
 
 private extension KeyedDecodingContainer {
-    /// null / 缺失 / 数字 都转成字符串
     func text(_ key: Key) -> String {
         if let s = try? decode(String.self, forKey: key) { return s }
         if let n = try? decode(Int.self, forKey: key) { return String(n) }
@@ -89,7 +78,6 @@ private extension KeyedDecodingContainer {
         return ""
     }
 
-    /// 非负整数，兼容后端把数字序列化成字符串
     func count(_ key: Key) -> Int? {
         if let n = try? decode(Int.self, forKey: key) { return n >= 0 ? n : nil }
         if let s = try? decode(String.self, forKey: key), let n = Int(s.trimmingCharacters(in: .whitespaces)) { return n >= 0 ? n : nil }
@@ -97,7 +85,6 @@ private extension KeyedDecodingContainer {
     }
 }
 
-/// 教室元数据（座位数已转 Int?）
 public struct RoomPayload: Sendable, Equatable {
     public var key: String
     public var building: String
@@ -109,15 +96,12 @@ public struct RoomPayload: Sendable, Equatable {
     public var allowToUse: String
 }
 
-/// 一个教学日的抓取结果：教室元数据 + 每间教室当天空闲的节次
 public struct DayPayload: Sendable, Equatable {
     public var day: Int
     public var rooms: [String: RoomPayload]
-    /// roomKey → 空闲节次（升序、去重）
     public var freePeriods: [String: [Int]]
 }
 
-/// 教室维表的一行
 public struct RoomRecord: Sendable, Hashable, Identifiable {
     public var id: Int64
     public var building: String
@@ -141,7 +125,6 @@ public struct WeekSnapshot: Sendable, Hashable {
 }
 
 public struct RoomBuildingSummary: Sendable, Hashable {
-    /// 空串表示教务没返回可识别的楼栋
     public var building: String
     public var roomCount: Int
 }
@@ -152,11 +135,9 @@ public struct FreePeriodRow: Sendable, Hashable {
     public var period: Int
 }
 
-/// 合并后的连续空闲段
 public struct FreeRun: Sendable, Hashable, Identifiable {
     public var week: Int
     public var day: Int
-    /// 起止节次，1-based，含
     public var begin: Int
     public var end: Int
     public var id: String { "\(week)-\(day)-\(begin)-\(end)" }
@@ -170,7 +151,6 @@ public struct AvailableRoomPeriodRow: Sendable, Hashable {
     public var period: Int
 }
 
-/// 时间查询结果：教室 + 选中范围内合并后的空闲区间
 public struct RoomAvailabilityResult: Sendable, Hashable, Identifiable {
     public var room: RoomRecord
     public var freeRuns: [FreeRun]
@@ -184,7 +164,6 @@ public enum TimeQuerySortMode: String, Sendable { case `default`, free }
 public enum TimeQuerySortDirection: String, Sendable { case asc, desc }
 
 public enum EmptyClassroomLogic {
-    /// 把同一周、同一天内严格相邻的节次合并成连续空闲段。输入顺序无关、重复只计一次、越界行忽略，不跨天、不对午休做特殊处理。
     public static func buildFreeRuns(_ rows: [FreePeriodRow]) -> [FreeRun] {
         let sorted = rows
             .filter { (1...EmptyClassroomConstants.maxWeeks).contains($0.week) && (1...EmptyClassroomConstants.days).contains($0.day) && (1...EmptyClassroomConstants.periods).contains($0.period) }
@@ -207,7 +186,6 @@ public enum EmptyClassroomLogic {
         return runs
     }
 
-    /// 单日、节次范围内的空闲行按教室聚合；顺序沿用输入（SQL 的楼栋 / 教室顺序）
     public static func buildResults(_ rows: [AvailableRoomPeriodRow]) -> [RoomAvailabilityResult] {
         var order: [Int64] = []
         var grouped: [Int64: (room: RoomRecord, week: Int, day: Int, periods: Set<Int>)] = [:]
@@ -231,7 +209,6 @@ public enum EmptyClassroomLogic {
         }
     }
 
-    /// 与 SQLite BINARY 排序一致的逐码点比较（分页边界也用它，不能用本地化比较，否则后页会插到旧列表前面）
     static func compareDatabaseText(_ a: String, _ b: String) -> Int {
         let l = Array(a.unicodeScalars), r = Array(b.unicodeScalars)
         for i in 0..<min(l.count, r.count) where l[i].value != r[i].value { return Int(l[i].value) - Int(r[i].value) }
@@ -246,7 +223,6 @@ public enum EmptyClassroomLogic {
         return a.id < b.id
     }
 
-    /// 默认按名称，或按选中范围内的空闲节数排序（同节数先比首次空闲节次，再按楼栋 / 教室名稳定排序）
     public static func sort(_ results: [RoomAvailabilityResult], mode: TimeQuerySortMode, direction: TimeQuerySortDirection) -> [RoomAvailabilityResult] {
         results.sorted { left, right in
             if mode == .default { return compareRoom(left.room, right.room) }
@@ -259,7 +235,6 @@ public enum EmptyClassroomLogic {
         }
     }
 
-    /// 按楼栋切成分组，空楼栋统一显示“其他楼栋”；分组顺序沿用结果中首次出现的顺序
     public static func group(_ results: [RoomAvailabilityResult]) -> [(title: String, items: [RoomAvailabilityResult])] {
         var order: [String] = []
         var map: [String: [RoomAvailabilityResult]] = [:]
@@ -271,7 +246,6 @@ public enum EmptyClassroomLogic {
         return order.map { ($0, map[$0] ?? []) }
     }
 
-    /// 估算缓存占用（字节）
     public static func estimatedBytes(slots: Int, rooms: Int) -> Int {
         slots * EmptyClassroomConstants.slotRowBytes + rooms * EmptyClassroomConstants.roomRowBytes
     }

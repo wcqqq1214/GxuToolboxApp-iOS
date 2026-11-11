@@ -1,6 +1,5 @@
 import Foundation
 
-/// 13 节作息。第 9 节结束 18:55 晚于第 10 节开始 18:45，是学校作息本身如此，不要“修正”。
 public enum ClassPeriods {
     public struct Period: Sendable, Hashable {
         public let number: Int
@@ -24,7 +23,6 @@ public enum ClassPeriods {
 
     public static var count: Int { all.count }
 
-    /// 1-based
     public static func period(_ number: Int) -> Period? {
         (1...count).contains(number) ? all[number - 1] : nil
     }

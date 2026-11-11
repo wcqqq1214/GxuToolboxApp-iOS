@@ -10,13 +10,11 @@ enum UsualScoreState: Equatable {
     case failed(String)
 }
 
-/// 成绩：先显示本地缓存，再后台刷新。`term == nil` 表示全学年（分别请求秋、春两个学期后合并）。
 @MainActor @Observable
 final class ScoreViewModel {
     struct Query: Hashable {
         var year: Int
         var term: Int?
-        /// 全部学期（累计，含小学期 `term == 0`）。为 true 时 `year` / `term` 不参与查询
         var isAll = false
 
         static var all: Query { Query(year: TermOptions.academicYear(), term: nil, isAll: true) }
@@ -28,11 +26,9 @@ final class ScoreViewModel {
     private(set) var isLoading = false
     private(set) var isReady = false
     private var hasContext = false
-    /// 学期选择器可选的学年（入学年份起、学制年数个，且不晚于当前学年）
     private(set) var years = TermOptions.years(enrollmentYear: nil)
     private(set) var error: GxuError?
     private(set) var usual: [String: UsualScoreState] = [:]
-    /// 已选但未出分的课程（只在选了具体学期时有）
     private(set) var pending: [PendingCourse] = []
     private let pendingSource: (any PendingCourseSource)?
 
@@ -52,7 +48,6 @@ final class ScoreViewModel {
         self.query = query ?? Query(year: initial.year, term: initial.term)
     }
 
-    /// 带着学期进入（如从成绩页打开绩点计算器）时只补学年范围，不改学期
     func resolveInitialTerm() async {
         guard !hasContext else { return }
         hasContext = true
@@ -78,7 +73,6 @@ final class ScoreViewModel {
         await showCached(studentId: studentId, query: query)
 
         if query.isAll {
-            // 全部学期：后端不带 year / term 一次返回全部历史成绩，不逐学年循环请求
             do {
                 let remote = try await api.allScores()
                 guard !Task.isCancelled, self.query == query else { return }
@@ -87,7 +81,7 @@ final class ScoreViewModel {
                 return
             } catch {
                 guard self.query == query else { return }
-                self.error = asGxuError(error)   // 有缓存时界面保留缓存并提示，没有缓存才整页报错
+                self.error = asGxuError(error)
             }
             guard self.query == query else { return }
             await showCached(studentId: studentId, query: query)
@@ -111,7 +105,6 @@ final class ScoreViewModel {
             }
         }
         guard self.query == query else { return }
-        // 部分学期失败时仍用成功的部分；全部失败才报错
         if succeeded == 0, let first = failures.first { error = first }
         await showCached(studentId: studentId, query: query)
         await loadPending(studentId: studentId, query: query)
@@ -143,7 +136,6 @@ final class ScoreViewModel {
         lastSyncedAt = synced
     }
 
-    /// 展开一行时调用：内存 → 本地缓存 → 远端
     func loadUsual(for score: Score) async {
         if case .loaded = usual[score.id] { return }
         guard let studentId = accounts.studentId else { return }
@@ -163,7 +155,6 @@ final class ScoreViewModel {
         }
     }
 
-    /// 绩点页用：按重修规则合并后实际计入的成绩（成绩查询页仍显示 `scores` 里的全部原始记录）
     var resolved: RetakeResolution { RetakeRule.resolve(scores) }
 
     var gpa: GpaResult { GpaCalculator.calculate(resolved.counted) }

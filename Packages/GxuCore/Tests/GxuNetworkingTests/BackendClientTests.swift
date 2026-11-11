@@ -99,7 +99,6 @@ struct BackendClientTests {
     }
 }
 
-/// URLProtocol 的 handler 是同步的，这里用信号量桥接 actor 计数
 private func runBlocking<T: Sendable>(_ work: @escaping @Sendable () async -> T) throws -> T {
     let box = Box<T>()
     let semaphore = DispatchSemaphore(value: 0)

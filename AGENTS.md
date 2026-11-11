@@ -11,6 +11,8 @@
 
 ## 代码入口与边界
 
+- 禁止在项目自有源码、脚本和配置中写注释，包括行尾注释、块注释、文档注释和 lint 禁用指令。把需要保留的说明写到对应的 Markdown 文档，把行为约束落实到代码或测试。
+- 注释检查覆盖 Swift、Shell、Python、YAML、plist 和隐私清单，以及 Git 忽略规则、EditorConfig 和环境变量模板。保留 `Package.swift` 首行的 SwiftPM 工具版本声明和脚本首行的解释器声明。第三方技能和 vendored 源码按原样维护。
 - `App/GxuToolApp.swift` 是入口，`App/Composition/` 负责装配，`App/Shell/` 负责导航和跨功能接线。
 - 功能放在 `Packages/` 对应的 Swift Package。网络、认证和存储共用 `GxuCore`，界面优先使用原生控件和 [GxuDesign](Packages/GxuDesign/README.md)。
 - 在现有 target 内按功能收拢专属的页面、状态、模型、请求和缓存。单一功能的测试放在对应测试 target 下的同名目录。共享服务和跨功能测试留在共同的 target 中。
@@ -24,6 +26,7 @@
 
 ## 构建与验证
 
+- GitHub Actions 在 push 和 pull request 上运行注释检查，发现违规即报错并输出文件与行号。本地选择完整 Xcode 后，先运行 `python3 -m pip install -r scripts/lint-requirements.txt`，再从仓库根目录运行 `python3 scripts/lint-no-comments.py`。
 - 工程设置修改 `project.yml`。XcodeGen 生成的工程、Info.plist 和 entitlements，以及构建产物和签名配置留在本机。
 - 从根目录运行 `bash scripts/build.sh` 构建 App 和 Widget，运行 `bash scripts/test.sh <PackageName>` 测试相关包。不带包名时运行全部包测试、App 单元测试和脚本回归。App 接线改动须覆盖 `AppTests`。可用 `SIM_ID` 指定模拟器。
 - 缺陷先复现再验证，测试覆盖可观察的行为。UI 改动按影响范围走查流程、浅深色、无障碍及系统降级，保留必要的操作反馈和错误提示。自动化入口为 `scripts/run-e2e-ui.sh`，执行前检查所需配置。真机联调见[设备检查清单](docs/ios-migration/device-checklist.md)。

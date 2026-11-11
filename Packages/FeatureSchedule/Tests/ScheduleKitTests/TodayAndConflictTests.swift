@@ -6,7 +6,6 @@ import Testing
 @testable import ScheduleKit
 
 struct TodayAndConflictTests {
-    // term：2026-09-07（周一）开学。第 2 周周三 = 2026-09-16
     let mathMon = course("高等数学", weekday: 3, 1, 2, weeks: Array(1...18), teacher: "甲")
     let english = course("大学英语", weekday: 3, 3, 4, weeks: Array(1...18), teacher: "乙")
     let physics = course("大学物理", weekday: 3, 3, 4, weeks: Array(1...18), teacher: "丙")
@@ -60,7 +59,6 @@ struct TodayAndConflictTests {
         #expect(makeup.courses.count == 1)
     }
 
-    // MARK: 冲突选择
 
     @Test func conflictKeyIsOrderIndependent() {
         let all = occurrences([english, physics]).filter { $0.week == 2 }
@@ -74,7 +72,6 @@ struct TodayAndConflictTests {
         #expect(group.selected(choices: [:]) == group.items[0])
         let other = group.items[1]
         #expect(group.selected(choices: [group.key: ScheduleExpander.selectionKey(other.course)]) == other)
-        // 选中的课已经不在组里：回到默认
         #expect(group.selected(choices: [group.key: "不存在_x"]) == group.items[0])
     }
 
@@ -103,7 +100,7 @@ struct TodayAndConflictTests {
         let repository = ScheduleRepository(backend: MockBackendAPI(), database: db)
         let term1 = AcademicTerm(year: 2026, term: 1)
         try await repository.setConflictChoice("大学物理_丙", groupKey: "k", studentId: "A", term: term1)
-        try await repository.setConflictChoice("大学英语_乙", groupKey: "k", studentId: "A", term: term1)   // 覆盖
+        try await repository.setConflictChoice("大学英语_乙", groupKey: "k", studentId: "A", term: term1)
         #expect(await repository.conflictChoices(studentId: "A", term: term1) == ["k": "大学英语_乙"])
         #expect(await repository.conflictChoices(studentId: "B", term: term1).isEmpty)
         #expect(await repository.conflictChoices(studentId: "A", term: AcademicTerm(year: 2026, term: 2)).isEmpty)

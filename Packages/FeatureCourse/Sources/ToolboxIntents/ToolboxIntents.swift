@@ -7,10 +7,8 @@ import GxuStorage
 import ScheduleKit
 import SwiftUI
 
-/// 在 App 的 `AppIntentsPackage` 里 include 这个类型，Shortcuts / Siri 才能发现本包里的 Intent
 public struct ToolboxIntentsPackage: AppIntentsPackage {}
 
-/// Intent 运行环境：只读本地缓存，不联网，不依赖 App 是否在前台
 enum IntentEnvironment {
     static func open() throws -> (studentId: String, database: AppDatabase) {
         let shared = UserDefaultsSharedStore()

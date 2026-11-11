@@ -4,9 +4,6 @@ import GxuFoundation
 import GxuNetworking
 import GxuStorage
 
-// 校选课修读进度：RN v2.2 `src/features/electiveStrategy`（`GET /jw/elective-progress`，由后端计算课程去重、成绩匹配和达标判断，
-// 客户端只展示、只格式化数值）。模型按 RN 的 zod 校验（`schema/progress.ts`）写，校验不过按"数据格式异常"处理，和 RN 一致。
-// 已用 A 抓取的真实脱敏响应核对（`Fixtures/sanitized/elective-progress.json`）：字段和可空项与这里一致，无需改模型。
 
 public struct ElectiveProgress: Codable, Sendable, Equatable {
     public enum Module: String, Codable, Sendable { case lead, entrepreneurship, art, asean, ethnic, ocean }
@@ -35,7 +32,6 @@ public struct ElectiveProgress: Codable, Sendable, Equatable {
         public var required: Double
         public var `operator`: Operator
         public var unit: Unit
-        /// nil = 待核对（不是未达标）
         public var passed: Bool?
         public var id: String { key }
     }
@@ -84,19 +80,15 @@ public struct ElectiveProgress: Codable, Sendable, Equatable {
     public var ruleId: String
     public var ruleVersion: String
     public var ruleName: String
-    /// ISO 8601
     public var computedAt: String
-    /// false = 部分课程需要核对，学分只含已确认的部分，不能判断总体是否达标
     public var complete: Bool
     public var stats: Stats
     public var requirements: [Requirement]
     public var remainingRequired: [String]
     public var courses: [Course]
     public var issues: [Issue]
-    /// nil = 待核对
     public var isQualified: Bool?
 
-    /// RN：`complete ? isQualified : null`
     public var qualified: Bool? { complete ? isQualified : nil }
 
     public var computedDate: Date? {
@@ -105,12 +97,10 @@ public struct ElectiveProgress: Codable, Sendable, Equatable {
         return f.date(from: computedAt) ?? ISO8601DateFormatter().date(from: computedAt)
     }
 
-    /// 某项要求是否达标：结果不完整时都是"待核对"（RN：`data.complete ? item.passed : null`）
     public func passed(_ item: Requirement) -> Bool? { complete ? item.passed : nil }
 }
 
 public enum ElectiveProgressDisplay {
-    /// 移植自 RN `formatProgressRequirement`：`3 / ≥4 学分`、`40% / ≤50%`
     public static func format(_ item: ElectiveProgress.Requirement) -> String {
         func n(_ v: Double) -> String { v == v.rounded() && abs(v) < 1e15 ? String(Int(v)) : String(v) }
         let op = item.operator == .lte ? "≤" : "≥"
@@ -138,7 +128,6 @@ public struct ElectiveProgressAPI: Sendable {
 
     public init(backend: any BackendAPI) { self.backend = backend }
 
-    /// 通过结构校验、并且 `studentId` 等于当前账号才返回（RN 同样校验账号，不一致不写缓存）
     public func fetch(studentId: String) async throws -> ElectiveProgress {
         let result: ElectiveProgress
         do {
@@ -151,7 +140,6 @@ public struct ElectiveProgressAPI: Sendable {
     }
 }
 
-/// 完整服务端结果的本地缓存，按学号隔离（RN：MMKV `elective-progress:v1:<studentId>`）
 public enum ElectiveProgressCache {
     static func key(_ studentId: String) -> SharedKey<ElectiveProgress> { SharedKey("elective-progress.v1.\(studentId)") }
 

@@ -4,7 +4,6 @@ import GxuFoundation
 import Observation
 import ScheduleKit
 
-/// 缓存任务能跨线程读到的“用户已请求取消”标志
 final class CancelFlag: @unchecked Sendable {
     private let lock = NSLock()
     private var value = false
@@ -12,8 +11,6 @@ final class CancelFlag: @unchecked Sendable {
     func set() { lock.withLock { value = true } }
 }
 
-/// 空闲教室的页面状态：学期、已缓存的周、按时间查询、按教室查看。
-/// 每次查询带一个 generation：筛选条件很快连续变化时，先发出的慢请求回来不能覆盖后发出的结果。
 @MainActor @Observable
 final class EmptyClassroomModel {
     enum Mode: String, CaseIterable, Identifiable {
@@ -28,10 +25,8 @@ final class EmptyClassroomModel {
     private(set) var snapshots: [WeekSnapshot] = []
     private(set) var setupError: String?
     private(set) var isReady = false
-    /// 缓存发生变化（缓存完成 / 删除）就加一，查询据此重读
     private(set) var cacheRevision = 0
 
-    // MARK: 按时间查询
     var queryWeek: Int?
     var queryDay: Int?
     var startPeriod = 1
@@ -49,7 +44,6 @@ final class EmptyClassroomModel {
     private(set) var buildingSummaries: [EmptyClassroomFloor.BuildingGroup] = []
     private(set) var cachedDays: [Int] = []
 
-    // MARK: 按教室
     private(set) var room: RoomRecord?
     var roomWeek = 1
     private(set) var roomRuns: [FreeRun] = []
@@ -99,7 +93,6 @@ final class EmptyClassroomModel {
         await reloadSnapshots()
     }
 
-    /// 缓存完成或删除后调用：重读已缓存的周，并让查询重新读取
     func cacheChanged() async {
         cacheRevision += 1
         await reloadSnapshots()
@@ -120,7 +113,6 @@ final class EmptyClassroomModel {
             return
         }
         buildingSummaries = EmptyClassroomFloor.groupBuildings((try? await repository.listRoomBuildings()) ?? [])
-        // 当前选的周被删了，或还没选：优先选最接近当前教学周的已缓存周
         if queryWeek == nil || !cachedWeeks.contains(queryWeek ?? 0) {
             queryWeek = nearestCachedWeek(to: defaultWeek(for: term))
             queryDay = nil
@@ -144,7 +136,6 @@ final class EmptyClassroomModel {
         }
     }
 
-    /// 某周某天的日期文案（如 “10-26”）
     func dateLabel(week: Int, day: Int) -> String? {
         guard let term, let calendar = context.termCalendar(for: term) else { return nil }
         let date = calendar.date(week: week, weekday: day)
@@ -152,7 +143,6 @@ final class EmptyClassroomModel {
         return "\(c.month ?? 0)-\(String(format: "%02d", c.day ?? 0))"
     }
 
-    // MARK: 查询
 
     func runQuery(reset: Bool) async {
         guard let repository, let term, let week = queryWeek, let day = queryDay else {
@@ -173,7 +163,7 @@ final class EmptyClassroomModel {
         isQuerying = true
         do {
             let result = try await repository.listAvailableRooms(query)
-            guard generation == queryGeneration else { return }       // 条件已经变了：丢弃过期结果
+            guard generation == queryGeneration else { return }
             let sorted = EmptyClassroomLogic.sort(EmptyClassroomLogic.buildResults(result.rows), mode: sortMode, direction: sortDirection)
             results = reset ? sorted : results + sorted
             if reset { totalCount = result.totalCount }
@@ -194,7 +184,6 @@ final class EmptyClassroomModel {
 
     func toggleSortDirection() { sortDirection = sortDirection == .desc ? .asc : .desc }
 
-    // MARK: 按教室
 
     func select(room newRoom: RoomRecord?) async {
         room = newRoom
@@ -214,7 +203,6 @@ final class EmptyClassroomModel {
         }
     }
 
-    // MARK: 选择持久化（整体校验，任一字段损坏就忽略）
 
     private static let key = "emptyClassroom.selection"
 
@@ -244,7 +232,6 @@ final class EmptyClassroomModel {
     private func restoreRoom() async {
         guard let repository, let id = pendingRoomId else { return }
         pendingRoomId = nil
-        // 教室只存了 id：从各楼栋里找回完整记录
         for building in (try? await repository.listRoomBuildings()) ?? [] {
             if let found = (try? await repository.listRooms(inBuilding: building.building))?.first(where: { $0.id == id }) {
                 room = found
@@ -255,7 +242,6 @@ final class EmptyClassroomModel {
     }
 }
 
-/// 缓存任务：一次缓存一周（7 天 × 13 个节次），可取消，两次开始之间有冷却。
 @MainActor @Observable
 final class EmptyClassroomCacheController {
     enum State: Equatable {
@@ -350,7 +336,6 @@ final class EmptyClassroomCacheController {
 
 #if DEBUG
 extension EmptyClassroomModel {
-    /// 截图自查：`-GxuEmptyDemo` 往本地库里写几周合成数据（不连教务）
     fileprivate func seedDemo(services: AppServices) async {
         guard let repository, let term else { return }
         let weeks = [defaultWeek(for: term), defaultWeek(for: term) + 1]

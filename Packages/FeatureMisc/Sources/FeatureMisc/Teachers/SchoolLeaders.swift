@@ -1,7 +1,5 @@
 import Foundation
 
-/// 学校领导（静态数据，移植自 RN `teachersInfo/data/leaders.ts`；顺序和重复归类与广西大学官网"现任领导"一致，
-/// 同一位领导兼任多个栏目职务时，会在对应栏目中分别展示）。
 public struct SchoolLeader: Hashable, Sendable, Identifiable {
     public var id: String
     public var name: String
@@ -17,7 +15,6 @@ public struct SchoolLeaderGroup: Hashable, Sendable, Identifiable {
 }
 
 public enum SchoolLeaders {
-    /// 教师库里学校领导的单位（搜索领导的姓名时后端返回的 `unit`），查详情时作为 `school` 参数
     public static let unit = "校领导"
 
     private static let xuHuarui = SchoolLeader(

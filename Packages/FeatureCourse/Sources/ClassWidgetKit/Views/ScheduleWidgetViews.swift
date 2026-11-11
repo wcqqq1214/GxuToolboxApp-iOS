@@ -6,7 +6,6 @@ import WidgetKit
 public struct ScheduleWidgetView: View {
     @Environment(\.widgetFamily) private var environmentFamily
     var entry: ScheduleWidgetEntry
-    /// 仅用于进程内渲染（设计自查）；在小组件里由系统环境决定
     var familyOverride: WidgetFamily?
     private var family: WidgetFamily { familyOverride ?? environmentFamily }
 
@@ -31,10 +30,8 @@ public struct ScheduleWidgetView: View {
     }
 }
 
-// MARK: 文案
 
 private extension ScheduleWidgetEntry {
-    /// 标题小字：说明 focus 是什么
     var headline: String {
         switch phase {
         case .unavailable, .stale: return "课表"
@@ -69,7 +66,6 @@ private extension ScheduleWidgetEntry {
 
 private func timeRange(_ c: WidgetCourse) -> String { "\(c.beginTime)–\(c.endTime)" }
 
-/// 不在今天时带上星期，例如"周四 08:00"
 private func dayPrefixed(_ c: WidgetCourse, relativeTo date: Date) -> String {
     let cal = Calendar.current
     if cal.isDate(c.startsAt, inSameDayAs: date) { return timeRange(c) }
@@ -80,7 +76,6 @@ private func dayPrefixed(_ c: WidgetCourse, relativeTo date: Date) -> String {
     return "\(WeekdayName.full(weekday)) \(timeRange(c))"
 }
 
-// MARK: 部件
 
 private struct StatusLabel: View {
     var entry: ScheduleWidgetEntry
@@ -105,11 +100,9 @@ private struct MessageView: View {
     }
 }
 
-/// 一节课的焦点展示（小组件左侧 / 小尺寸整体）
 private struct FocusView: View {
     var entry: ScheduleWidgetEntry
 
-    /// 上课中显示距下课，等待中显示距上课。用系统动态时间样式，不需要时间线刷新
     private var relative: (date: Date, suffix: String)? {
         if let current = entry.current { return (current.endsAt, "后下课") }
         if entry.phase == .waiting, let first = entry.upcoming.first { return (first.startsAt, "后上课") }
@@ -125,7 +118,7 @@ private struct FocusView: View {
                     Text(relative.date, style: .relative)
                         .font(.title2.weight(.semibold)).monospacedDigit()
                         .lineLimit(1).minimumScaleFactor(0.6)
-                        .environment(\.locale, Locale(identifier: "zh_CN"))   // 固定中文单位：25分钟
+                        .environment(\.locale, Locale(identifier: "zh_CN"))
                     Text(relative.suffix).font(.caption).foregroundStyle(.secondary)
                 }
                 .widgetAccentable()
@@ -176,7 +169,6 @@ private struct CourseRow: View {
     }
 }
 
-// MARK: 主屏
 
 private struct SmallView: View {
     var entry: ScheduleWidgetEntry
@@ -190,7 +182,7 @@ private struct MediumView: View {
 
     private var rest: [WidgetCourse] {
         var list = entry.upcoming
-        if entry.current == nil, !list.isEmpty { list.removeFirst() }   // 第一节已在左侧
+        if entry.current == nil, !list.isEmpty { list.removeFirst() }
         return list
     }
 
@@ -223,7 +215,6 @@ private struct MediumView: View {
 private struct LargeView: View {
     var entry: ScheduleWidgetEntry
 
-    /// 固定中文格式，不随系统语言变化：11月5日 周四
     static func dateText(_ date: Date) -> String {
         let cal = Calendar.current
         let c = cal.dateComponents([.month, .day], from: date)
@@ -259,7 +250,6 @@ private struct LargeView: View {
     }
 }
 
-// MARK: 锁屏
 
 private struct RectangularView: View {
     var entry: ScheduleWidgetEntry
@@ -293,10 +283,8 @@ private struct InlineView: View {
     }
 }
 
-// MARK: 示例数据（占位 / 预览）
 
 public extension ScheduleWidgetEntry {
-    /// 占位 / 预览数据：时间相对"现在"，这样动态的相对时间文字看起来是对的
     static var sample: ScheduleWidgetEntry {
         let cal = Calendar.current
         let now = Date.now

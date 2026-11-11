@@ -11,7 +11,6 @@ public struct Credential: Codable, Sendable, Equatable {
     }
 }
 
-/// 账号密码存储。生产环境用 Keychain；测试和预览用内存实现。
 public protocol CredentialStore: Sendable {
     func load(_ system: AuthSystem) -> Credential?
     func save(_ credential: Credential, for system: AuthSystem) throws
@@ -54,7 +53,6 @@ public final class KeychainCredentialStore: CredentialStore {
         guard status == errSecItemNotFound else { throw GxuError.invalidData("无法保存账号（Keychain \(status)）") }
         var add = query(system)
         add[kSecValueData as String] = data
-        // 小组件在锁屏后也可能需要读取
         add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
         let addStatus = SecItemAdd(add as CFDictionary, nil)
         guard addStatus == errSecSuccess else { throw GxuError.invalidData("无法保存账号（Keychain \(addStatus)）") }

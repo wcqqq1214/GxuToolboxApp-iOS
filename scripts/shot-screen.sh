@@ -1,6 +1,4 @@
 #!/bin/bash
-# 构建后用 -GxuScreen 直接打开某个页面并截图（DEBUG）。用法：shot-screen.sh <screen> [light|dark] [额外启动参数...]
-# screen：feedback | feedbackList | profile | attendance | unified | web
 source "$(dirname "$0")/_env.sh"
 cd "$ROOT"
 source .secrets/account.env

@@ -7,37 +7,31 @@ import GxuFoundation
 import Observation
 import ScheduleKit
 
-/// 首页（今天）的数据：课表快照 + 近期考试。先读本地缓存，再在后台刷新；刷新失败时保留缓存。
 @MainActor @Observable
 final class HomeModel {
     enum Phase: Equatable {
         case needsLogin
         case loading
         case ready
-        /// 本地没有课表，联网也失败了
         case unavailable(String)
     }
 
     private(set) var phase: Phase = .loading
     private(set) var snapshot: ScheduleSnapshot?
-    /// 最近几场未结束的考试，按开考时间升序
     private(set) var exams: [ExamItem] = []
     private(set) var colors: [String: UInt32] = [:]
     private(set) var isRefreshing = false
 
-    /// 按账号节流：全局一个时间戳会让刚切换的新账号被上一个账号的刷新挡掉
     @ObservationIgnored private var throttle = RefreshThrottle()
     @ObservationIgnored private var reloadID = UUID()
     @ObservationIgnored private var displayedStudentId: String?
     @ObservationIgnored private var displayedUnifiedUsername: String?
 
-    /// 现在有没有“下一件事”（附件栏要不要显示）
     func hasNextEvent(now: Date = .now) -> Bool {
         guard let snapshot else { return false }
         return HomeEvent.pick(snapshot: snapshot, exams: exams, now: now) != nil
     }
 
-    /// 只读本地缓存，切回首页时调用（便宜）
     func reload(services: AppServices) async {
         guard !Task.isCancelled else { return }
         let requestID = UUID()
@@ -74,7 +68,6 @@ final class HomeModel {
         exams = upcoming
     }
 
-    /// 缓存 → 联网刷新（开学日、课表、节假日、当前学期的考试）→ 再读缓存。`minimumInterval` 内不重复请求。
     func load(services: AppServices, minimumInterval: TimeInterval = 120) async {
         let accounts = services.accounts
         let requestedStudent = accounts.studentId
@@ -83,7 +76,6 @@ final class HomeModel {
         guard !Task.isCancelled, phase != .needsLogin, let studentId = requestedStudent,
               accounts.studentId == studentId else { return }
         guard throttle.shouldRefresh(for: studentId, minimumInterval: minimumInterval) else {
-            // 另一次刷新还在进行时不下结论，它结束后会更新状态
             if snapshot == nil, !isRefreshing { phase = .unavailable("暂时没有本学期的课表数据") }
             return
         }
@@ -98,7 +90,6 @@ final class HomeModel {
             let startDays = try await repository.refreshStartDays()
             if let current = TermResolver.current(in: startDays, now: .now), current.academicTerm.isBackendQueryable {
                 let term = current.academicTerm
-                // 课表刚刷新过（课表页或上次）就不重复请求
                 let cached = try? await repository.cachedSchedule(studentId: studentId, term: term)
                 guard !Task.isCancelled, accounts.studentId == studentId else { return }
                 if cached.map({ Date.now.timeIntervalSince($0.updatedAt) > minimumInterval }) ?? true {

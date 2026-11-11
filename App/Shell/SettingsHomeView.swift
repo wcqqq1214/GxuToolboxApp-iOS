@@ -5,7 +5,6 @@ import ImageIO
 import PhotosUI
 import SwiftUI
 
-/// 设置首页骨架。账号相关页面由 FeatureAccount 提供，这里只放入口；外观设置在这里。
 struct SettingsHomeView: View {
     private static let sourceRepositoryURL = URL(string: "https://github.com/wcqqq1214/GxuToolboxApp-iOS")!
 
@@ -114,7 +113,6 @@ struct SettingsHomeView: View {
         }
     }
 
-    /// 首页和账号详情页用同一个状态，文案统一来自 `AuthState.displayText`（未登录 / 已登录 / 需要重新登录）
     private static func statusText(_ state: AuthState?) -> String {
         (state ?? .noAccount).displayText
     }
@@ -137,7 +135,6 @@ struct SettingsHomeView: View {
     }
 }
 
-/// 账号入口：已登录时在标题下显示 “学号 · 学院”。资料先读缓存，再后台更新；拿不到资料时只显示学号。
 private struct AccountRow: View {
     let status: String
     @Environment(\.services) private var services
@@ -176,7 +173,6 @@ private struct AccountRow: View {
     }
 }
 
-/// 主题色：一排预设色块，当前选中的带对勾
 private struct AccentPicker: View {
     @Environment(GxuTheme.self) private var theme
 
@@ -238,7 +234,6 @@ private struct BackgroundSettings: View {
         }
     }
 
-    /// 保存缩小后的 JPEG，限制背景图的内存和存储开销。
     private nonisolated static func thumbnail(_ data: Data) async -> Data? {
         await Task.detached(priority: .userInitiated) {
             guard let source = CGImageSourceCreateWithData(data as CFData, nil),

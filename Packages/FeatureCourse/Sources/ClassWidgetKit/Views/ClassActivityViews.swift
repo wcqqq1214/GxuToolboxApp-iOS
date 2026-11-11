@@ -1,7 +1,6 @@
 import ActivityKit
 import SwiftUI
 
-/// 界面阶段：开始前 / 上课中 / 已下课。`isStale` 在内容过期点（开始或结束）翻转，系统会重新渲染。
 public enum ClassActivityPhase { case before, during, ended }
 
 public enum ClassActivityText {
@@ -28,7 +27,6 @@ public enum ClassActivityText {
     }
 }
 
-/// 开始前：距上课；上课中：距下课。用系统计时文字，不需要 App 在后台更新。
 public struct ClassCountdownText: View {
     var state: ClassActivityAttributes.ContentState
     var isStale: Bool
@@ -48,7 +46,6 @@ public struct ClassCountdownText: View {
 public struct ClassProgressBar: View {
     var state: ClassActivityAttributes.ContentState
     var isStale: Bool
-    /// 仅设计自查：ImageRenderer 渲不了 `ProgressView(timerInterval:)`，截图时改用静态进度
     var previewProgress: Double?
 
     public init(state: ClassActivityAttributes.ContentState, isStale: Bool, previewProgress: Double? = nil) {
@@ -61,10 +58,9 @@ public struct ClassProgressBar: View {
         let now = Date.now
         switch ClassActivityText.phase(state, isStale: isStale, now: now) {
         case .before:
-            EmptyView()   // 开始时间已在时间段里，倒计时也在右上角：不再单独写"HH:mm 开始"
+            EmptyView()
         case .during:
             if let previewProgress {
-                // ImageRenderer 连 ProgressView 本身都渲不出来（显示占位符），自查截图用手绘的静态条
                 ZStack(alignment: .leading) {
                     Capsule().fill(Color.secondary.opacity(0.3))
                     Capsule().fill(Color.accentColor).scaleEffect(x: previewProgress, anchor: .leading)

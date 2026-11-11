@@ -3,7 +3,6 @@ import Testing
 @testable import GxuDesign
 
 struct CourseTintTests {
-    /// 色盘里的极端颜色：纯黄、纯白、纯黑、饱和蓝 / 红、灰
     private let hexes: [UInt32] = [0xFFFF00, 0xFFFFFF, 0x000000, 0x536DFE, 0xFF5252, 0x78909C, 0x18FFFF, 0xEFEBE9]
 
     @Test func textContrastMeetsAA() {

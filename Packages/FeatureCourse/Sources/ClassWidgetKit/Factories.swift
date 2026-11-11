@@ -1,8 +1,6 @@
 import Foundation
 import ScheduleKit
 
-// ScheduleKit 的 WidgetCourse / NextCourses 没有公开构造器（只能从课表推算），
-// 预览数据和测试通过 Codable 往返来构造。
 private struct CourseMirror: Codable {
     var name, beginTime, endTime, index, teacher, room, date: String
     var startsAt, endsAt: Date
@@ -31,7 +29,6 @@ public extension WidgetCourse {
             date: String(format: "%04d-%02d-%02d", day.year ?? 0, day.month ?? 0, day.day ?? 0),
             startsAt: startsAt, endsAt: endsAt
         )
-        // 字段与 WidgetCourse 的 Codable 键一一对应，编码后必能解回
         return try! JSONDecoder().decode(WidgetCourse.self, from: JSONEncoder().encode(mirror))
     }
 }

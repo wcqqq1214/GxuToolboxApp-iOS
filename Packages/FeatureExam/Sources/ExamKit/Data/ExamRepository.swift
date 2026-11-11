@@ -31,7 +31,6 @@ struct ScoreRecord: Codable, FetchableRecord, PersistableRecord {
     var updatedAt: Date
 }
 
-/// 考试信息与成绩的本地缓存。每个方法都带 `studentId`，账号之间互相不可见。
 public struct ExamRepository: Sendable {
     let database: AppDatabase
 
@@ -72,7 +71,6 @@ public struct ExamRepository: Sendable {
         }
     }
 
-    // MARK: 考试信息
 
     public func exams(studentId: String, term: AcademicTerm) async throws -> [Exam] {
         try await database.writer.read { db in
@@ -84,7 +82,6 @@ public struct ExamRepository: Sendable {
         }
     }
 
-    /// 事务内先删该学期切片再插入新数据，保证已取消的考试不残留
     public func replaceExams(_ exams: [Exam], studentId: String, term: AcademicTerm, now: Date = .now) async throws {
         try await database.writer.write { db in
             try ExamInfoRecord
@@ -99,9 +96,7 @@ public struct ExamRepository: Sendable {
         }
     }
 
-    // MARK: 成绩
 
-    /// `term == nil` 表示该学年的全部学期。按发布时间降序
     public func scores(studentId: String, year: Int, term: Int?) async throws -> [Score] {
         try await database.writer.read { db in
             var request = ScoreRecord.filter(Column("studentId") == studentId && Column("year") == year)
@@ -118,7 +113,6 @@ public struct ExamRepository: Sendable {
         }
     }
 
-    /// 事务内按 id upsert（保留已缓存的平时分），并删除该学期切片里不在本次响应中的行
     public func replaceScores(_ scores: [Score], studentId: String, year: Int, term: Int, now: Date = .now) async throws {
         try await database.writer.write { db in
             let keep = Set(scores.map(\.id))
@@ -140,7 +134,6 @@ public struct ExamRepository: Sendable {
         }
     }
 
-    /// 本账号全部已缓存成绩（所有学年学期）
     public func allScores(studentId: String) async throws -> [Score] {
         try await database.writer.read { db in
             try ScoreRecord.filter(Column("studentId") == studentId).order(Column("uploadAt").desc).fetchAll(db).map(Self.score)
@@ -153,8 +146,6 @@ public struct ExamRepository: Sendable {
         }
     }
 
-    /// 全部历史刷新：按 (year, term) 切片分别替换（每个切片内同样删除不在响应里的行）。
-    /// 响应里完全没出现的学期不动。
     public func replaceAllScores(_ scores: [Score], studentId: String, now: Date = .now) async throws {
         let groups = Dictionary(grouping: scores) { "\($0.year)#\($0.term)" }
         for (_, items) in groups {
@@ -172,7 +163,6 @@ public struct ExamRepository: Sendable {
         return items
     }
 
-    /// 空数组不缓存，下次展开会重新请求
     public func saveUsualScores(_ items: [UsualScoreItem], studentId: String, scoreId: String) async throws {
         guard !items.isEmpty else { return }
         let json = String(decoding: try JSONEncoder().encode(items), as: UTF8.self)
@@ -189,10 +179,8 @@ public struct ExamRepository: Sendable {
     }
 }
 
-// MARK: 下一场考试
 
 extension ExamRepository {
-    /// 本账号所有已缓存学期里的考试，状态按 `now` 重新计算
     public func allExams(studentId: String, now: Date = .now, calendar: Calendar = .current) async throws -> [ExamItem] {
         try await database.writer.read { db in
             try ExamInfoRecord.filter(Column("studentId") == studentId).fetchAll(db)
@@ -201,13 +189,10 @@ extension ExamRepository {
         .map { ExamItem($0, now: now, calendar: calendar) }
     }
 
-    /// 最近的一场未结束的考试（只读本地缓存，不联网，适合小组件和 App Intent）。
-    /// 正在进行的考试（结束时间不早于 now）也算；时间未知的考试不参与。
     public func nextExam(studentId: String, now: Date = .now, calendar: Calendar = .current) async throws -> ExamItem? {
         NextExam.pick(from: try await allExams(studentId: studentId, now: now, calendar: calendar))
     }
 
-    /// 最近 `limit` 场未结束的考试，按开考时间升序
     public func upcomingExams(studentId: String, limit: Int = 3, now: Date = .now, calendar: Calendar = .current) async throws -> [ExamItem] {
         Array(NextExam.upcoming(in: try await allExams(studentId: studentId, now: now, calendar: calendar)).prefix(limit))
     }

@@ -58,7 +58,7 @@ def cert_teams():
     for block in re.findall(r"-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----", pems, re.S):
         def openssl(*args):
             return subprocess.run(["openssl", "x509", "-noout", *args], input=block, capture_output=True, text=True)
-        if openssl("-checkend", "0").returncode != 0:   # 已过期
+        if openssl("-checkend", "0").returncode != 0:
             continue
         team = team_from_subject(openssl("-subject", "-nameopt", "RFC2253").stdout.replace("subject=", "").strip())
         if team:

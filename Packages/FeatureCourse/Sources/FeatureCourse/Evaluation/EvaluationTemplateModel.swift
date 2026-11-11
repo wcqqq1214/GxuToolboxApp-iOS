@@ -2,8 +2,6 @@ import Foundation
 import GxuFoundation
 import GxuStorage
 
-/// 评教模板：16 道题（移植自 RN `EvaluationTemplate.tsx`，分 5 类：4 + 3 + 3 + 3 + 3）× 5 个等级 + 评语。
-/// RN 把"当前模板"放在 AsyncStorage、命名模板放在 SQLite（两套并存）；iOS 只用 GRDB 一张表。
 public enum EvaluationQuestions {
     public static let levels = ["非常满意", "满意", "一般", "不满意", "非常不满意"]
     public static let categorySizes = [4, 3, 3, 3, 3]
@@ -25,16 +23,13 @@ public enum EvaluationQuestions {
         "本课程选用的教材、任课教师推荐的课程资源对我的学习有帮助。",
         "任课教师对我的思想言行和成长产生了积极影响，引导我树立正确的历史观、民族观、国家观、文化观和人生观。"
     ]
-    /// 默认等级下标（RN：全部"满意"）
     public static let defaultLevel = 1
     public static var defaultAnswers: [Int] { Array(repeating: defaultLevel, count: items.count) }
 }
 
 public struct EvaluationTemplate: Hashable, Sendable, Identifiable {
-    /// 数据库主键；新建时为 nil
     public var id: Int64?
     public var name: String
-    /// 每题选的等级下标（0 = 非常满意 … 4 = 非常不满意），长度 = 题数
     public var answers: [Int]
     public var comment: String
     public var updatedAt: Date
@@ -47,7 +42,6 @@ public struct EvaluationTemplate: Hashable, Sendable, Identifiable {
         self.updatedAt = updatedAt
     }
 
-    /// 补齐 / 截断到题数；越界的等级回退到默认（存储里的数据可能来自旧版本）
     static func normalized(_ answers: [Int]) -> [Int] {
         let count = EvaluationQuestions.items.count
         let levels = EvaluationQuestions.levels.count
@@ -70,7 +64,6 @@ struct EvaluationTemplateRecord: Codable, FetchableRecord, MutablePersistableRec
     mutating func didInsert(_ inserted: InsertionSuccess) { id = inserted.rowID }
 }
 
-/// 评教模板的本地存储，按 studentId 隔离，同一账号下名称唯一
 public struct EvaluationTemplateRepository: Sendable {
     let database: AppDatabase
 
@@ -90,7 +83,6 @@ public struct EvaluationTemplateRepository: Sendable {
         }
     }
 
-    /// 最近修改的在前
     public func list(studentId: String) async throws -> [EvaluationTemplate] {
         try await database.writer.read { db in
             try EvaluationTemplateRecord.filter(Column("studentId") == studentId).order(Column("updatedAt").desc, Column("id").desc)
@@ -98,7 +90,6 @@ public struct EvaluationTemplateRepository: Sendable {
         }
     }
 
-    /// 新建或更新（`id` 为 nil 新建，否则按 id 更新）。名称不能为空，也不能和同账号下别的模板重名
     @discardableResult
     public func save(_ template: EvaluationTemplate, studentId: String, now: Date = .now) async throws -> EvaluationTemplate {
         let name = template.name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -106,7 +97,7 @@ public struct EvaluationTemplateRepository: Sendable {
         let json = String(decoding: try JSONEncoder().encode(EvaluationTemplate.normalized(template.answers)), as: UTF8.self)
         return try await database.writer.write { db in
             var clashQuery = EvaluationTemplateRecord.filter(Column("studentId") == studentId && Column("name") == name)
-            if let id = template.id { clashQuery = clashQuery.filter(Column("id") != id) }   // `id != NULL` 在 SQL 里永远为假
+            if let id = template.id { clashQuery = clashQuery.filter(Column("id") != id) }
             let clash = try clashQuery.fetchOne(db)
             if clash != nil { throw GxuError.invalidData("已经有叫「\(name)」的模板") }
             var record = EvaluationTemplateRecord(id: template.id, studentId: studentId, name: name, answersJSON: json, comment: template.comment, updatedAt: now)

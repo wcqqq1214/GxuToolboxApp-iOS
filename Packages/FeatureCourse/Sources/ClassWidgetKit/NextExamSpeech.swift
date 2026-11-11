@@ -2,7 +2,6 @@ import GxuFoundation
 import ExamKit
 import Foundation
 
-/// "下一场考试"的口语化文案（App Intent、小组件共用）
 public enum NextExamSpeech {
     public static func describe(_ item: ExamItem?, now: Date = .now, calendar: Calendar = .current) -> String {
         guard let item, let date = item.date else {

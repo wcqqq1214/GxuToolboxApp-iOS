@@ -58,12 +58,11 @@ struct PendingCourseTests {
     @Test func embeddedLabIsHiddenButStandaloneLabStays() {
         let selected = [
             PendingCourse(id: "t1", name: "材料力学", courseId: "M"),
-            PendingCourse(id: "l1", name: "材料力学", isLab: true, courseId: "M"),   // 理论课自带的实验班
-            PendingCourse(id: "l2", name: "大学物理实验", isLab: true, courseId: "P"), // 独立设课的实验
-            PendingCourse(id: "l3", name: "未知课程号实验", isLab: true),              // 缺课程号：保守起见保留
+            PendingCourse(id: "l1", name: "材料力学", isLab: true, courseId: "M"),
+            PendingCourse(id: "l2", name: "大学物理实验", isLab: true, courseId: "P"),
+            PendingCourse(id: "l3", name: "未知课程号实验", isLab: true),
         ]
         #expect(PendingCourse.diff(selected: selected, scoredIds: []).map(\.id) == ["t1", "l2", "l3"])
-        // 独立设课实验挂科/出分后有自己的成绩行，不再算未出分
         #expect(PendingCourse.diff(selected: selected, scoredIds: ["t1", "l2"]).map(\.id) == ["l3"])
     }
 
@@ -77,7 +76,6 @@ struct PendingCourseTests {
         try await repo.replaceAllScores([s2, s3], studentId: "y")
         #expect(try await repo.allScores(studentId: "x").count == 3)
         #expect(try await repo.allScores(studentId: "y").count == 2)
-        // 同一切片里不在新响应中的行被删；响应里没出现的学期不动
         try await repo.replaceAllScores([Score(id: "4", year: 2024, term: 1, courseName: "D", credit: 1, score: 60)], studentId: "x")
         let ids = Set(try await repo.allScores(studentId: "x").map(\.id))
         #expect(ids == ["4", "2", "3"])
@@ -95,8 +93,8 @@ struct UrgencyTests {
         #expect(item("2026-01-11(09:00-11:00)").isUrgent(now: now, calendar: cal))
         #expect(!item("2026-01-12(09:00-11:00)").isUrgent(now: now, calendar: cal))
         #expect(!item("2026-01-19(09:00-11:00)").isUrgent(now: now, calendar: cal))
-        #expect(!item("2026-01-05(09:00-11:00)").isUrgent(now: now, calendar: cal))   // 已结束
-        #expect(!item("待定").isUrgent(now: now, calendar: cal))                       // 时间未知
+        #expect(!item("2026-01-05(09:00-11:00)").isUrgent(now: now, calendar: cal))
+        #expect(!item("待定").isUrgent(now: now, calendar: cal))
     }
 }
 
@@ -115,10 +113,10 @@ struct ExamTextTests {
         let f = DateFormatter(); f.calendar = cal; f.timeZone = cal.timeZone; f.dateFormat = "yyyy-MM-dd HH:mm"
         let now = f.date(from: "2026-01-10 08:00")!
         func line(_ t: String) -> String { ExamItem(Exam(id: t, course: "x", classroom: "", time: t, type: ""), now: now, calendar: cal).timeLine(now: now, calendar: cal) }
-        #expect(line("2026-01-10(23:00-23:59)") == "23:00")          // 今日：只写钟点，日期由"今日开考"徽章表达
-        #expect(line("2026-01-11(09:00-11:00)") == "09:00")          // 明日
-        #expect(line("2026-01-15(14:30-16:30)") == "1月15日 14:30")  // 更远：日期 + 钟点，不再写"N天后"
-        #expect(line("2026-01-05(09:00-11:00)") == "1月5日 09:00")   // 已结束
+        #expect(line("2026-01-10(23:00-23:59)") == "23:00")
+        #expect(line("2026-01-11(09:00-11:00)") == "09:00")
+        #expect(line("2026-01-15(14:30-16:30)") == "1月15日 14:30")
+        #expect(line("2026-01-05(09:00-11:00)") == "1月5日 09:00")
         #expect(line("待定") == "时间待定")
         #expect(line("") == "时间待定")
         #expect(line("2026-01-15") == "2026-01-15")

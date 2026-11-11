@@ -4,7 +4,6 @@ import GxuFoundation
 import Observation
 import SwiftUI
 
-/// 教师查询：搜索（姓名 / 单位 / 职称 / 一级学科）、分页加载更多、详情；没搜索时显示搜索引导。
 @MainActor @Observable
 final class TeacherSearchModel {
     var keyword = ""
@@ -37,7 +36,7 @@ final class TeacherSearchModel {
         version += 1
         let mine = version
         active = key; results = []; total = 0; page = 1; pages = 0; searchError = nil; moreError = nil
-        isLoadingMore = false   // 正在翻页的请求已被这次搜索作废，它的 defer 不会再清这个标志
+        isLoadingMore = false
         isSearching = true
         defer { if version == mine { isSearching = false } }
         do {
@@ -73,7 +72,6 @@ final class TeacherSearchModel {
     func reset() { version += 1; isLoadingMore = false; keyword = ""; active = ""; results = []; total = 0; page = 1; pages = 0; searchError = nil; moreError = nil; isSearching = false }
 }
 
-/// 头像：有地址就加载，加载中 / 失败 / 没有地址时用姓名的第一个字占位，不留空白
 struct TeacherAvatar: View {
     let url: URL?
     let name: String
@@ -226,7 +224,6 @@ final class TeacherDetailModel {
     private(set) var error: String?
     private let api: TeacherAPI
     private let teacher: TeacherSummary
-    /// 学校领导：教师库里的资料很少（常常只有姓名和职称），查不到时界面仍用领导自己的信息，不当成错误
     let leader: SchoolLeader?
 
     init(services: AppServices, teacher: TeacherSummary, leader: SchoolLeader? = nil) {

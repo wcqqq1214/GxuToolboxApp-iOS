@@ -2,7 +2,6 @@ import Foundation
 import GxuFoundation
 import GxuStorage
 
-/// 补班规则：`workDate` 那天按 `restDate` 那天的课表上课（`restDate` 那天休息）。日期是 `YYYY-MM-DD`。
 public struct ShiftRule: Codable, Sendable, Hashable {
     public var workDate: String
     public var restDate: String
@@ -12,7 +11,6 @@ public struct ShiftRule: Codable, Sendable, Hashable {
         self.restDate = restDate
     }
 
-    /// 数据源里写成 `["补班日", "休息日"]`
     public init(from decoder: Decoder) throws {
         var c = try decoder.unkeyedContainer()
         workDate = try c.decode(String.self)
@@ -26,14 +24,12 @@ public struct ShiftRule: Codable, Sendable, Hashable {
     }
 }
 
-/// 一段放假（含首尾两天）
 public struct HolidayRange: Codable, Sendable, Hashable {
     public enum Kind: String, Codable, Sendable { case national, local, school }
 
     public var title: String
     public var from: String
     public var to: String
-    /// national = 法定节假日，local = 地方（如三月三），school = 学校安排（如运动会）；缺省按 national
     public var kind: Kind
 
     public init(title: String, from: String, to: String, kind: Kind = .national) {
@@ -54,11 +50,9 @@ public struct HolidayRange: Codable, Sendable, Hashable {
     }
 }
 
-/// 学校日历：节假日 + 补班。数据来自可远程更新的 `data.json`，没联网时用上次缓存，再没有就用 App 内置的备份。
 public struct CampusCalendar: Sendable, Equatable {
     public var timeShift: [ShiftRule]
     public var holidays: [HolidayRange]
-    /// 远程数据最后一次成功更新的时间；还在用内置备份时为 nil
     public var updatedAt: Date?
 
     public init(timeShift: [ShiftRule] = [], holidays: [HolidayRange] = [], updatedAt: Date? = nil) {
@@ -70,8 +64,6 @@ public struct CampusCalendar: Sendable, Equatable {
     public static let empty = CampusCalendar()
 }
 
-/// `data.json` 的原样内容。两个字段都是可选的：老版本只有 `timeShift`，缺的字段回退到内置备份。
-/// 单条数据格式不对时只丢弃那一条。
 struct CampusCalendarFile: Codable, Sendable, Equatable {
     var timeShift: [ShiftRule]?
     var holidays: [HolidayRange]?
@@ -112,7 +104,6 @@ struct CampusCalendarFile: Codable, Sendable, Equatable {
     }
 }
 
-/// 节假日 / 调课数据的“远程 + 本地缓存”。课表叠加、节假日页面、调课页面都读它，不要各自去请求。
 public struct CampusCalendarRepository: Sendable {
     public typealias Fetch = @Sendable (URL) async throws -> Data
 
@@ -128,13 +119,11 @@ public struct CampusCalendarRepository: Sendable {
         self.fetch = fetch
     }
 
-    /// 本地可用的日历：缓存优先，没有缓存或缓存缺字段时用内置备份。永远不抛错、不联网。
     public func current() async -> CampusCalendar {
         guard let cached = try? await readCache() else { return CampusCalendarFile.fallback.resolved(updatedAt: nil) }
         return cached.file.resolved(updatedAt: cached.updatedAt)
     }
 
-    /// 联网更新并写缓存。失败时抛错、保留旧缓存；内容里一个字段都没有视为无效数据。
     @discardableResult
     public func refresh(now: Date = .now) async throws -> CampusCalendar {
         let data = try await fetch(url)
@@ -184,7 +173,6 @@ public struct CampusCalendarRepository: Sendable {
     }
 }
 
-/// 周网格里的“整天块”：假期，或没有落在假期里的调休休息日
 public struct DayBlock: Sendable, Hashable, Identifiable {
     public enum Kind: Sendable, Hashable { case holiday(HolidayRange.Kind), rest }
 
@@ -193,15 +181,11 @@ public struct DayBlock: Sendable, Hashable, Identifiable {
     public let weekday: Int
     public let title: String
     public let kind: Kind
-    /// 一段假期的第一天（UI 可以只在这一天写完整说明）
     public let isFirstDay: Bool
 
     public var id: String { "\(title)@\(week)-\(weekday)" }
 }
 
-/// 把假期和补班叠加到课表上。
-/// - 假期：只生成整天块（横幅），当天的课保留（对齐 RN v2.2）；调休休息日：当天的课移除，并生成整天块；
-/// - 补班日：保留当天原有的课，再加上休息日那天被调过来的课（带 `shiftedFrom` 标记）。
 public enum CalendarOverlay {
     public static func apply(
         to occurrences: [CourseOccurrence], calendar campus: CampusCalendar, term: TermCalendar
@@ -219,9 +203,6 @@ public enum CalendarOverlay {
         let holidays = holidayDays(campus.holidays, calendar: cal).filter { !workDates.contains($0.key) }
 
         var result = occurrences.filter { item in
-            // 补课日保留当天原有的课（RN v2.2 `showPreShiftItems`）：被调过来的课和原有的课并排显示，不互相替换；
-            // 假期只是一层底部横幅（RN `useTimelineLayers` 的假期图层 `needShift: false`），课程照常保留；只有调休休息日的课会被移走
-            // RN 的实验课图层 needShift 为真但没有 showPreShiftItems：补课日当天原有的实验课不显示
             !restDates.contains(item.date) && !(item.course.isCustom && workDates.contains(item.date))
         }
         for rule in rules {
@@ -251,7 +232,6 @@ public enum CalendarOverlay {
             guard let from = TermCalendar.parseDay(range.from, calendar: calendar),
                   let to = TermCalendar.parseDay(range.to, calendar: calendar), from <= to else { continue }
             var day = from
-            // 防止数据源写错日期导致死循环式的超长区间
             for _ in 0..<60 where day <= to {
                 days[day] = (range.title, range.kind, day == from)
                 guard let next = calendar.date(byAdding: .day, value: 1, to: day) else { break }

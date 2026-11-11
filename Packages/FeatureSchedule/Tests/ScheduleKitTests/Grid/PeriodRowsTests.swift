@@ -8,7 +8,6 @@ struct PeriodRowsTests {
         #expect(PeriodRows.all.map(\.label) == ["1", "2", "3", "4", "5", "6", "7", "8", "9 - 10", "11", "12", "13"])
         let merged = PeriodRows.all[8]
         #expect(merged.isMerged && merged.startText == "18:10" && merged.endText == "19:30")
-        // 其他行同时有上课和下课时间
         #expect(PeriodRows.all[0].startText == "08:00" && PeriodRows.all[0].endText == "08:45")
         #expect(PeriodRows.all[11].startText == "21:20" && PeriodRows.all[11].endText == "22:05")
     }
@@ -17,7 +16,6 @@ struct PeriodRowsTests {
         #expect((1...8).map(PeriodRows.row(ofPeriod:)) == Array(1...8))
         #expect(PeriodRows.row(ofPeriod: 9) == 9 && PeriodRows.row(ofPeriod: 10) == 9)
         #expect((11...13).map(PeriodRows.row(ofPeriod:)) == [10, 11, 12])
-        // 只占第 9 或第 10 节的课都落在合并行里；跨合并行的课占用连续的行
         #expect(PeriodRows.rows(begin: 9, end: 9) == 9...9)
         #expect(PeriodRows.rows(begin: 10, end: 10) == 9...9)
         #expect(PeriodRows.rows(begin: 8, end: 9) == 8...9)
@@ -42,9 +40,9 @@ struct PeriodRowsTests {
         calendar.timeZone = TimeZone(identifier: "Asia/Shanghai")!
         #expect(PeriodRows.position(at: at(7, 0), calendar: calendar) == 0)
         #expect(PeriodRows.position(at: at(8, 0), calendar: calendar) == 0)
-        #expect(PeriodRows.position(at: at(9, 50), calendar: calendar) == 2)             // 课间停在上一行下沿
-        #expect(abs(PeriodRows.position(at: at(18, 50), calendar: calendar) - 8.5) < 0.001)   // 合并行中点 18:50
-        #expect(abs(PeriodRows.position(at: at(19, 30), calendar: calendar) - 9) < 0.001)     // 合并行结束
+        #expect(PeriodRows.position(at: at(9, 50), calendar: calendar) == 2)
+        #expect(abs(PeriodRows.position(at: at(18, 50), calendar: calendar) - 8.5) < 0.001)
+        #expect(abs(PeriodRows.position(at: at(19, 30), calendar: calendar) - 9) < 0.001)
         #expect(PeriodRows.position(at: at(23, 0), calendar: calendar) == 12)
     }
 }

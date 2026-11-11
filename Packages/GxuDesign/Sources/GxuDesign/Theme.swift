@@ -27,8 +27,6 @@ public struct AccentPreset: Identifiable, Hashable, Sendable {
     public var color: Color { Color(hex: hex) }
 }
 
-/// 用户可自定义的主题。主题色只作为强调色（`tint`）；不要拿它当背景。
-/// 在根视图上调用一次 `.gxuTheme(theme)`，之后各处用 `@Environment(GxuTheme.self)` 读取。
 @MainActor @Observable
 public final class GxuTheme {
     public static let presets: [AccentPreset] = [
@@ -69,10 +67,8 @@ public final class GxuTheme {
 }
 
 public extension View {
-    /// 给主页面应用用户选择的背景，并保留系统的默认外观。
     func gxuPageBackground() -> some View { modifier(PageBackgroundModifier()) }
 
-    /// 在根视图上调用：下发主题、强调色和外观模式
     func gxuTheme(_ theme: GxuTheme) -> some View {
         modifier(ThemeModifier(theme: theme))
     }
@@ -113,7 +109,6 @@ private struct ThemeModifier: ViewModifier {
 }
 
 public extension Color {
-    /// 0xRRGGBB
     init(hex: UInt32) {
         self.init(
             .sRGB,

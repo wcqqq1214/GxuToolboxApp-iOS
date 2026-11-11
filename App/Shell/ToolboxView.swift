@@ -1,16 +1,12 @@
 import GxuDesign
 import SwiftUI
 
-/// 工具箱：功能网格。已上线的功能可以进入，其余标“即将上线”。
 struct ToolboxView: View {
-    /// 切换标签页（“课表”入口用）
     let onSelectTab: (AppTab) -> Void
-    /// 有二级页面被推入时为 true。iOS 26 的底部附件不会跟着标签栏一起隐藏，要由外层据此明确关闭
     @Binding var isPushed: Bool
     @State private var query = ""
     @State private var path = NavigationPath()
     #if DEBUG
-    /// 截图自查：`-GxuOpen <工具箱项 id>` 直接打开对应页面
     private static var debugItem: ToolboxItem? {
         let args = ProcessInfo.processInfo.arguments
         guard let i = args.firstIndex(of: "-GxuOpen"), i + 1 < args.count else { return nil }

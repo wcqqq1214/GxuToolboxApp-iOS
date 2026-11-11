@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import ScheduleKit
 
-/// 设备日历是佛历 / 日本历 / 伊斯兰历等非公历时，开学日、周次、节假日叠加和日期 key 都要按公历算
 struct NonGregorianCalendarTests {
     private static let identifiers: [Calendar.Identifier] = [.buddhist, .japanese, .islamicUmmAlQura, .republicOfChina, .hebrew]
 
@@ -19,7 +18,7 @@ struct NonGregorianCalendarTests {
             #expect(termCalendar.startDate == expected, "\(id)")
             #expect(termCalendar.calendar.identifier == .gregorian)
             #expect(termCalendar.week(containing: at("2026-09-16")) == 2, "\(id)")
-            #expect(termCalendar.weekday(of: at("2026-09-16")) == 3, "\(id)")           // 周三
+            #expect(termCalendar.weekday(of: at("2026-09-16")) == 3, "\(id)")
             #expect(termCalendar.date(week: 2, weekday: 3) == at("2026-09-16"), "\(id)")
         }
     }
@@ -46,7 +45,7 @@ struct NonGregorianCalendarTests {
             let friday = course("高等数学", weekday: 5, 1, 2, weeks: Array(1...18))
             let occurrences = ScheduleExpander.occurrences(of: Schedule(theoryList: [friday]), in: termCalendar)
             let result = CalendarOverlay.apply(to: occurrences, calendar: campus, term: termCalendar)
-            #expect(result.dayBlocks.map(\.weekday) == [5, 6, 7], "\(id)")                  // 中秋放假三天
+            #expect(result.dayBlocks.map(\.weekday) == [5, 6, 7], "\(id)")
             #expect(result.occurrences.contains { $0.isMakeup && $0.date == at("2026-09-20") }, "\(id)")
         }
     }

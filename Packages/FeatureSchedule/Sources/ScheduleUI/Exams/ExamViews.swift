@@ -2,7 +2,6 @@ import GxuDesign
 import ScheduleKit
 import SwiftUI
 
-/// 周网格里的考试块。内容层，不用玻璃；红色系和课程色区分，带“考试”标记
 struct ExamBlockView: View {
     let block: ExamBlock
     let rows: Int

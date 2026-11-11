@@ -5,15 +5,10 @@ public struct AppUpdate: Sendable, Equatable, Identifiable {
     public let versionName: String
     public let versionCode: Int
     public let notes: String
-    /// App Store 或 TestFlight 链接
     public let url: URL
     public var id: Int { versionCode }
 }
 
-/// 版本检查：iOS 没有 OTA，只提示并跳转 App Store / TestFlight。
-/// 数据来自 RN 同一个 `version.json`，iOS 使用独立的 `ios` 通道（目前文件里还没有，没有该通道就视为没有更新）：
-/// `"ios": [{"versionName": "1.0.1", "versionCode": 2, "desc": "...", "ori": {"appStore": "https://apps.apple.com/...", "testFlight": "https://testflight.apple.com/join/..."}}]`
-/// `versionCode` 与 App 的 `CFBundleVersion`（构建号）比较。
 public enum VersionCheck {
     public static let versionURL = URL(string: "https://file.unde.site/GxuToolApp/version.json")!
 
@@ -28,7 +23,6 @@ public enum VersionCheck {
         Int(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "") ?? 0
     }
 
-    /// 从 version.json 里挑出比 `currentBuild` 新的最高版本；没有 `ios` 通道、没有链接、已是最新都返回 nil
     public static func newestUpdate(in data: Data, currentBuild: Int) -> AppUpdate? {
         let entries = entries(in: data)
         guard let newest = entries.filter({ $0.versionCode > currentBuild }).max(by: { $0.versionCode < $1.versionCode }),
@@ -46,13 +40,11 @@ public enum VersionCheck {
         }
     }
 
-    /// 联网检查。网络或解析失败时保持静默。
     public static func check(session: URLSession = .shared) async -> AppUpdate? {
         guard let data = await fetch(session: session) else { return nil }
         return newestUpdate(in: data, currentBuild: currentBuild)
     }
 
-    /// 按构建号列出 iOS 发布记录。
     static func releases() async -> [AppUpdate] {
         guard let data = await fetch(session: .shared) else { return [] }
         var seen: Set<Int> = []
@@ -99,11 +91,9 @@ private struct UpdatePromptModifier: ViewModifier {
 }
 
 extension View {
-    /// 启动时检查一次更新，有新版本弹窗提示（跳转 App Store / TestFlight）
     public func promptForUpdates() -> some View { modifier(UpdatePromptModifier()) }
 }
 
-/// 设置里的 iOS 版本记录。服务器尚无 iOS 发布记录时，仍显示本机安装的版本。
 public struct AppVersionListView: View {
     @State private var releases: [AppUpdate]?
     public init() {}

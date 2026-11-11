@@ -31,10 +31,10 @@ sensitive_scalars = {
 }
 
 teacher_keys = {"teacher", "teacher_name", "teacherName"}
-GENERIC_TEACHERS = {"无"}   # 不是具体的人，保留原样（"网络教师"仍会被编号，和已发布的 fixture 保持一致）
-GENERIC_TEACHER_IDS = {"000000"}       # 占位工号（网络课程等），保留原样
+GENERIC_TEACHERS = {"无"}
+GENERIC_TEACHER_IDS = {"000000"}
 teachers = set()
-teachers_legacy = set()               # 最早那 5 个文件里出现的教师：编号保持稳定，不因新增文件而改变已发布 fixture
+teachers_legacy = set()
 teacher_ids = set()
 
 
@@ -64,9 +64,8 @@ for item in schedule["data"].get("theoryList", []):
 
 ordered_teachers = sorted(teachers_legacy) + sorted(teachers - teachers_legacy)
 teacher_map = {name: f"教师{i + 1:02d}" for i, name in enumerate(ordered_teachers)}
-teacher_id_map = {t: str(90000001 + i) for i, t in enumerate(sorted(teacher_ids))}   # 教师工号 -> 假工号（8 位，格式不变）
+teacher_id_map = {t: str(90000001 + i) for i, t in enumerate(sorted(teacher_ids))}
 qq_map = {g: str(100000001 + i) for i, g in enumerate(sorted(qq_groups))}
-# 长名字优先，避免短名字是长名字子串时被误替换
 teacher_pattern = re.compile("|".join(re.escape(n) for n in sorted(teacher_map, key=len, reverse=True))) if teacher_map else None
 
 
@@ -93,14 +92,14 @@ def scrub(x, key=None):
         return ",".join(teacher_id_map.get(t.strip(), t) for t in x.split(","))
     if key == "qqGroup":
         return qq_map.get(x, x)
-    if key == "id" and re.fullmatch(r"[0-9A-F]{32}", x):  # 成绩记录 ID
+    if key == "id" and re.fullmatch(r"[0-9A-F]{32}", x):
         return fake_hex(x)
     if teacher_pattern and (key in teacher_keys or key == "courseName"):
         return teacher_pattern.sub(lambda m: teacher_map[m.group(0)], x)
     return x
 
 
-FILES = {  # raw -> sanitized
+FILES = {
     "schedule_personal.json": "schedule-personal.json",
     "profile_startDay.json": "profile-startDay.json",
     "exam.json": "exam.json",
@@ -121,7 +120,6 @@ for raw_name, out_name in FILES.items():
     (OUT / out_name).write_text(json.dumps(cleaned, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
-# ---- 教师查询（/teachers/search、/teachers/profile）：姓名、工号、联系方式、头像、自由文本全部替换 ----
 teacher_leak_needles = set()
 if (RAW / "teachers_search.json").exists():
     NUM = "一二三四五六七八九十"
@@ -182,7 +180,6 @@ if (RAW / "teachers_search.json").exists():
                 ach[key] = "示例" + key
         (OUT / "teachers-profile.json").write_text(json.dumps(prof, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
-# ---- 校选课进度（/jw/elective-progress）：studentId、课程 / 教学班 ID、教师姓名替换，其余（学分、课程名、规则）保持原样 ----
 if (RAW / "elective_progress.json").exists():
     ep = load("elective_progress.json")
     d = ep.get("data") or {}
@@ -216,13 +213,11 @@ if (RAW / "elective_progress.json").exists():
     walk_ep(d)
     (OUT / "elective-progress.json").write_text(json.dumps(ep, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
-# 手写的错误响应（后端真实格式，不含个人信息）
 (OUT / "jw-login-failure.json").write_text(
     json.dumps({"code": 401, "message": "账号或密码错误，登录失败", "data": None}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 (OUT / "session-expired.json").write_text(
     json.dumps({"code": 401, "message": "登录态过期，请重新登录", "data": None}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
-# 残留检查
 needles = set(sensitive_scalars) | set(teacher_map) | set(teacher_ids) | set(qq_map) | teacher_leak_needles
 leaks = []
 for f in OUT.glob("*.json"):

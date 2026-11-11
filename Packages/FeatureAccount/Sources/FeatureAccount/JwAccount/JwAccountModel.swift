@@ -10,7 +10,6 @@ final class JwAccountModel {
     private(set) var errorMessage: String?
 
     private let accounts: AccountCenter
-    /// 教务和统一认证共用同一套"学号 + 密码"页面
     let system: AuthSystem
 
     init(accounts: AccountCenter, system: AuthSystem = .jw) {
@@ -36,13 +35,10 @@ final class JwAccountModel {
         }
     }
 
-    /// 和设置首页同一个判断（`AuthState`）：只有「已登录」才显示已登录内容；未登录、需要重新登录都显示登录表单
     var state: AuthState { accounts.states[system] ?? .noAccount }
     var isSignedIn: Bool { !state.showsLoginForm }
-    /// 服务器明确拒绝了保存的账号密码
     var needsRelogin: Bool { state == .signedOut }
 
-    /// 需要重新登录时把保存的账号预填进表单（不预填密码）
     func prefillUsernameIfNeeded() {
         if needsRelogin, username.isEmpty, let saved = studentId { username = saved }
     }

@@ -2,7 +2,6 @@ import GxuDesign
 import ScheduleKit
 import SwiftUI
 
-/// 一周的课表网格：左侧节次，顶部星期和日期，今天一列高亮，当前时间线。
 struct WeekGridView: View {
     let week: Int
     let model: ScheduleViewModel
@@ -26,19 +25,16 @@ struct WeekGridView: View {
         }
         .scrollPosition($position)
         .onAppear(perform: scrollToNow)
-        .contentMargins(.bottom, 170 + accessoryHeight, for: .scrollContent)   // 滚到底时要能完整露出内容：避开标签栏、附件和“回到本周”
+        .contentMargins(.bottom, 170 + accessoryHeight, for: .scrollContent)
         .scrollIndicators(.hidden)
         .refreshable { await model.refresh() }
-        // 网格是定高布局，限制字体放大范围避免文字溢出课程块
         .dynamicTypeSize(...DynamicTypeSize.xLarge)
     }
 }
 
 extension WeekGridView {
-    /// 看本周时，直接滚到当前时间附近（像系统日历）。当前时间在前 3 节以内就停在顶部。
     private func scrollToNow() {
         #if DEBUG
-        // 截图自查：`-GxuScheduleScrollEnd` 直接滚到底（看网格下方的实践课）
         if CommandLine.arguments.contains("-GxuScheduleScrollEnd") {
             Task { try? await Task.sleep(for: .seconds(1)); position.scrollTo(edge: .bottom) }
             return
@@ -52,11 +48,9 @@ extension WeekGridView {
     }
 }
 
-/// 星期 + 日期表头。放在分页器外面，随当前周更新，不随页滑动。
 struct WeekHeader: View {
     let week: Int
     let termCalendar: TermCalendar?
-    /// 这一周里有补班课的星期
     var makeupDays: Set<Int> = []
 
     var body: some View {
@@ -137,13 +131,11 @@ struct WeekBody: View {
             let columnWidth = (proxy.size.width - WeekGridView.timeColumnWidth) / 7
             ZStack(alignment: .topLeading) {
                 TimeColumn(rowHeight: rowHeight)
-                // 今天这一列在假期色带下面不再铺底色（否则两层颜色叠成一块浑浊的矩形），表头日期的高亮保留
                 TodayColumn(
                     week: week, termCalendar: model.termCalendar, columnWidth: columnWidth, height: rowHeight * CGFloat(PeriodRows.count),
                     coveredWeekdays: Set(model.index.dayBlocks(inWeek: week).map(\.weekday))
                 )
 
-                // 连续的假期合并成一条横跨的色带，文字只出现一次
                 ForEach(DayRun.runs(model.index.dayBlocks(inWeek: week))) { run in
                     DayBlockView(run: run)
                         .frame(width: columnWidth * CGFloat(run.days) - 3, height: rowHeight * CGFloat(PeriodRows.count) - 3)
@@ -151,11 +143,9 @@ struct WeekBody: View {
                 }
 
                 ForEach(1...7, id: \.self) { weekday in
-                    // 补课日被调过来的课和原有的课是两个独立的冲突组（RN v2.2），重叠时由 GroupLane 并排显示
                     let dayItems = model.index.items(inWeek: week, weekday: weekday)
                     let groups = ScheduleExpander.conflictGroups(dayItems.filter { !$0.isMakeup }) + ScheduleExpander.conflictGroups(dayItems.filter(\.isMakeup))
                     let exams = model.index.examBlocks(inWeek: week, weekday: weekday)
-                    // 课程组和考试块在同一天里重叠时并排（各自独立的图层，不互相吞并）
                     let lanes = LaneLayout.assign(
                         groups.map { (id: $0.id, rows: PeriodRows.rows(begin: $0.begin, end: $0.end)) }
                             + exams.map { (id: "exam-\($0.id)", rows: PeriodRows.rows(begin: $0.begin, end: $0.end)) }
@@ -207,7 +197,6 @@ private struct TimeColumn: View {
             ForEach(PeriodRows.all, id: \.index) { period in
                 ZStack(alignment: .top) {
                     Rectangle().fill(Color(.separator).opacity(0.5)).frame(height: 0.5)
-                    // 节次 + 上课 + 下课时间（和 RN 的 TimeSchedule 一致）
                     VStack(spacing: 0) {
                         Text(period.label)
                             .font(.footnote.weight(.semibold))
@@ -225,7 +214,6 @@ private struct TimeColumn: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .frame(height: rowHeight)
-                // 上午 / 下午 / 晚上之间加粗一点分隔，帮助定位
                 .overlay(alignment: .top) {
                     if period.first == 5 || period.first == 9 {
                         Rectangle().fill(Color(.separator)).frame(height: 1)
@@ -256,7 +244,6 @@ private struct TodayColumn: View {
     }
 }
 
-/// 当前时间线（像系统日历那样的红线），每分钟更新
 private struct NowLine: View {
     let rowHeight: CGFloat
     let calendar: Calendar
@@ -276,7 +263,6 @@ private struct NowLine: View {
     }
 }
 
-/// 同一天里显示行相同或相交的块并排分栏，不重叠、不丢失。输入是 (id, 占用的显示行)，输出每个 id 的栏号和该簇的总栏数。
 enum LaneLayout {
     static func assign(_ items: [(id: String, rows: ClosedRange<Int>)]) -> [String: (lane: Int, count: Int)] {
         let sorted = items.sorted { ($0.rows.lowerBound, $0.rows.upperBound, $0.id) < ($1.rows.lowerBound, $1.rows.upperBound, $1.id) }

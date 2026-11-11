@@ -6,9 +6,7 @@ let package = Package(
     platforms: [.iOS(.v18)],
     products: [
         .library(name: "FeatureCourse", targets: ["FeatureCourse"]),
-        // 小组件 / Live Activity 共用：时间线与"当前课"计算、ActivityAttributes、与 App 的桥接（Widget extension 也链接它）
         .library(name: "ClassWidgetKit", targets: ["ClassWidgetKit"]),
-        // App Intents：今天的课 / 明天的课 / 下一场考试
         .library(name: "ToolboxIntents", targets: ["ToolboxIntents"]),
     ],
     dependencies: [

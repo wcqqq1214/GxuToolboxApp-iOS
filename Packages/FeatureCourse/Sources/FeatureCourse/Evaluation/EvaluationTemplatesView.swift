@@ -23,7 +23,6 @@ final class EvaluationTemplatesModel {
         templates = (try? await repo.list(studentId: studentId)) ?? []
     }
 
-    /// 返回错误文案（重名、名称为空），成功返回 nil
     func save(_ template: EvaluationTemplate) async -> String? {
         guard let studentId else { return GxuError.notLoggedIn(.jw).userMessage }
         do {
@@ -82,7 +81,6 @@ public struct EvaluationTemplatesView: View {
             .task { await model.load() }
         }
 
-        /// "满意 12 · 非常满意 4"
         private func summary(_ t: EvaluationTemplate) -> String {
             let counts = Dictionary(grouping: t.answers, by: { $0 }).mapValues(\.count)
             return counts.keys.sorted().map { "\(EvaluationQuestions.levels[$0]) \(counts[$0] ?? 0)" }.joined(separator: " · ")
@@ -139,7 +137,6 @@ private struct TemplateEditor: View {
         }
     }
 
-    /// 每类对应的题号范围
     private var sections: [Range<Int>] {
         var start = 0
         return EvaluationQuestions.categorySizes.map { size in

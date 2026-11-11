@@ -3,7 +3,6 @@ import GxuDesign
 import ScheduleKit
 import SwiftUI
 
-/// 分享课表图片的内容：周次选择 + 图片预览 + 分享按钮（工具栏）。弹窗和“导出课表”页面共用。
 struct ShareScheduleContent: View {
     let model: ScheduleViewModel
     @Binding var week: Int
@@ -61,7 +60,6 @@ struct ShareScheduleContent: View {
     }
 }
 
-/// 分享本周课表（弹窗）
 struct ShareScheduleSheet: View {
     let model: ScheduleViewModel
     @State var week: Int
@@ -85,7 +83,6 @@ struct ShareScheduleSheet: View {
     }
 }
 
-/// 工具箱 →「导出课表」：独立页面，选周次后导出图片
 struct ExportScheduleView: View {
     @Environment(\.services) private var services
     @Environment(SchedulePreferencesStore.self) private var preferences
@@ -115,7 +112,6 @@ struct ExportScheduleView: View {
     }
 }
 
-/// 导出的图：标题、星期表头、整天网格。固定宽度、不滚动，背景不透明。
 struct ShareableWeek: View {
     static let width: CGFloat = 390
     let week: Int

@@ -7,7 +7,6 @@ import GxuTestSupport
 import Testing
 @testable import FeatureCampus
 
-/// 按请求参数返回响应的假后端
 private final class ClosureBackend: BackendAPI, @unchecked Sendable {
     typealias Handler = @Sendable ([String: String]) async throws -> String
     private let handler: Handler
@@ -19,7 +18,6 @@ private final class ClosureBackend: BackendAPI, @unchecked Sendable {
     func get<T: Decodable & Sendable>(_ path: String, query: [String: String], auth: AuthSystem?, as type: T.Type) async throws -> T {
         lock.withLock { recorded.append(query) }
         let body = try await handler(query)
-        // 和真实后端客户端一样：解码失败包成 GxuError.decoding
         do { return try JSONDecoder().decode(type, from: Data(body.utf8)) } catch { throw GxuError.decoding(String(describing: error)) }
     }
     func post<T: Decodable & Sendable, Body: Encodable & Sendable>(_ path: String, body: Body, auth: AuthSystem?, as type: T.Type) async throws -> T {
@@ -40,7 +38,7 @@ struct EmptyClassroomLogicTests {
         let rows = [(1, 1, 3), (1, 1, 1), (1, 1, 2), (1, 1, 2), (1, 1, 5), (1, 2, 1), (1, 1, 99), (0, 1, 1)]
             .map { FreePeriodRow(week: $0.0, day: $0.1, period: $0.2) }
         let runs = EmptyClassroomLogic.buildFreeRuns(rows)
-        #expect(runs.map(\.id) == ["1-1-1-3", "1-1-5-5", "1-2-1-1"])   // 乱序、重复、越界行都被处理；不跨天
+        #expect(runs.map(\.id) == ["1-1-1-3", "1-1-5-5", "1-2-1-1"])
     }
 
     @Test func seatCountsAndNullsDecodeLeniently() throws {
@@ -61,9 +59,9 @@ struct EmptyClassroomLogicTests {
         #expect(results.map(\.freePeriodCount) == [3, 1, 1])
         #expect(results[0].freeRuns.map(\.id) == ["1-1-1-3"] && results[0].longestFreeRun == 3 && results[0].firstFreePeriod == 1)
         let byFree = EmptyClassroomLogic.sort(results, mode: .free, direction: .desc)
-        #expect(byFree.map(\.room.name) == ["101", "102", "X"])           // 同节数先比首次空闲，再比楼栋 / 教室名
+        #expect(byFree.map(\.room.name) == ["101", "102", "X"])
         let groups = EmptyClassroomLogic.group(EmptyClassroomLogic.sort(results, mode: .default, direction: .asc))
-        #expect(groups.map(\.title) == ["", "A"].map { $0.isEmpty ? "其他楼栋" : $0 })   // 空楼栋排在前（码点顺序）并显示“其他楼栋”
+        #expect(groups.map(\.title) == ["", "A"].map { $0.isEmpty ? "其他楼栋" : $0 })
     }
 
     @Test func cooldownCountsFromLastStart() {
@@ -88,13 +86,12 @@ struct EmptyClassroomFetchTests {
     @Test func paginationRejectsTruncatedAndRunawayData() async {
         await #expect(throws: IncompleteDataError.self) {
             _ = try await EmptyClassroomAPI.collectSlotPages(pageSize: 10, maxPages: 3) { pageNum in
-                // totalCount=5，但第 2 页是空页：数据被截断
                 ClassroomPage(totalCount: 5, items: pageNum == 1 ? [.init(classroomName: "1", building: "A")] : [])
             }
         }
         await #expect(throws: IncompleteDataError.self) {
             _ = try await EmptyClassroomAPI.collectSlotPages(pageSize: 1, maxPages: 2) { pageNum in
-                ClassroomPage(items: [.init(classroomName: "\(pageNum)", building: "A")])   // 每页都是满页，永远不结束
+                ClassroomPage(items: [.init(classroomName: "\(pageNum)", building: "A")])
             }
         }
     }
@@ -110,7 +107,6 @@ struct EmptyClassroomFetchTests {
     @Test func fetchDayMergesThirteenPeriodsAndDedupes() async throws {
         let backend = ClosureBackend { query in
             let period = Int(query["timeList"]!)!
-            // 教室 101 每节都空闲；102 只有 2、3 节；名字为空的行被跳过
             var items = [("A", "101")]
             if period == 2 || period == 3 { items.append(("A", "102")) }
             items.append(("B", " "))
@@ -139,7 +135,7 @@ struct EmptyClassroomFetchTests {
         await #expect(throws: GxuError.self) {
             _ = try await EmptyClassroomAPI(backend: alwaysDown, maxTransientRetries: 1, retryDelay: .milliseconds(1)).requestPage(year: 2026, term: 1, week: 1, day: 1, period: 1, pageNum: 1)
         }
-        #expect(alwaysDown.queries.count == 2)                       // 1 次 + 1 次重试
+        #expect(alwaysDown.queries.count == 2)
 
         let nullData = ClosureBackend { _ in #"{"code":200,"message":"ok","data":null}"# }
         await #expect(throws: EmptyClassroomError.self) {
@@ -153,7 +149,7 @@ struct EmptyClassroomFetchTests {
         await #expect(throws: GxuError.self) {
             _ = try await EmptyClassroomAPI(backend: forbidden).requestPage(year: 2026, term: 3, week: 1, day: 1, period: 1, pageNum: 1)
         }
-        #expect(forbidden.queries.count == 1)                        // 4xx 不重试
+        #expect(forbidden.queries.count == 1)
     }
 }
 
@@ -186,10 +182,8 @@ struct EmptyClassroomRepositoryTests {
         let page2 = try await repo.listAvailableRooms(query)
         #expect(Set(page2.rows.map(\.room.name)) == ["103", "104"] && !page2.hasMore)
 
-        // 范围外的节次不算
         query.page = 1; query.pageSize = 40; query.startPeriod = 9; query.endPeriod = 9
         #expect(try await repo.listAvailableRooms(query).rows.map(\.room.name) == ["105"])
-        // 关键词按教室名 / 类型筛选；% 按字面处理
         query.startPeriod = 1; query.endPeriod = 13; query.keyword = "103"
         #expect(Set(try await repo.listAvailableRooms(query).rows.map(\.room.name)) == ["103"])
         query.keyword = "%"
@@ -203,14 +197,12 @@ struct EmptyClassroomRepositoryTests {
         q.sortMode = .free
         q.sortDirection = .desc
         q.pageSize = 2
-        // 空闲最多的两间（2 和 3）在第一页；页内按空闲节数降序排
         let page1 = try await repo.listAvailableRooms(q)
         let sorted1 = EmptyClassroomLogic.sort(EmptyClassroomLogic.buildResults(page1.rows), mode: .free, direction: .desc)
         #expect(sorted1.map(\.room.name) == ["2", "3"] && page1.hasMore)
         q.page = 2
         let page2 = try await repo.listAvailableRooms(q)
         #expect(page2.rows.map(\.room.name) == ["1"] && !page2.hasMore)
-        // 升序时最少的在前
         q.page = 1; q.sortDirection = .asc
         let asc = try await repo.listAvailableRooms(q)
         let sortedAsc = EmptyClassroomLogic.sort(EmptyClassroomLogic.buildResults(asc.rows), mode: .free, direction: .asc)
@@ -223,7 +215,6 @@ struct EmptyClassroomRepositoryTests {
         let full = try #require(try await repo.week(year: 2026, term: 1, week: 1))
         #expect(full.complete && full.completedDays == 7 && full.slotCount == 14 && full.roomCount == 1)
 
-        // 重新抓第 3 天：这一天旧的空闲节次被替换，不叠加
         try await repo.saveDay(year: 2026, term: 1, week: 1, day: 3, payload: payload(day: 3, [("A", "1", [5])]))
         let rows = try await repo.roomWeekSlots(year: 2026, term: 1, roomId: 1, weeks: [1])
         #expect(rows.filter { $0.day == 3 }.map(\.period) == [5])
@@ -231,7 +222,7 @@ struct EmptyClassroomRepositoryTests {
 
         try await repo.deleteWeek(year: 2026, term: 1, week: 1)
         #expect(try await repo.week(year: 2026, term: 1, week: 1) == nil)
-        #expect(try await repo.listRoomBuildings() == [RoomBuildingSummary(building: "A", roomCount: 1)])   // 教室维表保留
+        #expect(try await repo.listRoomBuildings() == [RoomBuildingSummary(building: "A", roomCount: 1)])
         try await repo.clearAll()
         #expect(try await repo.listRoomBuildings().isEmpty)
     }
@@ -297,7 +288,6 @@ struct CacheRunnerTests {
     }
 }
 
-/// 测试里跨并发共享的小盒子
 final class LockedBox<T>: @unchecked Sendable {
     private let lock = NSLock()
     private var stored: T

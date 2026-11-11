@@ -9,7 +9,6 @@ import Testing
 private let pubKey = #"{"modulus":"a170b33839263059f28c105d1fb17c2390c192cfd3ac94af0f21ddb66cad4a268d116ece1738f7d93d9c172411e20b8f6b0d549b6f03675a1600a35a099950d836f675cc81e74ef5e8e25d940ed904759531985d5d9dc9f81818e811892f902bd23f0824128b2f330c5c7fd0a6a3a4506513270e269e0d37f2a74de452e6b439","exponent":"10001"}"#
 private let loginPage = #"<form id="fm1" action="/zfca/login" method="post"><input type="hidden" name="execution" value="abc-123_XYZ"/></form>"#
 
-/// 校验接口登录后的响应内容。**真实响应（2026-11-06 用真实账号验证）是 JSON 数组**（应用分组列表）；这个套件是串行的，测试里改了要还原
 private final class TokenCheckBody: @unchecked Sendable {
     static let realShape = #"[{"localeKey":"zh_CN","row_id":"1","doType":null,"pageable":false,"queryModel":{}}]"#
     private let storage = Mutex(TokenCheckBody.realShape)
@@ -36,7 +35,6 @@ private func bodyString(_ request: URLRequest) -> String {
     return String(decoding: data, as: UTF8.self)
 }
 
-/// 延后一次 PEC 登录响应，同时允许退出和新账号登录的请求完成。
 private final class DeferredUnifiedRejection: URLProtocol, @unchecked Sendable {
     private static let pending = Mutex<DeferredUnifiedRejection?>(nil)
 
@@ -75,7 +73,6 @@ private final class DeferredUnifiedRejection: URLProtocol, @unchecked Sendable {
     }
 }
 
-/// 这些测试都用固定域名（ca / xlzxms），合并成一个串行测试，避免并行互相覆盖 handler。
 @Suite(.serialized)
 struct UnifiedAuthTests {
     private func makeSession(password: String = "pw") -> UnifiedAuthSession {
@@ -105,10 +102,9 @@ struct UnifiedAuthTests {
         let body = posted.withLock { $0 }
         #expect(body.contains("username=2025001") && body.contains("execution=abc-123_XYZ") && body.contains("_eventId=submit"))
         #expect(body.contains("service=http://xlzxms.gxu.edu.cn/api/security-server/dietc/loginsso/student") || body.contains("service=http%3A"))
-        #expect(!body.contains("password=pw"))   // 密码必须是加密后的
+        #expect(!body.contains("password=pw"))
     }
 
-    /// 服务端把登录页带着错误文案送回来 → 如实转述；没有文案 → 不冤枉用户说成「账号或密码错误」
     @Test func loginPageWithServerMessageIsRelayedAndWithoutOneIsNeutral() async {
         let reason = Mutex("用户名或密码错误")
         StubURLProtocol.register(host: "ca.gxu.edu.cn") { request in
@@ -124,7 +120,7 @@ struct UnifiedAuthTests {
         do { try await session.loginPEC(); Issue.record("应该失败") } catch {
             let message = (error as? GxuError)?.userMessage ?? ""
             #expect(message.contains("没有说明原因"))
-            #expect(!message.contains("账号或密码"))     // 没有服务端证据时不能这么说
+            #expect(!message.contains("账号或密码"))
         }
     }
 
@@ -144,7 +140,6 @@ struct UnifiedAuthTests {
         #expect(UnifiedAuthSession.studentCode(from: URL(string: "http://x/a")!) == nil)
     }
 
-    // MARK: 回归（真机报告「账号密码是对的但登录失败」）
 
     private func registerCAFlow(kaptcha: String = "false", loginSucceeds: Bool = true, tokenCheckWorks: Bool = true,
                                 tokenHits: Counter = Counter(), postCount: Counter = Counter()) {
@@ -160,7 +155,6 @@ struct UnifiedAuthTests {
                 return reply(request, loginPage)
             }
             if path == "/zfca/index" { return reply(request, "<html><title>统一身份认证-主页</title></html>") }
-            // 校验接口：第一次访问 302 到 CAS 换 ticket（和真实服务一样），回来以后第二次才是 JSON
             if path == "/zfim/application/home/getYyfz.zf" {
                 let hit = tokenHits.increment()
                 if !tokenCheckWorks { return reply(request, loginPage) }
@@ -175,7 +169,6 @@ struct UnifiedAuthTests {
         }
     }
 
-    /// 回归：旧的 `testToken` 不跟随重定向，登录成功后第一跳就是 302，永远判成失败 →「请检查账号和密码」
     @Test func loginSucceedsWhenTheTokenCheckNeedsToFollowRedirects() async throws {
         registerCAFlow()
         try await makeSession().login(username: "2025001", password: "pw")
@@ -189,7 +182,6 @@ struct UnifiedAuthTests {
     @Test func tokenCheckLandingOnTheLoginPageMeansNotLoggedIn() async throws {
         registerCAFlow(tokenCheckWorks: false)
         #expect(try await makeSession().testToken() == false)
-        // 登录本身被接受、但校验失败：说「校验接口没有返回预期内容」，不说账号密码
         do { try await makeSession().login(username: "2025001", password: "pw"); Issue.record("应该失败") } catch {
             let message = (error as? GxuError)?.userMessage ?? ""
             #expect(message.contains("校验接口"))
@@ -205,7 +197,7 @@ struct UnifiedAuthTests {
             #expect(message.contains("验证码"))
             #expect(!message.contains("账号或密码"))
         }
-        #expect(posts.value == 0)   // 不再提交，避免继续失败被锁定
+        #expect(posts.value == 0)
     }
 
     @Test func forbiddenAndServerErrorsAreNotBlamedOnThePassword() async {
@@ -236,7 +228,6 @@ struct UnifiedAuthTests {
         #expect(UnifiedAuthSession.pageErrorMessage(in: Data("<html/>".utf8)) == "")
     }
 
-    /// 统一认证：服务端明确拒绝 → 需要重新登录；403 / 5xx / 网络错误 / 验证码要求不改变状态
     @MainActor
     @Test func unifiedStateFollowsOnlyExplicitRejections() async {
         func center() -> (AccountCenter, UnifiedAuthSession) {
@@ -304,8 +295,6 @@ struct UnifiedAuthTests {
         #expect(accounts.states[.unified] == .authenticated)
     }
 
-    /// 回归（真机日志「校验接口：不是 JSON（HTTP 200）」）：真实响应是 JSON 数组，只认字典会把成功的登录判成失败。
-    /// RN 的判定是 `typeof res.data === "object"`，JS 里数组也是 object。
     @Test func tokenCheckAcceptsAJSONArrayLikeTheRealResponse() async throws {
         tokenCheckBody.value = TokenCheckBody.realShape
         registerCAFlow()

@@ -33,13 +33,10 @@ struct StorageTests {
         #expect(store.value(key) == nil)
     }
 
-    // MARK: 拿不到 App Group（免费个人团队 / 未签名构建）时的回退
 
     @Test func databaseFallsBackToApplicationSupportWithoutAppGroup() throws {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         #expect(AppDatabase.databaseDirectory(appGroupID: nil) == appSupport)
-        // 注意：模拟器不校验 entitlement，对任何 group id 都会给出容器路径；真机上没有授权的 group 才返回 nil（走同一条退回路径，
-        // 由 `sharedStoreSkipsAnUnavailableAppGroupButKeepsOtherSuites` 里注入 containerExists 的用例覆盖）
     }
 
     @Test func databaseCanBeOpenedAndUsedInTheFallbackDirectory() throws {
@@ -54,18 +51,13 @@ struct StorageTests {
     }
 
     @Test func sharedStoreSkipsAnUnavailableAppGroupButKeepsOtherSuites() {
-        // App Group 本身没有容器 → 不用它
         #expect(UserDefaultsSharedStore.resolveSuite("group.x", appGroupID: "group.x", containerExists: { _ in false }) == nil)
-        // App Group 有容器 → 用它
         #expect(UserDefaultsSharedStore.resolveSuite("group.x", appGroupID: "group.x", containerExists: { _ in true }) == "group.x")
-        // 调用方显式给的其他 suite（测试、调试页面）原样使用，不检查容器
         #expect(UserDefaultsSharedStore.resolveSuite("my.debug.suite", appGroupID: "group.x", containerExists: { _ in false }) == "my.debug.suite")
-        // 没有配置 App Group（nil）→ 用 .standard
         #expect(UserDefaultsSharedStore.resolveSuite(nil, appGroupID: nil, containerExists: { _ in true }) == nil)
     }
 
     @Test func sharedStoreWithAnUnavailableAppGroupStillWorks() {
-        // 不会崩溃，读写走 .standard
         let store = UserDefaultsSharedStore(suiteName: GxuConfig.appGroupID)
         let key = SharedKey<Int>("test.\(UUID().uuidString)")
         store.set(7, for: key)

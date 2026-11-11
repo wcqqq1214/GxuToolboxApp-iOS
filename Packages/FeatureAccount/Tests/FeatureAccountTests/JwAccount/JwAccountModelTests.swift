@@ -16,7 +16,6 @@ struct JwAccountModelTests {
     }
 
     @Test func failedLoginShowsChineseMessageAndKeepsInput() async {
-        // preview 服务的后端没有任何可用会话，登录必然失败（离线/无响应）
         let model = JwAccountModel(accounts: AppServices.preview(signedIn: false).accounts)
         model.username = "1"
         model.password = "2"

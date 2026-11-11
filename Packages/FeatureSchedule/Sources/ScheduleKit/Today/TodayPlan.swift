@@ -1,13 +1,9 @@
 import Foundation
 
-/// 今天的安排：首页、底部附件栏、小组件、App Intent 共用的纯逻辑。
 public struct TodayPlan: Sendable, Equatable {
     public enum DayNote: Sendable, Equatable {
-        /// 假期（含学校安排的放假）
         case holiday(String)
-        /// 调休休息日
         case rest
-        /// 补班：按 `from` 那天的课表上课
         case makeup(from: Date)
     }
 
@@ -19,16 +15,11 @@ public struct TodayPlan: Sendable, Equatable {
 
     public let phase: Phase
     public let date: Date
-    /// 第几周；不在学期内为 nil
     public let week: Int?
-    /// 1 = 周一
     public let weekday: Int
     public let note: DayNote?
-    /// 今天的课，按开始时间升序（冲突组只含选中的那一门）
     public let courses: [CourseOccurrence]
-    /// 正在上的课
     public let current: CourseOccurrence?
-    /// 今天还没开始的第一节课；今天没有了则为明天的第一节（`nextIsTomorrow`）
     public let next: CourseOccurrence?
     public let nextIsTomorrow: Bool
     public let tomorrow: [CourseOccurrence]

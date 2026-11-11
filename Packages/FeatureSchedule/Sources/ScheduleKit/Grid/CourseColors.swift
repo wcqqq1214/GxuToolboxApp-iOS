@@ -1,6 +1,5 @@
 import Foundation
 
-/// 课程色盘。这里只给“基色”（0xRRGGBB），浅色 / 深色模式下怎么铺底由 GxuDesign 决定。
 public enum CoursePalette: String, Codable, Sendable, CaseIterable {
     case macaron, morandi, vivid
 
@@ -28,8 +27,6 @@ public enum CoursePalette: String, Codable, Sendable, CaseIterable {
 }
 
 public enum CourseColorAssigner {
-    /// 给每门课（按课程名）分配一个基色。
-    /// 同一门课颜色唯一；同一天相邻（时段相交或相差 ≤ 1 节）的课颜色尽量拉开。结果只取决于输入，稳定可复现。
     public static func assign(
         courses: [TheoryCourse], palette: CoursePalette = .macaron, custom: [String: UInt32] = [:]
     ) -> [String: UInt32] {
@@ -44,7 +41,6 @@ public enum CourseColorAssigner {
             }
         }
 
-        // 最拥挤的先分配
         let ordered = names.sorted { (adjacency[$0]?.count ?? 0, $1) > (adjacency[$1]?.count ?? 0, $0) }
         let colors = palette.colors
         var assigned: [String: UInt32] = [:]
@@ -74,7 +70,6 @@ public enum CourseColorAssigner {
         a.contains { x in b.contains { y in x.weekday == y.weekday && (abs(x.begin - y.end) <= 1 || abs(y.begin - x.end) <= 1) } }
     }
 
-    /// 与 RN 同样的字符串哈希（32 位溢出语义），保证稳定
     static func hash(_ text: String) -> Int32 {
         var h: Int32 = 0
         for unit in text.utf16 { h = Int32(truncatingIfNeeded: Int(unit)) &+ ((h &<< 5) &- h) }

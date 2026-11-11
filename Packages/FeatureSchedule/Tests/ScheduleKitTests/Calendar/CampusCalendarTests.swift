@@ -5,7 +5,6 @@ import Testing
 @testable import ScheduleKit
 
 struct CampusCalendarTests {
-    // term：2026-09-07（周一）开学。9-21 周一、9-25 周五、9-27 周日；10-01 国庆在第 5 周周四
     let friday = course("高等数学", weekday: 5, 1, 2, weeks: Array(1...18))
     let monday = course("大学英语", weekday: 1, 3, 4, weeks: Array(1...18))
 
@@ -14,10 +13,8 @@ struct CampusCalendarTests {
     }
 
     @Test func holidayKeepsCoursesAndAddsDayBlocks() {
-        // RN v2.2：假期是一层底部横幅（假期图层 needShift: false），课程照常保留
         let campus = CampusCalendar(holidays: [HolidayRange(title: "中秋节", from: "2026-09-25", to: "2026-09-27")])
         let result = CalendarOverlay.apply(to: expand([friday]), calendar: campus, term: term)
-        // 9-25 是周五，第 3 周
         #expect(result.occurrences.contains { $0.date == at("2026-09-25") })
         #expect(result.occurrences.filter { $0.course.courseName == "高等数学" }.count == 18)
         #expect(result.dayBlocks.map(\.weekday) == [5, 6, 7])
@@ -32,7 +29,6 @@ struct CampusCalendarTests {
     }
 
     @Test func makeupDayShowsRestDayCoursesWithMarker() throws {
-        // 周日 9-20 补 10-06（周二，第 5 周）的课；周二没课时用周二的课
         let tuesday = course("线性代数", weekday: 2, 1, 2, weeks: Array(1...18))
         let campus = CampusCalendar(timeShift: [ShiftRule(workDate: "2026-09-20", restDate: "2026-10-06")])
         let result = CalendarOverlay.apply(to: expand([tuesday]), calendar: campus, term: term)
@@ -42,14 +38,12 @@ struct CampusCalendarTests {
         #expect(moved.week == 2 && moved.weekday == 7)
         #expect(moved.shiftedFrom == at("2026-10-06"))
         #expect(moved.startsAt == at("2026-09-20 08:30") || moved.startsAt == at("2026-09-20 08:00"))
-        // 休息日那天的课被移走，且休息日不在假期里，所以有一个“调休”整天块
         #expect(!result.occurrences.contains { $0.date == at("2026-10-06") })
         let rest = try #require(result.dayBlocks.first)
         #expect(rest.kind == .rest && rest.week == 5 && rest.weekday == 2)
     }
 
     @Test func makeupDayKeepsItsOwnRegularCourses() {
-        // 9-21 是周一，补 9-25（周五）的课：RN v2.2 保留周一原有的课，两组并排
         let campus = CampusCalendar(timeShift: [ShiftRule(workDate: "2026-09-21", restDate: "2026-09-25")])
         let result = CalendarOverlay.apply(to: expand([monday, friday]), calendar: campus, term: term)
         let onDay = result.occurrences.filter { $0.date == at("2026-09-21") }
@@ -58,13 +52,12 @@ struct CampusCalendarTests {
     }
 
     @Test func makeupAndOwnCoursesAreSeparateConflictDomains() {
-        // 补课项和原有的课时间重叠也不算同一个冲突组：各自选各自的
         let own = course("线性代数", weekday: 1, 1, 2, weeks: Array(1...18))
         let campus = CampusCalendar(timeShift: [ShiftRule(workDate: "2026-09-21", restDate: "2026-09-25")])
         let result = CalendarOverlay.apply(to: expand([own, friday]), calendar: campus, term: term)
         let onDay = result.occurrences.filter { $0.date == at("2026-09-21") }
-        #expect(onDay.count == 2)                                         // 都是第 1-2 节，时间重叠
-        #expect(ConflictResolver.resolve(onDay, choices: [:]).count == 2) // 但不是同一个冲突域，两门都保留
+        #expect(onDay.count == 2)
+        #expect(ConflictResolver.resolve(onDay, choices: [:]).count == 2)
     }
 
     @Test func makeupIdsAreUniqueFromRegular() {
@@ -105,7 +98,7 @@ struct CampusCalendarTests {
         let file = try JSONDecoder().decode(CampusCalendarFile.self, from: Data(#"{"timeShift": []}"#.utf8))
         let calendar = file.resolved(updatedAt: nil)
         #expect(calendar.timeShift.isEmpty)
-        #expect(!calendar.holidays.isEmpty)   // 内置备份
+        #expect(!calendar.holidays.isEmpty)
     }
 
     @Test func bundledFallbackIsValid() {
@@ -114,7 +107,6 @@ struct CampusCalendarTests {
         #expect((fallback.holidays?.count ?? 0) > 0)
     }
 
-    // MARK: 仓库
 
     private func makeRepository(_ fetch: @escaping CampusCalendarRepository.Fetch) throws -> CampusCalendarRepository {
         CampusCalendarRepository(database: try .inMemory(features: [ScheduleKit.migrations]), fetch: fetch)
@@ -163,7 +155,6 @@ private actor Counter {
 }
 
 struct NextHolidayTests {
-    // 中秋 9-25…9-27（周五到周日），国庆 10-01…10-07
     private func blocks() -> [DayBlock] {
         let campus = CampusCalendar(
             timeShift: [ShiftRule(workDate: "2026-09-20", restDate: "2026-09-28")],
@@ -179,7 +170,6 @@ struct NextHolidayTests {
     }
 
     @Test func insideMultiDayHolidayPointsToNextDay() throws {
-        // 9-25 早上八点之后，今天的假期日已经开始，下一个是 9-26
         let next = try #require(NextHoliday.next(dayBlocks: blocks(), term: term, now: at("2026-09-25 09:00")))
         #expect(next.date == at("2026-09-26"))
         #expect(next.dayText(now: at("2026-09-25 09:00"), calendar: shanghai) == "明天")
@@ -191,7 +181,6 @@ struct NextHolidayTests {
     }
 
     @Test func restDaysAreNotHolidays() {
-        // 9-28 是调休休息日，不算“下个假期”
         let next = NextHoliday.next(dayBlocks: blocks(), term: term, now: at("2026-09-27 09:00"))
         #expect(next?.title == "国庆节")
     }

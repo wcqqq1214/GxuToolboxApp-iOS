@@ -9,11 +9,9 @@ import GxuStorage
 import ScheduleKit
 import SwiftUI
 
-/// DEBUG：`-GxuScreen c-exam|c-score|c-gpa|c-holiday|c-timeshift|…`，用内置假数据（不连后端、不用账号）打开 C 负责的页面，截图自查用。
 public enum CourseDebugScreens {
     public static func handles(_ name: String) -> Bool { name.hasPrefix("c-") && !name.hasPrefix("c-attendance") && !name.hasPrefix("c-teacher") }
 
-    /// 和真实使用一样从上一级页面"推"进去（有返回按钮，标题可用宽度更窄），而不是作为根页面
     @MainActor
     public static func view(for name: String) -> some View {
         PushedScreen(name: name)
@@ -71,7 +69,6 @@ public enum CourseDebugScreens {
     }()
 }
 
-/// 按路径返回固定 JSON；时间相对"现在"
 struct StubBackend: BackendAPI {
     func get<T: Decodable & Sendable>(_ path: String, query: [String: String], auth: AuthSystem?, as type: T.Type) async throws -> T {
         let body: String
@@ -94,7 +91,6 @@ struct StubBackend: BackendAPI {
         return try JSONDecoder().decode(type, from: Data(profile.utf8))
     }
 
-    /// 按 RN `schema/progress.ts` 构造的演示数据（虚构学号、课程）
     private static let electiveProgress = #"""
     {"studentId":"2025000000","grade":2025,"ruleId":"demo","ruleVersion":"1","ruleName":"2025级通识选修要求（演示）",
      "computedAt":"2026-11-05T08:30:00.000Z","complete":false,
@@ -173,7 +169,7 @@ struct StubBackend: BackendAPI {
             item("s8", 2, y - 1, "创新创业基础", "2", "92"),
             item("s9", 2, y - 1, "海洋生态概论", "1", "59"),
             item("s10", 1, y - 1, "科技伦理", "1", "81"),
-            item("s9b", 1, y, "海洋生态概论", "1", "75"),   // 重修：覆盖上学年春季的 59 分
+            item("s9b", 1, y, "海洋生态概论", "1", "75"),
         ].joined(separator: ",") + "]}"
     }
 

@@ -4,7 +4,6 @@ import GxuDesign
 import ScheduleKit
 import SwiftUI
 
-/// 课表页：左右滑动切周，底部浮动玻璃控件（上一周 / 回到本周 / 下一周），点课程弹出详情 sheet。
 public struct ScheduleRootView: View {
     @Environment(\.services) private var services
     @State private var model = ScheduleViewModel()
@@ -30,7 +29,6 @@ public struct ScheduleRootView: View {
         self.refreshAttendance = refreshAttendance
     }
 
-    /// 账号变化时重新加载
     private struct AccountKey: Hashable {
         var studentId: String?
         var state: AuthState?
@@ -78,7 +76,6 @@ public struct ScheduleRootView: View {
             model.palette = preferences.value.palette
             Task { await model.refreshExamLayer() }
         }
-        // 首页 / 考试页可能和课表同时在加载并写入考试缓存：课表内容就绪几秒后再读一次考试图层
         .task(id: model.phase) {
             guard model.phase == .content else { return }
             try? await Task.sleep(for: .seconds(3))
@@ -182,7 +179,6 @@ public struct ScheduleRootView: View {
     }
 
     #if DEBUG
-    /// 截图自查：`-GxuScheduleSheet add|list|detail`
     private func debugPresentSheet() async {
         let args = ProcessInfo.processInfo.arguments
         guard model.phase == .content, let i = args.firstIndex(of: "-GxuScheduleSheet"), i + 1 < args.count else { return }
@@ -210,7 +206,6 @@ public struct ScheduleRootView: View {
     }
 }
 
-/// 打开日程编辑 sheet 的请求
 struct ActivityEditorRequest: Identifiable {
     let activity: CustomActivity
     let isNew: Bool

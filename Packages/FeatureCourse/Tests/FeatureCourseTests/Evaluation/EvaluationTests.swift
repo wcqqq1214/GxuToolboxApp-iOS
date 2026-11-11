@@ -90,7 +90,6 @@ private func decode<T: Decodable>(_ type: T.Type, _ json: String) throws -> T {
         await #expect(throws: GxuError.invalidData("请输入模板名称")) { _ = try await repo.save(EvaluationTemplate(name: "  "), studentId: "s1") }
         try await repo.save(EvaluationTemplate(name: "A"), studentId: "s1")
         await #expect(throws: GxuError.self) { _ = try await repo.save(EvaluationTemplate(name: "A"), studentId: "s1") }
-        // 改成自己的名字不算重名；改成别人的名字算
         let b = try await repo.save(EvaluationTemplate(name: "B"), studentId: "s1")
         try await repo.save(b, studentId: "s1")
         var clash = b
@@ -105,9 +104,7 @@ private func decode<T: Decodable>(_ type: T.Type, _ json: String) throws -> T {
         try await repo.save(EvaluationTemplate(name: "other"), studentId: "s2")
         #expect(try await repo.list(studentId: "s1").map(\.name) == ["new", "old"])
         #expect(try await repo.list(studentId: "s2").map(\.name) == ["other"])
-        // 同名可以在不同账号下各有一份
         try await repo.save(EvaluationTemplate(name: "old"), studentId: "s2")
-        // 不能改 / 删别人的
         let victim = try await repo.list(studentId: "s1")[0]
         await #expect(throws: GxuError.self) { _ = try await repo.save(victim, studentId: "s2") }
         try await repo.delete(id: victim.id!, studentId: "s2")

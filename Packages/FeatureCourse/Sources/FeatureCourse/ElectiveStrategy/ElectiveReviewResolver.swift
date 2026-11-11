@@ -1,24 +1,15 @@
 import ExamKit
 import Foundation
 
-/// 后端把校选课标成"待核对"（`status = review`）时，用本地成绩记录核对（纯函数，不联网）。
-///
-/// 依据：学籍规定第十九条"考核总评达到合格标准的即取得学分"，所以成绩记录里有唯一一条对得上的及格成绩，
-/// 就能确认这门课的分数、及格状态和学分。对得上 = 课程名一致 + 学分一致（用 attempt.credit）+ 学年一致 +
-/// 学期一致；后端把小学期记成 term 3，成绩接口记成 term 0，这两个视为同一学期（后端待办见 rn-v2.2-gap.md）。
-/// 对得上的记录不唯一或没有时保留"待核对"，并写明具体原因，不显示"数据存在歧义"。
 public struct ElectiveReviewResult: Sendable, Equatable {
     public var progress: ElectiveProgress
-    /// courseId → 已按成绩记录核对（课程行小字）
     public var confirmed: [String: String]
-    /// courseId → 仍待核对的具体原因
     public var unresolved: [String: String]
 }
 
 public enum ElectiveReviewResolver {
     public static let confirmedNote = "已按成绩记录核对"
 
-    /// 后端 term 3（小学期）↔ 成绩接口 term 0
     static func termMatches(attempt: Int, score: Int) -> Bool {
         attempt == score || (attempt == 3 && score == 0) || (attempt == 0 && score == 3)
     }
@@ -26,7 +17,6 @@ public enum ElectiveReviewResolver {
     private static let moduleKeys: [String: ElectiveProgress.Module] = [
         "lead": .lead, "entrepreneurship": .entrepreneurship, "art": .art, "asean": .asean, "ethnic": .ethnic, "ocean": .ocean,
     ]
-    /// 后端的"特色模块数"要求包含这些模块；新覆盖到其中之一时我们没法单独重算
     private static let specialModules: Set<ElectiveProgress.Module> = [.asean, .ethnic, .ocean]
 
     public static func resolve(_ progress: ElectiveProgress, scores: [Score]?) -> ElectiveReviewResult {
@@ -57,7 +47,6 @@ public enum ElectiveReviewResolver {
         }
         guard !resolvedIDs.isEmpty else { return ElectiveReviewResult(progress: result, confirmed: confirmed, unresolved: unresolved) }
 
-        // 已核对课程对应的 issue 去掉；其它 issue 原样保留
         let handled = Set(progress.courses.filter { confirmed[$0.id] != nil }.map(\.courseId))
         result.issues = progress.issues.filter { !handled.contains($0.courseId) }
         recompute(&result, original: progress, resolved: handled)
@@ -85,7 +74,6 @@ public enum ElectiveReviewResolver {
         return .success(only)
     }
 
-    /// 重算能由课程列表推出来的统计和要求；推不出来的要求保持后端的值，并在可能受影响时保持"待核对"
     private static func recompute(_ p: inout ElectiveProgress, original: ElectiveProgress, resolved: Set<String>) {
         let counted = p.courses.filter(\.counted)
         func credits(_ c: ElectiveProgress.Course) -> Double { c.countedCredits }
@@ -112,12 +100,10 @@ public enum ElectiveReviewResolver {
                 p.requirements[i].actual = actual
                 p.requirements[i].passed = item.operator == .gte ? actual >= item.required : actual <= item.required
             } else {
-                // 特色模块数、指定课程等：后端的规则，不重算；用后端原来的 actual 判断
                 allRecomputed = false
                 p.requirements[i].passed = item.operator == .gte ? item.actual >= item.required : item.actual <= item.required
             }
         }
-        // 新覆盖到特色模块、或补上了尚未完成的指定课程：后端的值已经过期，不能自己判断，保持待核对
         let touched = p.courses.filter { resolved.contains($0.courseId) }
         let newSpecial = touched.contains { c in
             c.modules.contains { specialModules.contains($0) && original.stats.credits(of: $0) == 0 }

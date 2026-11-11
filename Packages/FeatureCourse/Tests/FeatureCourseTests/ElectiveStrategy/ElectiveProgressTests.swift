@@ -5,7 +5,6 @@ import GxuTestSupport
 import Testing
 @testable import FeatureCourse
 
-// 构造样例按 RN v2.2 `schema/progress.ts` 写（虚构学号和课程），用来覆盖真实样本没有的分支（达标 / 未达标 / ratio）；真实响应见文末 ElectiveProgressFixtureTests。
 private func sample(studentId: String = "2024000001", complete: Bool = true, qualified: Bool? = true,
                     passed: Bool? = false) -> String {
     let passedJSON = passed.map(String.init) ?? "null"
@@ -83,7 +82,6 @@ private func sample(studentId: String = "2024000001", complete: Bool = true, qua
     }
 }
 
-// 真实脱敏响应（A 抓取，`Fixtures/sanitized/elective-progress.json`）；期望值由 Python 对同一份数据独立算出。
 @Suite struct ElectiveProgressFixtureTests {
     private struct Envelope: Decodable { var data: ElectiveProgress }
 

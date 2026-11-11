@@ -2,14 +2,12 @@ import Foundation
 import GxuFoundation
 import Security
 
-/// 统一认证（zfca）登录页用的 RSA：与 RN `RSAUtils.encryptedString` 逐字节一致。
-/// 算法：密码反转 → 按字节小端当作大整数（零填充到 `chunkSize` 的整数倍）→ 裸 RSA（无填充）→ 以 16 位为单位输出小写十六进制，多个分块用空格连接。
 public enum ZfcaRSA {
     public static func encrypt(password: String, exponentHex: String, modulusHex: String) throws -> String {
         let modulus = Self.stripLeadingZeros(try bytes(fromHex: modulusHex))
         let exponent = Self.stripLeadingZeros(try bytes(fromHex: exponentHex))
         guard modulus.count >= 4, !exponent.isEmpty else { throw GxuError.invalidData("统一认证公钥无效") }
-        let digitCount = (modulus.count + 1) / 2          // 16 位为一个 digit
+        let digitCount = (modulus.count + 1) / 2
         let chunkSize = 2 * (digitCount - 1)
         guard let key = makeKey(modulus: modulus, exponent: exponent) else { throw GxuError.invalidData("统一认证公钥无效") }
 
@@ -18,7 +16,6 @@ public enum ZfcaRSA {
 
         var blocks: [String] = []
         for start in stride(from: 0, to: plain.count, by: chunkSize) {
-            // 小端字节 → 大端；左侧补零到密钥长度
             let bigEndian = Array(plain[start..<start + chunkSize].reversed())
             let input = Data(repeating: 0, count: modulus.count - chunkSize) + Data(bigEndian)
             var error: Unmanaged<CFError>?
@@ -30,9 +27,7 @@ public enum ZfcaRSA {
         return blocks.joined(separator: " ")
     }
 
-    // MARK: Internals
 
-    /// 去掉最高位全零的 16 位 digit，其余每个 digit 输出 4 个十六进制字符
     static func hexDigits(_ data: Data) -> String {
         var bytes = [UInt8](data)
         if bytes.count % 2 == 1 { bytes.insert(0, at: 0) }

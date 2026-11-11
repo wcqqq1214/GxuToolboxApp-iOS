@@ -76,6 +76,7 @@
 | 3.6 | **wjxt 待阅文件**：OA 文件页右上角菜单 →「旧系统待阅文件」 | 显示待阅列表，点开能在 WebView 里看到文件；会话过期自动重登 | 用户 |
 | 3.7 | 验证 PEC 和工程训练中心的完整登录及数据请求能否走 HTTPS，包括 CAS 回跳和后续接口 | 对应主机的全部请求均可走 HTTPS 后，再移除 `project.yml` 里的 HTTP 例外 | 开发者（完成 3.2 / 3.3 后） |
 | 3.8 | 地图导航：点一个地点的导航按钮；教学楼平面图：打开楼层图并缩放 | Apple 地图按全名搜到校内位置；楼层图加载并可双指缩放 | 用户 |
+| 3.9 | 在校园网和校外网络分别打开教师查询，检查头像 | App 将广西大学的 HTTP 头像地址升级为 HTTPS，以符合 ATS 要求。校外访问仍可能受学校的访问时段等策略限制，图片加载失败时显示姓名占位 | 用户 |
 
 ## 4. Keychain、后台刷新、回前台刷新
 
@@ -100,3 +101,5 @@
 | 5.6 | App 名称和图标 | 上架前确认 Bundle ID、App 名称、图标与素材使用权限 | 用户 |
 
 版本通道条目包含 `versionName`、整数 `versionCode`（与 `CFBundleVersion` 比较）、可选的 `desc`，以及 `ori.appStore` 或 `ori.testFlight` 的 HTTPS 地址。
+
+用 App Store Connect API Key 上传 TestFlight 时，在本地归档配置中填写 `ASC_KEY_PATH`、`ASC_KEY_ID` 和 `ASC_ISSUER_ID`。也可以用 Xcode 中已登录的 Apple ID 上传。

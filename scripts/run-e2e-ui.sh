@@ -1,6 +1,4 @@
 #!/bin/bash
-# 用 XCUITest 在真实后端上走完整流程并逐步截图。账号读自 .secrets/account.env。
-# 用法：run-e2e-ui.sh [light|dark] [phase1|phase2|phase3] [legacy]（默认 phase1；legacy = 强制 iOS 18 降级路径）   截图目录：.screens/ui-<mode>-<时间>/（phase2 / phase3 带 report 文件）
 source "$(dirname "$0")/_env.sh"
 cd "$ROOT"
 source .secrets/account.env

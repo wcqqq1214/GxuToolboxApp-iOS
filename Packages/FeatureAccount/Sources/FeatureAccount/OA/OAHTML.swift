@@ -1,10 +1,6 @@
 import Foundation
 
-/// OA 文件正文（`fileBody`）的排版：给 HTML 片段补上自适应宽度、段落间距、表格和深浅色样式。
 enum OAHTML {
-    /// 没有任何块级标签的正文按纯文本处理：换行是普通的 `\n`，HTML 会把它们折成空格，整篇挤成一段，
-    /// 所以这种正文要加 `white-space: pre-wrap` 保留换行和缩进。有块级标签的正文照 HTML 渲染，
-    /// 否则标签之间的源码换行会变成多余的空行
     static func isPlainText(_ body: String) -> Bool {
         body.range(of: #"<\s*(p|br|div|table|ul|ol|li|h[1-6]|section|article|blockquote|pre)\b"#, options: [.regularExpression, .caseInsensitive]) == nil
     }

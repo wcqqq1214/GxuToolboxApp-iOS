@@ -5,16 +5,13 @@ public enum ScheduleDataState: String, Codable, Sendable {
     case ready, missingSchedule, missingStartDay, error
 }
 
-/// 小组件 / Live Activity / 底部附件栏用的紧凑课程
 public struct WidgetCourse: Codable, Sendable, Hashable, Identifiable {
     public var name: String
     public var beginTime: String
     public var endTime: String
-    /// 节次区间，如 "1-2"
     public var index: String
     public var teacher: String
     public var room: String
-    /// `yyyy-MM-dd`
     public var date: String
     public var startsAt: Date
     public var endsAt: Date
@@ -35,7 +32,6 @@ public struct WidgetCourse: Codable, Sendable, Hashable, Identifiable {
     }
 
     static func dateKey(_ date: Date, calendar: Calendar) -> String {
-        // 日期 key 是公历 `yyyy-MM-dd`，不能随设备日历变成佛历等年份
         let c = calendar.gregorianEquivalent.dateComponents([.year, .month, .day], from: date)
         return String(format: "%04d-%02d-%02d", c.year ?? 0, c.month ?? 0, c.day ?? 0)
     }
@@ -43,12 +39,9 @@ public struct WidgetCourse: Codable, Sendable, Hashable, Identifiable {
 
 public struct NextCourses: Codable, Sendable, Equatable {
     public var state: ScheduleDataState
-    /// 今天还没结束的课（正在上的也在内）
     public var today: [WidgetCourse]
     public var tomorrow: [WidgetCourse]
-    /// 下一节还没开始的课（正在上的不算）
     public var next: WidgetCourse?
-    /// 数据下次需要重新计算的时间
     public var nextRefreshAt: Date?
     public var refreshedAt: Date
 
@@ -67,7 +60,6 @@ public enum NextCourseCalculator {
         let tomorrow = sorted.filter { $0.date == tomorrowStart }
         let next = sorted.first { $0.startsAt > now }
 
-        // 下一次状态变化：还没开始的课开始，或还没结束的课结束，取更早的（课开始时 `next` 要换，结束时 `today` 要变）
         let nextBoundary = sorted.flatMap { [$0.startsAt, $0.endsAt] }.filter { $0 > now }.min()?.addingTimeInterval(1)
         let midnight = tomorrowStart.addingTimeInterval(1)
         let refresh = min(nextBoundary ?? .distantFuture, midnight)

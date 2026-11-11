@@ -2,7 +2,6 @@ import GxuDesign
 import ScheduleKit
 import SwiftUI
 
-/// 设置 → 课表外观：色盘、课程块里显示什么
 struct ScheduleAppearanceSettingsView: View {
     @Environment(SchedulePreferencesStore.self) private var preferences
 
@@ -43,7 +42,6 @@ struct ScheduleAppearanceSettingsView: View {
     }
 }
 
-/// 设置 → 课程 / 考试详情显示：开关、改名、拖动排序
 struct DetailFieldsSettingsView: View {
     enum Kind { case course, exam }
     let kind: Kind

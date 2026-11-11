@@ -4,20 +4,17 @@ import ScheduleKit
 import SwiftUI
 import UIKit
 
-/// 课程详情。系统 sheet（自动是玻璃），带 detents；冲突组时依次列出每一门课。
 struct CourseDetailSheet: View {
     let group: ConflictGroup
     let colors: [String: UInt32]
     let selected: CourseOccurrence
     var exams: [GridExam] = []
-    /// 课表正在查看的学期，相关考试只显示这个学期的
     var term: AcademicTerm?
     var attendance: AttendanceIndex?
     let onChoose: (CourseOccurrence) -> Void
     let onEditActivity: (String?) -> Void
     @Environment(SchedulePreferencesStore.self) private var preferences
     @Environment(\.dismiss) private var dismiss
-    /// 点选后立刻反映在 sheet 里（外面的 `selected` 要等持久化后才变）
     @State private var chosenID: String?
     @Environment(\.scheduleMapPlan) private var mapPlan
     @Environment(\.openURL) private var openURL
@@ -76,7 +73,6 @@ struct CourseDetailSheet: View {
     }
 
     #if DEBUG
-    /// 截图自查：`-GxuMapAction unparsed|choose` 直接走一遍“解析不到提示 / 选地图应用”
     private func debugMapAction() {
         let args = CommandLine.arguments
         guard let i = args.firstIndex(of: "-GxuMapAction"), i + 1 < args.count else { return }
@@ -103,7 +99,6 @@ struct CourseDetailSheet: View {
         }
     }
 
-    /// RN `useMapNavigation.openMap`：解析不到 / 没有地图应用 → 提示；一个 → 直接打开；多个 → 让用户选
     private func navigate(_ target: CourseNavigation.Target) {
         guard let mapPlan else { return }
         switch mapPlan(target) {
@@ -121,7 +116,7 @@ struct CourseDetailSheet: View {
 
     private static var detents: Set<PresentationDetent> {
         #if DEBUG
-        if CommandLine.arguments.contains("-GxuSheetLarge") { return [.large] }   // 截图自查：直接看到整张详情
+        if CommandLine.arguments.contains("-GxuSheetLarge") { return [.large] }
         #endif
         return [.medium, .large]
     }
@@ -135,7 +130,6 @@ private struct CourseSection: View {
     var exams: [GridExam] = []
     var attendance: AttendanceStatus?
     let onEditActivity: (String?) -> Void
-    /// 地点行的“导航到这里”；没有注入地图能力时为 nil（不显示按钮）
     var onNavigate: ((CourseNavigation.Target) -> Void)?
     @Environment(\.scheduleTeacherSupport) private var teacherSupport
     @Environment(\.openURL) private var openURL
@@ -151,7 +145,6 @@ private struct CourseSection: View {
                     .foregroundStyle(.orange)
             }
             if course.isCustom {
-                // 自定义课程只有这几项有意义；备注放在“考核”字段里（见 `CustomActivity.course`）
                 row("时间", "\(WeekdayName.full(item.weekday)) 第\(course.begin)-\(course.end)节  \(timeText)")
                 row("周次", WeekFormatter.describe(course.weeks))
                 row("地点", course.locationText)
@@ -164,7 +157,6 @@ private struct CourseSection: View {
                     TeacherCard(name: course.teacher, support: teacherSupport)
                 }
                 ForEach(fields) { field in
-                    // 教师卡片已经写了教师，同一张卡片里同一信息只出现一次
                     if !(field.id == "teacher" && teacherSupport != nil && !course.teacher.isEmpty) {
                         row(field.label, value(of: field.id))
                     }
@@ -211,7 +203,6 @@ private struct CourseSection: View {
         }
     }
 
-    /// 优先打开 QQ 群名片，无法跳转时复制群号。
     private func joinQQGroup() {
         var components = URLComponents(string: "mqqapi://card/show_pslcard")!
         components.queryItems = [
@@ -248,7 +239,6 @@ private struct CourseSection: View {
         return "\(first.startText)–\(last.endText)"
     }
 
-    /// 空值不显示
     @ViewBuilder
     private func row(_ title: String, _ value: String) -> some View {
         if !value.isEmpty {
@@ -283,7 +273,6 @@ private struct RelatedExamRow: View {
 }
 
 
-/// 任课教师卡片：头像、姓名、单位、查看详情（进入教师查询）
 private struct TeacherCard: View {
     let name: String
     let support: ScheduleTeacherSupport

@@ -2,13 +2,11 @@ import Foundation
 import GxuFoundation
 import GxuNetworking
 
-/// 考勤系统 token 存储。生产环境放 Keychain，测试和预览用内存实现。
 public protocol TokenStore: Sendable {
     func load() -> String?
     func save(_ token: String?)
 }
 
-/// 复用 Keychain 凭据存储，把 token 放在独立的 service 下（账号字段固定为 "token"）。每个系统一个条目。
 public final class KeychainTokenStore: TokenStore {
     private let store: KeychainCredentialStore
     private let system: AuthSystem
@@ -31,11 +29,8 @@ public final class InMemoryTokenStore: TokenStore, @unchecked Sendable {
 }
 
 public struct AttendanceCaptcha: Sendable, Equatable {
-    /// `data:image/jpeg;base64,...`
     public let imageDataURL: String
-    /// v2 的 `challengeToken`，登录时作为 `ticket` 提交
     public let ticket: String?
-    /// v2 后端把验证码文字一起返回，RN 用它自动填充；没有就让用户自己输入
     public let text: String?
 
     public init(imageDataURL: String, ticket: String?, text: String? = nil) {
@@ -44,14 +39,12 @@ public struct AttendanceCaptcha: Sendable, Equatable {
         self.text = text
     }
 
-    /// 解码后的图片数据（UI 里 `UIImage(data:)` 用）
     public var imageData: Data? {
         guard let comma = imageDataURL.firstIndex(of: ",") else { return Data(base64Encoded: imageDataURL) }
         return Data(base64Encoded: String(imageDataURL[imageDataURL.index(after: comma)...]))
     }
 }
 
-/// 登录成功后保留的考勤用户信息。v2 只返回 `userId` 和 `calendarId`；`userNo` 等是 v1 遗留字段，旧数据仍能解码。
 public struct AttendanceLoginInfo: Codable, Sendable, Equatable {
     public let userId: Int
     public let calendarId: Int?
@@ -75,22 +68,18 @@ private struct AttendanceLoginBody: Encodable, Sendable {
     let ticket: String?
 }
 
-/// `GET /attendance/v2/captcha`
 private struct CaptchaPayload: Decodable, Sendable {
     let imageUrl: String
     let challengeToken: String?
     let text: String?
 }
 
-/// `POST /attendance/v2/login` 的 `data`（RN `AttendanceSession`）。后端外层信封 `code 200` 由 `BackendClient` 处理。
 private struct AttendanceLoginResult: Decodable, Sendable {
     let token: String
     let calendarId: Int?
     let userId: Int
 }
 
-/// 考勤系统会话：验证码登录（`GET /attendance/v2/captcha`、`POST /attendance/v2/login`），token 走 `Authorization: Token`。
-/// 登录需要验证码，所以 token 过期后无法静默重登，只能提示用户重新登录。
 public final class AttendanceSession: SessionRenewer, @unchecked Sendable {
     private let transport: any BackendAPI
     private let tokens: any TokenStore
@@ -101,7 +90,6 @@ public final class AttendanceSession: SessionRenewer, @unchecked Sendable {
     private static let infoKey = "attendance.loginInfo"
     private let defaults: UserDefaults
 
-    /// - Parameter transport: 不带 renewer 的后端客户端
     public init(transport: any BackendAPI, tokens: any TokenStore, defaults: UserDefaults = .standard) {
         self.transport = transport
         self.tokens = tokens
@@ -113,7 +101,6 @@ public final class AttendanceSession: SessionRenewer, @unchecked Sendable {
         lock.withLock { self.observer = observer }
     }
 
-    /// 给 `BackendClient(tokenProvider:)` 用
     public var token: String? { lock.withLock { tokens.load() } }
     public var hasToken: Bool { token != nil }
     public var loginInfo: AttendanceLoginInfo? { lock.withLock { info } }
@@ -146,7 +133,6 @@ public final class AttendanceSession: SessionRenewer, @unchecked Sendable {
         }
     }
 
-    /// 后端返回 401（token 无效）：清掉 token，通知状态变为已登出，由 UI 引导用户重新输入验证码
     public func renew(_ system: AuthSystem) async throws {
         try await renew(system, rejectedToken: token)
     }
@@ -162,7 +148,6 @@ public final class AttendanceSession: SessionRenewer, @unchecked Sendable {
     }
 }
 
-/// 按系统分发的会话续期：教务静默重登，考勤只能让状态变为已登出。
 public struct SessionRenewers: SessionRenewer {
     private let jw: any SessionRenewer
     private let attendance: any SessionRenewer

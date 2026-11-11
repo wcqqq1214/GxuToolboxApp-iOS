@@ -4,7 +4,6 @@ import GxuFoundation
 import ScheduleKit
 import SwiftUI
 
-/// 工具箱 → 物理实验课：缓存优先，后台刷新；需要统一认证账号。
 struct PhyExpView: View {
     @Environment(\.services) private var services
     @State private var loadedUsername: String?
@@ -131,7 +130,6 @@ private struct ExperimentRow: View {
 }
 
 #if DEBUG
-/// 截图自查：`-GxuPECDemo`，不连真实 PEC
 private struct DemoPEC: PECClient {
     func ruleManage() async throws -> Data {
         func day(_ offset: Int) -> String {

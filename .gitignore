@@ -1,6 +1,5 @@
 .DS_Store
 
-# 本机开发环境和签名产物
 /.claude/
 /.cursor/
 /.vscode/
@@ -9,12 +8,10 @@
 *.xcuserstate
 **/.xcode.env.local
 
-# 原 RN 工作区可能留有本地依赖和测试凭据
 /node_modules/
 /test-credentials.local.ts
 /.ci-npmrc
 
-# 生成物：由 xcodegen 生成
 *.xcodeproj
 /App/Resources/Info.plist
 /App/Resources/GxuToolApp.entitlements
@@ -25,13 +22,11 @@ DerivedData/
 .swiftpm/
 xcuserdata/
 
-# 本地数据，不入库
 **/.secrets/*
 !**/.secrets/*.example
 **/Fixtures/raw/
 .screens/
 
-# 打包产物
 build/
 .build-release/
 .build-device/

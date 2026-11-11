@@ -30,16 +30,12 @@ public struct AvailableRoomsQuery: Sendable {
     }
 }
 
-/// 空闲教室的本地库（全校公共数据）：教室维表、按天进度、空闲节次、按周快照。
-/// 写入都在一个事务里；GRDB 的写本身是串行的，不需要再自建写队列。
 public struct EmptyClassroomRepository: Sendable {
     private let database: AppDatabase
 
     public init(database: AppDatabase) { self.database = database }
 
-    // MARK: 写
 
-    /// 保存一天：教室维表 upsert → 删掉这一天旧的空闲节次 → 写新的 → 更新进度和周快照
     public func saveDay(year: Int, term: Int, week: Int, day: Int, payload: DayPayload, now: Date = .now) async throws {
         try await database.writer.write { db in
             for room in payload.rooms.values {
@@ -92,7 +88,6 @@ public struct EmptyClassroomRepository: Sendable {
         }
     }
 
-    /// 清空所有周的缓存（保留教室维表）
     public func clearWeeks() async throws {
         try await database.writer.write { db in
             try db.execute(sql: "DELETE FROM empty_slot")
@@ -101,7 +96,6 @@ public struct EmptyClassroomRepository: Sendable {
         }
     }
 
-    /// 清空全部（含教室维表）
     public func clearAll() async throws {
         try await database.writer.write { db in
             try db.execute(sql: "DELETE FROM empty_slot")
@@ -134,7 +128,6 @@ public struct EmptyClassroomRepository: Sendable {
         )
     }
 
-    // MARK: 读
 
     public func completedDays(year: Int, term: Int, week: Int) async throws -> [Int] {
         try await database.writer.read { db in
@@ -156,7 +149,6 @@ public struct EmptyClassroomRepository: Sendable {
         }
     }
 
-    /// 缓存占用估算
     public func storageUsage() async throws -> (roomsBytes: Int, availabilityBytes: Int) {
         try await database.writer.read { db in
             let rooms = try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM empty_room") ?? 0
@@ -190,7 +182,6 @@ public struct EmptyClassroomRepository: Sendable {
         }
     }
 
-    /// 某间教室在若干周里的空闲节次
     public func roomWeekSlots(year: Int, term: Int, roomId: Int64, weeks: [Int]) async throws -> [FreePeriodRow] {
         guard !weeks.isEmpty else { return [] }
         return try await database.writer.read { db in
@@ -204,7 +195,6 @@ public struct EmptyClassroomRepository: Sendable {
         }
     }
 
-    /// 按时间查询：某周某天、节次范围内至少有一节空闲的教室，分页（多取一条判断是否还有下一页）
     public func listAvailableRooms(_ q: AvailableRoomsQuery) async throws -> AvailableRoomsPage {
         try await database.writer.read { db in
             let page = max(1, q.page), pageSize = max(1, q.pageSize)
@@ -259,7 +249,6 @@ public struct EmptyClassroomRepository: Sendable {
         }
     }
 
-    // MARK: 行 → 模型
 
     private static func room(_ row: Row) -> RoomRecord {
         RoomRecord(
@@ -275,7 +264,6 @@ public struct EmptyClassroomRepository: Sendable {
         )
     }
 
-    /// LIKE 通配符转义：用户输入的 % 和 _ 按字面匹配
     static func likePattern(_ text: String) -> String {
         let escaped = text.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "%", with: "\\%").replacingOccurrences(of: "_", with: "\\_")
         return "%\(escaped)%"

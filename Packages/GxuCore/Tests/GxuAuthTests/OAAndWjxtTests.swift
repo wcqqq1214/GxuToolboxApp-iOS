@@ -11,7 +11,6 @@ private func reply(_ request: URLRequest, status: Int = 200, _ body: String) -> 
 
 private let loginOK = #"{"code":200,"type":"success","message":"","result":{"accessToken":"T-1","refreshToken":"R","needSelectOrg":false}}"#
 
-/// OA 用固定域名（oa.gxu.edu.cn），串行执行避免 handler 互相覆盖
 @Suite(.serialized)
 struct OASessionTests {
     private func make(tokens: InMemoryTokenStore = InMemoryTokenStore(), creds: [AuthSystem: Credential] = [.oa: Credential(username: "u", password: "p")]) -> (OASession, InMemoryTokenStore) {
@@ -49,7 +48,6 @@ struct OASessionTests {
         #expect(tokens.load() == nil)
     }
 
-    /// 服务端明确拒绝时直接转述它的文案；没有文案就不替它说是密码错了
     @Test func serverRejectionIsRelayedAndEmptyMessageStaysNeutral() async {
         StubURLProtocol.register(host: "oa.gxu.edu.cn") { reply($0, #"{"code":400,"type":"error","message":"[D1000] 账号或密码不正确","result":null}"#) }
         let (session, _) = make()
@@ -61,7 +59,6 @@ struct OASessionTests {
         }
     }
 
-    /// 200 但不是 JSON（WAF 页面等）：说「意料之外的内容 / 可能需要校园网」，不说账号密码，也写进诊断日志
     @Test func htmlInsteadOfJsonIsNotBlamedOnThePassword() async {
         StubURLProtocol.register(host: "oa.gxu.edu.cn") { reply($0, "<html>访问出错 - 403</html>") }
         let (session, _) = make()
@@ -74,7 +71,6 @@ struct OASessionTests {
         #expect(!log.contains("S3cretPw"))
     }
 
-    /// 诊断日志要记服务端的 message（不含密码），否则查不出被拒绝的原因；密码本身不能出现在日志里
     @Test func rejectionLogKeepsTheServerMessageButNeverThePassword() async {
         StubURLProtocol.register(host: "oa.gxu.edu.cn") { reply($0, #"{"code":400,"type":"error","message":"[D1000] 账号或密码不正确","result":null}"#) }
         let (session, _) = make()
@@ -122,7 +118,6 @@ struct OASessionTests {
         await #expect(throws: GxuError.sessionExpired(.oa)) { _ = try await session.json("GET", path: "/x") }
     }
 
-    /// OA：服务器明确拒绝 → 需要重新登录；网络错误 / 非 JSON / 5xx 不改变状态
     @MainActor
     @Test func oaStateFollowsOnlyExplicitRejections() async throws {
         func center(_ handler: @escaping @Sendable (URLRequest) throws -> (HTTPURLResponse, Data)) -> (AccountCenter, OASession) {
@@ -168,7 +163,6 @@ struct OASessionTests {
         await #expect(throws: GxuError.invalidData("不支持的文件地址")) { _ = try await session.download(URL(string: "http://oa.gxu.edu.cn/a.pdf")!) }
     }
 
-    /// 回归：旧实现用 hasSuffix("gxu.edu.cn")，`evilgxu.edu.cn` 会通过并收到 Bearer token
     @Test func downloadRejectsLookalikeHostAndNeverSendsToken() async {
         let hit = Mutex(false)
         StubURLProtocol.register(host: "evilgxu.edu.cn") { request in hit.withLock { $0 = true }; return reply(request, "%PDF") }
@@ -191,7 +185,6 @@ struct OASessionTests {
         #expect(seen.withLock { $0 } == ["oa.gxu.edu.cn": "Bearer SECRET", "static.gxu.edu.cn": "none"])
     }
 
-    /// 回归：旧实现直接用 lastPathComponent，`..%2F..%2Fx.pdf` 能写出临时目录；没有扩展名时 QuickLook 无法预览
     @Test func downloadKeepsFilesInsideItsDirectoryAndAddsExtension() async throws {
         StubURLProtocol.register(host: "oa.gxu.edu.cn") { request in
             let type = request.url!.path.contains("word") ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document" : "application/octet-stream"
@@ -208,7 +201,7 @@ struct OASessionTests {
         #expect(byType.pathExtension == "docx")
         let a = try await session.download(URL(string: "https://oa.gxu.edu.cn/a/same.pdf")!)
         let b = try await session.download(URL(string: "https://oa.gxu.edu.cn/b/same.pdf")!)
-        #expect(a != b)   // 同名文件各自一个目录，不会互相覆盖
+        #expect(a != b)
     }
 
     @Test func safeFileNameNeverEscapesAndPrefersKnownExtensions() {
@@ -221,11 +214,10 @@ struct OASessionTests {
         #expect(name("https://oa.gxu.edu.cn/a/通知 正文.pdf") == "通知_正文.pdf")
         #expect(name("https://oa.gxu.edu.cn/a/") == "a")
         #expect(name("https://oa.gxu.edu.cn/", ext: "docx") == "file.docx")
-        #expect(name("https://oa.gxu.edu.cn/a/x", type: "application/pdf", ext: "docx") == "x.pdf")   // Content-Type 优先
-        #expect(name("https://oa.gxu.edu.cn/a/x.exe", ext: "exe") == "x.exe")                             // 不认识的扩展名不乱补
+        #expect(name("https://oa.gxu.edu.cn/a/x", type: "application/pdf", ext: "docx") == "x.pdf")
+        #expect(name("https://oa.gxu.edu.cn/a/x.exe", ext: "exe") == "x.exe")
     }
 
-    /// 回归：换 OA 账号时不能留着上一个账号的问卷系统会话（放在这个串行套件里，因为它用固定域名 oa.gxu.edu.cn）
     @MainActor
     @Test func switchingOAAccountDropsThePreviousWjxtSession() async throws {
         StubURLProtocol.register(host: "oa.gxu.edu.cn") { reply($0, loginOK) }

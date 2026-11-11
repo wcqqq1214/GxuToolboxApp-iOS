@@ -76,28 +76,26 @@ struct CampusTests {
         #expect(backend.queries.isEmpty)
     }
 
-    // MARK: 此刻有没有课
 
     @Test func occupancyMatchesWeekWeekdayAndPeriod() throws {
         let schedule = try JSONDecoder().decode(DataEnvelope<Schedule>.self, from: try fixture("campus-class-schedule")).data
-        let first = try #require(schedule.theoryList.first)   // 周一 1-2 节，1-4、6-8 周
+        let first = try #require(schedule.theoryList.first)
         let hit = ClassMoment(week: 1, weekday: first.weekday, period: first.begin)
         #expect(Occupancy.course(in: schedule, at: hit)?.courseName == first.courseName)
         #expect(Occupancy.course(in: schedule, at: ClassMoment(week: 1, weekday: first.weekday, period: first.end))?.courseName == first.courseName)
-        #expect(Occupancy.course(in: schedule, at: ClassMoment(week: 5, weekday: first.weekday, period: first.begin)) == nil)   // 第 5 周没课
+        #expect(Occupancy.course(in: schedule, at: ClassMoment(week: 5, weekday: first.weekday, period: first.begin)) == nil)
         #expect(Occupancy.course(in: schedule, at: ClassMoment(week: 1, weekday: 7, period: 1)) == nil)
         #expect(Occupancy.course(in: schedule, at: ClassMoment(week: 1, weekday: first.weekday, period: 13)) == nil)
     }
 
     @Test func defaultMomentFollowsTheClock() {
-        // 2026-09-07（周一）开学
         let term = TermCalendar(startDate: at("2026-09-07 00:00"), weekCount: 18, calendar: shanghai)
         #expect(ClassMoment.now(term: term, now: at("2026-09-08 08:30")) == ClassMoment(week: 1, weekday: 2, period: 1))
-        #expect(ClassMoment.now(term: term, now: at("2026-09-08 09:45")) == ClassMoment(week: 1, weekday: 2, period: 3))   // 课间取下一节
+        #expect(ClassMoment.now(term: term, now: at("2026-09-08 09:45")) == ClassMoment(week: 1, weekday: 2, period: 3))
         #expect(ClassMoment.now(term: term, now: at("2026-09-08 06:00")).period == 1)
         #expect(ClassMoment.now(term: term, now: at("2026-09-08 23:30")).period == 13)
-        #expect(ClassMoment.now(term: term, now: at("2026-09-02 10:00")).week == 1)    // 开学前夹到第 1 周
-        #expect(ClassMoment.now(term: term, now: at("2027-03-01 10:00")).week == 18)   // 学期后夹到最后一周
+        #expect(ClassMoment.now(term: term, now: at("2026-09-02 10:00")).week == 1)
+        #expect(ClassMoment.now(term: term, now: at("2027-03-01 10:00")).week == 18)
     }
 }
 
@@ -109,7 +107,6 @@ extension ClassInfo {
     }
 }
 
-/// 转发给 Mock，同时记下每次请求的 query（`MockBackendAPI.calls` 只有路径）
 private final class RecordingBackend: BackendAPI, @unchecked Sendable {
     private let wrapped: MockBackendAPI
     private let lock = NSLock()

@@ -6,17 +6,11 @@ import SwiftUI
 import UIKit
 import WidgetKit
 
-/// App ↔ 小组件 / Live Activity 的桥。App 在根视图上挂一次：
-///
-///     RootView().task { await WidgetBridge.run(services: services) }
-///
-/// 每次进入前台、账号变化时：从本地缓存重新算快照写入 App Group → 刷新小组件时间线 → 同步 Live Activity。
 @MainActor
 public enum WidgetBridge {
     private static var refreshIDs: [ObjectIdentifier: UUID] = [:]
     private enum RefreshTrigger: Sendable { case foreground, accountChanged }
 
-    /// 运行直到任务取消。
     public static func run(services: AppServices) async {
         #if DEBUG
         if let directory = WidgetGallery.outputDirectory() { WidgetGallery.run(into: directory); return }
@@ -66,7 +60,6 @@ public enum WidgetBridge {
         }
         let unifiedUsername = services.accounts.unifiedUsername
         let snapshot = await SnapshotProvider.compute(studentId: studentId, database: services.database, unifiedUsername: unifiedUsername, now: now)
-        // 最后一节课结束后刷新时 `today` 为空，另记一笔"今天有过课"，小组件才能写"今天的课已上完"
         var had = !snapshot.today.isEmpty
         if !had { had = await SnapshotProvider.hadClasses(on: now, studentId: studentId, database: services.database, unifiedUsername: unifiedUsername) }
         guard !Task.isCancelled, refreshIDs[key] == refreshID, services.accounts.studentId == studentId,
@@ -80,12 +73,9 @@ public enum WidgetBridge {
 }
 
 public enum WidgetShared {
-    /// 小组件扩展不依赖 Keychain 就能知道该读哪个学号的快照
     public static let activeStudentIdKey = SharedKey<String>("widget.activeStudentId")
-    /// 刷新快照时发现"这一天有过课"，值是那天的 00:00（只对那一天有效）
     public static let hadClassesDayKey = SharedKey<Date>("widget.hadClassesDay")
 
-    /// 读当前账号的快照；没有账号或没有快照返回 nil
     public static func currentSnapshot(store: any SharedStore) -> NextCourses? {
         guard let studentId = store.value(activeStudentIdKey) else { return nil }
         return store.value(ScheduleKit.widgetSnapshotKey(studentId: studentId))
@@ -94,7 +84,6 @@ public enum WidgetShared {
 
 #if DEBUG
 extension WidgetBridge {
-    /// `-GxuWidgetDemo`：不依赖账号和网络，写一份"此刻正在上课"的演示快照，供小组件 / 灵动岛截图自查
     static func runDemo(services: AppServices) async {
         let cal = Calendar.current
         let now = Date.now

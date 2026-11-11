@@ -4,7 +4,6 @@ import QuickLook
 import SwiftUI
 import WebKit
 
-/// 工具箱 → OA 文件：列表（按类型筛选、分页）、标题搜索、详情（正文 + PDF / DOCX 预览）
 public struct OAFilesView: View {
     @Environment(\.services) private var services
     private let demo: Bool
@@ -36,7 +35,6 @@ public struct OAFilesView: View {
                 if text.isEmpty, !model.keyword.isEmpty { model.keyword = ""; Task { await model.reload() } }
             }
             .toolbar {
-                // 只放一个控件，避免和标题挤在一起
                 Menu {
                     Picker("文件类型", selection: $model.typeId) {
                         ForEach(OAFileType.all, id: \.id) { Text($0.label).tag($0.id) }
@@ -147,7 +145,6 @@ struct OAFileDetailView: View {
     }
 }
 
-/// 渲染 OA 正文 HTML：关闭 JavaScript，链接交给 Safari
 struct HTMLView: UIViewRepresentable {
     let html: String
 
@@ -166,7 +163,6 @@ struct HTMLView: UIViewRepresentable {
 
     func updateUIView(_ view: WKWebView, context: Context) {}
 
-    /// 加上自适应宽度、段落和深浅色的样式（纯文本正文保留换行）
     static func wrapped(_ body: String) -> String { OAHTML.wrap(body) }
 
     final class Coordinator: NSObject, WKNavigationDelegate {
@@ -178,7 +174,6 @@ struct HTMLView: UIViewRepresentable {
     }
 }
 
-/// 旧系统（问卷系统 wjxt）的待阅文件
 struct WjxtPendingView: View {
     @Environment(\.services) private var services
     var body: some View { Content(model: WjxtPendingModel(services: services)) }

@@ -7,7 +7,6 @@ public enum ExamStatus: String, Sendable, Equatable {
 }
 
 public struct ParsedExamTime: Equatable, Sendable {
-    /// 开始时间，用于排序和展示
     public var date: Date?
     public let endsAt: Date?
     public var status: ExamStatus
@@ -19,10 +18,7 @@ public struct ParsedExamTime: Equatable, Sendable {
     }
 }
 
-/// 移植自 RN `parseExamTime`。
 public enum ExamTimeParser {
-    /// 解析 `2023-01-01(09:00-11:00)`。结束时间严格早于 `now` 为 past，否则 upcoming；
-    /// 不匹配或日期时间越界（RN 的 dayjs 会滚动进位，这里有意判为 tbd）为 tbd。
     public static func parse(_ time: String, now: Date = .now, calendar: Calendar = .current) -> ParsedExamTime {
         let calendar = calendar.gregorianEquivalent
         let pattern = /(\d{4})-(\d{2})-(\d{2})\((\d{2}):(\d{2})-(\d{2}):(\d{2})\)/
@@ -44,7 +40,6 @@ public enum ExamTimeParser {
     }
 }
 
-/// 带运行时状态的考试（状态不入库，每次读取时按 `time` 重新计算）
 public struct ExamItem: Hashable, Sendable, Identifiable {
     public var exam: Exam
     public var date: Date?
@@ -60,9 +55,6 @@ public struct ExamItem: Hashable, Sendable, Identifiable {
         self.status = parsed.status
     }
 
-    /// 卡片上的开考时间，**只表达一次**：今日 / 明日开考时卡片上已经有"今日开考""明日开考"徽章，
-    /// 这里只写钟点（`23:00`）；其他情况写日期加钟点（`11月10日 14:30`）。
-    /// 无法解析时保留原文，例如仅有日期；空值或待定占位统一显示「时间待定」。
     public func timeLine(now: Date = .now, calendar: Calendar = .current) -> String {
         let calendar = calendar.gregorianEquivalent
         guard let date else {
@@ -74,13 +66,11 @@ public struct ExamItem: Hashable, Sendable, Identifiable {
         return isUrgent(now: now, calendar: calendar) ? clock : "\(c.month ?? 0)月\(c.day ?? 0)日 \(clock)"
     }
 
-    /// 今日或明日开考（界面只对这两种用红色强调）
     public func isUrgent(now: Date = .now, calendar: Calendar = .current) -> Bool {
         guard let text = countdownText(now: now, calendar: calendar) else { return false }
         return text == "今日开考" || text == "明日开考"
     }
 
-    /// 距开考的日历天数文案：今日开考 / 明日开考 / N天后；已过或没有日期时为 nil
     public func countdownText(now: Date = .now, calendar: Calendar = .current) -> String? {
         let calendar = calendar.gregorianEquivalent
         guard status == .upcoming, let date else { return nil }
@@ -95,7 +85,6 @@ public struct ExamItem: Hashable, Sendable, Identifiable {
 }
 
 public struct ExamSections: Equatable, Sendable {
-    /// upcoming + tbd
     public var upcoming: [ExamItem]
     public var past: [ExamItem]
 
@@ -106,7 +95,6 @@ public struct ExamSections: Equatable, Sendable {
 }
 
 public enum ExamSorting {
-    /// upcoming 在前且按开始时间升序；tbd、past 按开始时间降序（无日期按 0）。同序保持原顺序。
     public static func sorted(_ items: [ExamItem]) -> [ExamItem] {
         func rank(_ s: ExamStatus) -> Int {
             switch s {
@@ -131,9 +119,7 @@ public enum ExamSorting {
     }
 }
 
-/// "下一场考试"的纯逻辑：不依赖界面和存储，B 的首页、课表叠加、小组件、App Intent 共用
 public enum NextExam {
-    /// 状态为 upcoming 且有开考时间的考试，按开考时间升序
     public static func upcoming(in items: [ExamItem]) -> [ExamItem] {
         items.filter { $0.status == .upcoming && $0.date != nil }
             .sorted { ($0.date ?? .distantFuture) < ($1.date ?? .distantFuture) }
@@ -142,7 +128,6 @@ public enum NextExam {
     public static func pick(from items: [ExamItem]) -> ExamItem? { upcoming(in: items).first }
 }
 
-/// 座位号的统一写法（考试页、首页、小组件都用它）：纯数字 `8` → `8 号`，其他写法（如 `A12`）→ `座位 A12`，空 → 空串
 public enum ExamSeat {
     public static func text(_ seat: String) -> String {
         let seat = seat.trimmingCharacters(in: .whitespacesAndNewlines)

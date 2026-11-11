@@ -2,7 +2,6 @@ import Foundation
 import GxuFoundation
 import GxuNetworking
 
-/// 数据没取全（达不到 totalCount / totalPage，或超过翻页上限）：不能静默缓存被截断的数据
 public struct IncompleteDataError: Error, Sendable, Equatable {
     public var collected: Int
     public var expected: Int?
@@ -10,16 +9,12 @@ public struct IncompleteDataError: Error, Sendable, Equatable {
 }
 
 public enum EmptyClassroomError: Error, Sendable, Equatable {
-    /// 用户取消；抓了一半的当天数据由上层丢弃，已保存的天保留
     case canceled
-    /// 教务返回的数据不是预期结构（`data` 为 null 或 `items` 不是数组，通常是教务登录失效）
     case invalidResponse
 }
 
-/// `GET /jw/emptyClassroom`：某周某天某节次的空闲教室。学期只用逻辑学期 1 / 2；教务登录失效由后端客户端自动重新登录一次。
 public struct EmptyClassroomAPI: Sendable {
     private let backend: any BackendAPI
-    /// 网络错误 / 5xx 的最大重试次数，以及间隔
     private let maxTransientRetries: Int
     private let retryDelay: Duration
 
@@ -29,7 +24,6 @@ public struct EmptyClassroomAPI: Sendable {
         self.retryDelay = retryDelay
     }
 
-    /// 请求并解析某个节次的一页。网络错误 / 5xx 最多重试 2 次；其他错误不重试。
     func requestPage(year: Int, term: Int, week: Int, day: Int, period: Int, pageNum: Int) async throws -> ClassroomPage {
         var transientRetries = 0
         while true {
@@ -51,7 +45,7 @@ public struct EmptyClassroomAPI: Sendable {
                 switch error {
                 case .network: transient = true
                 case .http(let status, _): transient = (500..<600).contains(status)
-                case .decoding: throw EmptyClassroomError.invalidResponse   // `items` 不是数组等
+                case .decoding: throw EmptyClassroomError.invalidResponse
                 default: transient = false
                 }
                 guard transient, transientRetries < maxTransientRetries else { throw error }
@@ -61,10 +55,6 @@ public struct EmptyClassroomAPI: Sendable {
         }
     }
 
-    /// 顺序翻页取完一个节次的所有空闲教室。完整性判断优先级：
-    /// 1. 有 totalCount：去重前累计行数 < totalCount 就继续（即使当前页短于 pageSize）；
-    /// 2. 没有 totalCount 但有 totalPage：翻到 pageNum >= totalPage；
-    /// 3. 都没有：用短页判定结束。空页一律停止；达不到完整性或超过翻页上限抛 `IncompleteDataError`。
     static func collectSlotPages(
         pageSize: Int = EmptyClassroomConstants.pageSize, maxPages: Int = EmptyClassroomConstants.maxPages,
         fetchPage: (Int) async throws -> ClassroomPage
@@ -98,9 +88,6 @@ public struct EmptyClassroomAPI: Sendable {
         return items
     }
 
-    /// 并发抓一天 13 个节次，合并成按 roomKey 索引的 `DayPayload`。
-    /// - 教室元数据以节次升序里的第一份为准；空闲节次升序去重；教室名为空的条目跳过。
-    /// - `onPeriod` 在每个节次完整抓完后回调（并发完成顺序不固定，进度可能跳变）。
     public func fetchDay(year: Int, term: Int, week: Int, day: Int, onPeriod: (@Sendable (Int, Int) -> Void)? = nil) async throws -> DayPayload {
         try Task.checkCancellation()
         let results = try await withThrowingTaskGroup(of: (Int, [ClassroomPage.Item]).self) { group in

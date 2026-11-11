@@ -6,7 +6,6 @@ import FeatureMisc
 import GxuStorage
 import ScheduleUI
 
-/// 各 feature 只能增改自己那一行
 enum FeatureRegistry {
     static let migrations: [FeatureMigrations] = [
         AccountFeature.migrations,

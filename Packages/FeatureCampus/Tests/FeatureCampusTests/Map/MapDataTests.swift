@@ -10,8 +10,8 @@ struct MapDataTests {
 
     @Test func searchMatchesNameFullNameAndAliases() throws {
         let sixth = try #require(CampusPlaces.all.first { $0.name == "东校园第六教学楼" })
-        #expect(sixth.matches(query: "六教"))        // 俗称
-        #expect(sixth.matches(query: "东校园"))      // 名称
+        #expect(sixth.matches(query: "六教"))
+        #expect(sixth.matches(query: "东校园"))
         #expect(sixth.matches(query: ""))
         #expect(!sixth.matches(query: "食堂"))
     }

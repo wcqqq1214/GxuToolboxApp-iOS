@@ -2,11 +2,9 @@ import ExamKit
 import Foundation
 import ScheduleKit
 
-/// 首页和底部附件里“接下来要发生的事”：正在上的课 / 下一节课 / 临近的考试，取最紧的一件。
 enum HomeEvent: Equatable {
     case course(CourseOccurrence, isOngoing: Bool, isTomorrow: Bool)
     case exam(ExamItem, isOngoing: Bool)
-    /// RN `NextEventBanner`：假期图层的每一天也是一个事件（“下个假期”）
     case holiday(NextHoliday)
 
     var startsAt: Date {
@@ -24,11 +22,9 @@ enum HomeEvent: Equatable {
         }
     }
 
-    /// 正在进行的优先；否则取开始时间更早的。考试比下一节课更早开始才会盖过课程（课程排在前一天不会被远期考试抢占）。
     static func pick(snapshot: ScheduleSnapshot, exams: [ExamItem], now: Date) -> HomeEvent? {
         let holiday = NextHoliday.next(dayBlocks: snapshot.dayBlocks, term: snapshot.termCalendar, now: now)
         #if DEBUG
-        // 截图自查：`-GxuPickEvent course|exam|holiday` 只取这一类事件
         let args = ProcessInfo.processInfo.arguments
         if let i = args.firstIndex(of: "-GxuPickEvent"), i + 1 < args.count {
             switch args[i + 1] {
@@ -58,7 +54,6 @@ enum HomeEvent: Equatable {
         case let (nil, exam?): base = exam.startsAt.timeIntervalSince(now) < 24 * 3600 ? exam : nil
         case (nil, nil): base = nil
         }
-        // 假期和别的事件比开始时间，同一时刻假期在前（RN 假期图层在最底层，稳定排序）
         guard let holiday else { return base }
         guard let base else { return .holiday(holiday) }
         return holiday.startsAt <= base.startsAt ? .holiday(holiday) : base
@@ -66,7 +61,6 @@ enum HomeEvent: Equatable {
 }
 
 enum RelativeTime {
-    /// "12 分钟后" / "1 小时 5 分钟后" / "明天 08:00" / "11月8日 08:00"
     static func untilStart(_ start: Date, now: Date, calendar: Calendar = .current) -> String {
         let minutes = max(Int(start.timeIntervalSince(now) / 60), 0)
         if calendar.isDate(start, inSameDayAs: now) {
@@ -81,10 +75,8 @@ enum RelativeTime {
         return start.formatted(.dateTime.month().day().locale(Locale(identifier: "zh_CN"))) + " " + time
     }
 
-    /// 文案里是否已经写了具体时刻（如“明天 08:00”“11月8日 08:00”）。相对时间（“12 分钟后”“还剩…”）不含时刻。
     static func showsClock(in text: String) -> Bool { text.contains(":") }
 
-    /// "还剩 25 分钟"
     static func remaining(until end: Date, now: Date) -> String {
         let minutes = max(Int(end.timeIntervalSince(now) / 60), 0)
         if minutes < 1 { return "即将结束" }

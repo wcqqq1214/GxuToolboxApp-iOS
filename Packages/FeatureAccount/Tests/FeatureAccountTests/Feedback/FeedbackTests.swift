@@ -95,7 +95,6 @@ struct VersionCheckTests {
         #expect(update?.url.host == "apps.apple.com")
     }
 
-    /// 没有 `ios` 通道（目前线上就是这样）必须静默：不弹窗、不报错
     @Test func silentWhenVersionJsonHasNoIosChannel() {
         let androidOnly = Data(#"{"beta":[{"versionName":"beta 2.2.0","versionCode":20200,"desc":"x","ori":{"official":"https://a.b/x.apk"}}],"release":[]}"#.utf8)
         #expect(VersionCheck.newestUpdate(in: androidOnly, currentBuild: 1) == nil)

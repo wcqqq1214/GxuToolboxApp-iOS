@@ -55,10 +55,10 @@ struct ReviewRegressionTests {
         await model.start(services: services2, context: CampusContext())
         model.term = AcademicTerm(year: 2031, term: 1)
         model.schoolId = "30100"
-        model.moment = ClassMoment(week: 1, weekday: 1, period: 1)   // Monday p1: classes in session
+        model.moment = ClassMoment(week: 1, weekday: 1, period: 1)
         model.run()
         try await Task.sleep(for: .milliseconds(500))
-        model.moment = ClassMoment(week: 1, weekday: 2, period: 1)   // Tuesday p1: nobody in session
+        model.moment = ClassMoment(week: 1, weekday: 2, period: 1)
         model.run()
         try await Task.sleep(for: .milliseconds(1500))
         await gated.gate.release()

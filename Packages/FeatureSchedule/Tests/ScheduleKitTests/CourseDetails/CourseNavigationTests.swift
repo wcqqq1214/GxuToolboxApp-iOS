@@ -8,12 +8,10 @@ struct CourseNavigationTests {
         #expect(CourseNavigation.target(building: "体育学院", venue: "西体育馆")?.mapKeyword == "广西大学西校园综合体育馆")
         #expect(CourseNavigation.target(building: "体育学院", venue: "东田径场")?.mapKeyword == "广西大学东校园体育场")
         #expect(CourseNavigation.target(building: "体育学院", venue: "室内馆")?.mapKeyword == nil)
-        // RN：楼名含“体育学院”只用教室当解析文案
         #expect(CourseNavigation.target(building: "体育学院", venue: "西体育馆")?.text == "西体育馆")
     }
 
     @Test func ordinaryRoomParsesAsBuildingBarRoom() {
-        // RN `displayLocation`：`楼名 | 教室`
         let target = CourseNavigation.target(building: "东六教", venue: "6A-113")
         #expect(target?.text == "东六教 | 6A-113")
         #expect(target?.mapKeyword == nil)

@@ -1,8 +1,6 @@
 import SwiftUI
 
 public extension View {
-    /// 短暂的提示（RN 的 `ToastAndroid`）：屏幕下方一条胶囊文字，约 2 秒后自动消失；VoiceOver 会朗读。
-    /// `message` 被设成新的文字就重新显示；用完会被置回 nil。
     func gxuToast(_ message: Binding<String?>, duration: Duration = .seconds(2)) -> some View {
         modifier(GxuToastModifier(message: message, duration: duration))
     }

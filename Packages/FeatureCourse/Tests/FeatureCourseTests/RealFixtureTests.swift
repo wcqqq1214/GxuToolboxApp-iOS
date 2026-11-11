@@ -6,10 +6,6 @@ import ScheduleKit
 import Testing
 @testable import FeatureCourse
 
-/// 用 A 的真实脱敏响应（`Fixtures/sanitized/`）核对已选课程、选课策略、未出分科目。
-/// 期望值由另一份独立的 Python 实现（照 RN 的 TS 规则写）对同一份数据算出。
-/// 注意：脱敏会把成绩的 `id` 哈希掉，所以成绩 id ↔ 已选课程 classId 的对应在 fixture 里对不上
-/// （真实原始数据上 100 条成绩里有 90 条能对上）；"未出分科目"的测试用课程名对应关系构造已出分集合。
 private func fixture(_ name: String) throws -> Data {
     let url = try #require(Bundle.module.url(forResource: name, withExtension: "json", subdirectory: "Fixtures"))
     return try Data(contentsOf: url)
@@ -32,14 +28,13 @@ private func passedNames(adding extra: [String] = []) throws -> Set<String> {
         let items = try selectedAll()
         #expect(items.count == 135)
         #expect(items.allSatisfy { !$0.classId.isEmpty && !$0.courseName.isEmpty && $0.credit >= 0 })
-        #expect(items.filter { $0.credit == 0 }.count == 11)   // 形势与政策、劳动等 0 学分课程
+        #expect(items.filter { $0.credit == 0 }.count == 11)
         #expect(Dictionary(grouping: items, by: \.type).mapValues(\.count) == ["理论": 100, "实验": 19, "实践": 13, "实习": 3])
         #expect(Dictionary(grouping: items, by: \.term).mapValues(\.count) == [1: 81, 2: 53, 3: 1])
         #expect(items.filter { $0.selectionType == "通识选修课" }.count == 12)
         #expect(items.filter { $0.location.isEmpty }.count == 28)
         #expect(items.filter { $0.location.contains(";") }.count == 63)
         #expect(Set(items.map(\.id)).count == 135)
-        // 学分里有整数也有小数
         #expect(items.contains { $0.credit == 4.5 } && items.contains { $0.credit == 1 })
     }
 
@@ -63,7 +58,7 @@ private func passedNames(adding extra: [String] = []) throws -> Set<String> {
         let db = try AppDatabase.inMemory(features: [CourseFeature.migrations])
         let repo = SelectedCourseRepository(database: db)
         let all = try selectedAll()
-        try await repo.replaceAll(all, studentId: "a")   // 含 2022 学年小学期（term 3），之前会整体报错
+        try await repo.replaceAll(all, studentId: "a")
         #expect(try await repo.list(studentId: "a", scope: .all).count == 135)
         #expect(try await repo.list(studentId: "a", scope: .term(AcademicTerm(year: 2022, term: 3))).count == 1)
         #expect(try await repo.list(studentId: "b", scope: .all).isEmpty)
@@ -71,10 +66,8 @@ private func passedNames(adding extra: [String] = []) throws -> Set<String> {
         try await repo.replaceTerm(term, studentId: "a", term: AcademicTerm(year: 2025, term: 1))
         #expect(try await repo.list(studentId: "a", scope: .term(AcademicTerm(year: 2025, term: 1))).count == 17)
         #expect(try await repo.list(studentId: "a", scope: .all).count == 135)
-        // location 经数据库往返不丢
         let stored = try await repo.list(studentId: "a", scope: .term(AcademicTerm(year: 2025, term: 1)))
         #expect(Set(stored.map(\.location)) == Set(term.map(\.location)))
-        // 返回范围与请求不一致时报错且不写入
         await #expect(throws: GxuError.self) { try await repo.replaceTerm(all, studentId: "c", term: AcademicTerm(year: 2025, term: 1)) }
         #expect(try await repo.list(studentId: "c", scope: .all).isEmpty)
     }
@@ -89,8 +82,6 @@ private func passedNames(adding extra: [String] = []) throws -> Set<String> {
     }
 
     @Test func pendingForTermExcludesEmbeddedLabs() throws {
-        // 真实原始数据上 2025 秋 17 门里有 6 门没有成绩 id 对应（2 门没出分 + 4 门理论课自带的实验班）；
-        // 实验班的成绩并在理论课里，不单独算"未出分"，所以只剩 2 门。这里用名字对应关系复现已出分集合
         let term = try JSONDecoder().decode(Envelope<Page<SelectedCourse>>.self, from: fixture("selected-courses-term")).data.items
         let scores = try JSONDecoder().decode(Envelope<Page<Score>>.self, from: fixture("score")).data.items
         let scoredNames = Set(scores.filter { $0.year == 2025 && $0.term == 1 }.map(\.courseName))
@@ -110,7 +101,6 @@ private func passedNames(adding extra: [String] = []) throws -> Set<String> {
     }
 
     @Test func fixtureHasElevenOfTwelvePassedGeneralCourses() throws {
-        // 成绩 fixture 只有第 1 页（100/117 条），"中文写作实训"（2023 春）的成绩不在里面
         let names = try passedNames()
         #expect(try general().filter { names.contains($0.courseName) }.count == 11)
         #expect(!names.contains("中文写作实训"))
@@ -130,7 +120,6 @@ private func passedNames(adding extra: [String] = []) throws -> Set<String> {
         #expect(s.remainingRequired == remaining)
         #expect(s.passed["requiredCourses"] == false)
         #expect(!s.isQualified)
-        // 除必修课外其余各项在这份数据上都达标
         #expect(s.passed.filter { $0.key != "requiredCourses" }.values.allSatisfy { $0 })
     }
 
@@ -143,7 +132,6 @@ private func passedNames(adding extra: [String] = []) throws -> Set<String> {
     }
 
     @Test func gradeTwentyTwentyOneFailsOnOfflineRatioOnceWritingCourseIsPassed() throws {
-        // 线下 6.5 / 总 12.5 = 0.52 > 0.5：2021 级要求线下不超过一半
         let s = try stats(grade: 2021, passed: try passedNames(adding: ["中文写作实训"]))
         #expect(s.remainingRequired.isEmpty)
         #expect(s.passed["offlineScore"] == false)
@@ -161,7 +149,6 @@ private func passedNames(adding extra: [String] = []) throws -> Set<String> {
     @Test func modernGradesNeedModuleCreditsAndRequiredCourse() throws {
         for g in [2025, 2026] {
             let s = try stats(grade: g, passed: try passedNames(adding: ["创新创业基础"]))
-            // 数据里没有"创新创业基础"这门课，加进名字集合也不会让必修课完成
             #expect(s.remainingRequired == ["创新创业基础"])
             #expect(s.passed["tech"] == true && s.passed["ethnic"] == true && s.passed["ocean"] == true && s.passed["asean"] == true)
             let rows = ElectiveStrategies.strategy(forGrade: g).rows(s)
@@ -195,7 +182,6 @@ private func passedNames(adding extra: [String] = []) throws -> Set<String> {
         #expect(DayText.parse("2026-13-01", calendar: cal) == nil)
         #expect(DayText.parse("2026-00-10", calendar: cal) == nil)
         #expect(DayText.parse("2026-02-28", calendar: cal) != nil)
-        // 非法日期的假期条目被丢弃，不会变成别的日子
         let campus = CampusCalendar(timeShift: [], holidays: [HolidayRange(title: "坏", from: "2026-02-30", to: "2026-03-02")])
         let p = HolidayPresentation.build(campus, now: .now, calendar: cal)
         #expect(p.current.isEmpty && p.past.isEmpty)
@@ -210,9 +196,8 @@ private func passedNames(adding extra: [String] = []) throws -> Set<String> {
         #expect(try decode(#""NaN""#).credit == 0)
         #expect(try decode(#""inf""#).credit == 0)
         let huge = try decode("1e30")
-        #expect(ElectiveStrategy.number(huge.credit) == "1e+30")   // 不再 Int() 转换
+        #expect(ElectiveStrategy.number(huge.credit) == "1e+30")
         #expect(ElectiveStrategy.number(.infinity) == "0" && ElectiveStrategy.number(.nan) == "0")
-        // 一行坏数据不能让整个刷新失败
         let repo = SelectedCourseRepository(database: try AppDatabase.inMemory(features: [CourseFeature.migrations]))
         try await repo.replaceAll([try decode(#""NaN""#)], studentId: "s1")
         #expect(try await repo.list(studentId: "s1", scope: .all).count == 1)

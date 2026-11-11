@@ -3,14 +3,11 @@ import GxuDesign
 import GxuFoundation
 import SwiftUI
 
-/// 学年 + 学期选择：内容顶部的一行（"学期  2026–2027 秋季 ⌄"），点开是菜单。
-/// 不放工具栏：工具栏里再有别的控件时，导航标题会被挤掉。`term == nil` 表示全学年（仅 `allowsWholeYear` 时可选）
 struct TermMenu: View {
     let years: [Int]
     @Binding var year: Int
     @Binding var term: Int?
     var allowsWholeYear = false
-    /// 提供时多一个"全部学期"选项（绩点计算器用）；成绩页、考试页不传，选择器不变
     var isAll: Binding<Bool>?
 
     private var termName: String {
@@ -21,8 +18,6 @@ struct TermMenu: View {
         }
     }
 
-    /// 菜单标签文字。用 `String` 再 `Text(verbatim:)`：三元表达式里的插值字面量会被当成 `LocalizedStringKey`，
-    /// 整数按本地化格式加千分位（"2,026"），年份不能走这条路
     private var labelText: String {
         isAll?.wrappedValue == true ? "全部学期" : "\(year)–\(year + 1) \(termName)"
     }
@@ -58,13 +53,11 @@ struct TermMenu: View {
     }
 }
 
-/// `.task(id:)` 的键：默认学期解析完成（`ready`）后才触发首次加载
 struct LoadKey<Value: Hashable>: Hashable {
     var value: Value
     var ready: Bool
 }
 
-/// 有缓存时用非阻塞提示，没有缓存才整页显示错误
 @MainActor @ViewBuilder
 func errorSection(_ error: GxuError?, hasData: Bool, updatedAt: Date? = nil, retry: @escaping () -> Void) -> some View {
     if let error {

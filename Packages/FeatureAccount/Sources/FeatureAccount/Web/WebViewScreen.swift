@@ -3,15 +3,11 @@ import UIKit
 import UniformTypeIdentifiers
 import WebKit
 
-/// 点击链接 / `window.open` 弹出的新页面，用来推入导航栈
 struct WebPopup: Identifiable, Hashable {
     let id = UUID()
     let url: URL
 }
 
-/// WebView 容器：`WKWebView` + Cookie 同步 + 弹窗推入新页面。
-/// - `cookies`：加载前写入 WebView 的 Cookie（例如统一认证 / 教务的会话 Cookie），为空则不同步。
-/// - `window.open` / `target=_blank` 不会新开窗口，而是推入一个新的 `WebViewScreen`（外层需要 NavigationStack）。
 public struct WebViewScreen: View {
     let url: URL
     let title: String?
@@ -81,7 +77,6 @@ public struct WebViewScreen: View {
             .navigationDestination(item: $popup) { WebViewScreen(url: $0.url, cookies: cookies) }
     }
 
-    /// 将已加载的教务页面保存为 HTML，由系统文件选择器决定保存位置。
     private func exportHTML() async {
         guard let page = loadedPage, !isExporting else { return }
         isExporting = true
@@ -204,7 +199,6 @@ private struct WebContainer: UIViewRepresentable {
             if (error as? URLError)?.code != .cancelled { parent.onPageFailure?() }
         }
 
-        // 非 http(s)（tel:、mailto:、itms-apps: 等）交给系统打开
         func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {
             guard let url = navigationAction.request.url, let scheme = url.scheme?.lowercased() else { return .allow }
             if ["http", "https", "about", "blob", "data", "file"].contains(scheme) { return .allow }
@@ -212,7 +206,6 @@ private struct WebContainer: UIViewRepresentable {
             return .cancel
         }
 
-        // window.open / target=_blank：不新开 WebView，把地址推入新页面
         func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
                      for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
             if let url = navigationAction.request.url { parent.onPopup(url) }

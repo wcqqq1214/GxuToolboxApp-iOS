@@ -14,20 +14,16 @@ enum AppTab: Hashable {
     case home, schedule, toolbox, settings
 }
 
-/// 三个标签：课表 / 工具箱 / 设置。系统 TabView 在 iOS 26 自动是玻璃，**不要**给它设背景。
 struct RootView: View {
     @State private var theme = GxuTheme()
     @State private var selection: AppTab = Self.initialTab
     @State private var home = HomeModel()
-    /// 每分钟更新一次，让“有没有下一件事”随时间变化（附件栏据此显示 / 隐藏）
     @State private var clock = Date.now
-    /// 工具箱里有二级页面时，底部附件要关掉（它不会跟着标签栏一起隐藏）
     @State private var toolboxPushed = false
     @State private var preferences = SchedulePreferencesStore(shared: RootView.makeSharedStore())
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.services) private var services
 
-    /// DEBUG：`-GxuTab toolbox|settings` 直接打开对应标签（截图自查用）
     private static var initialTab: AppTab {
         #if DEBUG
         let args = ProcessInfo.processInfo.arguments
@@ -65,8 +61,6 @@ struct RootView: View {
             }
         }
         .gxuTabBarMinimizeOnScroll()
-        // 附件只在“课表”和“工具箱”首页出现：“今天”本身就是下一件事，设置页的列表不该被盖住；没有下一件事时直接隐藏；
-        // 工具箱的二级页面隐藏标签栏时附件也一起收起
         .gxuTabAccessory(isEnabled: home.phase == .ready && (selection == .schedule || (selection == .toolbox && !toolboxPushed)) && home.hasNextEvent(now: clock)) { NextEventAccessory(model: home) }
         .gxuTheme(theme)
         .environment(preferences)
@@ -81,7 +75,6 @@ struct RootView: View {
         .task(id: AccountKey(studentId: services.accounts.studentId, state: services.accounts.states[.jw])) {
             await home.load(services: resolvedServices)
         }
-        // 切标签 / 回前台时重读本地缓存（课表页刷新或改了冲突选择后，首页立刻同步）；回前台还会按需联网刷新
         .onChange(of: services.accounts.unifiedUsername) { _, _ in Task { await home.reload(services: resolvedServices) } }
         .onChange(of: selection) { _, _ in Task { await home.reload(services: resolvedServices) } }
         .onChange(of: scenePhase) { _, phase in
@@ -94,17 +87,13 @@ struct RootView: View {
 }
 
 extension RootView {
-    /// 课程详情“导航到这里”：按 RN `useMapNavigation.openMap` 解析（体育学院直接用场馆关键词，其余按 `楼名 | 教室` 解析教学楼）
     static let mapPlan: ScheduleMapPlanProvider = { target in
         MapNavigation.plan(text: target.text, keyword: target.mapKeyword)
     }
 
-    /// 课表上的额外图层：考试（读 ExamKit 本地缓存里这个学期的考试）和实验课对教师 / 地点的覆盖（读 PEC 本地缓存）。
-    /// 都只读本地缓存、不联网；联网刷新由首页 / 各自的页面负责。
     private var layersProvider: ScheduleExtraLayersProvider {
         let services = resolvedServices
         return { studentId, term in
-            // 只取正在查看的学期（缓存时记录的来源学期）：同名课程往届的考试不能出现在这个学期的课表和相关考试里
             let items = ((try? await ExamRepository(database: services.database).exams(studentId: studentId, term: term)) ?? []).map { ExamItem($0) }
             let exams = items.compactMap { item -> GridExam? in
                 guard let start = item.date, let end = Self.examEnd(item.exam.time, start: start) else { return nil }
@@ -126,13 +115,11 @@ extension RootView {
         }
     }
 
-    /// 考试时间串 “2026-01-23(09:00-11:00)” 里的结束时刻
     private nonisolated static func examEnd(_ time: String, start: Date) -> Date? {
         guard let match = time.firstMatch(of: /\((\d{2}):(\d{2})-(\d{2}):(\d{2})\)/), let h = Int(match.3), let m = Int(match.4) else { return nil }
         return Calendar.current.date(bySettingHour: h, minute: m, second: 0, of: start)
     }
 
-    /// 偏好存在 App Group 的 KV 里（小组件也能读）；演示模式用标准 UserDefaults，避免污染真实数据
     static func makeSharedStore() -> any SharedStore {
         #if DEBUG
         if DemoMode.isEnabled { return UserDefaultsSharedStore(suiteName: nil) }
@@ -145,7 +132,6 @@ extension RootView {
         var state: AuthState?
     }
 
-    /// DEBUG 的演示模式用内置假数据，其余情况用环境里的服务
     private var resolvedServices: AppServices {
         #if DEBUG
         DemoMode.isEnabled ? DemoMode.services : services

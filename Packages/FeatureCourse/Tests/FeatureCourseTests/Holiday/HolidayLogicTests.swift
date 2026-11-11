@@ -28,7 +28,6 @@ private let campus = CampusCalendar(
         #expect(p.current.map(\.holiday.title) == ["运动会"])
         #expect(p.current.first?.status == .upcoming)
         #expect(p.current.first?.daysUntil == 1)
-        // 最近结束的在前，坏数据和起止倒置的被丢弃
         #expect(p.past.map(\.holiday.title) == ["国庆节", "元旦"])
     }
 

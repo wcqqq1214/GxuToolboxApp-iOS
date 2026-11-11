@@ -12,7 +12,6 @@ public struct FeedbackItem: Decodable, Identifiable, Hashable, Sendable {
     public let content: String
     public let contactType: String
     public let contact: String
-    /// `accept` = 已回复，其余 = 待回复
     public let status: String
     public let deviceModel: String
     public let appVersion: String
@@ -38,11 +37,9 @@ public enum FeedbackOptions {
         ("课表", "schedule"), ("成绩", "score"), ("考试", "exam"), ("账号登录", "auth"), ("其他", "other"),
     ]
     public static let contactTypes: [(label: String, value: String)] = [("QQ", "qq"), ("微信", "wechat"), ("邮箱", "email")]
-    /// 内容最少字数（与 RN 一致）
     public static let minContentLength = 10
 
     public static func typeLabel(_ value: String) -> String { types.first { $0.value == value }?.label ?? value }
-    /// 详情页的模块名：兼容旧值 `class_schedule`
     public static func featureLabel(_ value: String) -> String {
         value == "class_schedule" ? "课表" : (features.first { $0.value == value }?.label ?? value)
     }
@@ -56,7 +53,6 @@ public struct FeedbackDraft: Sendable, Equatable {
     public var contact = ""
     public init() {}
 
-    /// 校验失败返回要给用户看的文案
     public var validationMessage: String? {
         if type.isEmpty { return "请选择反馈类型" }
         if feature.isEmpty { return "请选择问题模块" }
@@ -81,7 +77,6 @@ private struct SubmitBody: Encodable, Sendable {
 }
 private struct SubmitResult: Decodable, Sendable { let id: Int }
 
-/// 解码列表时丢弃格式不对的条目（对应 RN `washFeedbackList`）
 private struct LossyList: Decodable, Sendable {
     let list: [FeedbackItem]
     private enum Keys: String, CodingKey { case list }
@@ -97,9 +92,6 @@ private struct LossyList: Decodable, Sendable {
     }
 }
 
-/// 反馈接口（`POST /feedback`、`GET /feedback/{userId}`）。
-/// 2026-11-05 真实验证：`POST /feedback` 不需要登录；`GET /feedback/{userId}` 即使带有效教务 Cookie 也返回 401
-/// "看板：未登录或登录已过期"（疑似被后端管理看板的路由占用），所以两者都不带教务认证，避免 401 触发无意义的重登。
 public struct FeedbackRepository: Sendable {
     private let backend: any BackendAPI
     public static let pageSize = 10
@@ -127,7 +119,6 @@ public struct FeedbackRepository: Sendable {
 }
 
 enum DeviceInfo {
-    /// 型号标识，例如 "iPhone18,1"；模拟器取其模拟的机型
     static var model: String {
         if let simulated = ProcessInfo.processInfo.environment["SIMULATOR_MODEL_IDENTIFIER"] { return simulated }
         var info = utsname()

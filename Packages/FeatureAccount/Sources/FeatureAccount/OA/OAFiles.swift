@@ -2,14 +2,12 @@ import Foundation
 import GxuAuth
 import GxuFoundation
 
-/// OA 文件列表里的一行。列表接口（`/wenjian/page`）和搜索接口（`/document-search/search`）的条目字段不同，统一成这个模型。
 public struct OAFileRow: Identifiable, Hashable, Sendable {
     public let id: Int
     public let title: String
     public let fileNum: String
     public let typeName: String
     public let department: String
-    /// `yyyy-MM-dd`
     public let date: String
     public let isUrgent: Bool
     public let isRead: Bool
@@ -27,20 +25,17 @@ public struct OAFileDetail: Sendable, Equatable {
     public let typeName: String
     public let department: String
     public let date: String
-    /// 正文 HTML（`fileBody`）；为空时可能只有 PDF / DOCX
     public let html: String?
     public let pdfURL: URL?
     public let docxURL: URL?
 }
 
-/// 文件类型筛选（RN `FileTypeLabels`，0 = 全部）
 public enum OAFileType {
     public static let all: [(label: String, id: Int)] = [
         ("全部文件", 0), ("党群行政部门", 102), ("教学单位", 103), ("行政文件", 11), ("党委文件", 13), ("科研单位", 105), ("教辅单位", 104),
     ]
 }
 
-/// OA 文件接口：列表、搜索、详情。解码做得很宽松（字段缺失 / 类型不对都不崩）。
 public struct OAFilesAPI: Sendable {
     private let session: OASession
     public static let pageSize = 20
@@ -75,7 +70,6 @@ public struct OAFilesAPI: Sendable {
         try await session.download(url, preferredExtension: preferredExtension)
     }
 
-    // MARK: 解析（纯函数，便于测试）
 
     private static func string(_ dict: [String: Any], _ key: String) -> String {
         if let value = dict[key] as? String { return value }
@@ -87,7 +81,6 @@ public struct OAFilesAPI: Sendable {
 
     private static func object(_ data: Data) throws -> [String: Any] {
         if let dict = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] { return dict }
-        // 搜索接口的 result 在类型里是数组，取第一个分页对象
         if let array = (try? JSONSerialization.jsonObject(with: data)) as? [[String: Any]], let first = array.first { return first }
         throw GxuError.decoding("OA 响应格式不符")
     }

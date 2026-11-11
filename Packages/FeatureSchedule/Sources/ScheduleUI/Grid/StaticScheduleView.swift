@@ -3,8 +3,6 @@ import GxuDesign
 import ScheduleKit
 import SwiftUI
 
-/// 只读课表：给定一份课表和学期周历（别人的班级课表等），用和个人课表一样的周网格显示。
-/// 不含日程、冲突选择和刷新；节假日 / 补班会叠加。标题、导航栏由外层提供。
 public struct StaticScheduleView: View {
     private let schedule: Schedule
     private let termCalendar: TermCalendar

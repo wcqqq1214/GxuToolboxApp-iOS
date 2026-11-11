@@ -2,12 +2,7 @@ import Foundation
 import GxuFoundation
 import GxuNetworking
 
-// 考勤系统接口（RN v2.2 `src/features/attendance`）：后端 `GET /attendance/v2/personal`、`GET /attendance/v2/schedule`，
-// 带 `Authorization: Token`（`auth: .attendance`）。RN 取 `res.data`，即响应体只有一层 `{code, data}`，没有 v1 的内层 `code == 600`。
-// 学期用 `calendarId = 2 * year + term - 4033`（2025 秋 = 18），不再需要 `/attendance/index-data` 取校历。
-// TODO(verify): 没有考勤账号，响应字段按 RN 的用法（RecordScreen / RecordCard / useScheduleTable）写，解码都宽容；用 Mock 和单测验证，后续测试。
 
-/// 考勤系统的学期编号：和 RN 一致 `2 * year + term - 4033`
 public enum AttendanceCalendarID {
     public static func id(year: Int, term: Int) -> Int { 2 * year + term - 4033 }
 }
@@ -17,7 +12,6 @@ public enum AttendanceState: Int, Sendable, Hashable {
 
     public init(id: Int?) { self = id.flatMap(AttendanceState.init(rawValue:)) ?? .unknown }
 
-    /// 文字说明（图标之外不能只靠颜色和形状区分）
     public var label: String {
         switch self {
         case .normal: "正常"
@@ -30,16 +24,13 @@ public enum AttendanceState: Int, Sendable, Hashable {
     }
 }
 
-/// 一条考勤记录（`/attendance/v2/personal` 的 `items` 一项）
 public struct AttendanceRecord: Codable, Sendable, Hashable, Identifiable {
     public var date: String
     public var courseName: String
     public var roomName: String
     public var statusCode: Int?
     public var statusName: String
-    /// 节次文案：`periodLabel`，没有就用 `periodRange`
     public var periodText: String
-    /// 原始的节次范围（如 `1,2`），和课表的 `AttendanceCourse.id` 对应用
     public var periodRange: String
 
     public var state: AttendanceState { AttendanceState(id: statusCode) }
@@ -69,7 +60,6 @@ public struct AttendanceRecord: Codable, Sendable, Hashable, Identifiable {
         periodText = label.isEmpty ? periodRange : label
     }
 
-    /// 写缓存用：键和解码一致（`periodLabel` 存展示文案）
     public func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encode(date, forKey: .date)
@@ -81,7 +71,6 @@ public struct AttendanceRecord: Codable, Sendable, Hashable, Identifiable {
         try c.encode(periodRange, forKey: .periodRange)
     }
 
-    /// 迟到或缺勤（RN：statusCode 2 或 4）
     public var isAbnormal: Bool { statusCode == 2 || statusCode == 4 }
 }
 
@@ -96,15 +85,12 @@ struct AttendanceRecordPage: Decodable, Sendable {
     }
 }
 
-/// 考勤课表里的一节课（`/attendance/v2/schedule` 的 `rows[].courses[]`，规则同 RN `useScheduleTable`）
 public struct AttendanceCourse: Sendable, Hashable, Identifiable {
-    public var day: String          // yyyy-MM-dd
+    public var day: String
     public var name: String
     public var room: String
-    /// 起止节次（含）
     public var firstPeriod: Int
     public var lastPeriod: Int
-    /// 和考勤记录对应用的键：`<日期>-<起,止>`（RN 的 `item.id`）
     public var id: String { "\(day)-\(firstPeriod),\(lastPeriod)" }
 }
 
@@ -154,8 +140,6 @@ struct AttendanceSchedule: Decodable, Sendable {
         rows = (try? c.decodeIfPresent([Row].self, forKey: .rows)) ?? []
     }
 
-    /// 移植自 RN `useScheduleTable`：没有课程名（且 subjectId 为空 / 0）的格子丢弃；日期取格子自己的 `date`，没有就用行的 `date`；
-    /// 起止节次取 `periods` 的首尾，没有就用行号和连续节数；只占一节的（起止相同）不是课程起点，丢弃
     func courses() -> [AttendanceCourse] {
         var result: [AttendanceCourse] = []
         for (rowIndex, row) in rows.enumerated() {
@@ -164,7 +148,6 @@ struct AttendanceSchedule: Decodable, Sendable {
                 let day = String((cell.date.isEmpty ? row.date : cell.date).prefix(10))
                 guard !day.isEmpty, !cell.subjectName.isEmpty else { continue }
                 let begin = cell.periods.first ?? rowIndex + 1
-                // 连续节数是服务端给的，离谱的值（如 Int.max）加法会溢出崩溃：限制在合理范围内
                 let end = cell.periods.last ?? begin + min(max(cell.connectedCount, 0), 100)
                 guard begin != end else { continue }
                 result.append(AttendanceCourse(day: day, name: cell.subjectName, room: cell.roomName, firstPeriod: begin, lastPeriod: end))
@@ -175,10 +158,9 @@ struct AttendanceSchedule: Decodable, Sendable {
 }
 
 enum AttendanceDay {
-    /// `yyyy-MM-dd` 或更长的日期时间串，取前 10 位
     static func parse(_ text: String, calendar: Calendar = .current) -> Date? {
         var calendar = calendar
-        if calendar.identifier != .gregorian {   // 设备日历为佛历 / 农历等时，年月日不是公历
+        if calendar.identifier != .gregorian {
             var g = Calendar(identifier: .gregorian); g.timeZone = calendar.timeZone; g.locale = calendar.locale; calendar = g
         }
         let parts = text.prefix(10).split(separator: "-").compactMap { Int($0) }
@@ -186,7 +168,7 @@ enum AttendanceDay {
         let comps = DateComponents(year: parts[0], month: parts[1], day: parts[2])
         guard let date = calendar.date(from: comps) else { return nil }
         let back = calendar.dateComponents([.year, .month, .day], from: date)
-        guard back.year == parts[0], back.month == parts[1], back.day == parts[2] else { return nil }   // 无效日期不顺延
+        guard back.year == parts[0], back.month == parts[1], back.day == parts[2] else { return nil }
         return date
     }
 }
@@ -200,14 +182,12 @@ private extension KeyedDecodingContainer {
 
     func lenientInt(_ key: Key) -> Int? {
         if let v = try? decodeIfPresent(Int.self, forKey: key) { return v }
-        // 超出 Int 范围的数字转 Int 会直接崩溃，当作缺失处理
         if let v = try? decodeIfPresent(Double.self, forKey: key), v.isFinite, abs(v) < 1e15 { return Int(v) }
         if let v = try? decodeIfPresent(String.self, forKey: key) { return Int(v.trimmingCharacters(in: .whitespaces)) }
         return nil
     }
 }
 
-/// 汇总：每种状态多少条
 public struct AttendanceSummary: Equatable, Sendable {
     public var normal = 0, late = 0, absent = 0, other = 0
     public var total: Int { normal + late + absent + other }
@@ -229,7 +209,6 @@ public struct AttendanceAPI: Sendable {
 
     public init(backend: any BackendAPI) { self.backend = backend }
 
-    /// 一次取整个学期的记录（RN 同样 `pageSize = 500`、`day DESC`），不分页
     public func records(year: Int, term: Int) async throws -> [AttendanceRecord] {
         let page = try await backend.getData(
             "/attendance/v2/personal",

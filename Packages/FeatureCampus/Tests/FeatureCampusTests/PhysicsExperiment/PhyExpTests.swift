@@ -16,7 +16,7 @@ struct PhyExpTests {
 
     @Test func parsesNestedResponseWithUppercaseKeys() throws {
         let list = try PhyExpParser.parse(try fixture())
-        #expect(list.count == 2)                       // 没有日期的行被丢弃
+        #expect(list.count == 2)
         let first = try #require(list.first)
         #expect(first.title == "示波器的使用" && first.place == "理科楼101" && first.teacher == "教师甲")
         #expect(first.date() != nil)
@@ -39,11 +39,11 @@ struct PhyExpTests {
         let fresh = try await ok.refresh(unifiedUsername: "A")
         #expect(fresh.count == 2)
         #expect(await ok.cached(unifiedUsername: "A").map(\.id) == ["E1", "E2"])
-        #expect(await ok.cached(unifiedUsername: "B").isEmpty)           // 账号隔离
+        #expect(await ok.cached(unifiedUsername: "B").isEmpty)
 
         let failing = PhyExpRepository(database: database, client: FakePEC(result: .failure(.notLoggedIn(.unified))))
         await #expect(throws: GxuError.self) { try await failing.refresh(unifiedUsername: "A") }
-        #expect(await failing.cached(unifiedUsername: "A").count == 2)   // 失败保留旧缓存
+        #expect(await failing.cached(unifiedUsername: "A").count == 2)
     }
 
     @Test func refreshReplacesCancelledEntries() async throws {

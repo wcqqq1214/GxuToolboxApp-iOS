@@ -34,7 +34,6 @@ final class PersonalInfoModel {
     }
 }
 
-/// 设置 → 个人信息：展示教务用户资料（不包含身份证号等敏感字段）
 public struct PersonalInfoView: View {
     @Environment(\.services) private var services
     public init() {}

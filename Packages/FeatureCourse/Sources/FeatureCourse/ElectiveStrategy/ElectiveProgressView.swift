@@ -5,10 +5,8 @@ import GxuFoundation
 import Observation
 import SwiftUI
 
-/// 校选课修读进度：先显示本地缓存，再后台刷新；刷新失败保留上次结果并提示；账号切换、新的刷新会让旧请求作废。
 @MainActor @Observable
 final class ElectiveProgressModel {
-    /// 后端结果；有待核对课程时已用本地成绩记录核对过（`ElectiveReviewResolver`）
     private(set) var data: ElectiveProgress?
     private(set) var confirmed: [String: String] = [:]
     private(set) var unresolved: [String: String] = [:]
@@ -46,7 +44,6 @@ final class ElectiveProgressModel {
             let result = try await ElectiveProgressAPI(backend: services.backend).fetch(studentId: studentId)
             guard version == generation else { return }
             try? ElectiveProgressCache.save(services.shared, result, studentId: studentId)
-            // 成绩记录用来核对"待核对"的课程：先刷新一次全部成绩（失败用本地缓存），都不可用就保留待核对
             if result.courses.contains(where: { $0.status == .review }), let scores = try? await ScoreAPI(backend: services.backend).allScores() {
                 try? await examRepo.replaceAllScores(scores, studentId: studentId)
             }
@@ -126,7 +123,6 @@ public struct ElectiveStrategyView: View {
                 Section("待核对课程") {
                     ForEach(Array(data.issues.enumerated()), id: \.offset) { _, issue in
                         let course = data.courses.first { $0.courseId == issue.courseId }
-                        // 有具体原因就用具体原因，不用后端的笼统说明
                         Text("\(course?.courseName ?? "课程记录")：\(course.flatMap { model.unresolved[$0.id] } ?? issue.message)").foregroundStyle(.orange)
                     }
                 }

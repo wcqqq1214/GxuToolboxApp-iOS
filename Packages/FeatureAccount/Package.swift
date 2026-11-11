@@ -13,7 +13,7 @@ let package = Package(
             .product(name: "GxuAuth", package: "GxuCore"),
             .product(name: "GxuStorage", package: "GxuCore"),
             .product(name: "GxuDesign", package: "GxuDesign"),
-            .product(name: "GxuTestSupport", package: "GxuCore"), // 仅 #Preview 使用
+            .product(name: "GxuTestSupport", package: "GxuCore"),
         ]),
         .testTarget(name: "FeatureAccountTests", dependencies: [
             "FeatureAccount",

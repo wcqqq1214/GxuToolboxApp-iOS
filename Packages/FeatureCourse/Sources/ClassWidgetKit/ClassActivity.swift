@@ -2,19 +2,16 @@ import ActivityKit
 import Foundation
 import ScheduleKit
 
-/// Live Activity / 灵动岛：显示正在上的课，或即将开始的下一节课。
 public struct ClassActivityAttributes: ActivityAttributes {
     public struct ContentState: Codable, Hashable, Sendable {
         public var courseId: String
         public var name: String
         public var room: String
         public var teacher: String
-        /// `HH:mm`
         public var beginText: String
         public var endText: String
         public var startsAt: Date
         public var endsAt: Date
-        /// 这节之后的下一节（同一天），没有则为 nil
         public var followingName: String?
         public var followingStartsAt: Date?
 
@@ -37,10 +34,8 @@ public struct ClassActivityAttributes: ActivityAttributes {
     public init() {}
 }
 
-/// 决定此刻要不要显示 Live Activity、显示哪一节。纯逻辑，便于测试。
 public struct ClassActivityPlan: Equatable, Sendable {
     public var state: ClassActivityAttributes.ContentState
-    /// 到这个时间点内容会过期：开始前过期后界面切换成"上课中"，上课中过期后切换成"已下课"
     public var staleDate: Date
 
     public static func make(
@@ -65,8 +60,6 @@ public struct ClassActivityPlan: Equatable, Sendable {
     }
 }
 
-/// App 侧：按快照开始 / 更新 / 结束 Live Activity。只在前台调用（回前台、课表刷新后）。
-/// Activity 不是 Sendable，所以这里不绑 MainActor：每个方法在自己的执行上下文里取 / 用 activity。
 public struct ClassActivityController: Sendable {
     public static let shared = ClassActivityController()
 

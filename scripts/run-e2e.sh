@@ -1,7 +1,4 @@
 #!/bin/bash
-# 构建 → 安装 → 带测试账号启动（DEBUG 自动登录）→ 截图。
-# 账号来自 .secrets/account.env（JW_USER / JW_PASS），通过 SIMCTL_CHILD_ 前缀传给 App，不写日志、不进文件名。
-# 用法：run-e2e.sh [light|dark|both]（默认 both）   环境变量：WAIT=秒（截图前等待，默认 10）
 source "$(dirname "$0")/_env.sh"
 cd "$ROOT"
 set +x

@@ -1,7 +1,6 @@
 import AppIntents
 import ToolboxIntents
 
-/// 让 Shortcuts / Siri 发现 ToolboxIntents 包里的 App Intent
 struct GxuIntentsPackage: AppIntentsPackage {
     static var includedPackages: [any AppIntentsPackage.Type] { [ToolboxIntentsPackage.self] }
 }

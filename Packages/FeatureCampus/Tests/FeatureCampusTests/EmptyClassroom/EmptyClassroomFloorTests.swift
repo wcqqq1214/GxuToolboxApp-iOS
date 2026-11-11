@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import FeatureCampus
 
-/// 用例取自 RN 的 `emptyClassroom/utils/__tests__/floor.test.ts`
 struct EmptyClassroomFloorTests {
     private func floor(_ name: String, _ building: String? = nil) -> Int? { EmptyClassroomFloor.detectFloor(name, building: building) }
 

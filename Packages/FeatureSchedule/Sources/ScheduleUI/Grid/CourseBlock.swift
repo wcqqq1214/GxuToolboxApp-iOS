@@ -2,11 +2,8 @@ import GxuDesign
 import ScheduleKit
 import SwiftUI
 
-/// 周网格里的一个课程块。内容层：纯色圆角块，不用玻璃。
-/// 冲突组只显示第一门，右上角角标显示门数。
 struct CourseBlock: View {
     let group: ConflictGroup
-    /// 冲突组里用户选中显示的那一门
     let selected: CourseOccurrence
     let colors: [String: UInt32]
     let rowHeight: CGFloat
@@ -20,7 +17,6 @@ struct CourseBlock: View {
 
     var body: some View {
         VStack(spacing: 2) {
-            // 课程名比教室 / 教师大一号：.caption（课程名）> .caption2（教室、教师）
             Text(course.courseName)
                 .font(.caption.weight(.semibold))
                 .lineLimit(rows >= 2 ? 3 : 2)
@@ -39,7 +35,6 @@ struct CourseBlock: View {
         .padding(.horizontal, 3)
         .padding(.vertical, 4)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        // 纯底色，不加竖线（用户明确不要）
         .background(tint.fill, in: RoundedRectangle(cornerRadius: GxuDesign.Radius.block, style: .continuous))
         .overlay(alignment: .topLeading) {
             if selected.isMakeup {
@@ -79,7 +74,6 @@ struct CourseBlock: View {
 }
 
 
-/// 考勤状态小图标：形状区分状态（不只靠颜色），放在课程块右下角
 struct AttendanceBadge: View {
     let status: AttendanceStatus
     let tint: CourseTint

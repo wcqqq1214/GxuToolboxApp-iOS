@@ -11,7 +11,7 @@ struct ColorTests {
         let colors = CourseColorAssigner.assign(courses: courses)
         #expect(colors.count == 4)
         #expect(colors["A"] != colors["B"] && colors["B"] != colors["C"])
-        #expect(Set(colors.values).count == 4)   // 色盘够用时每门课都不同
+        #expect(Set(colors.values).count == 4)
     }
 
     @Test func assignmentIsStableAndHonorsCustomColors() {
@@ -28,13 +28,12 @@ struct ColorTests {
     }
 
     @Test func manyCoursesStillColored() {
-        let courses = (0..<40).map { course("课\($0)", weekday: 1, 1, 2) }   // 全部相邻且超过色盘
+        let courses = (0..<40).map { course("课\($0)", weekday: 1, 1, 2) }
         let colors = CourseColorAssigner.assign(courses: courses)
         #expect(colors.count == 40)
     }
 
     @Test func hashMatchesJavaScriptImplementation() {
-        // RN: hash = c + ((hash << 5) - hash)，32 位
         #expect(CourseColorAssigner.hash("") == 0)
         #expect(CourseColorAssigner.hash("a") == 97)
         #expect(CourseColorAssigner.hash("ab") == 97 * 31 + 98)
@@ -60,7 +59,6 @@ struct RepositoryTests {
         #expect(cached == fresh)
         #expect(cached.schedule.theoryList.count == 26)
         #expect(cached.updatedAt == Date(timeIntervalSince1970: 1000))
-        // 其它账号、其它学期读不到
         #expect(try await repo.cachedSchedule(studentId: "B", term: autumn) == nil)
         #expect(try await repo.cachedSchedule(studentId: "A", term: AcademicTerm(year: 2026, term: 2)) == nil)
     }
@@ -96,7 +94,7 @@ struct RepositoryTests {
         #expect(cached.count == 2 && cached[0].day == "2026-09-14" && cached[0].week == 17)
 
         backend.stub("GET /jw/profile/startDay", json: #"{"data": []}"#)
-        #expect(try await repo.refreshStartDays().count == 2)   // 空响应不清缓存
+        #expect(try await repo.refreshStartDays().count == 2)
 
         backend.stub("GET /jw/profile/startDay", json: #"{"data":[{"year":2026,"term":1,"day":"2026-09-14","week":9223372036854775807}]}"#)
         #expect(try await repo.refreshStartDays() == cached)
@@ -109,17 +107,14 @@ struct RepositoryTests {
         """)
         let repo = try makeRepository(backend)
 
-        // 没有缓存：联网刷新
         let before = try #require(await repo.currentTermInfo(now: at("2026-08-30"), calendar: shanghai))
         #expect(before.term == AcademicTerm(year: 2026, term: 1) && before.isStarted == false && before.isEnded == false)
         #expect(backend.calls == ["GET /jw/profile/startDay"])
 
-        // 有缓存且学期未结束：不再联网
         let during = try #require(await repo.currentTermInfo(now: at("2026-10-01"), calendar: shanghai))
         #expect(during.isStarted && !during.isEnded)
         #expect(backend.calls.count == 1)
 
-        // 学期结束：尝试刷新；刷新失败仍用缓存，标记已结束
         backend.stub("GET /jw/profile/startDay", error: .network("offline"))
         let after = try #require(await repo.currentTermInfo(now: at("2027-03-01"), calendar: shanghai))
         #expect(after.isEnded)
@@ -138,13 +133,12 @@ struct RepositoryTests {
         let repo = try makeRepository(backend)
         let terms = try await repo.refreshStartDays()
         #expect(terms.count == 5)
-        #expect(terms.allSatisfy { !$0.isCurrent })   // 真实响应没有 is_current
+        #expect(terms.allSatisfy { !$0.isCurrent })
         #expect(terms[4] == TermStartDay(year: 2026, term: 1, day: "2026-09-07T00:00:00.000Z", week: 19))
-        // 学期之间的假期取下一个学期；学期内取当前学期
         func current(_ day: String) -> AcademicTerm? { TermResolver.current(in: terms, now: at(day), calendar: shanghai)?.academicTerm }
         #expect(current("2025-10-01") == AcademicTerm(year: 2025, term: 1))
-        #expect(current("2026-01-20") == AcademicTerm(year: 2025, term: 1))   // 第 20 周
-        #expect(current("2026-02-10") == AcademicTerm(year: 2025, term: 2))   // 寒假
+        #expect(current("2026-01-20") == AcademicTerm(year: 2025, term: 1))
+        #expect(current("2026-02-10") == AcademicTerm(year: 2025, term: 2))
         #expect(current("2026-11-05") == AcademicTerm(year: 2026, term: 1))
         let info = try #require(await repo.currentTermInfo(now: at("2026-11-05"), calendar: shanghai))
         #expect(info.isStarted && !info.isEnded && info.calendar.weekCount == 19)

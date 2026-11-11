@@ -3,7 +3,6 @@ import GxuDesign
 import GxuFoundation
 import SwiftUI
 
-/// 缓存管理：1–20 周各自的缓存状态，缓存某一周（7 天 × 13 个节次，可取消，两次开始之间冷却 60 秒），删除、清空。
 struct CacheManagerView: View {
     @Bindable var model: EmptyClassroomModel
     let cache: EmptyClassroomCacheController
@@ -97,7 +96,7 @@ struct CacheManagerView: View {
     static func sizeText(_ bytes: Int) -> String {
         let formatter = ByteCountFormatter()
         formatter.countStyle = .file
-        formatter.allowsNonnumericFormatting = false   // 0 字节显示 “0 KB”，不是 “Zero KB”
+        formatter.allowsNonnumericFormatting = false
         return formatter.string(fromByteCount: Int64(bytes))
     }
 }
@@ -109,7 +108,6 @@ private struct WeekCacheRow: View {
     let start: () -> Void
 
     var body: some View {
-        // 冷却倒计时每秒刷新
         TimelineView(.periodic(from: .now, by: 1)) { context in
             let cooldown = cache.remainingCooldown(now: context.date)
             let snapshot = model.snapshot(week: week)

@@ -16,7 +16,6 @@ struct OccurrenceOverrideTests {
         )
         let lab2 = result.first { $0.course.courseName == "大学物理实验" && $0.week == 2 }
         #expect(lab2?.course.teacher == "实验教师" && lab2?.course.venueName == "理科楼101")
-        // 名字不变，其它日期和其它课不受影响
         #expect(lab2?.course.courseName == "大学物理实验")
         #expect(result.first { $0.course.courseName == "大学物理实验" && $0.week == 1 }?.course.teacher == "原教师")
         #expect(result.first { $0.course.courseName == "高等数学" && $0.week == 2 }?.course.teacher == "数学老师")

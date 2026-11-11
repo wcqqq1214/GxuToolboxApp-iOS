@@ -2,7 +2,6 @@ import GxuDesign
 import GxuFoundation
 import SwiftUI
 
-/// 设置 → 诊断日志：查看本机保存的错误日志，可分享给开发者或清除。日志只在本机，不会自动上传，且已脱敏（见 `ErrorLog.redact`）。
 public struct ErrorLogView: View {
     private let log: ErrorLog
     @State private var text = ""

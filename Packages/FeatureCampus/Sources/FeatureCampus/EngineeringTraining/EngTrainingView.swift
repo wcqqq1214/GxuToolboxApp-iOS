@@ -4,7 +4,6 @@ import GxuFoundation
 import ScheduleKit
 import SwiftUI
 
-/// 工具箱 → 金工实训：缓存优先，后台刷新；需要统一认证账号（工程训练中心用 CA 单点登录）。
 struct EngTrainingView: View {
     @Environment(\.services) private var services
     @State private var loadedUsername: String?
@@ -116,7 +115,6 @@ struct EngTrainingView: View {
 }
 
 #if DEBUG
-/// 截图自查：`-GxuEngDemo`，不连真实工程训练中心
 private struct DemoEng: EngTrainingClient {
     func scheduleTable() async throws -> Data {
         func label(_ offset: Int) -> String {

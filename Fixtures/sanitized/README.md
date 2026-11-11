@@ -2,7 +2,9 @@
 
 由 `scripts/sanitize-fixtures.py` 从 `Fixtures/raw/`（本地真实响应，不入库）生成，可以放心提交和在测试里使用。
 结构、字段名、值的类型与真实响应一致；姓名、学号、身份证、班级名、教师姓名、QQ 群号、成绩记录 ID 已替换成假数据。
-课程名、教室、学分、成绩数值、时间等**未改动**（不指向个人身份）。需要更新时：`scripts/capture-fixtures.sh && scripts/sanitize-fixtures.py`。
+课程名、教室、学分、成绩数值、时间等**未改动**（不指向个人身份）。
+
+更新样本前，在本地 `.secrets/account.env` 中设置 `JW_USER` 和 `JW_PASS`。运行 `scripts/capture-fixtures.sh [year] [term]` 采集，再运行 `scripts/sanitize-fixtures.py` 脱敏。采集默认使用 2025 学年第 1 学期，`term` 接受 1 或 2。脚本用 curl 登录教务后端，排查「无法获取初始登录cookie」时可对照其 User-Agent。
 
 所有 `/jw/*` 响应形如 `{code, message, data}`，可直接用 `DataEnvelope` 解码（`getData` 已封装）。
 

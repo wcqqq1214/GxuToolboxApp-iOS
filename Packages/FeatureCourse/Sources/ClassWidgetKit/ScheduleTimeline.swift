@@ -1,31 +1,21 @@
 import Foundation
 import ScheduleKit
 
-/// 小组件在某一时刻要显示的内容。由 App 写入 App Group 的 `NextCourses` 快照推算出来，
-/// 小组件进程不联网、不读数据库。
 public struct ScheduleWidgetEntry: Equatable, Sendable {
     public enum Phase: Equatable, Sendable {
-        /// 没有可用数据（未登录 / 没有课表 / 没有开学日 / 出错）
         case unavailable(ScheduleDataState)
-        /// 快照太旧，覆盖不到这一天，需要打开 App 同步
         case stale
         case inClass
-        /// 今天还有课没开始
         case waiting
-        /// 今天的课已经上完（或今天没课）
         case finished
     }
 
     public var date: Date
     public var phase: Phase
-    /// 正在上的课
     public var current: WidgetCourse?
-    /// 今天还没开始的课，按时间升序（不含正在上的）
     public var upcoming: [WidgetCourse]
     public var tomorrow: [WidgetCourse]
-    /// 下一节还没开始的课，可能不在今天 / 明天
     public var next: WidgetCourse?
-    /// 今天是否有过课（用来区分"今天没课"和"今天的课上完了"）
     public var hadClassesToday: Bool
 
     public init(
@@ -41,16 +31,12 @@ public struct ScheduleWidgetEntry: Equatable, Sendable {
         self.hadClassesToday = hadClassesToday
     }
 
-    /// 要重点展示的那一节：正在上的，否则今天的下一节，否则 `next`
     public var focus: WidgetCourse? { current ?? upcoming.first ?? next }
 }
 
 public enum ScheduleTimeline {
-    /// 一个 Timeline 最多放多少个条目（每节课开始 / 结束各一个，一天最多 6 节课 ≈ 12 个）
     public static let maxEntries = 24
 
-    /// - Parameter hadClassesOn: App 刷新快照时发现"这一天有过课"的那一天。快照的 `today` 只含还没结束的课，
-    ///   最后一节课结束后再刷新，`today` 为空，没有这个信息会把"今天的课已上完"误报成"今天没有课"
     public static func entry(at date: Date, snapshot: NextCourses, calendar: Calendar = .current, hadClassesOn: Date? = nil) -> ScheduleWidgetEntry {
         guard snapshot.state == .ready else { return ScheduleWidgetEntry(date: date, phase: .unavailable(snapshot.state)) }
 
@@ -58,7 +44,6 @@ public enum ScheduleTimeline {
         let day = calendar.startOfDay(for: date)
         let nextDay = calendar.date(byAdding: .day, value: 1, to: day) ?? day
 
-        // 快照只覆盖"生成那天 + 次日"。date 晚于这个范围，就只剩 next 可信
         let coverageEnd = calendar.date(byAdding: .day, value: 2, to: calendar.startOfDay(for: snapshot.refreshedAt)) ?? day
         let isStale = day >= coverageEnd
 
@@ -80,8 +65,6 @@ public enum ScheduleTimeline {
         )
     }
 
-    /// 从 `now` 起的条目：现在一个，之后每节课开始和结束各一个，另加每天零点一个（日期翻页）。
-    /// `reloadAfter` 是最后一个条目的时间，WidgetKit 之后会重新请求时间线。
     public static func entries(
         snapshot: NextCourses, now: Date, calendar: Calendar = .current, hadClassesOn: Date? = nil
     ) -> (entries: [ScheduleWidgetEntry], reloadAfter: Date) {
@@ -90,7 +73,6 @@ public enum ScheduleTimeline {
             if course.startsAt > now { boundaries.insert(course.startsAt) }
             if course.endsAt > now { boundaries.insert(course.endsAt) }
         }
-        // 零点：快照生成当天及之后两天
         let base = calendar.startOfDay(for: max(now, snapshot.refreshedAt))
         for offset in 1...2 {
             if let midnight = calendar.date(byAdding: .day, value: offset, to: base), midnight > now { boundaries.insert(midnight) }
@@ -111,8 +93,6 @@ public enum ScheduleTimeline {
 }
 
 public extension WidgetCourse {
-    /// 小组件里用的课程标记色（色盘基色）。小组件进程拿不到 App 里按整张课表分配的颜色，
-    /// 这里按课程名稳定地取一个，同名课程在各个小组件里颜色一致。
     var markerHex: UInt32 {
         let colors = CoursePalette.macaron.colors
         var hash: UInt64 = 14695981039346656037

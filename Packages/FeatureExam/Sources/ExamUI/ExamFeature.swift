@@ -5,7 +5,6 @@ import SwiftUI
 public enum ExamFeature {
     public static let migrations = ExamRepository.migrations
 
-    /// 三个入口的列表页；Shell 的 NavigationStack 负责导航容器
     @MainActor
     public static func makeRootView() -> some View {
         List {

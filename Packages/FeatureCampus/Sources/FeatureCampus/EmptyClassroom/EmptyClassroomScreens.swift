@@ -4,13 +4,11 @@ import GxuFoundation
 import ScheduleKit
 import SwiftUI
 
-/// 工具箱 → 空闲教室：按时间查有哪些空教室，或看某间教室一周的空闲时段。数据来自本地缓存，缓存在“缓存管理”里更新。
 struct EmptyClassroomView: View {
     @Environment(\.services) private var services
     @State private var model: EmptyClassroomModel
     @State private var cache = EmptyClassroomCacheController()
     #if DEBUG
-    /// 截图自查：`-GxuEmptyScreen cache|room|picker`
     @State private var debugCache = false
     @State private var debugPicker = CommandLine.arguments.contains("-GxuEmptyScreen") && CommandLine.arguments.last == "picker"
     #endif
@@ -68,7 +66,6 @@ struct EmptyClassroomView: View {
     }
 }
 
-/// 一天 13 个节次的小色条：空闲的节次填色，选中的查询范围描边。只做装饰，文字信息在行里
 struct PeriodStrip: View {
     var freeRuns: [FreeRun]
     var highlight: ClosedRange<Int>?
@@ -81,7 +78,6 @@ struct PeriodStrip: View {
                     .fill(free ? Color.green.opacity(0.75) : Color(.tertiarySystemFill))
                     .frame(height: 8)
                     .overlay {
-                        // 范围覆盖全天时不描边（13 个节次全是框，看不出重点）
                         if let highlight, highlight != 1...EmptyClassroomConstants.periods, highlight.contains(period) {
                             RoundedRectangle(cornerRadius: 2, style: .continuous).strokeBorder(Color.accentColor, lineWidth: 1.5)
                         }
@@ -96,7 +92,6 @@ private func runText(_ runs: [FreeRun]) -> String {
     runs.map { $0.begin == $0.end ? "第\($0.begin)节" : "第\($0.begin)-\($0.end)节" }.joined(separator: "、")
 }
 
-// MARK: 按时间
 
 struct TimeQueryView: View {
     @Bindable var model: EmptyClassroomModel
@@ -115,7 +110,6 @@ struct TimeQueryView: View {
             }
             .searchable(text: $model.keyword, prompt: "搜索教室名称或场地类别")
             .task(id: model.keyword) {
-                // 输入停顿 0.3 秒后再查询
                 try? await Task.sleep(for: .milliseconds(300))
                 if !Task.isCancelled { await model.runQuery(reset: true) }
             }
@@ -127,7 +121,6 @@ struct TimeQueryView: View {
     private var criteria: some View {
         Section("时间") {
             termPicker(model)
-            // 周次和日期同一行；开始 / 结束节次同一行，让结果尽早出现在第一屏
             HStack {
                 Picker("周次", selection: Binding(get: { model.queryWeek ?? model.cachedWeeks[0] }, set: { week in
                     model.queryWeek = week
@@ -170,7 +163,6 @@ struct TimeQueryView: View {
                 }
                 .labelsHidden()
             }
-            // 选中节次对应的具体时间
             if let first = ClassPeriods.period(model.startPeriod), let last = ClassPeriods.period(max(model.endPeriod, model.startPeriod)) {
                 Text("\(first.startText)–\(last.endText)").font(.footnote).foregroundStyle(.secondary).monospacedDigit()
             }
@@ -285,7 +277,6 @@ private struct NoCacheView: View {
     }
 }
 
-// MARK: 按教室
 
 struct RoomModeView: View {
     @Bindable var model: EmptyClassroomModel
@@ -351,7 +342,6 @@ struct RoomModeView: View {
     }
 }
 
-// MARK: 选择器
 
 private struct BuildingFilterSheet: View {
     @Bindable var model: EmptyClassroomModel
@@ -381,7 +371,6 @@ private struct BuildingFilterSheet: View {
     }
 }
 
-/// 教室选择：楼栋 → 楼层 → 教室逐级下钻；搜索时直接搜全库，按“楼栋 · 楼层”分区
 struct RoomPickerSheet: View {
     enum Selection { case single, multiple }
     @Bindable var model: EmptyClassroomModel

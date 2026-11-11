@@ -90,7 +90,7 @@ private struct HolidayRow: View {
     private var badge: String? {
         switch entry.status {
         case .ongoing: "放假中"
-        case .upcoming: nil   // 起止日期已写在下一行，不再重复"N天后"
+        case .upcoming: nil
         case .past: nil
         }
     }

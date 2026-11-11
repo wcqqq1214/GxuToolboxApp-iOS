@@ -38,7 +38,7 @@ struct ErrorLogTests {
         for i in 0..<40 { log.record("test", "line \(i) 填充填充填充填充") }
         let text = log.contents()
         #expect(text.contains("line 39"))
-        #expect(!text.contains("line 0 "))   // 最早的内容已被滚掉
+        #expect(!text.contains("line 0 "))
         #expect(text.utf8.count <= 400 * 2 + 200)
     }
 
@@ -56,9 +56,9 @@ struct KeychainAccessGroupTests {
         #expect(GxuConfig.resolveKeychainAccessGroup("ABCDE12345.com.gxutool.ios") == "ABCDE12345.com.gxutool.ios")
         #expect(GxuConfig.resolveKeychainAccessGroup(nil) == nil)
         #expect(GxuConfig.resolveKeychainAccessGroup("") == nil)
-        #expect(GxuConfig.resolveKeychainAccessGroup("$(AppIdentifierPrefix)com.gxutool.ios") == nil)   // 没展开
-        #expect(GxuConfig.resolveKeychainAccessGroup("com.gxutool.ios") == nil)                          // 没有 Team ID 前缀（ad-hoc）
-        #expect(GxuConfig.resolveKeychainAccessGroup("abcde12345.com.gxutool.ios") == nil)               // Team ID 必须是 10 位大写字母数字
+        #expect(GxuConfig.resolveKeychainAccessGroup("$(AppIdentifierPrefix)com.gxutool.ios") == nil)
+        #expect(GxuConfig.resolveKeychainAccessGroup("com.gxutool.ios") == nil)
+        #expect(GxuConfig.resolveKeychainAccessGroup("abcde12345.com.gxutool.ios") == nil)
     }
 
     @Test func simulatorAlwaysUsesTheDefaultGroup() {
@@ -70,11 +70,11 @@ struct KeychainAccessGroupTests {
 
 struct AppGroupConfigTests {
     @Test func appGroupResolutionFollowsTheInfoPlistValue() {
-        #expect(GxuConfig.resolveAppGroupID(nil) == "group.com.gxutool.ios")                       // 没有这个键（测试宿主）：默认值，行为不变
+        #expect(GxuConfig.resolveAppGroupID(nil) == "group.com.gxutool.ios")
         #expect(GxuConfig.resolveAppGroupID("group.com.gxutool.ios") == "group.com.gxutool.ios")
-        #expect(GxuConfig.resolveAppGroupID("group.com.alice.gxutool") == "group.com.alice.gxutool")   // 自定义 Bundle ID
-        #expect(GxuConfig.resolveAppGroupID("") == nil)                                              // 个人团队降级：置空 = 不使用 App Group
+        #expect(GxuConfig.resolveAppGroupID("group.com.alice.gxutool") == "group.com.alice.gxutool")
+        #expect(GxuConfig.resolveAppGroupID("") == nil)
         #expect(GxuConfig.resolveAppGroupID("  ") == nil)
-        #expect(GxuConfig.resolveAppGroupID("$(GXU_APP_GROUP)") == nil)                               // 没展开
+        #expect(GxuConfig.resolveAppGroupID("$(GXU_APP_GROUP)") == nil)
     }
 }

@@ -20,7 +20,6 @@ final class AttendanceAccountModel {
         self.accounts = accounts
     }
 
-    /// 和设置首页同一个判断（`AuthState`）
     var isSignedIn: Bool { !(accounts.states[.attendance] ?? .noAccount).showsLoginForm }
     var needsRelogin: Bool { accounts.states[.attendance] == .signedOut }
     var displayName: String? {
@@ -32,7 +31,6 @@ final class AttendanceAccountModel {
             && !captchaCode.trimmingCharacters(in: .whitespaces).isEmpty && !isWorking
     }
 
-    /// 需要重新登录时预填保存的账号
     func prefillUsernameIfNeeded() {
         if needsRelogin, username.isEmpty, let saved = accounts.savedUsername(.attendance) { username = saved }
     }
@@ -44,7 +42,7 @@ final class AttendanceAccountModel {
         do {
             let captcha = try await accounts.attendanceCaptcha()
             ticket = captcha.ticket
-            if let text = captcha.text, !text.isEmpty { captchaCode = text }   // v2 后端随验证码返回文字，RN 同样自动填充
+            if let text = captcha.text, !text.isEmpty { captchaCode = text }
             captchaImage = captcha.imageData.flatMap(UIImage.init(data:))
             if captchaImage == nil { errorMessage = "验证码图片无法显示，请点击刷新" }
         } catch is CancellationError {
@@ -69,7 +67,7 @@ final class AttendanceAccountModel {
             return
         } catch let error as GxuError {
             errorMessage = error.userMessage
-            await loadCaptcha()   // 验证码一次性，失败后换一张
+            await loadCaptcha()
         } catch {
             errorMessage = "登录失败，请稍后重试"
             await loadCaptcha()

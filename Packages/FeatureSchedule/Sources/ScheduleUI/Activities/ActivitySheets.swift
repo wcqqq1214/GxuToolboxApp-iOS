@@ -2,8 +2,6 @@ import GxuDesign
 import ScheduleKit
 import SwiftUI
 
-/// 新增 / 编辑自定义课程（RN `CustomEventsSheet` 的表单）：名称、教学周（文本，如 1-8,10,12）、星期、开始 / 结束节次、地点、教师、备注。
-/// 草稿只在点“保存”时校验并提交；校验信息写在表单里。
 struct ActivityEditorSheet: View {
     @State var activity: CustomActivity
     let isNew: Bool
@@ -119,7 +117,6 @@ struct ActivityEditorSheet: View {
         dismiss()
     }
 
-    // 开始晚于结束时把结束顺延
     private var beginBinding: Binding<Int> {
         Binding(get: { activity.begin }, set: {
             activity.begin = $0
@@ -158,7 +155,6 @@ private struct ColorSwatches: View {
     }
 }
 
-/// 我的自定义课程：列表、点击编辑、左滑删除、右上角添加
 struct ActivityListSheet: View {
     let activities: [CustomActivity]
     let onAdd: () -> Void

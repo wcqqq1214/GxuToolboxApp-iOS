@@ -71,7 +71,6 @@ public struct ExamInfoView: View {
 private struct ExamRow: View {
     let item: ExamItem
 
-    /// 考场、座位号：有才写，同一行用 · 分隔。时间和类型各只出现一次（类型"期末考试"等不显示）
     private var detail: String {
         [item.exam.classroom, item.status == .past ? "" : item.exam.seatText].filter { !$0.isEmpty }.joined(separator: " · ")
     }
@@ -92,7 +91,6 @@ private struct ExamRow: View {
         .padding(.vertical, 2)
     }
 
-    /// 徽章只给今日、明日开考的考试，其余时间直接看时间行。
     private var badge: Text? {
         guard item.isUrgent(), let text = item.countdownText() else { return nil }
         return Text(text).foregroundStyle(.red)
