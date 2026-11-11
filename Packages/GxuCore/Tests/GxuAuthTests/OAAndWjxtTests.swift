@@ -145,7 +145,7 @@ struct OASessionTests {
         let (rejected, oa) = center { reply($0, #"{"code":400,"type":"error","message":"[D1000] 账号或密码不正确","result":null}"#) }
         _ = try? await oa.ensureToken()
         await settle()
-        #expect(rejected.states[.oa] == .signedOut)
+        #expect(rejected.states[.oa] == .needsRelogin)
         #expect(rejected.states[.oa]?.displayText == "需要重新登录")
         await #expect(throws: GxuError.sessionExpired(.oa)) { try await rejected.ensureAuthenticated(.oa) }
         await rejected.logout(.oa)

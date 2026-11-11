@@ -143,7 +143,7 @@ public final class AttendanceSession: SessionRenewer, @unchecked Sendable {
             tokens.save(nil)
             return self.observer
         }
-        observer?(.signedOut)
+        observer?(.needsRelogin)
         throw GxuError.sessionExpired(.attendance)
     }
 }

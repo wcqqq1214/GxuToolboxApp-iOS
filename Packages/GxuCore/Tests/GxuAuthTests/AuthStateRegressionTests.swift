@@ -37,7 +37,7 @@ struct AuthStateRegressionTests {
         await settle(hits)
         #expect(center.states[.jw] == .authenticated)
         #expect(center.states[.jw]?.displayText == "已登录")
-        #expect(!jw.hasSession())
+        #expect(!jw.hasSessionCookie())
     }
 
     @Test func timeoutsAndServerErrorsDoNotChangeTheState() async {
@@ -62,7 +62,7 @@ struct AuthStateRegressionTests {
         let hits = serve(host) { respond($0, status: 401, #"{"code":401,"message":"账号或密码错误，登录失败"}"#) }
         let (center, _, store) = make(host: host)
         await settle(hits)
-        #expect(center.states[.jw] == .signedOut)
+        #expect(center.states[.jw] == .needsRelogin)
         #expect(center.states[.jw]?.displayText == "需要重新登录")
         #expect(center.states[.jw]?.displayText.contains("已退出") == false)
         #expect(center.states[.jw]?.showsLoginForm == true)
@@ -107,11 +107,11 @@ struct AuthStateRegressionTests {
         }
         let (center, jw, _) = make(host: host)
         await settle(hits)
-        #expect(center.states[.jw] == .signedOut)
+        #expect(center.states[.jw] == .needsRelogin)
         accept.value = 1
         try await center.login(.jw, username: "9", password: "new")
         #expect(center.states[.jw] == .authenticated)
-        #expect(jw.hasSession())
+        #expect(jw.hasSessionCookie())
     }
 
     @Test func userLogoutDuringTheSilentRenewIsNotRevived() async throws {
@@ -126,7 +126,7 @@ struct AuthStateRegressionTests {
         try await Task.sleep(for: .milliseconds(900))
         #expect(center.states[.jw] == .noAccount)
         #expect(center.states[.jw]?.displayText == "未登录")
-        #expect(!jw.hasSession())
+        #expect(!jw.hasSessionCookie())
         #expect(store.load(.jw) == nil && center.studentId == nil)
     }
 
@@ -151,7 +151,7 @@ struct AuthStateRegressionTests {
     }
 
     @Test func displayTextAndLoginFormAreDerivedFromTheSameState() {
-        let all: [(AuthState, String, Bool)] = [(.noAccount, "未登录", true), (.authenticated, "已登录", false), (.signedOut, "需要重新登录", true)]
+        let all: [(AuthState, String, Bool)] = [(.noAccount, "未登录", true), (.authenticated, "已登录", false), (.needsRelogin, "需要重新登录", true)]
         for (state, text, form) in all {
             #expect(state.displayText == text)
             #expect(state.showsLoginForm == form)
@@ -163,7 +163,7 @@ struct AuthStateRegressionTests {
         let client = BackendClient(session: BackendClient.makeSession(configuration: StubURLProtocol.makeConfiguration()))
         let attendance = AttendanceSession(transport: client, tokens: InMemoryTokenStore(), defaults: UserDefaults(suiteName: UUID().uuidString)!)
         let center = AccountCenter(credentials: store, jw: JwSessionManager(credentials: store, transport: client), attendance: attendance)
-        #expect(center.states[.attendance] == .signedOut)
+        #expect(center.states[.attendance] == .needsRelogin)
         #expect(center.states[.attendance]?.displayText == "需要重新登录")
     }
 }

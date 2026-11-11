@@ -31,10 +31,10 @@ public final class AccountCenter {
         if let credential = credentials.load(.jw) {
             studentId = credential.username
             states[.jw] = .authenticated
-            needsSilentRenew = !jw.hasSession()
+            needsSilentRenew = !jw.hasSessionCookie()
         }
         if attendance?.hasToken == true { states[.attendance] = .authenticated }
-        else if attendance != nil, credentials.load(.attendance) != nil { states[.attendance] = .signedOut }
+        else if attendance != nil, credentials.load(.attendance) != nil { states[.attendance] = .needsRelogin }
         if unified != nil, credentials.load(.unified) != nil { states[.unified] = .authenticated }
         if oa != nil, credentials.load(.oa) != nil { states[.oa] = .authenticated }
         self.states = states
@@ -67,7 +67,7 @@ public final class AccountCenter {
     private func applyObserved(_ system: AuthSystem, _ state: AuthState) {
         guard states[system] != .noAccount else { return }
         if system == .jw, studentId == nil { return }
-        if system == .attendance, state == .signedOut, attendance?.hasToken == true { return }
+        if system == .attendance, state == .needsRelogin, attendance?.hasToken == true { return }
         states[system] = state
     }
 
@@ -165,7 +165,7 @@ public final class AccountCenter {
         switch states[system] ?? .noAccount {
         case .authenticated: return
         case .noAccount: throw GxuError.notLoggedIn(system)
-        case .signedOut: throw GxuError.sessionExpired(system)
+        case .needsRelogin: throw GxuError.sessionExpired(system)
         }
     }
 }

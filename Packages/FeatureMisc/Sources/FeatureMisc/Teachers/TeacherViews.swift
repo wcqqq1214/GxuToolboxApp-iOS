@@ -6,8 +6,8 @@ import SwiftUI
 
 @MainActor @Observable
 final class TeacherSearchModel {
-    var keyword = ""
-    private(set) var active = ""
+    var draftQuery = ""
+    private(set) var submittedQuery = ""
     private(set) var results: [TeacherSummary] = []
     private(set) var total = 0
     private(set) var page = 1
@@ -16,60 +16,78 @@ final class TeacherSearchModel {
     private(set) var isLoadingMore = false
     private(set) var searchError: String?
     private(set) var moreError: String?
-    private var version = 0
+    private var searchRevision = 0
     private let api: TeacherAPI
 
     init(services: AppServices) {
         api = TeacherAPI(backend: services.backend)
         #if DEBUG
         let args = ProcessInfo.processInfo.arguments
-        if let i = args.firstIndex(of: "-GxuTeacherKeyword"), i + 1 < args.count { keyword = args[i + 1] }
+        if let i = args.firstIndex(of: "-GxuTeacherKeyword"), i + 1 < args.count { draftQuery = args[i + 1] }
         #endif
     }
 
     var hasMore: Bool { page < pages }
-    var isActive: Bool { !active.isEmpty }
+    var hasSubmittedQuery: Bool { !submittedQuery.isEmpty }
 
     func search() async {
-        let key = keyword.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !key.isEmpty else { return }
-        version += 1
-        let mine = version
-        active = key; results = []; total = 0; page = 1; pages = 0; searchError = nil; moreError = nil
+        let query = draftQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return }
+        searchRevision += 1
+        let requestRevision = searchRevision
+        submittedQuery = query
+        results = []
+        total = 0
+        page = 1
+        pages = 0
+        searchError = nil
+        moreError = nil
         isLoadingMore = false
         isSearching = true
-        defer { if version == mine { isSearching = false } }
+        defer { if searchRevision == requestRevision { isSearching = false } }
         do {
-            let first = try await api.search(key)
-            guard version == mine else { return }
+            let first = try await api.search(query)
+            guard searchRevision == requestRevision else { return }
             results = first.list; pages = first.pages; total = first.total
         } catch is CancellationError {
         } catch {
-            guard version == mine else { return }
+            guard searchRevision == requestRevision else { return }
             searchError = ((error as? GxuError) ?? .network(error.localizedDescription)).userMessage
         }
     }
 
     func loadMore() async {
         guard hasMore, !isLoadingMore, !isSearching, moreError == nil else { return }
-        version += 1
-        let mine = version
+        searchRevision += 1
+        let requestRevision = searchRevision
         isLoadingMore = true
-        defer { if version == mine { isLoadingMore = false } }
+        defer { if searchRevision == requestRevision { isLoadingMore = false } }
         do {
-            let next = try await api.search(active, page: page + 1)
-            guard version == mine else { return }
+            let next = try await api.search(submittedQuery, page: page + 1)
+            guard searchRevision == requestRevision else { return }
             results += next.list; page += 1; pages = next.pages; total = next.total
         } catch is CancellationError {
         } catch {
-            guard version == mine else { return }
+            guard searchRevision == requestRevision else { return }
             moreError = ((error as? GxuError) ?? .network(error.localizedDescription)).userMessage
         }
     }
 
     func retryMore() async { moreError = nil; await loadMore() }
 
-    func reset() { version += 1; isLoadingMore = false; keyword = ""; active = ""; results = []; total = 0; page = 1; pages = 0; searchError = nil; moreError = nil; isSearching = false }
+    func reset() {
+        searchRevision += 1
+        isLoadingMore = false
+        draftQuery = ""
+        submittedQuery = ""
+        results = []
+        total = 0
+        page = 1
+        pages = 0
+        searchError = nil
+        moreError = nil
+        isSearching = false
+    }
 }
 
 struct TeacherAvatar: View {
@@ -109,7 +127,7 @@ public struct TeacherSearchView: View {
 
         var body: some View {
             Group {
-                if !model.isActive && !model.isSearching {
+                if !model.hasSubmittedQuery && !model.isSearching {
                     GxuEmptyView("搜索教师信息", systemImage: "magnifyingglass")
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .background(Color(.systemGroupedBackground))
@@ -120,12 +138,14 @@ public struct TeacherSearchView: View {
             .navigationTitle("教师查询")
             .navigationBarTitleDisplayMode(.inline)
             .gxuHidesTabChrome()
-            .searchable(text: $model.keyword, prompt: "姓名 / 单位 / 职称 / 一级学科")
+            .searchable(text: $model.draftQuery, prompt: "姓名 / 单位 / 职称 / 一级学科")
             .onSubmit(of: .search) { Task { await model.search() } }
             #if DEBUG
-            .task { if !model.keyword.isEmpty { await model.search() } }
+            .task { if !model.draftQuery.isEmpty { await model.search() } }
             #endif
-            .onChange(of: model.keyword) { _, new in if new.isEmpty && model.isActive { model.reset() } }
+            .onChange(of: model.draftQuery) { _, query in
+                if query.isEmpty && model.hasSubmittedQuery { model.reset() }
+            }
         }
 
         private var results: some View {

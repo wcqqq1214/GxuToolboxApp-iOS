@@ -21,7 +21,7 @@ final class AttendanceAccountModel {
     }
 
     var isSignedIn: Bool { !(accounts.states[.attendance] ?? .noAccount).showsLoginForm }
-    var needsRelogin: Bool { accounts.states[.attendance] == .signedOut }
+    var needsRelogin: Bool { accounts.states[.attendance] == .needsRelogin }
     var displayName: String? {
         guard let info = accounts.attendance?.loginInfo else { return nil }
         return [info.userName, info.userNo].compactMap { $0 }.joined(separator: " · ")

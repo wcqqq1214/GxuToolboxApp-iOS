@@ -2,14 +2,14 @@ import Foundation
 import GxuFoundation
 import GxuNetworking
 
-public enum AuthState: Sendable, Equatable { case noAccount, signedOut, authenticated }
+public enum AuthState: Sendable, Equatable { case noAccount, needsRelogin, authenticated }
 
 extension AuthState {
     public var displayText: String {
         switch self {
         case .noAccount: "未登录"
         case .authenticated: "已登录"
-        case .signedOut: "需要重新登录"
+        case .needsRelogin: "需要重新登录"
         }
     }
 
@@ -39,7 +39,7 @@ public actor JwSessionManager: SessionRenewer {
         self.observer = observer
     }
 
-    nonisolated public func hasSession() -> Bool {
+    nonisolated public func hasSessionCookie() -> Bool {
         (cookies.cookies(for: GxuConfig.jwCookieURL) ?? []).contains { $0.name == "JSESSIONID" }
     }
 
@@ -92,7 +92,7 @@ public actor JwSessionManager: SessionRenewer {
         do { try await task.value } catch is CancellationError {
             throw CancellationError()
         } catch {
-            if let error = error as? GxuError, error.isCredentialRejection { observer?(.signedOut) }
+            if let error = error as? GxuError, error.isCredentialRejection { observer?(.needsRelogin) }
             throw error
         }
     }

@@ -64,7 +64,7 @@ final class AttendanceViewModel {
     private func checkAccess() -> Bool {
         switch services.accounts.states[.attendance] {
         case .authenticated?: access = .ok; return true
-        case .signedOut?: access = .expired; return false
+        case .needsRelogin?: access = .expired; return false
         default: access = .notLoggedIn; return false
         }
     }

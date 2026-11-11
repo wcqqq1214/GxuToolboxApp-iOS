@@ -17,7 +17,7 @@ struct AccountStateConsistencyTests {
 
     @Test(arguments: [AuthSystem.jw, .unified, .oa])
     func detailPageAndHomeAgreeForEveryState(system: AuthSystem) {
-        for state in [AuthState.noAccount, .authenticated, .signedOut] {
+        for state in [AuthState.noAccount, .authenticated, .needsRelogin] {
             let accounts = center(state, system: system)
             let model = JwAccountModel(accounts: accounts, system: system)
             #expect(model.isSignedIn == (accounts.states[system]?.displayText == "已登录"), "\(system) \(state)")
@@ -27,7 +27,7 @@ struct AccountStateConsistencyTests {
     }
 
     @Test func needsReloginShowsTheFormWithTheSavedUsernamePrefilled() {
-        let accounts = center(.signedOut, system: .jw)
+        let accounts = center(.needsRelogin, system: .jw)
         let model = JwAccountModel(accounts: accounts)
         #expect(!model.isSignedIn && model.needsRelogin)
         model.prefillUsernameIfNeeded()
@@ -39,13 +39,13 @@ struct AccountStateConsistencyTests {
     }
 
     @Test func attendancePageFollowsTheSameState() {
-        for state in [AuthState.noAccount, .authenticated, .signedOut] {
+        for state in [AuthState.noAccount, .authenticated, .needsRelogin] {
             let accounts = center(state, system: .attendance)
             let model = AttendanceAccountModel(accounts: accounts)
             #expect(model.isSignedIn == !state.showsLoginForm)
-            #expect(model.needsRelogin == (state == .signedOut))
+            #expect(model.needsRelogin == (state == .needsRelogin))
         }
-        let model = AttendanceAccountModel(accounts: center(.signedOut, system: .attendance))
+        let model = AttendanceAccountModel(accounts: center(.needsRelogin, system: .attendance))
         model.prefillUsernameIfNeeded()
         #expect(model.username == "saved-user")
     }

@@ -40,7 +40,7 @@ struct AuthTests {
         #expect(center.states[.jw] == .authenticated)
         #expect(center.studentId == "2025001")
         #expect(store.load(.jw) == Credential(username: "2025001", password: "pw"))
-        #expect(jw.hasSession())
+        #expect(jw.hasSessionCookie())
         let backendCookies = client.cookieStorage.cookies(for: URL(string: "http://\(host)/")!) ?? []
         #expect(Set(backendCookies.map(\.name)) == ["JSESSIONID", "route"])
     }
@@ -85,7 +85,7 @@ struct AuthTests {
         #expect(center.states[.jw] == .noAccount)
         #expect(center.studentId == nil)
         #expect(store.load(.jw) == nil)
-        #expect(!jw.hasSession())
+        #expect(!jw.hasSessionCookie())
     }
 
     @Test func ensureAuthenticatedWithoutAccountThrows() async {
@@ -100,8 +100,8 @@ struct AuthTests {
         let (center, jw, _) = makeCenter(host: host, store: store)
         #expect(center.states[.jw] == .authenticated)
         #expect(center.states[.jw]?.displayText == "已登录")
-        for _ in 0..<50 where !jw.hasSession() { try await Task.sleep(for: .milliseconds(50)) }
-        #expect(jw.hasSession())
+        for _ in 0..<50 where !jw.hasSessionCookie() { try await Task.sleep(for: .milliseconds(50)) }
+        #expect(jw.hasSessionCookie())
         #expect(center.states[.jw] == .authenticated)
         try await center.ensureAuthenticated(.jw)
     }

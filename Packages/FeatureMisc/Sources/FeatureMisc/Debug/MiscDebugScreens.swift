@@ -45,7 +45,7 @@ public enum MiscDebugScreens {
         let defaults = UserDefaults(suiteName: "gxu.debug.attendance")!
         defaults.set(try? JSONEncoder().encode(AttendanceLoginInfo.debug), forKey: "attendance.loginInfo")
         let attendance = AttendanceSession(transport: client, tokens: InMemoryTokenStore("debug"), defaults: defaults)
-        let state: AuthState? = name == "c-attendance-expired" ? .signedOut : name == "c-attendance-nologin" ? nil : .authenticated
+        let state: AuthState? = name == "c-attendance-expired" ? .needsRelogin : name == "c-attendance-nologin" ? nil : .authenticated
         var states: [AuthSystem: AuthState] = [.jw: .authenticated]
         if let state { states[.attendance] = state }
         return AppServices(

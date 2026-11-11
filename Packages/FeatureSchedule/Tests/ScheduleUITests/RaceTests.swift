@@ -62,7 +62,7 @@ struct RaceTests {
         #expect(backend.scheduleQueries.contains("2025"))
     }
 
-    @Test func accountSwitchDuringRefreshLeaksPreviousStudent() async throws {
+    @Test func accountSwitchDuringRefreshKeepsNewStudentsSchedule() async throws {
         let backend = GatedBackend(gate: 2)
         let a = AppServices.preview(backend: MockBackendAPI(), features: [ScheduleKit.migrations], studentId: "A")
         let b = AppServices.preview(backend: MockBackendAPI(), studentId: "B")

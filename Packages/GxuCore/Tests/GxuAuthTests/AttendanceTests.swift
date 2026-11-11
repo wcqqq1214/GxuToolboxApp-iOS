@@ -105,7 +105,7 @@ struct AttendanceTests {
         }
         try await Task.sleep(for: .milliseconds(100))
         #expect(tokens.load() == nil)
-        #expect(center.states[.attendance] == .signedOut)
+        #expect(center.states[.attendance] == .needsRelogin)
         await #expect(throws: GxuError.sessionExpired(.attendance)) { try await center.ensureAuthenticated(.attendance) }
     }
 

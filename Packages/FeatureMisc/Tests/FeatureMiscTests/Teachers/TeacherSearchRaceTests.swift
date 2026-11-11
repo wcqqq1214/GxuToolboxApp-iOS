@@ -30,11 +30,11 @@ final class GateBackend: BackendAPI, @unchecked Sendable {
         let b = GateBackend()
         let services = AppServices(backend: b, database: AppServices.preview().database, shared: AppServices.preview().shared, accounts: AppServices.preview().accounts)
         let m = TeacherSearchModel(services: services)
-        m.keyword = "a"; await m.search()
+        m.draftQuery = "a"; await m.search()
         b.hang("a#2")
         let t = Task { await m.loadMore() }
         while !b.arrived.contains("a#2") { await Task.yield() }
-        m.keyword = "b"; await m.search()
+        m.draftQuery = "b"; await m.search()
         b.release("a#2"); await t.value
         #expect(!m.isLoadingMore)
         await m.loadMore()

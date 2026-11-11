@@ -37,7 +37,7 @@ final class JwAccountModel {
 
     var state: AuthState { accounts.states[system] ?? .noAccount }
     var isSignedIn: Bool { !state.showsLoginForm }
-    var needsRelogin: Bool { state == .signedOut }
+    var needsRelogin: Bool { state == .needsRelogin }
 
     func prefillUsernameIfNeeded() {
         if needsRelogin, username.isEmpty, let saved = studentId { username = saved }

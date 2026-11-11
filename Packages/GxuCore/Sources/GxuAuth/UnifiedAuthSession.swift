@@ -227,7 +227,7 @@ public actor UnifiedAuthSession {
         if Self.isLoginPage(result.data) {
             Self.log("提交登录", result, note: "又回到了登录页")
             let error = Self.loginPageError(result.data)
-            if !isLoggingIn, error.isCredentialRejection { observer?(.signedOut, generation) }
+            if !isLoggingIn, error.isCredentialRejection { observer?(.needsRelogin, generation) }
             throw error
         }
         if !isLoggingIn { observer?(.authenticated, generation) }

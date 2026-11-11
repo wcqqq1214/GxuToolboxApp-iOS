@@ -79,7 +79,7 @@ final class AttendanceGateBackend: BackendAPI, @unchecked Sendable {
         let p = AppServices.preview()
         let client = BackendClient(session: BackendClient.makeSession(configuration: .ephemeral))
         let creds = InMemoryCredentialStore()
-        for (state, access) in [(AuthState?.none, AttendanceViewModel.Access.notLoggedIn), (.signedOut, .expired)] {
+        for (state, access) in [(AuthState?.none, AttendanceViewModel.Access.notLoggedIn), (.needsRelogin, .expired)] {
             var states: [AuthSystem: AuthState] = [:]
             if let state { states[.attendance] = state }
             let accounts = AccountCenter(credentials: creds, jw: JwSessionManager(credentials: creds, transport: client), states: states, studentId: "1")

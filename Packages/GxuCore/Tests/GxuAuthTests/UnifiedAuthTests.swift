@@ -262,7 +262,7 @@ struct UnifiedAuthTests {
         let (rejected, rejectedSession) = center()
         _ = try? await rejectedSession.loginPEC()
         await settle()
-        #expect(rejected.states[.unified] == .signedOut)
+        #expect(rejected.states[.unified] == .needsRelogin)
         #expect(rejected.states[.unified]?.displayText == "需要重新登录")
     }
 

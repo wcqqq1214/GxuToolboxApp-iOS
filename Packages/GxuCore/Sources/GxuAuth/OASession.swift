@@ -85,7 +85,7 @@ public actor OASession {
             (data, response) = try await perform(authorized(request))
             try checkGeneration(generation)
             if response.statusCode == 401 {
-                observer?(.signedOut)
+                observer?(.needsRelogin)
                 throw GxuError.sessionExpired(.oa)
             }
         }
@@ -175,7 +175,7 @@ public actor OASession {
             try checkGeneration(generation)
         } catch {
             try checkGeneration(generation)
-            if let error = error as? GxuError, error.isCredentialRejection { observer?(.signedOut) }
+            if let error = error as? GxuError, error.isCredentialRejection { observer?(.needsRelogin) }
             throw error
         }
     }

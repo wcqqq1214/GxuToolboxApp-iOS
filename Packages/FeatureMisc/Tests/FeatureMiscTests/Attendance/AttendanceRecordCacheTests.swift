@@ -69,7 +69,7 @@ import Testing
     @Test func refreshDoesNothingWhenNotAuthenticated() async {
         let mock = MockBackendAPI()
         mock.stub("GET /attendance/v2/personal", json: body("高数"))
-        let s = services(mock, state: .signedOut)
+        let s = services(mock, state: .needsRelogin)
         #expect(await AttendanceRecordCache.refresh(services: s, year: 2025, term: 1).isEmpty)
         #expect(mock.calls.isEmpty)
     }

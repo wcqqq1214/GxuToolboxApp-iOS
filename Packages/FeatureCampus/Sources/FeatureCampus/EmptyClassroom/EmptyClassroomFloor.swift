@@ -32,8 +32,9 @@ public enum EmptyClassroomFloor {
         let text = stripBuilding(from: normalizeDigits(roomName).trimmingCharacters(in: .whitespacesAndNewlines), building: building)
         guard !text.isEmpty else { return nil }
         switch explicitFloor(in: text) {
-        case .some(let result): return result
-        case .none: return inferFromRoomNumber(text)
+        case .absent: return inferFromRoomNumber(text)
+        case .valid(let floor): return floor
+        case .unsupported: return nil
         }
     }
 
@@ -52,16 +53,26 @@ public enum EmptyClassroomFloor {
 
     private static func valid(_ floor: Int) -> Int? { (minFloor...maxFloor).contains(floor) ? floor : nil }
 
-    private static func explicitFloor(in text: String) -> Int?? {
-        guard let regex = try? NSRegularExpression(pattern: #"(\d{1,2})\s*(层|[Ff](?![A-Za-z]))"#) else { return .none }
+    private enum ExplicitFloor {
+        case absent
+        case valid(Int)
+        case unsupported
+    }
+
+    private static func explicitFloor(in text: String) -> ExplicitFloor {
+        guard let regex = try? NSRegularExpression(pattern: #"(\d{1,2})\s*(层|[Ff](?![A-Za-z]))"#) else { return .absent }
         let ns = text as NSString
         var sawUnderground = false
         for match in regex.matches(in: text, range: NSRange(location: 0, length: ns.length)) {
             let before = match.range.location > 0 ? ns.substring(with: NSRange(location: match.range.location - 1, length: 1)) : ""
-            if before == "B" || before == "b" || before == "负" { sawUnderground = true; continue }
-            return .some(valid(Int(ns.substring(with: match.range(at: 1))) ?? 0))
+            if before == "B" || before == "b" || before == "负" {
+                sawUnderground = true
+                continue
+            }
+            guard let floor = valid(Int(ns.substring(with: match.range(at: 1))) ?? 0) else { return .unsupported }
+            return .valid(floor)
         }
-        return sawUnderground ? .some(nil) : .none
+        return sawUnderground ? .unsupported : .absent
     }
 
     private static func inferFromRoomNumber(_ text: String) -> Int? {
