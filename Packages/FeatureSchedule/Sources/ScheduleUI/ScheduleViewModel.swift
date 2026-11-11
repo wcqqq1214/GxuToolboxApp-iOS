@@ -21,6 +21,16 @@ final class ScheduleViewModel {
         let username: String?
     }
 
+    private struct IndexInputs: Equatable {
+        let term: AcademicTerm?
+        let calendar: TermCalendar
+        let schedule: Schedule
+        let activities: [CustomActivity]
+        let overrides: [OccurrenceOverride]
+        let timeShift: [ShiftRule]
+        let holidays: [HolidayRange]
+    }
+
     private(set) var phase: Phase = .loading
     private(set) var term: AcademicTerm?
     private(set) var termCalendar: TermCalendar?
@@ -55,6 +65,7 @@ final class ScheduleViewModel {
     @ObservationIgnored private var generation = 0
     @ObservationIgnored private var refreshingGeneration: Int?
     @ObservationIgnored private var layerLoad: (request: LayerRequest, task: Task<Void, Never>)?
+    @ObservationIgnored private var indexInputs: IndexInputs?
     private let refreshCoordinator: ScheduleRefreshCoordinator
 
     init(refreshCoordinator: ScheduleRefreshCoordinator = ScheduleRefreshCoordinator()) {
@@ -311,6 +322,7 @@ final class ScheduleViewModel {
         pinnedTerm = term
         schedule = nil
         index = ScheduleIndex(occurrences: [])
+        indexInputs = nil
         updatedAt = nil
         phase = .loading
         let gen = generation
@@ -335,6 +347,7 @@ final class ScheduleViewModel {
         schedule = nil
         updatedAt = nil
         index = ScheduleIndex(occurrences: [])
+        indexInputs = nil
         colors = [:]
         choices = [:]
         activities = []
@@ -396,20 +409,29 @@ final class ScheduleViewModel {
             phase = .failed("暂时无法获取学期开始日，请下拉刷新重试")
             return
         }
-        rebuildIndex()
-        colors = CourseColorAssigner.assign(courses: mergedSchedule?.theoryList.filter(\.isValid) ?? [], palette: palette, custom: customColors)
+        if rebuildIndex() {
+            recolor()
+        } else {
+            publishWidgetSnapshot()
+        }
         if resetWeek { selectedWeek = termCalendar.clampedWeek(at: .now) }
         selectedWeek = min(max(selectedWeek, 1), weekCount)
         phase = .content
     }
 
-    private func rebuildIndex() {
-        guard let schedule = mergedSchedule, let termCalendar else { return }
-        let base = OccurrenceOverrides.apply(overrides, to: ScheduleExpander.occurrences(of: schedule, in: termCalendar))
+    @discardableResult
+    private func rebuildIndex() -> Bool {
+        guard let schedule, let termCalendar else { return false }
+        let inputs = IndexInputs(term: term, calendar: termCalendar, schedule: schedule, activities: activities, overrides: overrides,
+                                 timeShift: campusCalendar.timeShift, holidays: campusCalendar.holidays)
+        guard indexInputs != inputs, let merged = mergedSchedule else { return false }
+        let base = OccurrenceOverrides.apply(overrides, to: ScheduleExpander.occurrences(of: merged, in: termCalendar))
         let overlaid = CalendarOverlay.apply(to: base, calendar: campusCalendar, term: termCalendar)
         rebuildAttendance(calendar: termCalendar.calendar)
         index = ScheduleIndex(occurrences: overlaid.occurrences, dayBlocks: overlaid.dayBlocks, examBlocks: ExamPlacement.blocks(for: exams, term: termCalendar))
+        indexInputs = inputs
         publishWidgetSnapshot()
+        return true
     }
 
     private func rebuildAttendance(calendar: Calendar) {

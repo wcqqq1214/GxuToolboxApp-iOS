@@ -17,6 +17,38 @@ final class HomeModel {
         case unavailable(String)
     }
 
+    private struct CacheScope: Equatable {
+        let database: ObjectIdentifier
+        let session: UUID
+        let studentId: String
+        let username: String?
+        let day: Date
+
+        @MainActor init?(services: AppServices) {
+            let accounts = services.accounts
+            guard accounts.states[.jw] != .noAccount, let studentId = accounts.studentId else { return nil }
+            database = ObjectIdentifier(services.database)
+            session = accounts.jwSessionID
+            self.studentId = studentId
+            username = accounts.unifiedUsername
+            day = Calendar.current.startOfDay(for: .now)
+        }
+    }
+
+    @MainActor
+    private final class CacheState {
+        let scope: CacheScope
+        let observation: HomeCacheObservation
+        var loadedRevision: HomeCacheObservation.Revision?
+        var reading: Task<Void, Never>?
+        var refreshing = false
+
+        init(scope: CacheScope, database: AppDatabase) {
+            self.scope = scope
+            observation = HomeCacheObservation(database: database)
+        }
+    }
+
     private(set) var phase: Phase = .loading
     private(set) var snapshot: ScheduleSnapshot?
     private var upcomingExams: [ExamItem] = []
@@ -24,9 +56,7 @@ final class HomeModel {
     private(set) var isRefreshing = false
 
     @ObservationIgnored private var throttle = RefreshThrottle()
-    @ObservationIgnored private var cacheReloadID = UUID()
-    @ObservationIgnored private var displayedStudentId: String?
-    @ObservationIgnored private var displayedUnifiedUsername: String?
+    @ObservationIgnored private var cache: CacheState?
     private let refreshCoordinator: ScheduleRefreshCoordinator
 
     init(refreshCoordinator: ScheduleRefreshCoordinator = ScheduleRefreshCoordinator()) {
@@ -43,54 +73,76 @@ final class HomeModel {
     }
 
     func observeCache(services: AppServices) async {
-        guard services.accounts.studentId != nil else {
-            await reloadFromCache(services: services)
-            return
-        }
-        let regions = [
-            "schedule_snapshot", "term_start_day", "campus_calendar", "schedule_conflict_choice",
-            "schedule_custom_activity", "exam_info", "phy_experiment"
-        ].map { Table<Row>($0) }
-        let observation = ValueObservation.tracking(regions: regions) { _ in () }
-        do {
-            for try await _ in observation.values(in: services.database.writer, bufferingPolicy: .bufferingNewest(1)) {
-                await reloadFromCache(services: services)
+        guard !Task.isCancelled, let state = cacheState(services: services) else { return }
+        let changes = state.observation.changes()
+        await synchronizeCache(state, services: services)
+        for await _ in changes {
+            guard !Task.isCancelled, cache === state else { return }
+            if !state.refreshing || snapshot == nil || state.observation.hasInteractiveChange(since: state.loadedRevision) {
+                await synchronizeCache(state, services: services)
             }
-        } catch {
-            await reloadFromCache(services: services)
         }
     }
 
     func reloadFromCache(services: AppServices) async {
-        guard !Task.isCancelled else { return }
-        let requestID = UUID()
-        cacheReloadID = requestID
-        let accounts = services.accounts
-        guard accounts.states[.jw] != .noAccount, let studentId = accounts.studentId else {
-            displayedStudentId = nil
-            displayedUnifiedUsername = nil
+        guard !Task.isCancelled, let state = cacheState(services: services) else { return }
+        await synchronizeCache(state, services: services, force: true)
+    }
+
+    private func cacheState(services: AppServices) -> CacheState? {
+        guard let scope = CacheScope(services: services) else {
+            cache = nil
             snapshot = nil
             upcomingExams = []
             colors = [:]
+            isRefreshing = false
             phase = .needsLogin
-            return
+            return nil
         }
-        let sessionID = accounts.jwSessionID
-        let unifiedUsername = accounts.unifiedUsername
-        if displayedStudentId != studentId || displayedUnifiedUsername != unifiedUsername {
-            displayedStudentId = studentId
-            displayedUnifiedUsername = unifiedUsername
+        if let cache, cache.scope == scope { return cache }
+        if let previous = cache?.scope,
+           previous.database != scope.database || previous.session != scope.session ||
+           previous.studentId != scope.studentId || previous.username != scope.username {
             snapshot = nil
             upcomingExams = []
             colors = [:]
             phase = .loading
         }
+        isRefreshing = false
+        let state = CacheState(scope: scope, database: services.database)
+        cache = state
+        return state
+    }
+
+    private func synchronizeCache(_ state: CacheState, services: AppServices, force: Bool = false) async {
+        var force = force
+        while !Task.isCancelled {
+            let revision = await state.observation.currentRevision()
+            guard !Task.isCancelled, cache === state, CacheScope(services: services) == state.scope else { return }
+            if let reading = state.reading {
+                await reading.value
+            } else {
+                if !force, let revision, state.loadedRevision == revision { return }
+                let reading = Task {
+                    await readCache(state, services: services)
+                    state.loadedRevision = revision
+                    state.reading = nil
+                }
+                state.reading = reading
+                await reading.value
+            }
+            if revision == nil { return }
+            force = false
+        }
+    }
+
+    private func readCache(_ state: CacheState, services: AppServices) async {
+        let studentId = state.scope.studentId
         let repository = ScheduleRepository(backend: services.backend, database: services.database)
-        let overrides = await PhyExpOverrides.cached(database: services.database, unifiedUsername: unifiedUsername)
+        let overrides = await PhyExpOverrides.cached(database: services.database, unifiedUsername: state.scope.username)
         let cached = await repository.cachedSnapshot(studentId: studentId, overrides: overrides)
         let exams = (try? await ExamRepository(database: services.database).allExams(studentId: studentId)) ?? []
-        guard !Task.isCancelled, cacheReloadID == requestID, accounts.studentId == studentId,
-              accounts.jwSessionID == sessionID, accounts.unifiedUsername == unifiedUsername else { return }
+        guard cache === state, CacheScope(services: services) == state.scope else { return }
         if let cached {
             if snapshot?.schedule.theoryList != cached.schedule.theoryList {
                 colors = CourseColorAssigner.assign(courses: cached.schedule.theoryList.filter(\.isValid))
@@ -102,21 +154,27 @@ final class HomeModel {
     }
 
     func load(services: AppServices, minimumInterval: TimeInterval = 120) async {
+        guard !Task.isCancelled, let state = cacheState(services: services) else { return }
         let accounts = services.accounts
-        let requestedStudent = accounts.studentId
-        let sessionID = accounts.jwSessionID
+        let studentId = state.scope.studentId
+        let sessionID = state.scope.session
         let throttleKey = sessionID.uuidString
         let force = minimumInterval <= 0
         phase = snapshot == nil ? .loading : phase
-        await reloadFromCache(services: services)
-        guard !Task.isCancelled, phase != .needsLogin, let studentId = requestedStudent,
-              accounts.studentId == studentId, accounts.jwSessionID == sessionID else { return }
+        await synchronizeCache(state, services: services)
+        guard !Task.isCancelled, cache === state, CacheScope(services: services) == state.scope,
+              !state.refreshing else { return }
         guard throttle.recordRefreshStartIfDue(for: throttleKey, minimumInterval: minimumInterval) else {
             if snapshot == nil, !isRefreshing { phase = .unavailable("暂时没有本学期的课表数据") }
             return
         }
+        state.refreshing = true
         isRefreshing = true
-        defer { isRefreshing = false }
+        defer {
+            state.refreshing = false
+            if cache === state { isRefreshing = false }
+            state.observation.resume()
+        }
 
         let campusRefresh = Task { try? await refreshCoordinator.refreshCampusCalendar(database: services.database, force: force) }
         defer { campusRefresh.cancel() }
@@ -141,12 +199,12 @@ final class HomeModel {
             failure = (error as? GxuError) ?? .network(error.localizedDescription)
         }
         _ = await campusRefresh.value
-        guard !Task.isCancelled, accounts.studentId == studentId, accounts.jwSessionID == sessionID else { return }
-        await reloadFromCache(services: services)
-        if snapshot != nil, !Task.isCancelled, accounts.studentId == studentId, accounts.jwSessionID == sessionID {
+        guard !Task.isCancelled, cache === state, CacheScope(services: services) == state.scope else { return }
+        await synchronizeCache(state, services: services)
+        guard !Task.isCancelled, cache === state, CacheScope(services: services) == state.scope else { return }
+        if snapshot != nil {
             await WidgetBridge.refresh(services: services)
-        }
-        if !Task.isCancelled, accounts.studentId == studentId, accounts.jwSessionID == sessionID, snapshot == nil {
+        } else {
             phase = .unavailable(failure?.userMessage ?? "暂时没有本学期的课表数据")
         }
     }

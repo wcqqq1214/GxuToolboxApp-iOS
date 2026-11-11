@@ -2,6 +2,7 @@ import Foundation
 import GxuAuth
 import GxuFoundation
 import GxuNetworking
+import Observation
 @testable import GxuStorage
 import GxuTestSupport
 import ScheduleKit
@@ -25,6 +26,44 @@ struct ScheduleScopeTests {
     func seed(_ backend: MockBackendAPI, days: [TermStartDay], name: String) throws {
         backend.stub("GET /jw/profile/startDay", json: try JSONEncoder().encode(["data": days]))
         backend.stub("GET /jw/schedule/personal", json: try JSONEncoder().encode(["data": schedule(name)]))
+    }
+
+    @Test func refreshUpdatesTimestampsAndOnlyRebuildsForNewContent() async throws {
+        let weekdayOffset = (Calendar.current.component(.weekday, from: .now) + 5) % 7
+        let term = TermStartDay(year: 2026, term: 1, day: day(-7 - weekdayOffset), week: 20)
+        let backend = MockBackendAPI()
+        try seed(backend, days: [term], name: "COURSE")
+        let services = AppServices.preview(backend: backend, features: [ScheduleKit.migrations], studentId: "A")
+        let calendarJSON = Mutex(Data(#"{"holidays":[],"timeShift":[]}"#.utf8))
+        let coordinator = ScheduleRefreshCoordinator(campusFetch: { _ in calendarJSON.withLock { $0 } })
+        let model = ScheduleViewModel(refreshCoordinator: coordinator)
+        await model.load(services: services)
+        for _ in 0..<100 where model.campusCalendar.updatedAt == nil { try await Task.sleep(for: .milliseconds(5)) }
+        let previousCalendarUpdate = try #require(model.campusCalendar.updatedAt)
+        let previousScheduleUpdate = try #require(model.updatedAt)
+        let original = model.index.occurrences
+        try #require(!original.isEmpty)
+        let indexChanged = Mutex(false)
+        withObservationTracking {
+            _ = model.index
+        } onChange: {
+            indexChanged.withLock { $0 = true }
+        }
+
+        await model.refresh()
+        for _ in 0..<100 where model.campusCalendar.updatedAt == previousCalendarUpdate { try await Task.sleep(for: .milliseconds(5)) }
+        #expect(try #require(model.updatedAt) > previousScheduleUpdate)
+        #expect(try #require(model.campusCalendar.updatedAt) > previousCalendarUpdate)
+        #expect(!indexChanged.withLock { $0 })
+        #expect(model.index.occurrences == original)
+
+        let holiday = HolidayRange(title: "Holiday", from: day(0), to: day(0), kind: .school)
+        let changedCalendar = try JSONEncoder().encode(["holidays": [holiday]])
+        calendarJSON.withLock { $0 = changedCalendar }
+        await model.refresh()
+        for _ in 0..<100 where !indexChanged.withLock({ $0 }) { try await Task.sleep(for: .milliseconds(5)) }
+        #expect(indexChanged.withLock { $0 })
+        #expect(model.index.dayBlocks(inWeek: model.currentWeek).contains { $0.title == "Holiday" })
     }
     @Test func rolloverFailureMustNotRelabelOldSchedule() async throws {
         let old = TermStartDay(year: 2025, term: 1, day: day(-400), week: 20)
