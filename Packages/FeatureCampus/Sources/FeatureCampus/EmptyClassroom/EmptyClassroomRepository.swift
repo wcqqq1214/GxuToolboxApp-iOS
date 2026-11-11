@@ -170,6 +170,12 @@ public struct EmptyClassroomRepository: Sendable {
         }
     }
 
+    public func room(id: Int64) async throws -> RoomRecord? {
+        try await database.writer.read { db in
+            try Row.fetchOne(db, sql: "SELECT * FROM empty_room WHERE id = ?", arguments: [id]).map(Self.room)
+        }
+    }
+
     public func searchRooms(keyword: String, building: String? = nil) async throws -> [RoomRecord] {
         let text = keyword.trimmingCharacters(in: .whitespaces)
         guard !text.isEmpty else { return [] }

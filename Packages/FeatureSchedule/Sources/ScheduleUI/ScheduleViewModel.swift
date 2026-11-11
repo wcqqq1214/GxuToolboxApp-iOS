@@ -14,6 +14,13 @@ final class ScheduleViewModel {
         case failed(String)
     }
 
+    private struct LayerRequest: Equatable {
+        let generation: Int
+        let studentId: String
+        let term: AcademicTerm
+        let username: String?
+    }
+
     private(set) var phase: Phase = .loading
     private(set) var term: AcademicTerm?
     private(set) var termCalendar: TermCalendar?
@@ -45,6 +52,7 @@ final class ScheduleViewModel {
     @ObservationIgnored private var lastRefreshStartedAt: Date?
     @ObservationIgnored private var generation = 0
     @ObservationIgnored private var refreshingGeneration: Int?
+    @ObservationIgnored private var layerLoad: (request: LayerRequest, task: Task<Void, Never>)?
 
     var weekCount: Int { max(termCalendar?.weekCount ?? 1, index.maxWeek, 1) }
     var currentWeek: Int { termCalendar?.clampedWeek(at: .now) ?? 1 }
@@ -94,6 +102,7 @@ final class ScheduleViewModel {
         if studentId != self.studentId { reset() }
         self.studentId = studentId
         if unifiedUsername != accounts.unifiedUsername {
+            cancelLayerLoad()
             unifiedUsername = accounts.unifiedUsername
             overrides = []
             rebuildIndex()
@@ -184,19 +193,55 @@ final class ScheduleViewModel {
         }
     }
 
-    func reloadExams(generation gen: Int) async {
-        guard let layersProvider, let services, let studentId, let term else { return }
-        let username = services.accounts.unifiedUsername
-        let layers = await layersProvider(studentId, term)
-        guard !Task.isCancelled, gen == generation, self.term == term, services.accounts.studentId == studentId,
-              services.accounts.unifiedUsername == username else { return }
-        exams = layers.exams
-        overrides = layers.overrides
-        attendanceMarks = layers.attendance
-        rebuildIndex()
+    private func reloadExams(generation gen: Int, afterCacheWrite: Bool = false) async {
+        guard !Task.isCancelled, gen == generation, let layersProvider, let services, let studentId, let term,
+              services.accounts.studentId == studentId else { return }
+        let request = LayerRequest(generation: gen, studentId: studentId, term: term, username: services.accounts.unifiedUsername)
+        if !afterCacheWrite, let layerLoad, layerLoad.request == request {
+            await layerLoad.task.value
+            return
+        }
+        cancelLayerLoad()
+        let task = Task { [weak self] in
+            let layers = await layersProvider(request.studentId, request.term)
+            guard !Task.isCancelled, let self else { return }
+            self.layerLoad = nil
+            guard self.generation == request.generation, self.term == request.term,
+                  self.services?.accounts.studentId == request.studentId,
+                  self.services?.accounts.unifiedUsername == request.username else { return }
+            self.applyLayers(layers)
+        }
+        layerLoad = (request, task)
+        await task.value
     }
 
-    func refreshExamLayer() async { await reloadExams(generation: generation) }
+    func refreshExamLayer(afterCacheWrite: Bool = false) async {
+        await reloadExams(generation: generation, afterCacheWrite: afterCacheWrite)
+    }
+
+    private func cancelLayerLoad() {
+        layerLoad?.task.cancel()
+        layerLoad = nil
+    }
+
+    private func applyLayers(_ layers: ScheduleExtraLayers) {
+        let examsChanged = exams != layers.exams
+        let overridesChanged = overrides != layers.overrides
+        let attendanceChanged = attendanceMarks != layers.attendance
+        if examsChanged { exams = layers.exams }
+        if overridesChanged { overrides = layers.overrides }
+        if attendanceChanged { attendanceMarks = layers.attendance }
+        if overridesChanged {
+            rebuildIndex()
+            return
+        }
+        guard schedule != nil, let termCalendar else { return }
+        if examsChanged {
+            index = ScheduleIndex(occurrences: index.occurrences, dayBlocks: index.dayBlocks,
+                                  examBlocks: ExamPlacement.blocks(for: exams, term: termCalendar))
+        }
+        if attendanceChanged { rebuildAttendance(calendar: termCalendar.calendar) }
+    }
 
     func save(_ activity: CustomActivity) async {
         guard let services, let studentId, let term else { return }
@@ -249,6 +294,7 @@ final class ScheduleViewModel {
 
     func select(term: AcademicTerm) async {
         guard let services, let studentId, term != self.term else { return }
+        cancelLayerLoad()
         generation += 1
         pinnedTerm = term
         schedule = nil
@@ -269,6 +315,7 @@ final class ScheduleViewModel {
     }
 
     private func reset() {
+        cancelLayerLoad()
         generation += 1
         phase = .loading
         term = nil
@@ -304,6 +351,7 @@ final class ScheduleViewModel {
 
     private func setTerm(_ target: AcademicTerm, calendar: TermCalendar?) {
         if term != target {
+            cancelLayerLoad()
             exams = []
             overrides = []
             attendanceMarks = []
@@ -346,16 +394,28 @@ final class ScheduleViewModel {
         guard let schedule = mergedSchedule, let termCalendar else { return }
         let base = OccurrenceOverrides.apply(overrides, to: ScheduleExpander.occurrences(of: schedule, in: termCalendar))
         let overlaid = CalendarOverlay.apply(to: base, calendar: campusCalendar, term: termCalendar)
-        attendance = attendanceMarks.isEmpty ? nil : AttendanceIndex(attendanceMarks, calendar: termCalendar.calendar)
+        rebuildAttendance(calendar: termCalendar.calendar)
         index = ScheduleIndex(occurrences: overlaid.occurrences, dayBlocks: overlaid.dayBlocks, examBlocks: ExamPlacement.blocks(for: exams, term: termCalendar))
         publishWidgetSnapshot()
+    }
+
+    private func rebuildAttendance(calendar: Calendar) {
+        attendance = attendanceMarks.isEmpty ? nil : AttendanceIndex(attendanceMarks, calendar: calendar)
     }
 
     private func publishWidgetSnapshot() {
         let now = Date.now
         guard let services, let studentId, let term, services.accounts.studentId == studentId,
               TermResolver.current(in: startDays, now: now)?.academicTerm == term else { return }
-        let snapshot = NextCourseCalculator.compute(schedule: mergedSchedule, term: termCalendar, campus: campusCalendar, choices: choices, overrides: overrides, now: now)
+        let snapshot: NextCourses
+        if schedule == nil {
+            snapshot = .empty(.missingSchedule, now: now)
+        } else if let termCalendar {
+            let occurrences = ConflictResolver.resolve(index.occurrences, choices: choices)
+            snapshot = NextCourseCalculator.compute(occurrences: occurrences, now: now, calendar: termCalendar.calendar)
+        } else {
+            snapshot = .empty(.missingStartDay, now: now)
+        }
         services.shared.set(snapshot, for: ScheduleKit.widgetSnapshotKey(studentId: studentId))
     }
 }

@@ -11,9 +11,12 @@ public enum ScheduleQuery {
         let start = term.calendar.startOfDay(for: day)
         let base = OccurrenceOverrides.apply(overrides, to: ScheduleExpander.occurrences(of: schedule, in: term))
         let overlaid = CalendarOverlay.apply(to: base, calendar: campus, term: term).occurrences
-        return ConflictResolver.resolve(overlaid, choices: choices)
-            .filter { $0.date == start }
-            .map { WidgetCourse($0, calendar: term.calendar) }
+        return courses(on: start, occurrences: overlaid, choices: choices, calendar: term.calendar)
+    }
+
+    private static func courses(on dayStart: Date, occurrences: [CourseOccurrence], choices: [String: String], calendar: Calendar) -> [WidgetCourse] {
+        ConflictResolver.resolve(occurrences.filter { $0.date == dayStart }, choices: choices)
+            .map { WidgetCourse($0, calendar: calendar) }
     }
 
     public enum Failure: Error, Equatable, Sendable {
@@ -29,7 +32,8 @@ public enum ScheduleQuery {
             if let days = try? await repo.cachedStartDays(), TermResolver.current(in: days, now: day, calendar: calendar) != nil { throw Failure.noSchedule }
             throw Failure.noTermCalendar
         }
-        return courses(on: day, schedule: snapshot.schedule, term: snapshot.termCalendar, campus: snapshot.campus, choices: snapshot.choices, overrides: overrides)
+        let calendar = snapshot.termCalendar.calendar
+        return courses(on: calendar.startOfDay(for: day), occurrences: snapshot.occurrences, choices: snapshot.choices, calendar: calendar)
     }
 
     public static func describe(dayName: String, courses: [WidgetCourse]) -> String {

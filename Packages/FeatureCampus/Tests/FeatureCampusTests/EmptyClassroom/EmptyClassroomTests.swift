@@ -168,6 +168,14 @@ struct EmptyClassroomRepositoryTests {
         return DayPayload(day: day, rooms: r, freePeriods: f)
     }
 
+    @Test func lookupByIdDistinguishesRoomsWithTheSameName() async throws {
+        let repo = try makeRepo()
+        try await repo.saveDay(year: 2026, term: 1, week: 1, day: 1, payload: payload(day: 1, [("A楼", "101", [1]), ("B楼", "101", [1])]))
+        let expected = try #require(try await repo.listRooms(inBuilding: "B楼").first)
+        #expect(try await repo.room(id: expected.id) == expected)
+        #expect(try await repo.room(id: -1) == nil)
+    }
+
     @Test func saveDayThenQueryAndPaginate() async throws {
         let repo = try makeRepo()
         let rooms = (1...5).map { ("A楼", "10\($0)", $0 == 5 ? [9] : [1, 2, 3]) }

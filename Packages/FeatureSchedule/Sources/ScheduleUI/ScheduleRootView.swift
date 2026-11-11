@@ -67,7 +67,7 @@ public struct ScheduleRootView: View {
             await model.refreshExamLayer()
             guard !Task.isCancelled, key.state == .authenticated, key.userId != nil else { return }
             await refreshAttendance(studentId, term)
-            if !Task.isCancelled { await model.refreshExamLayer() }
+            if !Task.isCancelled { await model.refreshExamLayer(afterCacheWrite: true) }
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { Task { await model.refreshIfDue(); await model.refreshExamLayer() } }

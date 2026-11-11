@@ -230,15 +230,11 @@ final class EmptyClassroomModel {
     private var pendingRoomId: Int64?
 
     private func restoreRoom() async {
-        guard let repository, let id = pendingRoomId else { return }
+        guard let repository, let id = pendingRoomId, let term else { return }
         pendingRoomId = nil
-        for building in (try? await repository.listRoomBuildings()) ?? [] {
-            if let found = (try? await repository.listRooms(inBuilding: building.building))?.first(where: { $0.id == id }) {
-                room = found
-                await loadRoomRuns()
-                return
-            }
-        }
+        guard let found = try? await repository.room(id: id), self.term == term, room == nil else { return }
+        room = found
+        await loadRoomRuns()
     }
 }
 

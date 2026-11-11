@@ -5,6 +5,7 @@ import GxuNetworking
 @testable import GxuStorage
 import GxuTestSupport
 import ScheduleKit
+import Synchronization
 import Testing
 @testable import ScheduleUI
 
@@ -132,5 +133,44 @@ struct ScheduleScopeTests {
         await model.select(term: old.academicTerm)
         let after = try #require(services.shared.value(key))
         #expect(after == before)
+    }
+
+    @Test func attendanceCacheWriteSupersedesAnInFlightRead() async throws {
+        let term = TermStartDay(year: 2026, term: 1, day: day(-7), week: 20)
+        let backend = MockBackendAPI()
+        try seed(backend, days: [term], name: "COURSE")
+        let services = AppServices.preview(backend: backend, features: [ScheduleKit.migrations], studentId: "A")
+        let model = ScheduleViewModel()
+        await model.load(services: services)
+        let occurrence = try #require(model.index.occurrences.first)
+        let formatter = DateFormatter()
+        formatter.calendar = try #require(model.termCalendar?.calendar)
+        formatter.timeZone = formatter.calendar.timeZone
+        formatter.dateFormat = "yyyy-MM-dd"
+        let date = formatter.string(from: occurrence.date)
+        let old = AttendanceMark(date: date, periodRange: "1,2", statusCode: 2)
+        let fresh = AttendanceMark(date: date, periodRange: "1,2", statusCode: 1)
+        let (entered, didEnter) = AsyncStream<Void>.makeStream()
+        let (release, finishRead) = AsyncStream<Void>.makeStream()
+        let calls = Mutex(0)
+        model.layersProvider = { _, _ in
+            let first = calls.withLock { count in
+                count += 1
+                return count == 1
+            }
+            if first {
+                didEnter.yield(())
+                for await _ in release { break }
+                return ScheduleExtraLayers(attendance: [old])
+            }
+            return ScheduleExtraLayers(attendance: [fresh])
+        }
+        let reading = Task { await model.refreshExamLayer() }
+        var firstRead = entered.makeAsyncIterator()
+        _ = await firstRead.next()
+        await model.refreshExamLayer(afterCacheWrite: true)
+        finishRead.finish()
+        await reading.value
+        #expect(model.attendance?.status(for: occurrence) == .normal)
     }
 }

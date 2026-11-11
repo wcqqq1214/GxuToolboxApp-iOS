@@ -59,9 +59,7 @@ public enum WidgetBridge {
             return
         }
         let unifiedUsername = services.accounts.unifiedUsername
-        let snapshot = await SnapshotProvider.compute(studentId: studentId, database: services.database, unifiedUsername: unifiedUsername, now: now)
-        var hasClassesToday = !snapshot.today.isEmpty
-        if !hasClassesToday { hasClassesToday = await SnapshotProvider.hasScheduledClasses(on: now, studentId: studentId, database: services.database, unifiedUsername: unifiedUsername) }
+        let (snapshot, hasClassesToday) = await SnapshotProvider.dailySnapshot(studentId: studentId, database: services.database, unifiedUsername: unifiedUsername, now: now)
         guard !Task.isCancelled, refreshIDs[key] == refreshID, services.accounts.studentId == studentId,
               services.accounts.unifiedUsername == unifiedUsername else { return }
         services.shared.set(snapshot, for: ScheduleKit.widgetSnapshotKey(studentId: studentId))

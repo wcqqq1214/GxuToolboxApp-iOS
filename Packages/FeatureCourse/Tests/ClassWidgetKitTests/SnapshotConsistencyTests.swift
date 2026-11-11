@@ -59,4 +59,16 @@ private func at(_ s: String) -> Date {
         let other = await SnapshotProvider.compute(studentId: "s2", database: db, now: day, calendar: cal)
         #expect(other.state == .missingSchedule)
     }
+
+    @Test func widgetKnowsTodayHadClassesAfterTheLastOneEnds() async throws {
+        let (db, _) = try await database()
+        let monday = await SnapshotProvider.dailySnapshot(studentId: "s1", database: db, unifiedUsername: nil, now: at("2026-11-02 22:00"), calendar: cal)
+        #expect(monday.courses.state == .ready)
+        #expect(monday.courses.today.isEmpty)
+        #expect(monday.hasClassesToday)
+
+        let tuesday = await SnapshotProvider.dailySnapshot(studentId: "s1", database: db, unifiedUsername: nil, now: at("2026-11-03 22:00"), calendar: cal)
+        #expect(tuesday.courses.state == .ready)
+        #expect(!tuesday.hasClassesToday)
+    }
 }
