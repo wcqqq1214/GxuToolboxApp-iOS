@@ -25,8 +25,7 @@ struct DatabaseOpenBackup {
         try exists(directory) ? directory.appending(path: database.lastPathComponent) : nil
     }
 
-    func preserve() throws {
-        guard try preservedDatabase() == nil else { return }
+    func create() throws {
         let files = try originalFiles()
         guard !files.isEmpty else { return }
         guard files.first == database else { throw CocoaError(.fileReadCorruptFile) }

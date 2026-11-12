@@ -1,7 +1,6 @@
 import GxuFoundation
 import GxuStorage
 import SwiftUI
-import UniformTypeIdentifiers
 
 struct DatabaseFailureView: View {
     let code: String
@@ -40,7 +39,7 @@ struct DatabaseFailureView: View {
                 }
             }
             .navigationTitle("本地数据恢复")
-            .fileExporter(isPresented: $isExporting, document: document, contentTypes: [.propertyList],
+            .fileExporter(isPresented: $isExporting, document: document, contentTypes: DatabaseBackupDocument.writableContentTypes,
                           defaultFilename: "gxu-database-backup.plist") { result in
                 document = nil
                 switch result {

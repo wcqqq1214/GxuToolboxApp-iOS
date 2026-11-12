@@ -40,7 +40,7 @@ public final class AppDatabase: Sendable {
         let backup = DatabaseOpenBackup(database: url)
         return try backup.withLock {
             let hadPreservedBackup = try backup.preservedDatabase() != nil
-            try backup.preserve()
+            if !hadPreservedBackup { try backup.create() }
             let pool = try DatabasePool(path: url.path)
             let database = try AppDatabase(writer: pool, features: features)
             try backup.finish(archive: hadPreservedBackup)
