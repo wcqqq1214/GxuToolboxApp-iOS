@@ -27,11 +27,13 @@ public final class AppDatabase: Sendable {
             ?? fm.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
     }
 
-    public static func open(features: [FeatureMigrations]) throws -> AppDatabase {
-        let fm = FileManager.default
-        let directory = databaseDirectory(appGroupID: GxuConfig.appGroupID, fileManager: fm)
-        try fm.createDirectory(at: directory, withIntermediateDirectories: true)
-        let pool = try DatabasePool(path: directory.appending(path: "gxu_tool.sqlite").path)
+    public static var fileURL: URL {
+        databaseDirectory(appGroupID: GxuConfig.appGroupID).appending(path: "gxu_tool.sqlite")
+    }
+
+    public static func open(features: [FeatureMigrations], at url: URL = fileURL) throws -> AppDatabase {
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let pool = try DatabasePool(path: url.path)
         return try AppDatabase(writer: pool, features: features)
     }
 

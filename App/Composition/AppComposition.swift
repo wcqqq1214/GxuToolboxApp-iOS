@@ -7,6 +7,13 @@ import GxuStorage
 
 @MainActor
 enum AppComposition {
+    static var databaseFileURL: URL {
+        #if DEBUG
+        if let url = DebugDatabaseFailure.fileURL { return url }
+        #endif
+        return AppDatabase.fileURL
+    }
+
     private static var campusCredentials: KeychainCredentialStore {
         let shared = Bundle.main.object(forInfoDictionaryKey: "GxuKeychainAccessGroup") as? String
         let campus = Bundle.main.object(forInfoDictionaryKey: "GxuCampusKeychainAccessGroup") as? String
@@ -43,7 +50,15 @@ enum AppComposition {
         legacyCampus.delete(.campusNetwork)
     }
 
-    static func live() -> AppServices {
+    static func live() async throws -> AppServices {
+        let features = FeatureRegistry.migrations
+        let databaseURL = databaseFileURL
+        let database = try await Task.detached {
+            #if DEBUG
+            try DebugDatabaseFailure.prepare()
+            #endif
+            return try AppDatabase.open(features: features, at: databaseURL)
+        }.value
         migrateCampusCredentials()
         let session = BackendClient.makeSession(configuration: .default)
         let credentials = KeychainCredentialStore()
@@ -54,12 +69,6 @@ enum AppComposition {
             session: session, renewer: SessionRenewers(jw: jw, attendance: attendance),
             tokenProvider: { system in system == .attendance ? attendance.token : nil }
         )
-        let database: AppDatabase
-        do {
-            database = try AppDatabase.open(features: FeatureRegistry.migrations)
-        } catch {
-            fatalError("数据库打开失败：\(error)")
-        }
         let accounts = AccountCenter(credentials: credentials, jw: jw, attendance: attendance, unified: UnifiedAuthSession(credentials: credentials),
             oa: OASession(credentials: credentials, tokens: KeychainTokenStore(system: .oa)),
             wjxt: WjxtSession(credentials: credentials)
