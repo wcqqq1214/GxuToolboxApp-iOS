@@ -33,6 +33,26 @@
 
 启用后的事件正文只包含事件名、功能、应用版本和兼容后端的固定 `userId: "0"`，不再填入学号，也不生成安装标识。统计仍使用现有后端会话，不能据此承诺网络层匿名或删除服务器上的历史数据。隐私清单暂保留保守声明，后续结合服务端的数据处理方式核实。
 
+## 后端不可用时的表现
+
+自建后端 `api.tool.gxutech.xyz` 和静态文件服务 `file.unde.site` 都由第三方维护，地址写在源码中。服务不可用时，各功能保留已有缓存并提示错误，不清空页面，也不阻塞启动。缓存读取或解码失败时，`ErrorLog` 记录 `[cache]` 条目，诊断日志不再为空。
+
+| 功能 | 依赖 | 服务不可用时 | 测试 |
+| --- | --- | --- | --- |
+| 教务、考勤登录 | 自建后端代理 | 登录失败并提示；后台续期失败不改变登录状态 | `AuthStateRegressionTests.offlineSilentRenewDoesNotChangeTheState` |
+| 个人课表、开学日期 | 自建后端 | 显示缓存；换学期失败时不把旧课表标成新学期 | `ColorAndRepositoryTests.nullResponseKeepsOldCache`、`ScheduleScopeTests.rolloverFailureMustNotRelabelOldSchedule` |
+| 考试安排 | 自建后端 | 显示缓存并提示错误 | `ExamInfoFailureTests` |
+| 成绩与绩点 | 自建后端 | 显示缓存并提示错误，绩点不用不完整数据计算 | `GpaAllTermsTests.failureKeepsCacheAndShowsErrorButNeverAWrongTotal` |
+| 已选课程 | 自建后端 | 显示缓存并提示错误 | `SelectedCoursesFailureTests` |
+| 个人资料 | 自建后端 | 使用缓存 | `ProfileRepositoryTests.profileUsesCacheUnlessRefreshAndFallsBackOnFailure` |
+| 空闲教室 | 自建后端 | 保留已缓存日期并提示错误 | `EmptyClassroomTests.errorKeepsSavedDaysAndPropagates` |
+| 考勤记录 | 自建后端代理 | 后台刷新失败时保留缓存 | `AttendanceRecordCacheTests.silentRefreshKeepsCacheOnFailure` |
+| 教师查询 | 自建后端 | 无缓存，提示错误并可重试；课表中的教师查询成功后缓存 | `TeacherLookupTests.retriesFailedLookupAndCachesSuccessfulResult` |
+| 选课策略 | 自建后端 | 已选课程或成绩任一可用时照常显示，两者都失败才提示错误 | 尚无专门测试 |
+| 使用统计 | 自建后端 `/event` | 静默丢弃，不影响业务 | `AnalyticsTests` |
+| 校历与寒暑假 | `file.unde.site` | 使用缓存，没有缓存时使用内置校历 | `CampusCalendarTests.failedRefreshKeepsCache`、`CampusCalendarTests.repositoryFallsBackThenCachesRemote` |
+| 版本检查 | `file.unde.site` | 不提示更新 | 只覆盖响应解析，请求失败路径尚无测试 |
+
 ## 数据库打开失败
 
 本地数据库 `gxu_tool.sqlite` 同时保存可重新获取的缓存和自定义课程、课表冲突选择、评教模板等用户数据。已有数据库在可写打开前会保全主文件和附属文件。打开或迁移失败后保留第一次尝试前的副本，重试和重新启动都沿用该副本。首次打开成功后清理临时副本。重试成功后，把先前失败保留的副本移入同目录的 `gxu_tool.sqlite.recovery-<UUID>`，以便后续人工检查。快捷指令用只读连接查询缓存。应用显示“本地数据恢复”页面，允许重试和导出原始数据备份。数据库成功打开后才装配账号服务、加载首页、检查更新及启动小组件同步。
