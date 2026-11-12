@@ -1,5 +1,7 @@
 # 自建后端 API (tool.gxutech.xyz) — 详细接口文档
 
+本文记录 RN 时期的接口，`http://` 地址和 `src/` 路径均来自 RN 上游。iOS 版通过 HTTPS 访问同一后端，地址以 [`backendBaseURL`](../../Packages/GxuCore/Sources/GxuFoundation/Models.swift) 为准。
+
 ## 基础信息
 
 | 项目 | 内容 |
