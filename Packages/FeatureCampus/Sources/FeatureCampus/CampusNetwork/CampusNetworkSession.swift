@@ -14,14 +14,15 @@ struct CampusNetworkUsage: Codable, Sendable {
 }
 
 enum CampusNetworkError: LocalizedError {
-    case unavailable, unexpectedPage, accountMismatch, loginFailed, captchaExpired
+    case unavailable, unexpectedPage, accountMismatch, loginFailed, passwordRejected, captchaExpired
 
     var errorDescription: String? {
         switch self {
         case .unavailable: "无法访问校园网自服务，请连接 GXU-WLAN 后重试。"
         case .unexpectedPage: "校园网自服务返回了无法识别的页面。"
         case .accountMismatch: "查询结果的账号与当前校园网账号不一致。"
-        case .loginFailed: "校园网登录未通过，请检查校园网账号、密码和验证码。"
+        case .loginFailed: "校园网登录未通过，请稍后重试。详情见「设置 → 诊断日志」。"
+        case .passwordRejected: "校园网账号或密码错误，请检查后重试。"
         case .captchaExpired: "验证码已失效，请重新刷新。"
         }
     }
@@ -64,9 +65,8 @@ enum CampusNetworkPage {
     }
 
     static func captchaFeedback(in html: String) -> CaptchaFeedback? {
-        let messages = html.matches(#"\}\)\s*\(\s*(['"])(.*?)\1\s*\)\s*;"#)
-        for message in messages {
-            let text = plain(message[1]).filter { !$0.isWhitespace }
+        for message in tips(in: html) {
+            let text = plain(message).filter { !$0.isWhitespace }
             if text.range(of: #"(?:无需|不需(?:要)?|不用|不必|不要求|请勿)(?:再(?:次)?|重新)?(?:输入|填写)?验证码|验证码(?:无需|不用|不必)(?:输入|填写)"#, options: .regularExpression) != nil {
                 return .notRequired
             }
@@ -75,6 +75,20 @@ enum CampusNetworkPage {
             }
         }
         return nil
+    }
+
+    private static func tips(in html: String) -> [String] {
+        html.matches(#"\}\)\s*\(\s*(['"])(.*?)\1\s*\)\s*;"#).map { $0[1] }
+    }
+
+    static func loginError(in pages: String...) -> CampusNetworkError {
+        let tips = pages.flatMap { Self.tips(in: $0) }
+        for tip in tips { ErrorLog.shared.record("auth", "校园网登录未通过，tip：\(tip)") }
+        if tips.isEmpty { ErrorLog.shared.record("auth", "校园网登录未通过，服务器未提供 tip") }
+        let passwordRejected = tips.contains {
+            plain($0).range(of: #"^(?:您输入的|输入的)?(?:账号或|帐号或|用户名或)?密码(?:错误|不正确|有误)\s*(?:[，。；！,;.!]|$)"#, options: .regularExpression) != nil
+        }
+        return passwordRejected ? .passwordRejected : .loginFailed
     }
 
     private static func plain(_ html: String) -> String {
@@ -133,10 +147,10 @@ actor CampusNetworkSession {
         if let usage = try await dashboard(account: credential.username) { return .usage(usage) }
 
         let feedback = CampusNetworkPage.captchaFeedback(in: response)
-        guard feedback != .notRequired else { throw CampusNetworkError.loginFailed }
+        guard feedback != .notRequired else { throw CampusNetworkPage.loginError(in: response) }
         let retryPage = try await loadLoginPage()
         guard (feedback ?? CampusNetworkPage.captchaFeedback(in: retryPage)) == .required else {
-            throw CampusNetworkError.loginFailed
+            throw CampusNetworkPage.loginError(in: response, retryPage)
         }
         return try await requestCaptcha(in: retryPage, rejected: rejectedCaptcha)
     }

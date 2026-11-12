@@ -79,12 +79,12 @@ public actor OASession {
         try checkGeneration(generation)
         var (data, response) = try await perform(authorized(request))
         try checkGeneration(generation)
-        if response.statusCode == 401 {
+        if Self.isUnauthorized(data, response) {
             try await renew()
             try checkGeneration(generation)
             (data, response) = try await perform(authorized(request))
             try checkGeneration(generation)
-            if response.statusCode == 401 {
+            if Self.isUnauthorized(data, response) {
                 observer?(.needsRelogin)
                 throw GxuError.sessionExpired(.oa)
             }
@@ -178,6 +178,13 @@ public actor OASession {
             if let error = error as? GxuError, error.isCredentialRejection { observer?(.needsRelogin) }
             throw error
         }
+    }
+
+    private static func isUnauthorized(_ data: Data, _ response: HTTPURLResponse) -> Bool {
+        if response.statusCode == 401 { return true }
+        guard (200..<300).contains(response.statusCode),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return false }
+        return (object["code"] as? Int) == 401
     }
 
     private func authorized(_ request: URLRequest) -> URLRequest {

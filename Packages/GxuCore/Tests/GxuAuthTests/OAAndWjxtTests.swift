@@ -110,6 +110,119 @@ struct OASessionTests {
         #expect(tokens.load() == "T-1")
     }
 
+    @Test func businessUnauthorizedRetriesOriginalPostWithNewToken() async throws {
+        let auth = Mutex<[String]>([])
+        let logins = Mutex(0)
+        StubURLProtocol.register(host: "oa.gxu.edu.cn") { request in
+            if request.url!.path.hasSuffix("/auth/login") {
+                logins.withLock { $0 += 1 }
+                return reply(request, loginOK)
+            }
+            #expect(request.httpMethod == "POST")
+            #expect(request.url!.path == "/api/gxuoa/wenjian/page")
+            #expect(request.url!.query == "size=10")
+            auth.withLock { $0.append(request.value(forHTTPHeaderField: "Authorization") ?? "") }
+            return reply(request, auth.withLock { $0.count } == 1
+                ? #"{"code":401,"message":"401 登录已过期，请重新登录","result":null}"#
+                : #"{"code":200,"result":{"ok":true}}"#)
+        }
+        let (session, _) = make(tokens: InMemoryTokenStore("OLD"))
+        let data = try await session.json("POST", path: "/wenjian/page", query: ["size": "10"], body: Data("{}".utf8))
+        #expect(String(decoding: data, as: UTF8.self) == #"{"ok":true}"#)
+        #expect(auth.withLock { $0 } == ["Bearer OLD", "Bearer T-1"])
+        #expect(logins.withLock { $0 } == 1)
+    }
+
+    @MainActor
+    @Test(arguments: [false, true])
+    func businessUnauthorizedUpdatesAccountCenter(rejectLogin: Bool) async throws {
+        let logins = Mutex(0)
+        let requests = Mutex(0)
+        StubURLProtocol.register(host: "oa.gxu.edu.cn") { request in
+            if request.url!.path.hasSuffix("/auth/login") {
+                logins.withLock { $0 += 1 }
+                return reply(request, rejectLogin ? #"{"code":400,"message":"密码不正确","result":null}"# : loginOK)
+            }
+            requests.withLock { $0 += 1 }
+            return reply(request, #"{"code":401,"message":"401 登录已过期，请重新登录","result":null}"#)
+        }
+        let creds = InMemoryCredentialStore([.oa: Credential(username: "u", password: "p")])
+        let oa = OASession(credentials: creds, tokens: InMemoryTokenStore("OLD"), configuration: StubURLProtocol.makeConfiguration())
+        let center = AccountCenter(credentials: creds, jw: JwSessionManager(credentials: creds, transport: BackendClientForTests.make()), oa: oa)
+        try await Task.sleep(for: .milliseconds(100))
+        let expected = rejectLogin ? GxuError.credentialsRejected(.oa, "密码不正确") : .sessionExpired(.oa)
+        await #expect(throws: expected) { try await oa.json("POST", path: "/wenjian/page") }
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(center.states[.oa] == .needsRelogin)
+        #expect(logins.withLock { $0 } == 1)
+        #expect(requests.withLock { $0 } == (rejectLogin ? 1 : 2))
+    }
+
+    @Test(arguments: [200, 401])
+    func mixedUnauthorizedSignalsShareOneRetry(firstStatus: Int) async {
+        let requests = Mutex(0)
+        let logins = Mutex(0)
+        StubURLProtocol.register(host: "oa.gxu.edu.cn") { request in
+            if request.url!.path.hasSuffix("/auth/login") {
+                logins.withLock { $0 += 1 }
+                return reply(request, loginOK)
+            }
+            let count = requests.withLock { $0 += 1; return $0 }
+            return reply(request, status: count == 1 ? firstStatus : (firstStatus == 200 ? 401 : 200), #"{"code":401,"result":null}"#)
+        }
+        let (session, _) = make(tokens: InMemoryTokenStore("OLD"))
+        await #expect(throws: GxuError.sessionExpired(.oa)) { try await session.json("POST", path: "/wenjian/page") }
+        #expect(logins.withLock { $0 } == 1)
+        #expect(requests.withLock { $0 } == 2)
+    }
+
+    @Test(arguments: [false, true])
+    func downloadHandlesBusinessUnauthorized(stillExpired: Bool) async throws {
+        let auth = Mutex<[String]>([])
+        StubURLProtocol.register(host: "oa.gxu.edu.cn") { request in
+            if request.url!.path.hasSuffix("/auth/login") { return reply(request, loginOK) }
+            let count = auth.withLock { $0.append(request.value(forHTTPHeaderField: "Authorization") ?? ""); return $0.count }
+            return reply(request, count == 1 || stillExpired ? #"{"code":401,"result":null}"# : "%PDF-fixture")
+        }
+        let (session, _) = make(tokens: InMemoryTokenStore("OLD"))
+        let url = URL(string: "https://oa.gxu.edu.cn/file/demo.pdf")!
+        if stillExpired {
+            await #expect(throws: GxuError.sessionExpired(.oa)) { try await session.download(url) }
+        } else {
+            let file = try await session.download(url)
+            defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
+            #expect(try Data(contentsOf: file) == Data("%PDF-fixture".utf8))
+        }
+        #expect(auth.withLock { $0 } == ["Bearer OLD", "Bearer T-1"])
+    }
+
+    @Test(arguments: [false, true])
+    func clearingDuringBusinessUnauthorizedRecoveryCancelsRequest(duringRetry: Bool) async throws {
+        let delayed = DelayedStubResponse()
+        let calls = Mutex(0)
+        let states = Mutex<[AuthState]>([])
+        StubURLProtocol.register(host: "oa.gxu.edu.cn") { request in
+            if request.url!.path.hasSuffix("/auth/login") {
+                if !duringRetry { try delayed.hold() }
+                return reply(request, loginOK)
+            }
+            let count = calls.withLock { $0 += 1; return $0 }
+            if count == 2 { try delayed.hold() }
+            return reply(request, #"{"code":401,"result":null}"#)
+        }
+        let (session, tokens) = make(tokens: InMemoryTokenStore("OLD"))
+        await session.setObserver { state in states.withLock { $0.append(state) } }
+        let task = Task { try await session.json("POST", path: "/wenjian/page") }
+        defer { delayed.release(); task.cancel() }
+        try await delayed.waitForRequest()
+        await session.clear()
+        delayed.release()
+        await #expect(throws: CancellationError.self) { try await task.value }
+        #expect(tokens.load() == nil)
+        #expect(!states.withLock { $0 }.contains(.needsRelogin))
+        #expect(calls.withLock { $0 } == (duringRetry ? 2 : 1))
+    }
+
     @Test func secondUnauthorizedThrowsSessionExpired() async {
         StubURLProtocol.register(host: "oa.gxu.edu.cn") { request in
             request.url!.path.hasSuffix("/auth/login") ? reply(request, loginOK) : reply(request, status: 401, "{}")

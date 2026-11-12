@@ -1,10 +1,12 @@
 import Foundation
 import GxuAuth
+import GxuFoundation
 import GxuTestSupport
 import Synchronization
 import Testing
 @testable import FeatureCampus
 
+@Suite(.serialized)
 struct CampusNetworkTests {
     @Test func decodesUsageAndKeepsThePortalUnits() throws {
         let snapshot = try CampusNetworkPage.usage(in: dashboard, account: "demo-123")
@@ -148,10 +150,45 @@ struct CampusNetworkTests {
                     "POST /login/verify", "GET /dashboard",
                 ])
             case .wrongPassword:
-                await #expect(throws: CampusNetworkError.loginFailed) { try await session.refresh(credential) }
+                await #expect(throws: CampusNetworkError.passwordRejected) { try await session.refresh(credential) }
                 #expect(steps.withLock { $0 } == passwordFlow + ["GET /login"])
             }
         }
+    }
+
+    @Test(arguments: ["密码错误", "账号或密码不正确", "用户名或密码有误", "您输入的密码错误，请重新输入", "密码错误，当前无需验证码"])
+    func explicitPasswordTipIsRecognized(tip: String) {
+        let error = CampusNetworkPage.loginError(in: "<script>(function(tip){})('\(tip)');</script>")
+        #expect(error == .passwordRejected)
+        #expect(error.localizedDescription.contains("密码"))
+    }
+
+    @Test(arguments: [
+        "服务维护中，请稍后重试", "当前无需验证码", "密码校验服务不可用", "并非密码错误，请稍后重试",
+        "系统异常，密码错误提示暂不可用", "密码错误提示暂不可用", "密码错误次数过多，请稍后再试",
+        "如果 密码错误，请重新输入", "",
+    ])
+    func unknownLoginFailureIsNeutralAndLogsTip(tip: String) async throws {
+        StubURLProtocol.register(host: "self.gxu.edu.cn") { request in
+            let url = request.url!
+            if url.path == "/dashboard" {
+                return (HTTPURLResponse(url: url, statusCode: 302, httpVersion: nil, headerFields: ["Location": "/login/"])!, Data())
+            }
+            let page = "<form action='/login/verify'></form><script>(function(tip){})('\(tip)');</script>"
+            return (HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!, Data(page.utf8))
+        }
+        let session = CampusNetworkSession(configuration: StubURLProtocol.makeConfiguration())
+        do {
+            _ = try await session.refresh(Credential(username: "demo-123", password: "FixtureSecret"))
+            Issue.record("Expected login failure")
+        } catch {
+            #expect(!error.localizedDescription.contains("密码"))
+            #expect(error.localizedDescription.contains("稍后重试"))
+        }
+        let log = ErrorLog.shared.contents()
+        #expect(log.contains("校园网登录未通过"))
+        if !tip.isEmpty { #expect(log.contains(tip)) }
+        #expect(!log.contains("FixtureSecret"))
     }
 
     private static func formBody(_ request: URLRequest) -> String {
