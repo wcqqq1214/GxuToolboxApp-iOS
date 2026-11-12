@@ -113,10 +113,12 @@ final class OAFileDetailModel {
 
     let row: OAFileRow
     private let account: String?
+    private let onRead: (OAFileReadReceipt) -> Void
     private let services: AppServices
 
-    init(row: OAFileRow, services: AppServices) {
+    init(row: OAFileRow, services: AppServices, onRead: @escaping (OAFileReadReceipt) -> Void = { _ in }) {
         self.row = row
+        self.onRead = onRead
         self.account = services.accounts.savedUsername(.oa)
         self.services = services
     }
@@ -133,7 +135,7 @@ final class OAFileDetailModel {
             self.detail = detail
             viewerToken = token
             error = nil
-            await recordRead()
+            await Task { await self.recordRead() }.value
         } catch is CancellationError {
             return
         } catch let error as GxuError {
@@ -155,7 +157,9 @@ final class OAFileDetailModel {
         do {
             try await OAFilesAPI(session: oa).recordRead(id: row.id)
             guard account == services.accounts.savedUsername(.oa) else { return }
-            readReceipt = OAFileReadReceipt(account: account, fileID: row.id)
+            let receipt = OAFileReadReceipt(account: account, fileID: row.id)
+            readReceipt = receipt
+            onRead(receipt)
         } catch is CancellationError {
             return
         } catch {

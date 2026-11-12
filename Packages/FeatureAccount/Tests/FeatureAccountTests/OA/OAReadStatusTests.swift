@@ -11,6 +11,34 @@ private final class OAReadProtocol: URLProtocol, @unchecked Sendable {
     nonisolated(unsafe) static var rejectDetail = false
     nonisolated(unsafe) static var readRequests = 0
     nonisolated(unsafe) static var recordedID: Int?
+    nonisolated(unsafe) static var holdReadResponse = false
+    nonisolated(unsafe) static var pendingReadResponse: (() -> Void)?
+    nonisolated(unsafe) static var readReady: CheckedContinuation<Void, Never>?
+    static let lock = NSLock()
+    private let stateLock = NSLock()
+    private var stopped = false
+
+    static func waitForReadRequest() async {
+        await withCheckedContinuation { continuation in
+            lock.lock()
+            if pendingReadResponse != nil {
+                lock.unlock()
+                continuation.resume()
+            } else {
+                readReady = continuation
+                lock.unlock()
+            }
+        }
+    }
+
+    static func releaseReadResponse() {
+        let response = lock.withLock {
+            let response = pendingReadResponse
+            pendingReadResponse = nil
+            return response
+        }
+        response?()
+    }
 
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
@@ -37,11 +65,24 @@ private final class OAReadProtocol: URLProtocol, @unchecked Sendable {
             Self.recordedID = (try? JSONSerialization.jsonObject(with: data) as? [String: Int])?["fileId"]
             payload = Self.rejectRead || request.httpMethod != "POST" ? #"{"code":500}"# : #"{"code":200,"result":null}"#
         }
-        client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!, cacheStoragePolicy: .notAllowed)
-        client?.urlProtocol(self, didLoad: Data(payload.utf8))
-        client?.urlProtocolDidFinishLoading(self)
+        let respond = {
+            guard !self.stateLock.withLock({ self.stopped }) else { return }
+            self.client?.urlProtocol(self, didReceive: HTTPURLResponse(url: self.request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!, cacheStoragePolicy: .notAllowed)
+            self.client?.urlProtocol(self, didLoad: Data(payload.utf8))
+            self.client?.urlProtocolDidFinishLoading(self)
+        }
+        if path.hasSuffix("/record-read"), Self.holdReadResponse {
+            Self.lock.lock()
+            Self.pendingReadResponse = respond
+            let continuation = Self.readReady
+            Self.readReady = nil
+            Self.lock.unlock()
+            continuation?.resume()
+        } else {
+            respond()
+        }
     }
-    override func stopLoading() {}
+    override func stopLoading() { stateLock.withLock { stopped = true } }
 }
 
 @Suite(.serialized) @MainActor
@@ -51,6 +92,7 @@ struct OAReadStatusTests {
         OAReadProtocol.rejectDetail = false
         OAReadProtocol.readRequests = 0
         OAReadProtocol.recordedID = nil
+        OAReadProtocol.holdReadResponse = false
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [OAReadProtocol.self]
         let store = InMemoryCredentialStore([.jw: Credential(username: "1", password: "p"), .oa: Credential(username: "account-a", password: "p")])
@@ -58,6 +100,39 @@ struct OAReadStatusTests {
         let oa = OASession(credentials: store, tokens: InMemoryTokenStore("test-token"), configuration: configuration)
         let accounts = AccountCenter(credentials: store, jw: jw, oa: oa, states: [.jw: .authenticated, .oa: .authenticated], studentId: "1")
         return AppServices(backend: MockBackendAPI(), database: try! AppDatabase.inMemory(features: []), shared: InMemorySharedStore(), accounts: accounts)
+    }
+
+    @Test func leavingDetailDuringReadRequestStillUpdatesList() async throws {
+        let services = services()
+        let list = OAFilesModel(services: services)
+        await list.reload()
+        let detail = OAFileDetailModel(row: try #require(list.rows.first), services: services) { list.didRead($0) }
+        OAReadProtocol.holdReadResponse = true
+        let load = Task { await detail.load() }
+        await OAReadProtocol.waitForReadRequest()
+        load.cancel()
+        OAReadProtocol.releaseReadResponse()
+        await load.value
+        #expect(list.rows.first?.isRead == true)
+        #expect(detail.isReadRecorded)
+        #expect(OAReadProtocol.readRequests == 1)
+    }
+
+    @Test func accountSwitchDuringReadDoesNotUpdateNewAccount() async throws {
+        let services = services()
+        let list = OAFilesModel(services: services)
+        await list.reload()
+        let detail = OAFileDetailModel(row: try #require(list.rows.first), services: services) { list.didRead($0) }
+        OAReadProtocol.holdReadResponse = true
+        let load = Task { await detail.load() }
+        await OAReadProtocol.waitForReadRequest()
+        await services.accounts.logout(.oa)
+        try await services.accounts.login(.oa, username: "account-b", password: "test")
+        await list.reload()
+        OAReadProtocol.releaseReadResponse()
+        await load.value
+        #expect(list.rows.first?.isRead == false)
+        #expect(!detail.isReadRecorded)
     }
 
     @Test func accountSwitchDoesNotInheritReadStatus() async throws {
@@ -116,11 +191,10 @@ struct OAReadStatusTests {
         await list.reload()
         let row = try #require(list.rows.first)
         #expect(!row.isRead)
-        let detail = OAFileDetailModel(row: row, services: services)
+        let detail = OAFileDetailModel(row: row, services: services) { list.didRead($0) }
         await detail.load()
         #expect(detail.isReadRecorded)
         #expect(OAReadProtocol.recordedID == row.id)
-        if detail.isReadRecorded { list.didRead(try #require(detail.readReceipt)) }
         #expect(list.rows.first?.isRead == true)
         await list.reload()
         #expect(list.rows.first?.isRead == true)
@@ -132,7 +206,7 @@ struct OAReadStatusTests {
         let services = services()
         let list = OAFilesModel(services: services)
         await list.reload()
-        let detail = OAFileDetailModel(row: try #require(list.rows.first), services: services)
+        let detail = OAFileDetailModel(row: try #require(list.rows.first), services: services) { list.didRead($0) }
         OAReadProtocol.rejectRead = true
         await detail.load()
         #expect(detail.detail != nil)
@@ -143,6 +217,7 @@ struct OAReadStatusTests {
         await detail.recordRead()
         #expect(detail.isReadRecorded)
         #expect(detail.readError == nil)
+        #expect(list.rows.first?.isRead == true)
     }
 
     @Test func failedDetailDoesNotRecordRead() async throws {

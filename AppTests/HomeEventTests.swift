@@ -31,4 +31,24 @@ struct HomeEventTests {
         #expect(try pick(at: at(11)) == .course(afternoon, isOngoing: false))
         #expect(try pick(at: at(12)) == .course(afternoon, isOngoing: false))
     }
+    @Test(arguments: [0, 1, 7, 8, 50])
+    func holidayNoticeUsesSevenCalendarDays(days: Int) throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try #require(TimeZone(identifier: "Asia/Shanghai"))
+        let now = try #require(calendar.date(from: DateComponents(year: 2026, month: 11, day: 12, hour: 0, minute: 1)))
+        let term = TermCalendar(startDate: calendar.startOfDay(for: now), weekCount: 20, calendar: calendar)
+        let date = try #require(calendar.date(byAdding: .day, value: days, to: now))
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.dateFormat = "yyyy-MM-dd"
+        let day = formatter.string(from: date)
+        let campus = CampusCalendar(holidays: [HolidayRange(title: "测试假期", from: day, to: day)])
+        let blocks = CalendarOverlay.apply(to: [], calendar: campus, term: term).dayBlocks
+        let holiday = try #require(NextHoliday.next(dayBlocks: blocks, term: term, now: now))
+        let plan = TodayPlan.make(occurrences: [], dayBlocks: blocks, term: term, now: now)
+        let event = HomeEvent.pick(plan: plan, exams: [], holiday: holiday, now: now, calendar: calendar)
+        #expect(event == (days <= 7 ? .holiday(holiday) : nil))
+    }
+
 }

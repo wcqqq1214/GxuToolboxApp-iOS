@@ -94,11 +94,10 @@ struct OAFileDetailView: View {
     let row: OAFileRow
     var demo = false
     var onRead: (OAFileReadReceipt) -> Void = { _ in }
-    var body: some View { Content(model: demo ? OAFileDetailModel.demo(row: row, services: services) : OAFileDetailModel(row: row, services: services), onRead: onRead) }
+    var body: some View { Content(model: demo ? OAFileDetailModel.demo(row: row, services: services) : OAFileDetailModel(row: row, services: services, onRead: onRead)) }
 
     private struct Content: View {
         @State var model: OAFileDetailModel
-        let onRead: (OAFileReadReceipt) -> Void
         @State private var originalPageFailed = false
 
         var body: some View {
@@ -147,7 +146,6 @@ struct OAFileDetailView: View {
                 }
             }
             .quickLookPreview($model.previewURL)
-            .onChange(of: model.readReceipt) { _, receipt in if let receipt { onRead(receipt) } }
             .task { await model.load() }
         }
     }

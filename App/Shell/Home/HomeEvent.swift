@@ -7,6 +7,8 @@ enum HomeEvent: Equatable {
     case exam(ExamItem, isOngoing: Bool)
     case holiday(NextHoliday)
 
+    static let holidayNoticeDays = 7
+
     var startsAt: Date {
         switch self {
         case .course(let item, _): item.startsAt
@@ -34,10 +36,10 @@ enum HomeEvent: Equatable {
             }
         }
         #endif
-        return pick(plan: snapshot.todayPlan(now: now), exams: exams, holiday: holiday, now: now)
+        return pick(plan: snapshot.todayPlan(now: now), exams: exams, holiday: holiday, now: now, calendar: snapshot.termCalendar.calendar)
     }
 
-    static func pick(plan: TodayPlan, exams: [ExamItem], holiday: NextHoliday? = nil, now: Date) -> HomeEvent? {
+    static func pick(plan: TodayPlan, exams: [ExamItem], holiday: NextHoliday? = nil, now: Date, calendar: Calendar = .current) -> HomeEvent? {
         let ongoingExam = exams.first { exam in
             guard let start = exam.date, let end = exam.endsAt else { return false }
             return start <= now && now < end
@@ -54,7 +56,9 @@ enum HomeEvent: Equatable {
         case let (nil, exam?): base = exam.startsAt.timeIntervalSince(now) < 24 * 3600 ? exam : nil
         case (nil, nil): base = nil
         }
-        guard let holiday else { return base }
+        guard let holiday,
+              let daysUntilHoliday = calendar.dateComponents([.day], from: calendar.startOfDay(for: now), to: calendar.startOfDay(for: holiday.date)).day,
+              (0...holidayNoticeDays).contains(daysUntilHoliday) else { return base }
         guard let base else { return .holiday(holiday) }
         return holiday.startsAt <= base.startsAt ? .holiday(holiday) : base
     }
