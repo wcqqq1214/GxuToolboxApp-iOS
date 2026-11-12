@@ -88,7 +88,7 @@ public final class UserDefaultsSharedStore: SharedStore {
 
     public func value<T: Codable & Sendable>(_ key: SharedKey<T>) -> T? {
         guard let data = defaults.data(forKey: key.name) else { return nil }
-        return try? JSONDecoder().decode(T.self, from: data)
+        return ErrorLog.shared.attempt("cache", "解码共享缓存 \(T.self) 失败") { try JSONDecoder().decode(T.self, from: data) }
     }
 
     public func set<T: Codable & Sendable>(_ value: T?, for key: SharedKey<T>) {

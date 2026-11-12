@@ -140,13 +140,17 @@ public enum TeachingWeeks {
 
 extension ScheduleRepository {
     public func customActivities(studentId: String, term: AcademicTerm) async -> [CustomActivity] {
-        let blobs = try? await database.writer.read { db -> [Data] in
-            try Row.fetchAll(
-                db, sql: "SELECT json FROM schedule_custom_activity WHERE studentId = ? AND year = ? AND term = ?",
-                arguments: [studentId, term.year, term.term]
-            ).map { $0["json"] }
+        let blobs = await ErrorLog.shared.attempt("cache", "读取自定义课程失败") {
+            try await database.writer.read { db -> [Data] in
+                try Row.fetchAll(
+                    db, sql: "SELECT json FROM schedule_custom_activity WHERE studentId = ? AND year = ? AND term = ?",
+                    arguments: [studentId, term.year, term.term]
+                ).map { $0["json"] }
+            }
         }
-        return (blobs ?? []).compactMap { try? JSONDecoder().decode(CustomActivity.self, from: $0) }
+        return (blobs ?? []).compactMap { blob in
+            ErrorLog.shared.attempt("cache", "解码自定义课程失败") { try JSONDecoder().decode(CustomActivity.self, from: blob) }
+        }
             .sorted { ($0.weekFrom, $0.weekday, $0.begin, $0.id) < ($1.weekFrom, $1.weekday, $1.begin, $1.id) }
     }
 

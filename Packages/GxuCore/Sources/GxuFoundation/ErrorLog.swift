@@ -44,6 +44,22 @@ public final class ErrorLog: @unchecked Sendable {
         }
     }
 
+    public func attempt<T>(_ category: String, _ context: String, _ body: () throws -> T) -> T? {
+        do { return try body() } catch {
+            record(category, "\(context)：\(error)")
+            return nil
+        }
+    }
+
+    public func attempt<T>(
+        _ category: String, _ context: String, isolation: isolated (any Actor)? = #isolation, _ body: () async throws -> T
+    ) async -> T? {
+        do { return try await body() } catch {
+            record(category, "\(context)：\(error)")
+            return nil
+        }
+    }
+
     public func recordRequest(method: String, url: URL?, failure: String) {
         record("network", "\(method) \(url?.path ?? "?") → \(failure)")
     }

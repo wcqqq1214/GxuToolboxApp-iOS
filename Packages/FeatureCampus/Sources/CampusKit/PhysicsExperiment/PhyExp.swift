@@ -107,10 +107,14 @@ public struct PhyExpRepository: Sendable {
 
     public func cached(unifiedUsername: String) async -> [PhyExperiment] {
         let cacheKey = PracticeCache.key(for: unifiedUsername)
-        let blobs = try? await database.writer.read { db -> [Data] in
-            try Row.fetchAll(db, sql: "SELECT json FROM phy_experiment WHERE studentId = ?", arguments: [cacheKey]).map { $0["json"] }
+        let blobs = await ErrorLog.shared.attempt("cache", "读取物理实验缓存失败") {
+            try await database.writer.read { db -> [Data] in
+                try Row.fetchAll(db, sql: "SELECT json FROM phy_experiment WHERE studentId = ?", arguments: [cacheKey]).map { $0["json"] }
+            }
         }
-        return Self.sorted((blobs ?? []).compactMap { try? JSONDecoder().decode(PhyExperiment.self, from: $0) })
+        return Self.sorted((blobs ?? []).compactMap { blob in
+            ErrorLog.shared.attempt("cache", "解码物理实验缓存失败") { try JSONDecoder().decode(PhyExperiment.self, from: blob) }
+        })
     }
 
     @discardableResult

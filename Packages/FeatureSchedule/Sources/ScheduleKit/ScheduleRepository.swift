@@ -30,7 +30,8 @@ public struct ScheduleRepository: Sendable {
                 arguments: [studentId, term.year, term.term]
             ) else { return nil }
             let data: Data = row["json"]
-            guard let schedule = try? JSONDecoder().decode(Schedule.self, from: data) else { return nil }
+            guard let schedule = ErrorLog.shared.attempt("cache", "解码课表缓存失败", { try JSONDecoder().decode(Schedule.self, from: data) })
+            else { return nil }
             return CachedSchedule(schedule: schedule, updatedAt: Date(timeIntervalSince1970: row["updatedAt"]))
         }
     }

@@ -32,11 +32,13 @@ public enum ConflictResolver {
 
 extension ScheduleRepository {
     public func conflictChoices(studentId: String, term: AcademicTerm) async -> [String: String] {
-        let pairs = try? await database.writer.read { db -> [[String]] in
-            try Row.fetchAll(
-                db, sql: "SELECT groupKey, choice FROM schedule_conflict_choice WHERE studentId = ? AND year = ? AND term = ?",
-                arguments: [studentId, term.year, term.term]
-            ).map { [$0["groupKey"], $0["choice"]] }
+        let pairs = await ErrorLog.shared.attempt("cache", "读取冲突课程选择失败") {
+            try await database.writer.read { db -> [[String]] in
+                try Row.fetchAll(
+                    db, sql: "SELECT groupKey, choice FROM schedule_conflict_choice WHERE studentId = ? AND year = ? AND term = ?",
+                    arguments: [studentId, term.year, term.term]
+                ).map { [$0["groupKey"], $0["choice"]] }
+            }
         }
         return Dictionary(uniqueKeysWithValues: (pairs ?? []).map { ($0[0], $0[1]) })
     }

@@ -1,4 +1,5 @@
 import Foundation
+import GxuFoundation
 import GxuStorage
 import Testing
 @testable import CampusKit
@@ -24,5 +25,17 @@ struct PhyExpRefreshTests {
         _ = try? await PhyExpRepository(database: db, client: FakePEC(data: Data(renamed.utf8))).refresh(unifiedUsername: "A")
         let phy = await PhyExpRepository(database: db, client: FakePEC(data: Data())).cached(unifiedUsername: "A").count
         #expect(phy == 1)
+    }
+
+    @Test func corruptCachedRowIsSkippedAndLogged() async throws {
+        let db = try AppDatabase.inMemory(features: [CampusFeature.migrations])
+        let good = #"{"d":"{\"data\":[{\"id\":\"1\",\"skrq\":\"20261008\",\"xmmc\":\"x\"}]}"}"#
+        _ = try await PhyExpRepository(database: db, client: FakePEC(data: Data(good.utf8))).refresh(unifiedUsername: "A")
+        try await db.writer.write { db in
+            try db.execute(sql: "INSERT INTO phy_experiment (studentId, id, json) VALUES ('unified:A', 'bad', ?)", arguments: [Data("{}".utf8)])
+        }
+        let cached = await PhyExpRepository(database: db, client: FakePEC(data: Data())).cached(unifiedUsername: "A")
+        #expect(cached.map(\.id) == ["1"])
+        #expect(ErrorLog.shared.contents().contains("[cache] 解码物理实验缓存失败"))
     }
 }

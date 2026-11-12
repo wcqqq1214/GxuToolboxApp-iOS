@@ -21,6 +21,19 @@ struct ErrorLogTests {
         #expect(ErrorLog.redact("network error -1009") == "network error -1009")
     }
 
+    @Test func attemptReturnsValueOrRecordsFailure() async {
+        struct Broken: Error, CustomStringConvertible { var description: String { "列缺失" } }
+        let log = makeLog()
+        #expect(log.attempt("cache", "读取成功", { 42 }) == 42)
+        #expect(log.attempt("cache", "解码失败", { () throws -> Int in throw Broken() }) == nil)
+        let asyncValue = await log.attempt("cache", "异步读取失败") { () async throws -> Int in throw Broken() }
+        #expect(asyncValue == nil)
+        let text = log.contents()
+        #expect(!text.contains("读取成功"))
+        #expect(text.contains("[cache] 解码失败：列缺失"))
+        #expect(text.contains("[cache] 异步读取失败：列缺失"))
+    }
+
     @Test func appendsLinesAndClears() {
         let log = makeLog()
         log.record("auth", "登录失败")

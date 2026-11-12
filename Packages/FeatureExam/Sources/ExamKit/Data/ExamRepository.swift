@@ -158,7 +158,9 @@ public struct ExamRepository: Sendable {
         let json = try await database.writer.read { db in
             try ScoreRecord.filter(Column("studentId") == studentId && Column("id") == scoreId).fetchOne(db)?.usualScoreJSON
         }
-        guard let json, let items = try? JSONDecoder().decode([UsualScoreItem].self, from: Data(json.utf8)), !items.isEmpty
+        guard let json,
+              let items = ErrorLog.shared.attempt("cache", "解码平时成绩缓存失败", { try JSONDecoder().decode([UsualScoreItem].self, from: Data(json.utf8)) }),
+              !items.isEmpty
         else { return nil }
         return items
     }

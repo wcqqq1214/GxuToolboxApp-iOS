@@ -92,10 +92,14 @@ public struct EngTrainingRepository: Sendable {
 
     public func cached(unifiedUsername: String) async -> [EngTrainingDay] {
         let cacheKey = PracticeCache.key(for: unifiedUsername)
-        let blobs = try? await database.writer.read { db -> [Data] in
-            try Row.fetchAll(db, sql: "SELECT json FROM eng_training WHERE studentId = ?", arguments: [cacheKey]).map { $0["json"] }
+        let blobs = await ErrorLog.shared.attempt("cache", "读取工程训练缓存失败") {
+            try await database.writer.read { db -> [Data] in
+                try Row.fetchAll(db, sql: "SELECT json FROM eng_training WHERE studentId = ?", arguments: [cacheKey]).map { $0["json"] }
+            }
         }
-        return (blobs ?? []).compactMap { try? JSONDecoder().decode(EngTrainingDay.self, from: $0) }.sorted { $0.date < $1.date }
+        return (blobs ?? []).compactMap { blob in
+            ErrorLog.shared.attempt("cache", "解码工程训练缓存失败") { try JSONDecoder().decode(EngTrainingDay.self, from: blob) }
+        }.sorted { $0.date < $1.date }
     }
 
     @discardableResult

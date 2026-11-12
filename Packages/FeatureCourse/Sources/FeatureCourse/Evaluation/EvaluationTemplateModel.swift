@@ -119,7 +119,7 @@ public struct EvaluationTemplateRepository: Sendable {
     }
 
     private static func template(_ r: EvaluationTemplateRecord) -> EvaluationTemplate {
-        let answers = (try? JSONDecoder().decode([Int].self, from: Data(r.answersJSON.utf8))) ?? []
+        let answers = ErrorLog.shared.attempt("cache", "解码评教模板失败") { try JSONDecoder().decode([Int].self, from: Data(r.answersJSON.utf8)) } ?? []
         return EvaluationTemplate(id: r.id, name: r.name, answers: answers, comment: r.comment, updatedAt: r.updatedAt)
     }
 }
