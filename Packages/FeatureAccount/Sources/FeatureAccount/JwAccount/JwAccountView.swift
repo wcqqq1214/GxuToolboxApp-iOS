@@ -78,6 +78,7 @@ public struct JwAccountView: View {
             } header: {
                 if model.needsRelogin { Text("需要重新登录：服务器拒绝了保存的账号或密码") }
             } footer: {
+                Text(model.footer)
                 if let message = model.errorMessage {
                     Text(message).foregroundStyle(.red)
                 }

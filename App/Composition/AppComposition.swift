@@ -64,14 +64,14 @@ enum AppComposition {
             oa: OASession(credentials: credentials, tokens: KeychainTokenStore(system: .oa)),
             wjxt: WjxtSession(credentials: credentials)
         )
-        let tracker = AnalyticsTracker(backend: backend)
+        let shared = UserDefaultsSharedStore()
+        let tracker = AnalyticsTracker(backend: backend, shared: shared)
         #if !DEBUG
-        accounts.onLogin = { [accounts] system in
+        accounts.onLogin = { system in
             guard system == .jw else { return }
-            let studentId = accounts.studentId
-            Task { await tracker.track("login_jw_success", feature: "login", userId: studentId) }
+            Task { await tracker.track("login_jw_success", feature: "login") }
         }
         #endif
-        return AppServices(backend: backend, database: database, shared: UserDefaultsSharedStore(), accounts: accounts)
+        return AppServices(backend: backend, database: database, shared: shared, accounts: accounts)
     }
 }

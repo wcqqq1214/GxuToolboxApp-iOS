@@ -83,6 +83,7 @@ public struct AttendanceAccountView: View {
             } header: {
                 if model.needsRelogin { Text("登录已过期，请重新登录") }
             } footer: {
+                Text("账号密码保存在本机钥匙串中。登录时会通过 HTTPS 将账号、密码和验证码发送至第三方代理服务器 api.tool.gxutech.xyz，由其代为访问学校考勤系统。")
                 if let message = model.errorMessage {
                     Text(message).foregroundStyle(.red)
                 }

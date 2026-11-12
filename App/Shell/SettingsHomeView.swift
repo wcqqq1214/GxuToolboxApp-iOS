@@ -60,6 +60,8 @@ struct SettingsHomeView: View {
                     NavigationLink("考试详情显示") { DetailFieldsSettingsView(kind: .exam) }
                 }
 
+                AnalyticsSettingsSection(tracker: services.analytics)
+
                 Section("关于") {
                     NavigationLink {
                         AppVersionListView()
