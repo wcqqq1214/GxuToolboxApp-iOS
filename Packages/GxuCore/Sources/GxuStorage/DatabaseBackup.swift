@@ -6,10 +6,9 @@ public struct DatabaseBackup: Codable, Sendable {
     public let files: [String: Data]
 
     public static func capture(at url: URL = AppDatabase.fileURL) throws -> Data {
-        let files = try readFiles(at: url)
-        guard try readFiles(at: url) == files else {
-            throw CocoaError(.fileReadUnknown)
-        }
+        let source = try DatabaseOpenBackup(database: url).preservedDatabase() ?? url
+        let files = try readFiles(at: source)
+        guard try readFiles(at: source) == files else { throw CocoaError(.fileReadUnknown) }
         let backup = DatabaseBackup(formatVersion: 1, createdAt: .now, files: files)
         let encoder = PropertyListEncoder()
         encoder.outputFormat = .binary
@@ -18,7 +17,7 @@ public struct DatabaseBackup: Codable, Sendable {
 
     private static func readFiles(at url: URL) throws -> [String: Data] {
         var files = [url.lastPathComponent: try Data(contentsOf: url)]
-        for suffix in ["-wal", "-shm", "-journal"] {
+        for suffix in DatabaseOpenBackup.sidecarSuffixes {
             let sidecar = URL(fileURLWithPath: url.path + suffix)
             do {
                 files[sidecar.lastPathComponent] = try Data(contentsOf: sidecar)

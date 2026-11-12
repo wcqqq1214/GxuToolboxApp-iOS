@@ -15,7 +15,7 @@ enum IntentEnvironment {
         guard let studentId = shared.value(WidgetShared.activeStudentIdKey)
             ?? KeychainCredentialStore().load(.jw)?.username
         else { throw IntentFailure.notSignedIn }
-        let database = try AppDatabase.open(features: [ScheduleKit.migrations, ExamRepository.migrations])
+        let database = try AppDatabase.openReadOnly()
         return (studentId, database)
     }
 }

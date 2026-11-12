@@ -15,11 +15,15 @@ public struct FeatureMigrations: Sendable {
 public final class AppDatabase: Sendable {
     public let writer: any DatabaseWriter
 
-    init(writer: any DatabaseWriter, features: [FeatureMigrations]) throws {
-        self.writer = writer
+    convenience init(writer: any DatabaseWriter, features: [FeatureMigrations]) throws {
+        self.init(writer: writer)
         var migrator = DatabaseMigrator()
         for feature in features { feature.register(&migrator) }
         try migrator.migrate(writer)
+    }
+
+    private init(writer: any DatabaseWriter) {
+        self.writer = writer
     }
 
     public static func databaseDirectory(appGroupID: String?, fileManager fm: FileManager = .default) -> URL {
@@ -33,8 +37,21 @@ public final class AppDatabase: Sendable {
 
     public static func open(features: [FeatureMigrations], at url: URL = fileURL) throws -> AppDatabase {
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        let pool = try DatabasePool(path: url.path)
-        return try AppDatabase(writer: pool, features: features)
+        let backup = DatabaseOpenBackup(database: url)
+        return try backup.withLock {
+            let hadPreservedBackup = try backup.preservedDatabase() != nil
+            try backup.preserve()
+            let pool = try DatabasePool(path: url.path)
+            let database = try AppDatabase(writer: pool, features: features)
+            try backup.finish(archive: hadPreservedBackup)
+            return database
+        }
+    }
+
+    public static func openReadOnly(at url: URL = fileURL) throws -> AppDatabase {
+        var configuration = Configuration()
+        configuration.readonly = true
+        return AppDatabase(writer: try DatabasePool(path: url.path, configuration: configuration))
     }
 
     public static func inMemory(features: [FeatureMigrations]) throws -> AppDatabase {

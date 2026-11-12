@@ -50,6 +50,74 @@ struct DatabaseRecoveryTests {
         #expect(try reopened.writer.read { try String.fetchAll($0, sql: "SELECT name FROM custom_activity") } == ["My course"])
     }
 
+    @Test func failedMigrationExportsTheOriginalDamagedWALAcrossRetries() throws {
+        let source = try temporaryDatabase()
+        let target = try temporaryDatabase()
+        defer {
+            try? FileManager.default.removeItem(at: source.deletingLastPathComponent())
+            try? FileManager.default.removeItem(at: target.deletingLastPathComponent())
+        }
+        let targetWAL = URL(fileURLWithPath: target.path + "-wal")
+        let original: Data
+        var damagedWAL: Data
+        do {
+            let queue = try DatabaseQueue(path: source.path)
+            try queue.writeWithoutTransaction { db in
+                try db.execute(sql: "CREATE TABLE custom_activity (name TEXT NOT NULL)")
+                try db.execute(sql: "CREATE TABLE collision (id INTEGER)")
+                try db.execute(sql: "PRAGMA journal_mode = WAL")
+                try db.execute(sql: "INSERT INTO custom_activity VALUES ('Recoverable course')")
+            }
+            original = try Data(contentsOf: source)
+            damagedWAL = try Data(contentsOf: URL(fileURLWithPath: source.path + "-wal"))
+        }
+        try #require(damagedWAL.count > 48)
+        try #require(damagedWAL.range(of: Data("Recoverable course".utf8)) != nil)
+        damagedWAL[48] ^= 1
+        try original.write(to: target)
+        try damagedWAL.write(to: targetWAL)
+
+        let migration = FeatureMigrations(feature: "test") { migrator in
+            migrator.registerMigration("collision") { db in
+                try db.execute(sql: "CREATE TABLE collision (id INTEGER)")
+            }
+        }
+        for _ in 0..<2 {
+            do {
+                _ = try AppDatabase.open(features: [migration], at: target)
+                Issue.record("Expected the migration to fail")
+            } catch let error as DatabaseError {
+                #expect(error.message?.contains("table collision already exists") == true)
+            }
+            let backup = try PropertyListDecoder().decode(DatabaseBackup.self, from: DatabaseBackup.capture(at: target))
+            #expect(backup.files[target.lastPathComponent] == original)
+            #expect(backup.files[targetWAL.lastPathComponent] == damagedWAL)
+        }
+
+        _ = try AppDatabase.open(features: [], at: target)
+        let entries = try FileManager.default.contentsOfDirectory(at: target.deletingLastPathComponent(), includingPropertiesForKeys: nil)
+        let archive = try #require(entries.first { $0.lastPathComponent.hasPrefix(target.lastPathComponent + ".recovery-") })
+        #expect(try Data(contentsOf: archive.appending(path: target.lastPathComponent)) == original)
+        #expect(try Data(contentsOf: archive.appending(path: targetWAL.lastPathComponent)) == damagedWAL)
+    }
+
+    @Test func backupCanBeCapturedFromAReadOnlyDirectory() throws {
+        let url = try temporaryDatabase()
+        let directory = url.deletingLastPathComponent()
+        let fm = FileManager.default
+        defer {
+            try? fm.setAttributes([.posixPermissions: 0o700], ofItemAtPath: directory.path)
+            try? fm.removeItem(at: directory)
+        }
+        let original = Data("readable original database".utf8)
+        try original.write(to: url)
+        try fm.setAttributes([.posixPermissions: 0o500], ofItemAtPath: directory.path)
+        let encoded = try DatabaseBackup.capture(at: url)
+        let backup = try PropertyListDecoder().decode(DatabaseBackup.self, from: encoded)
+        #expect(backup.files[url.lastPathComponent] == original)
+        #expect(try fm.contentsOfDirectory(atPath: directory.path) == [url.lastPathComponent])
+    }
+
     @Test func backupIncludesSidecarsWithoutChangingOrIncludingOtherFiles() throws {
         let url = try temporaryDatabase()
         defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }

@@ -17,7 +17,7 @@ struct DatabaseFailureView: View {
                 Section {
                     Label("本地数据暂时无法打开", systemImage: "externaldrive.badge.exclamationmark")
                         .font(.headline)
-                    Text("应用没有删除或重建数据库。自定义课程、评教模板和其他本地数据仍保留在原文件中，是否能完整恢复需要进一步检查。")
+                    Text("应用会在打开前保留已有数据库的副本。自定义课程、评教模板等本地数据能否完整恢复，需要进一步检查。")
                     Text("可以先解锁设备、检查可用存储空间后重试。若仍无法打开，请导出备份并保留应用，避免卸载造成数据丢失。")
                 }
                 Section {
@@ -40,13 +40,15 @@ struct DatabaseFailureView: View {
                 }
             }
             .navigationTitle("本地数据恢复")
-            .fileExporter(isPresented: $isExporting, document: document, contentType: .propertyList,
+            .fileExporter(isPresented: $isExporting, document: document, contentTypes: [.propertyList],
                           defaultFilename: "gxu-database-backup.plist") { result in
                 document = nil
                 switch result {
-                case .success: feedback = "备份已导出。原数据库仍保留在应用内。"
+                case .success: feedback = "备份已导出。"
                 case .failure: feedback = "备份未能导出，原数据库未被删除。请检查保存位置和可用空间后重试。"
                 }
+            } onCancellation: {
+                document = nil
             }
         }
     }
