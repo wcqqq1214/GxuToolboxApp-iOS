@@ -14,7 +14,6 @@ struct HomeView: View {
             content
                 .gxuPageBackground()
                 .navigationTitle("今天")
-                .toolbar(.hidden, for: .tabBar)
                 .navigationBarTitleDisplayMode(.large)
         }
     }

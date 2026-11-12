@@ -5,6 +5,7 @@ import SwiftUI
 
 struct NextEventAccessory: View {
     let model: HomeModel
+    @Environment(\.gxuAccessoryCompact) private var compact
 
     var body: some View {
         TimelineView(.everyMinute) { context in
@@ -21,7 +22,7 @@ struct NextEventAccessory: View {
 
     @ViewBuilder
     private func row(_ event: HomeEvent, now: Date) -> some View {
-        let subtitle = detail(event, now: now)
+        let subtitle = compact ? "" : detail(event, now: now)
         HStack(alignment: .center, spacing: GxuDesign.Spacing.m) {
             Image(systemName: icon(event)).foregroundStyle(.tint)
             VStack(alignment: .leading, spacing: 0) {

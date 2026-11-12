@@ -61,7 +61,6 @@ public struct ScheduleRootView: View {
             content
                 .gxuPageBackground()
                 .navigationBarTitleDisplayMode(.inline)
-                .toolbar(.hidden, for: .tabBar)
                 .toolbar { toolbar }
         }
         .task(id: AccountKey(studentId: services.accounts.studentId, sessionID: services.accounts.jwSessionID, state: services.accounts.states[.jw],

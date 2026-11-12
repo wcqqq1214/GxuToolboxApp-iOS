@@ -102,7 +102,6 @@ struct SettingsHomeView: View {
             }
             .gxuPageBackground()
             .navigationTitle("设置")
-            .toolbar(.hidden, for: .tabBar)
         }
     }
 

@@ -1,5 +1,4 @@
 import SwiftUI
-import UIKit
 
 
 public extension View {
@@ -15,20 +14,29 @@ public extension View {
         modifier(GlassIDModifier(id: id, namespace: namespace))
     }
 
+    func gxuTabBarFixed() -> some View {
+        modifier(TabBarFixedModifier())
+    }
+
     func gxuHidesTabChrome() -> some View {
         toolbar(.hidden, for: .tabBar).preference(key: HidesTabChromeKey.self, value: true)
     }
 
-    func gxuBottomChrome<Navigation: View, Accessory: View>(
-        @ViewBuilder navigation: () -> Navigation,
-        @ViewBuilder accessory: () -> Accessory
-    ) -> some View {
-        modifier(BottomChromeModifier(navigation: navigation(), accessory: accessory()))
+    func gxuAccessoryInset() -> some View {
+        modifier(LegacyAccessoryInsetModifier())
+    }
+
+    func gxuTabAccessory<Accessory: View>(isEnabled: Bool = true, @ViewBuilder _ accessory: () -> Accessory) -> some View {
+        modifier(TabAccessoryModifier(isEnabled: isEnabled, accessory: accessory()))
     }
 }
 
 extension EnvironmentValues {
+    @Entry var gxuLegacyAccessory: AnyView? = nil
+
     @Entry public var gxuAccessoryHeight: CGFloat = 0
+
+    @Entry public var gxuAccessoryCompact: Bool = false
 }
 
 private struct GlassModifier<S: InsettableShape>: ViewModifier {
@@ -73,69 +81,64 @@ private struct GlassIDModifier<ID: Hashable & Sendable>: ViewModifier {
     }
 }
 
+private struct TabBarFixedModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        if GxuDesign.useModernGlass, #available(iOS 26, *) {
+            content.tabBarMinimizeBehavior(.never)
+        } else {
+            content
+        }
+    }
+}
+
+private struct TabAccessoryModifier<Accessory: View>: ViewModifier {
+    let isEnabled: Bool
+    let accessory: Accessory
+
+    func body(content: Content) -> some View {
+        if GxuDesign.useModernGlass, #available(iOS 26.1, *) {
+            content.tabViewBottomAccessory(isEnabled: isEnabled) { AccessoryHost(content: accessory) }
+        } else if GxuDesign.useModernGlass, #available(iOS 26, *) {
+            content.tabViewBottomAccessory { AccessoryHost(content: isEnabled ? accessory : nil) }
+        } else {
+            content.environment(\.gxuLegacyAccessory, isEnabled ? AnyView(accessory) : nil)
+        }
+    }
+}
+
 private struct HidesTabChromeKey: PreferenceKey {
     static let defaultValue = false
     static func reduce(value: inout Bool, nextValue: () -> Bool) { value = value || nextValue() }
 }
 
-private struct BottomChromeModifier<Navigation: View, Accessory: View>: ViewModifier {
-    let navigation: Navigation
-    let accessory: Accessory
+private struct LegacyAccessoryInsetModifier: ViewModifier {
+    @Environment(\.gxuLegacyAccessory) private var accessory
     @State private var height: CGFloat = 0
     @State private var hidden = false
 
     func body(content: Content) -> some View {
         content
-            .background(NativeTabBarHider())
-            .toolbar(.hidden, for: .tabBar)
             .onPreferenceChange(HidesTabChromeKey.self) { hidden = $0 }
-            .environment(\.gxuAccessoryHeight, hidden ? 0 : height)
+            .environment(\.gxuAccessoryHeight, accessory == nil || hidden ? 0 : height)
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                if !hidden {
-                    VStack(spacing: 0) {
-                        accessory
-                            .frame(maxWidth: .infinity)
-                            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height = $0 }
-                        navigation
-                    }
-                    .background(.bar)
-                    .transaction { transaction in
-                        transaction.animation = nil
-                        transaction.disablesAnimations = true
-                    }
+                if let accessory, !hidden {
+                    accessory
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, GxuDesign.Spacing.s)
+                        .background(.bar)
+                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height = $0 }
                 }
             }
     }
 }
 
-private struct NativeTabBarHider: UIViewControllerRepresentable {
-    func makeUIViewController(context: Context) -> Controller { Controller() }
+@available(iOS 26, *)
+private struct AccessoryHost<Content: View>: View {
+    let content: Content?
+    @Environment(\.tabViewBottomAccessoryPlacement) private var placement
 
-    func updateUIViewController(_ controller: Controller, context: Context) {
-        controller.hideTabBar()
-    }
-
-    final class Controller: UIViewController {
-        override func loadView() { view = UIView(frame: .zero) }
-
-        override func viewWillAppear(_ animated: Bool) {
-            super.viewWillAppear(animated)
-            hideTabBar()
-        }
-
-        override func viewDidLayoutSubviews() {
-            super.viewDidLayoutSubviews()
-            hideTabBar()
-        }
-
-        override func didMove(toParent parent: UIViewController?) {
-            super.didMove(toParent: parent)
-            hideTabBar()
-        }
-
-        func hideTabBar() {
-            tabBarController?.tabBar.isHidden = true
-        }
+    var body: some View {
+        if let content { content.environment(\.gxuAccessoryCompact, placement == .inline) }
     }
 }
 

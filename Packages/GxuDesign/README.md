@@ -45,11 +45,11 @@ GlassGroup {
 Text("…").padding().gxuGlass(in: RoundedRectangle(cornerRadius: 20))
 
 // 标签栏
-SomeTabContent.gxuBottomChrome { StaticTabButtons() } accessory: { NextCourseBar() }
+TabView { … }.gxuTabBarFixed()                        // 系统标签栏，iOS 26 保留液态玻璃且不随滚动收起
+TabView { … }.gxuTabAccessory { NextCourseBar() }     // 标签栏上方的附件，iOS 18 降级为底部材质条
+SomeTabContent.gxuAccessoryInset()                    // iOS 18 降级时为附件留出底部空间
 DetailView().gxuHidesTabChrome()
 ```
-
-`gxuBottomChrome` 在底部安全区放置静态导航和可选日程附件，隐藏系统标签栏；详情页调用 `gxuHidesTabChrome` 后隐藏底部内容，返回恢复。各标签分别应用以保留独立导航状态。
 
 `GlassButton` 无标题时是 44pt 圆形图标按钮，必须传 `accessibilityLabel`。
 

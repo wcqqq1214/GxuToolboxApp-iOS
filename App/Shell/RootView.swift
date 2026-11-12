@@ -44,10 +44,10 @@ struct RootView: View {
 
     var body: some View {
         TabView(selection: $selection) {
-            Tab("今天", systemImage: "sun.horizon", value: AppTab.home) {
-                HomeView(model: home, onRequestLogin: { selection = .settings }).modifier(tabChrome(.home))
+            Tab(AppTab.home.title, systemImage: AppTab.home.systemImage, value: AppTab.home) {
+                HomeView(model: home, onRequestLogin: { selection = .settings }).gxuAccessoryInset()
             }
-            Tab("课表", systemImage: "calendar", value: AppTab.schedule) {
+            Tab(AppTab.schedule.title, systemImage: AppTab.schedule.systemImage, value: AppTab.schedule) {
                 ScheduleRootView(onRequestLogin: { selection = .settings }, layers: layersProvider,
                                  exportDestination: { AnyView(JwScheduleExportView()) },
                                  refreshCoordinator: scheduleRefresh,
@@ -58,20 +58,17 @@ struct RootView: View {
                     guard services.accounts.studentId == studentId, (1...2).contains(term.term) else { return }
                     await AttendanceRecordCache.refresh(services: services, year: term.year, term: term.term)
                 }
-                .modifier(tabChrome(.schedule))
+                .gxuAccessoryInset()
             }
-            Tab("工具箱", systemImage: "square.grid.2x2", value: AppTab.toolbox) {
-                ToolboxView(onSelectTab: { selection = $0 }).modifier(tabChrome(.toolbox))
+            Tab(AppTab.toolbox.title, systemImage: AppTab.toolbox.systemImage, value: AppTab.toolbox) {
+                ToolboxView(onSelectTab: { selection = $0 }).gxuAccessoryInset()
             }
-            Tab("设置", systemImage: "gearshape", value: AppTab.settings) {
-                SettingsHomeView().modifier(tabChrome(.settings))
+            Tab(AppTab.settings.title, systemImage: AppTab.settings.systemImage, value: AppTab.settings) {
+                SettingsHomeView().gxuAccessoryInset()
             }
         }
-        .toolbar(.hidden, for: .tabBar)
-        .transaction(value: selection) { transaction in
-            transaction.animation = nil
-            transaction.disablesAnimations = true
-        }
+        .gxuTabBarFixed()
+        .gxuTabAccessory(isEnabled: selection.showsNextEventAccessory && home.hasNextEvent(now: clock)) { NextEventAccessory(model: home) }
         .gxuTheme(theme)
         .environment(preferences)
         .environment(\.scheduleMapPlan, Self.mapPlan)
@@ -99,10 +96,6 @@ struct RootView: View {
 }
 
 extension RootView {
-    private func tabChrome(_ tab: AppTab) -> AppTabChrome {
-        AppTabChrome(selection: $selection, showsEvent: tab.showsNextEventAccessory && home.hasNextEvent(now: clock), home: home)
-    }
-
     static let mapPlan: ScheduleMapPlanProvider = { target in
         MapNavigation.plan(text: target.text, keyword: target.mapKeyword)
     }
