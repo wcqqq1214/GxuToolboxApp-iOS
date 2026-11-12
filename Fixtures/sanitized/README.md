@@ -4,7 +4,7 @@
 结构、字段名、值的类型与真实响应一致；姓名、学号、身份证、班级名、教师姓名、QQ 群号、成绩记录 ID 已替换成假数据。
 课程名、教室、学分、成绩数值、时间等**未改动**（不指向个人身份）。
 
-更新样本前，在本地 `.secrets/account.env` 中设置 `JW_USER` 和 `JW_PASS`。运行 `scripts/capture-fixtures.sh [year] [term]` 采集，再运行 `scripts/sanitize-fixtures.py` 脱敏。采集默认使用 2025 学年第 1 学期，`term` 接受 1 或 2。脚本用 curl 登录教务后端，排查「无法获取初始登录cookie」时可对照其 User-Agent。
+更新样本前，在本地 `.secrets/account.env` 中设置 `JW_USER` 和 `JW_PASS`。运行 `scripts/capture-fixtures.sh [year] [term]` 采集，再运行 `scripts/sanitize-fixtures.py` 脱敏，最后运行 `python3 scripts/sync-fixtures.py --write` 把更新同步到各包测试目录里的同名副本。CI 会检查副本与本目录是否一致，不要只改副本。采集默认使用 2025 学年第 1 学期，`term` 接受 1 或 2。脚本用 curl 登录教务后端，排查「无法获取初始登录cookie」时可对照其 User-Agent。
 
 所有 `/jw/*` 响应形如 `{code, message, data}`，可直接用 `DataEnvelope` 解码（`getData` 已封装）。
 

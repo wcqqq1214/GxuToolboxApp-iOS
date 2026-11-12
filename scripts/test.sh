@@ -20,5 +20,8 @@ if [ "$#" -eq 0 ]; then
     -derivedDataPath .build -only-testing:GxuToolAppTests CODE_SIGNING_ALLOWED=NO test -quiet
   echo "==> test capture-fixtures"
   python3 scripts/tests/test_capture_fixtures.py
+  echo "==> test sync-fixtures"
+  python3 scripts/tests/test_sync_fixtures.py
+  python3 scripts/sync-fixtures.py
 fi
 echo "TEST OK"
