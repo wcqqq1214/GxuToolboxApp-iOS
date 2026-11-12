@@ -10,7 +10,32 @@ import Testing
 private final class SlowFirstProtocol: URLProtocol, @unchecked Sendable {
     nonisolated(unsafe) static var calls = 0
     nonisolated(unsafe) static var bodies: [String] = []
+    nonisolated(unsafe) static var pendingResponse: (@Sendable () -> Void)?
+    nonisolated(unsafe) static var firstReady: CheckedContinuation<Void, Never>?
     static let lock = NSLock()
+
+    static func waitForFirstRequest() async {
+        await withCheckedContinuation { continuation in
+            lock.lock()
+            if pendingResponse != nil {
+                lock.unlock()
+                continuation.resume()
+            } else {
+                firstReady = continuation
+                lock.unlock()
+            }
+        }
+    }
+
+    static func releaseFirstResponse() {
+        let response = lock.withLock {
+            let response = pendingResponse
+            pendingResponse = nil
+            return response
+        }
+        response?()
+    }
+
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
@@ -22,11 +47,21 @@ private final class SlowFirstProtocol: URLProtocol, @unchecked Sendable {
         }
         Self.lock.lock(); Self.calls += 1; let n = Self.calls; Self.bodies.append(String(decoding: body, as: UTF8.self)); Self.lock.unlock()
         let payload = #"{"code":200,"result":{"items":[{"id":\#(n),"fileName":"call\#(n)"}],"hasNextPage":true}}"#
-        DispatchQueue.global().asyncAfter(deadline: .now() + (n == 1 ? 0.4 : 0)) {
+        let respond: @Sendable () -> Void = {
             let response = HTTPURLResponse(url: self.request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
             self.client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
             self.client?.urlProtocol(self, didLoad: Data(payload.utf8))
             self.client?.urlProtocolDidFinishLoading(self)
+        }
+        if n == 1 {
+            Self.lock.lock()
+            Self.pendingResponse = respond
+            let continuation = Self.firstReady
+            Self.firstReady = nil
+            Self.lock.unlock()
+            continuation?.resume()
+        } else {
+            respond()
         }
     }
     override func stopLoading() {}
@@ -49,10 +84,12 @@ struct OAFilesModelRaceTests {
         let model = OAFilesModel(services: services())
         model.typeId = 102
         let first = Task { await model.reload() }
-        try await Task.sleep(for: .milliseconds(100))
+        await SlowFirstProtocol.waitForFirstRequest()
         model.typeId = 103
         let second = Task { await model.reload() }
-        await first.value; await second.value
+        await second.value
+        SlowFirstProtocol.releaseFirstResponse()
+        await first.value
         #expect(model.rows.map(\.title) == ["call2"])
         await model.loadMoreIfNeeded(current: model.rows.last!)
         #expect(SlowFirstProtocol.bodies.last?.contains("\"page\":2") == true)

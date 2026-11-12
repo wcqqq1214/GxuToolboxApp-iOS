@@ -19,7 +19,7 @@ public struct OAFilesView: View {
         var body: some View {
             List {
                 ForEach(model.rows) { row in
-                    NavigationLink { OAFileDetailView(row: row, demo: model.isDemo) } label: { Row(row: row) }
+                    NavigationLink { OAFileDetailView(row: row, demo: model.isDemo) { model.didRead($0) } } label: { Row(row: row) }
                         .task { await model.loadMoreIfNeeded(current: row) }
                 }
                 if model.isLoading && !model.rows.isEmpty {
@@ -93,10 +93,12 @@ struct OAFileDetailView: View {
     @Environment(\.services) private var services
     let row: OAFileRow
     var demo = false
-    var body: some View { Content(model: demo ? OAFileDetailModel.demo(row: row, services: services) : OAFileDetailModel(row: row, services: services)) }
+    var onRead: (OAFileReadReceipt) -> Void = { _ in }
+    var body: some View { Content(model: demo ? OAFileDetailModel.demo(row: row, services: services) : OAFileDetailModel(row: row, services: services), onRead: onRead) }
 
     private struct Content: View {
         @State var model: OAFileDetailModel
+        let onRead: (OAFileReadReceipt) -> Void
         @State private var originalPageFailed = false
 
         var body: some View {
@@ -107,6 +109,11 @@ struct OAFileDetailView: View {
                             Text(detail.title.isEmpty ? model.row.title : detail.title).font(.headline)
                             Text([detail.fileNum, detail.date, detail.department].filter { !$0.isEmpty }.joined(separator: " · "))
                                 .font(.footnote).foregroundStyle(.secondary)
+                            if let message = model.readError {
+                                Text(message).font(.footnote).foregroundStyle(.red)
+                                Button("重试同步已读") { Task { await model.recordRead() } }
+                                    .disabled(model.isRecordingRead)
+                            }
                             if let message = model.previewError { Text(message).font(.footnote).foregroundStyle(.red) }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -140,6 +147,7 @@ struct OAFileDetailView: View {
                 }
             }
             .quickLookPreview($model.previewURL)
+            .onChange(of: model.readReceipt) { _, receipt in if let receipt { onRead(receipt) } }
             .task { await model.load() }
         }
     }

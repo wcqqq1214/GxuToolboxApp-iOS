@@ -10,7 +10,7 @@ public struct OAFileRow: Identifiable, Hashable, Sendable {
     public let department: String
     public let date: String
     public let isUrgent: Bool
-    public let isRead: Bool
+    public var isRead: Bool
 }
 
 public struct OAFilePage: Sendable {
@@ -64,6 +64,10 @@ public struct OAFilesAPI: Sendable {
     public func detail(id: Int) async throws -> OAFileDetail {
         let data = try await session.json("GET", path: "/wenjian/detail", query: ["_wv": "20250701-2200", "id": String(id), "isAdmin": "false"])
         return try Self.parseDetail(data)
+    }
+
+    public func recordRead(id: Int) async throws {
+        _ = try await session.json("POST", path: "/wenjian/record-read", body: JSONSerialization.data(withJSONObject: ["fileId": id]))
     }
 
     public func localFile(for url: URL, preferredExtension: String? = nil) async throws -> URL {

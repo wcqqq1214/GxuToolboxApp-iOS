@@ -12,6 +12,8 @@ final class OAFilesModel {
     var typeId = 0
     var keyword = ""
 
+    private var readIDs: [String: Set<Int>] = [:]
+    private var account: String?
     private var page = 1
     private var listRevision = 0
     private let services: AppServices
@@ -34,37 +36,51 @@ final class OAFilesModel {
         return model
     }
 
+    func didRead(_ receipt: OAFileReadReceipt) {
+        readIDs[receipt.account, default: []].insert(receipt.fileID)
+        guard account == receipt.account, services.accounts.savedUsername(.oa) == receipt.account else { return }
+        for index in rows.indices where rows[index].id == receipt.fileID { rows[index].isRead = true }
+    }
+
     func reload() async {
         guard hasAccount, let oa = services.accounts.oa else { error = .notLoggedIn(.oa); return }
+        let currentAccount = services.accounts.savedUsername(.oa)
+        if account != currentAccount { rows = []; hasMore = false }
+        account = currentAccount
         listRevision += 1
         page = 1
         await load(OAFilesAPI(session: oa), reset: true)
     }
 
     func loadMoreIfNeeded(current row: OAFileRow) async {
+        guard account == services.accounts.savedUsername(.oa) else { await reload(); return }
         guard hasMore, !isLoading, row.id == rows.last?.id, let oa = services.accounts.oa else { return }
         await load(OAFilesAPI(session: oa), reset: false)
     }
 
     private func load(_ api: OAFilesAPI, reset: Bool) async {
         let requestRevision = listRevision
+        let requestAccount = account
         isLoading = true
         defer { if requestRevision == listRevision { isLoading = false } }
         do {
             let result = try await api.list(page: page, typeId: typeId, keyword: keyword)
-            guard requestRevision == listRevision else { return }
+            guard requestRevision == listRevision, requestAccount == services.accounts.savedUsername(.oa) else { return }
             rows = reset ? result.rows : rows + result.rows.filter { new in !rows.contains { $0.id == new.id } }
+            if let requestAccount {
+                for index in rows.indices where readIDs[requestAccount, default: []].contains(rows[index].id) { rows[index].isRead = true }
+            }
             hasMore = result.hasNext
             page += 1
             error = nil
         } catch is CancellationError {
             return
         } catch let error as GxuError {
-            guard requestRevision == listRevision else { return }
+            guard requestRevision == listRevision, requestAccount == services.accounts.savedUsername(.oa) else { return }
             if reset { rows = [] }
             self.error = error
         } catch {
-            guard requestRevision == listRevision else { return }
+            guard requestRevision == listRevision, requestAccount == services.accounts.savedUsername(.oa) else { return }
             self.error = .network("加载失败")
         }
     }
@@ -74,6 +90,10 @@ final class OAFilesModel {
 final class OAFileDetailModel {
     private(set) var detail: OAFileDetail?
     private(set) var viewerToken: String?
+    private(set) var readReceipt: OAFileReadReceipt?
+    var isReadRecorded: Bool { readReceipt != nil }
+    private(set) var readError: String?
+    private(set) var isRecordingRead = false
     private(set) var isLoading = true
     private(set) var error: GxuError?
     private(set) var isPreparingPreview = false
@@ -92,29 +112,54 @@ final class OAFileDetailModel {
     }
 
     let row: OAFileRow
+    private let account: String?
     private let services: AppServices
 
     init(row: OAFileRow, services: AppServices) {
         self.row = row
+        self.account = services.accounts.savedUsername(.oa)
         self.services = services
     }
 
     func load() async {
+        guard account != nil, account == services.accounts.savedUsername(.oa) else { error = .notLoggedIn(.oa); isLoading = false; return }
         guard let oa = services.accounts.oa else { error = .notLoggedIn(.oa); isLoading = false; return }
         isLoading = true
         defer { isLoading = false }
         do {
             let detail = try await OAFilesAPI(session: oa).detail(id: row.id)
             let token = try await oa.documentViewerToken()
+            guard account == services.accounts.savedUsername(.oa) else { return }
             self.detail = detail
             viewerToken = token
             error = nil
+            await recordRead()
         } catch is CancellationError {
             return
         } catch let error as GxuError {
             self.error = error
         } catch {
             self.error = .network("加载失败")
+        }
+    }
+
+    func recordRead() async {
+        guard let account, account == services.accounts.savedUsername(.oa) else {
+            readError = "账号已切换，请返回列表重新打开文件。"
+            return
+        }
+        guard detail != nil, !isReadRecorded, !isRecordingRead, let oa = services.accounts.oa else { return }
+        isRecordingRead = true
+        readError = nil
+        defer { isRecordingRead = false }
+        do {
+            try await OAFilesAPI(session: oa).recordRead(id: row.id)
+            guard account == services.accounts.savedUsername(.oa) else { return }
+            readReceipt = OAFileReadReceipt(account: account, fileID: row.id)
+        } catch is CancellationError {
+            return
+        } catch {
+            readError = "已读状态同步失败，请重试。"
         }
     }
 
