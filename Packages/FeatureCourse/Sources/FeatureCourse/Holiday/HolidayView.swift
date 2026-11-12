@@ -25,6 +25,15 @@ public struct HolidayView: View {
                 }
                 section(p.current, title: "即将到来")
                 section(p.past, title: "已结束")
+                if kind == nil || kind == .school {
+                    Section {
+                        Link("广西大学 2026—2027 学年校历", destination: URL(string: "https://jwc.gxu.edu.cn/info/1322/3850.htm")!)
+                    } header: {
+                        Text("寒暑假来源")
+                    } footer: {
+                        Text("寒暑假按校历标注的起始日列出，结束日取学生注册前一天；具体返校安排以学校通知为准。")
+                    }
+                }
             } else {
                 GxuLoadingView("加载中…").frame(minHeight: 240).listRowBackground(Color.clear)
             }

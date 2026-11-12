@@ -57,7 +57,7 @@ enum ToolboxCatalog {
         item("phyExp", "物理实验课", "atom", .practice, .push { AnyView(CampusFeature.makePhyExpView()) }),
         item("engTraining", "金工实训", "wrench.and.screwdriver", .practice, .push { AnyView(CampusFeature.makeEngTrainingView()) }),
         item("timeShift", "调休信息", "calendar.badge.exclamationmark", .notice, .push { AnyView(TimeShiftView()) }),
-        item("holiday", "法定节假日", "sun.max", .notice, .push { AnyView(HolidayView()) }),
+        item("holiday", "节假日", "sun.max", .notice, .push { AnyView(HolidayView()) }),
         item("oaFiles", "学校文件", "doc.text", .notice, .push { AnyView(AccountFeature.makeOAFilesView()) }),
         item("evaluation", "期末学生评价", "text.badge.checkmark", .evaluation),
         item("campusMap", "地图导航", "map", .other, .push { AnyView(CampusFeature.makeMapNavigationView()) }),

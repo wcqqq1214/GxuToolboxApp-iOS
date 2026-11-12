@@ -50,6 +50,24 @@ private let campus = CampusCalendar(
         #expect(p.past.first { $0.holiday.title == "元旦" }?.makeupDays == [day("2026-01-04")])
     }
 
+    @Test func winterVacationEndsBeforeStudentRegistration() throws {
+        let calendar = CampusCalendar(holidays: [
+            HolidayRange(title: "寒假", from: "2027-01-18", to: "2027-02-26", kind: .school),
+            HolidayRange(title: "春节", from: "2027-02-05", to: "2027-02-13"),
+        ])
+        let overlapping = HolidayPresentation.build(calendar, now: day("2027-02-06"), calendar: cal)
+        #expect(overlapping.current.count == 2)
+        #expect(overlapping.current.allSatisfy { $0.status == .ongoing })
+        let lastDay = HolidayPresentation.build(calendar, now: day("2027-02-26"), calendar: cal)
+        let winter = try #require(lastDay.current.first)
+        #expect(winter.holiday.kind == .school)
+        #expect(winter.status == .ongoing)
+        #expect(winter.days == 40)
+        let registration = HolidayPresentation.build(calendar, now: day("2027-02-27"), calendar: cal)
+        #expect(registration.current.isEmpty)
+        #expect(registration.past.first?.holiday.title == "寒假")
+    }
+
     @Test func emptyCalendar() {
         let p = HolidayPresentation.build(.empty, now: .now, calendar: cal)
         #expect(p.current.isEmpty && p.past.isEmpty)

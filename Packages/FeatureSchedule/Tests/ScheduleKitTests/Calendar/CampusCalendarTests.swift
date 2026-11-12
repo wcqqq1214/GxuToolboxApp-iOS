@@ -101,6 +101,16 @@ struct CampusCalendarTests {
         #expect(!calendar.holidays.isEmpty)
     }
 
+    @Test func legacyRemoteKeepsSchoolVacationsAfterCaching() async throws {
+        let repository = try makeRepository { _ in Data(#"{"timeShift": []}"#.utf8) }
+        _ = try await repository.refresh()
+        let calendar = await repository.current()
+        let winter = calendar.holidays.first { $0.title == "寒假" }
+        let summer = calendar.holidays.first { $0.title == "暑假" }
+        #expect(winter == HolidayRange(title: "寒假", from: "2027-01-18", to: "2027-02-26", kind: .school))
+        #expect(summer == HolidayRange(title: "暑假", from: "2027-07-12", to: "2027-08-27", kind: .school))
+    }
+
     @Test func bundledFallbackIsValid() {
         let fallback = CampusCalendarFile.fallback
         #expect((fallback.timeShift?.count ?? 0) > 0)

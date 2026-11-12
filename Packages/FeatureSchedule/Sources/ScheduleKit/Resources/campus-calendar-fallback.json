@@ -16,10 +16,12 @@
         {"title": "国庆节", "from": "2026-10-01", "to": "2026-10-07", "kind": "national"},
         {"title": "运动会", "from": "2026-11-06", "to": "2026-11-08", "kind": "school"},
         {"title": "元旦", "from": "2027-01-01", "to": "2027-01-03", "kind": "national"},
+        {"title": "寒假", "from": "2027-01-18", "to": "2027-02-26", "kind": "school"},
         {"title": "春节", "from": "2027-02-05", "to": "2027-02-13", "kind": "national"},
         {"title": "清明节", "from": "2027-04-03", "to": "2027-04-05", "kind": "national"},
         {"title": "劳动节", "from": "2027-05-01", "to": "2027-05-05", "kind": "national"},
         {"title": "端午节", "from": "2027-06-09", "to": "2027-06-09", "kind": "national"},
+        {"title": "暑假", "from": "2027-07-12", "to": "2027-08-27", "kind": "school"},
         {"title": "中秋节", "from": "2027-09-15", "to": "2027-09-15", "kind": "national"},
         {"title": "国庆节", "from": "2027-10-01", "to": "2027-10-07", "kind": "national"}
     ]
