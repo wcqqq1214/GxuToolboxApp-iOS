@@ -10,6 +10,30 @@ import Testing
 
 @MainActor
 struct HomeRaceTests {
+    @Test func vacationRemainsAvailableWhenNextTermScheduleIsMissing() async throws {
+        let backend = MockBackendAPI()
+        let services = AppServices.preview(backend: backend, features: [ScheduleKit.migrations, ExamRepository.migrations, CampusFeature.migrations], studentId: "A")
+        backend.stub("GET /jw/profile/startDay", json: #"{"data":[]}"#)
+        let calendar = Calendar.current
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.dateFormat = "yyyy-MM-dd"
+        let day = formatter.string(from: .now)
+        let body = Data("{\"holidays\":[{\"title\":\"寒假\",\"from\":\"\(day)\",\"to\":\"\(day)\",\"kind\":\"school\"}]}".utf8)
+        let coordinator = ScheduleRefreshCoordinator(campusFetch: { _ in body })
+        let model = HomeModel(refreshCoordinator: coordinator)
+        await model.load(services: services, minimumInterval: 0)
+        #expect(model.snapshot == nil)
+        #expect(model.phase == .unavailable("暂时没有本学期的课表数据"))
+        guard case .holiday(let holiday) = model.nextEvent() else {
+            Issue.record("没有课表快照时仍应显示寒假")
+            return
+        }
+        #expect(holiday.displayTitle == "寒假中")
+        #expect(model.hasNextEvent())
+    }
+
     @Test func committedActivityUpdatesHomeWithoutSelectingATab() async throws {
         let backend = MockBackendAPI()
         let services = AppServices.preview(backend: backend, features: [ScheduleKit.migrations, ExamRepository.migrations, CampusFeature.migrations], studentId: "A")

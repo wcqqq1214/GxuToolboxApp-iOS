@@ -20,34 +20,37 @@ enum HomeEvent: Equatable {
     var isOngoing: Bool {
         switch self {
         case .course(_, let ongoing), .exam(_, let ongoing): ongoing
-        case .holiday: false
+        case .holiday(let holiday): holiday.isOngoing
         }
     }
 
-    static func pick(snapshot: ScheduleSnapshot, exams: [ExamItem], now: Date) -> HomeEvent? {
-        let holiday = NextHoliday.next(dayBlocks: snapshot.dayBlocks, term: snapshot.termCalendar, now: now)
+    static func pick(snapshot: ScheduleSnapshot?, campus: CampusCalendar? = nil, exams: [ExamItem], now: Date, calendar: Calendar = .current) -> HomeEvent? {
+        let calendar = snapshot?.termCalendar.calendar ?? calendar
+        let holidays = (campus ?? snapshot?.campus ?? .empty).holidays
+        let holiday = NextHoliday.next(holidays: holidays, calendar: calendar, now: now)
+        let plan = snapshot?.todayPlan(now: now)
         #if DEBUG
         let args = ProcessInfo.processInfo.arguments
         if let i = args.firstIndex(of: "-GxuPickEvent"), i + 1 < args.count {
             switch args[i + 1] {
             case "holiday": return holiday.map(HomeEvent.holiday)
             case "exam": return exams.first { ($0.date ?? .distantPast) > now }.map { .exam($0, isOngoing: false) }
-            default: return pick(plan: snapshot.todayPlan(now: now), exams: [], holiday: nil, now: now)
+            default: return pick(plan: plan, exams: [], now: now, calendar: calendar)
             }
         }
         #endif
-        return pick(plan: snapshot.todayPlan(now: now), exams: exams, holiday: holiday, now: now, calendar: snapshot.termCalendar.calendar)
+        return pick(plan: plan, exams: exams, holiday: holiday, now: now, calendar: calendar)
     }
 
-    static func pick(plan: TodayPlan, exams: [ExamItem], holiday: NextHoliday? = nil, now: Date, calendar: Calendar = .current) -> HomeEvent? {
+    static func pick(plan: TodayPlan?, exams: [ExamItem], holiday: NextHoliday? = nil, now: Date, calendar: Calendar = .current) -> HomeEvent? {
         let ongoingExam = exams.first { exam in
             guard let start = exam.date, let end = exam.endsAt else { return false }
             return start <= now && now < end
         }
         if let ongoingExam { return .exam(ongoingExam, isOngoing: true) }
-        if let current = plan.current { return .course(current, isOngoing: true) }
+        if let current = plan?.current { return .course(current, isOngoing: true) }
 
-        let course = plan.next.map { HomeEvent.course($0, isOngoing: false) }
+        let course = plan?.next.map { HomeEvent.course($0, isOngoing: false) }
         let exam = exams.first { ($0.date ?? .distantPast) > now }.map { HomeEvent.exam($0, isOngoing: false) }
         let base: HomeEvent?
         switch (course, exam) {
@@ -56,8 +59,9 @@ enum HomeEvent: Equatable {
         case let (nil, exam?): base = exam.startsAt.timeIntervalSince(now) < 24 * 3600 ? exam : nil
         case (nil, nil): base = nil
         }
-        guard let holiday,
-              let daysUntilHoliday = calendar.dateComponents([.day], from: calendar.startOfDay(for: now), to: calendar.startOfDay(for: holiday.date)).day,
+        guard let holiday else { return base }
+        if holiday.isOngoing { return .holiday(holiday) }
+        guard let daysUntilHoliday = calendar.dateComponents([.day], from: calendar.startOfDay(for: now), to: calendar.startOfDay(for: holiday.date)).day,
               (0...holidayNoticeDays).contains(daysUntilHoliday) else { return base }
         guard let base else { return .holiday(holiday) }
         return holiday.startsAt <= base.startsAt ? .holiday(holiday) : base

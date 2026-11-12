@@ -165,37 +165,42 @@ private actor Counter {
 }
 
 struct NextHolidayTests {
-    private func blocks() -> [DayBlock] {
-        let campus = CampusCalendar(
-            timeShift: [ShiftRule(workDate: "2026-09-20", restDate: "2026-09-28")],
-            holidays: [HolidayRange(title: "中秋节", from: "2026-09-25", to: "2026-09-27"), HolidayRange(title: "国庆节", from: "2026-10-01", to: "2026-10-07")]
-        )
-        return CalendarOverlay.apply(to: [], calendar: campus, term: term).dayBlocks
+    private let holidays = [
+        HolidayRange(title: "寒假", from: "2027-01-18", to: "2027-02-26", kind: .school),
+        HolidayRange(title: "春节", from: "2027-02-05", to: "2027-02-13"),
+        HolidayRange(title: "暑假", from: "2027-07-12", to: "2027-08-27", kind: .school),
+    ]
+
+    @Test func upcomingVacationUsesItsStartDate() throws {
+        let next = try #require(NextHoliday.next(holidays: holidays, calendar: shanghai, now: at("2027-01-11 23:59")))
+        #expect(next.title == "寒假")
+        #expect(next.status == .upcoming)
+        #expect(next.date == at("2027-01-18"))
+        #expect(next.dayText(now: at("2027-01-11 23:59"), calendar: shanghai) == "7 天后")
     }
 
-    @Test func picksFirstHolidayDayAfterNow() throws {
-        let next = try #require(NextHoliday.next(dayBlocks: blocks(), term: term, now: at("2026-09-16 09:00")))
-        #expect(next.title == "中秋节" && next.date == at("2026-09-25") && next.startsAt == at("2026-09-25 08:00"))
-        #expect(next.dayText(now: at("2026-09-16 09:00"), calendar: shanghai) == "9 天后")
+    @Test(arguments: ["2027-01-18 00:00", "2027-01-18 09:00", "2027-02-06 12:00", "2027-02-26 23:59"])
+    func winterVacationIncludesBothBoundaryDaysAndOverlappingSpringFestival(time: String) throws {
+        let next = try #require(NextHoliday.next(holidays: holidays, calendar: shanghai, now: at(time)))
+        #expect(next.title == "寒假")
+        #expect(next.status == .ongoing)
+        #expect(next.displayTitle == "寒假中")
+        #expect(next.dayText(now: at(time), calendar: shanghai) == "放假中")
     }
 
-    @Test func insideMultiDayHolidayPointsToNextDay() throws {
-        let next = try #require(NextHoliday.next(dayBlocks: blocks(), term: term, now: at("2026-09-25 09:00")))
-        #expect(next.date == at("2026-09-26"))
-        #expect(next.dayText(now: at("2026-09-25 09:00"), calendar: shanghai) == "明天")
+    @Test(arguments: ["2027-07-12 00:00", "2027-08-27 23:59"])
+    func summerVacationIncludesBothBoundaryDays(time: String) throws {
+        let next = try #require(NextHoliday.next(holidays: holidays, calendar: shanghai, now: at(time)))
+        #expect(next.status == .ongoing)
+        #expect(next.displayTitle == "暑假中")
     }
 
-    @Test func beforeEightOnHolidayItIsToday() throws {
-        let next = try #require(NextHoliday.next(dayBlocks: blocks(), term: term, now: at("2026-09-25 07:00")))
-        #expect(next.dayText(now: at("2026-09-25 07:00"), calendar: shanghai) == "今天")
-    }
-
-    @Test func restDaysAreNotHolidays() {
-        let next = NextHoliday.next(dayBlocks: blocks(), term: term, now: at("2026-09-27 09:00"))
-        #expect(next?.title == "国庆节")
-    }
-
-    @Test func noneAfterLastHoliday() {
-        #expect(NextHoliday.next(dayBlocks: blocks(), term: term, now: at("2026-10-08 09:00")) == nil)
+    @Test func expiredAndInvalidRangesDoNotBecomeReminders() {
+        #expect(NextHoliday.next(holidays: holidays, calendar: shanghai, now: at("2027-02-27"))?.title == "暑假")
+        #expect(NextHoliday.next(holidays: holidays, calendar: shanghai, now: at("2027-08-28")) == nil)
+        let invalid = [HolidayRange(title: "无效", from: "bad", to: "2027-01-01"),
+                       HolidayRange(title: "倒置", from: "2027-02-01", to: "2027-01-01")]
+        #expect(NextHoliday.next(holidays: invalid, calendar: shanghai, now: at("2027-01-01")) == nil)
+        #expect(NextHoliday.next(holidays: [], calendar: shanghai, now: at("2027-01-01")) == nil)
     }
 }

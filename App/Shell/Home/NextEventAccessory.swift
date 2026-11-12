@@ -5,24 +5,23 @@ import SwiftUI
 
 struct NextEventAccessory: View {
     let model: HomeModel
-    @Environment(\.gxuAccessoryCompact) private var compact
 
     var body: some View {
         TimelineView(.everyMinute) { context in
             let now = context.date
-            if let snapshot = model.snapshot,
-               let event = HomeEvent.pick(snapshot: snapshot, exams: model.exams(at: now), now: now) {
+            if let event = model.nextEvent(now: now) {
                 row(event, now: now)
             }
         }
         .padding(.horizontal, GxuDesign.Spacing.l)
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("next-event-accessory")
     }
 
     @ViewBuilder
     private func row(_ event: HomeEvent, now: Date) -> some View {
-        let subtitle = compact ? "" : detail(event, now: now)
+        let subtitle = detail(event, now: now)
         HStack(alignment: .center, spacing: GxuDesign.Spacing.m) {
             Image(systemName: icon(event)).foregroundStyle(.tint)
             VStack(alignment: .leading, spacing: 0) {
@@ -49,7 +48,7 @@ struct NextEventAccessory: View {
         switch event {
         case .course(let item, _): item.course.courseName
         case .exam(let item, _): "考试 · \(item.exam.course)"
-        case .holiday(let holiday): "下个假期 · \(holiday.title)"
+        case .holiday(let holiday): holiday.isOngoing ? holiday.displayTitle : "下个假期 · \(holiday.title)"
         }
     }
 
@@ -68,7 +67,7 @@ struct NextEventAccessory: View {
         switch event {
         case .course(let item, true): RelativeTime.remaining(until: item.endsAt, now: now)
         case .exam: event.isOngoing ? "进行中" : RelativeTime.untilStart(event.startsAt, now: now)
-        case .holiday(let holiday): holiday.dayText(now: now, calendar: .current)
+        case .holiday(let holiday): holiday.isOngoing ? "" : holiday.dayText(now: now, calendar: .current)
         case .course: RelativeTime.untilStart(event.startsAt, now: now)
         }
     }

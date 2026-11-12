@@ -38,7 +38,7 @@ final class AnalyticsSettingsTests: XCTestCase {
             app.launchArguments = ["-GxuDemo", "-AppleInterfaceStyle", appearance,
                                    "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
             app.launch()
-            let settings = app.tabBars.buttons["设置"]
+            let settings = app.descendants(matching: .any).matching(identifier: "app-tab-bar").firstMatch.buttons["设置"]
             XCTAssertTrue(settings.waitForExistence(timeout: 20))
             settings.tap()
             let toggle = app.switches["分享使用统计"]

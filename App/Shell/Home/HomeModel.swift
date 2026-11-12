@@ -51,6 +51,7 @@ final class HomeModel {
 
     private(set) var phase: Phase = .loading
     private(set) var snapshot: ScheduleSnapshot?
+    private var campus = CampusCalendar.empty
     private var upcomingExams: [ExamItem] = []
     private(set) var colors: [String: UInt32] = [:]
     private(set) var isRefreshing = false
@@ -68,8 +69,11 @@ final class HomeModel {
     }
 
     func hasNextEvent(now: Date = .now) -> Bool {
-        guard let snapshot else { return false }
-        return HomeEvent.pick(snapshot: snapshot, exams: exams(at: now), now: now) != nil
+        nextEvent(now: now) != nil
+    }
+
+    func nextEvent(now: Date = .now) -> HomeEvent? {
+        HomeEvent.pick(snapshot: snapshot, campus: campus, exams: exams(at: now), now: now)
     }
 
     func observeCache(services: AppServices) async {
@@ -93,6 +97,7 @@ final class HomeModel {
         guard let scope = CacheScope(services: services) else {
             cache = nil
             snapshot = nil
+            campus = .empty
             upcomingExams = []
             colors = [:]
             isRefreshing = false
@@ -104,6 +109,7 @@ final class HomeModel {
            previous.database != scope.database || previous.session != scope.session ||
            previous.studentId != scope.studentId || previous.username != scope.username {
             snapshot = nil
+            campus = .empty
             upcomingExams = []
             colors = [:]
             phase = .loading
@@ -141,8 +147,10 @@ final class HomeModel {
         let repository = ScheduleRepository(backend: services.backend, database: services.database)
         let overrides = await PhyExpOverrides.cached(database: services.database, unifiedUsername: state.scope.username)
         let cached = await repository.cachedSnapshot(studentId: studentId, overrides: overrides)
+        let calendar = await CampusCalendarRepository(database: services.database).current()
         let exams = (try? await ExamRepository(database: services.database).allExams(studentId: studentId)) ?? []
         guard cache === state, CacheScope(services: services) == state.scope else { return }
+        campus = calendar
         if let cached {
             if snapshot?.schedule.theoryList != cached.schedule.theoryList {
                 colors = CourseColorAssigner.assign(courses: cached.schedule.theoryList.filter(\.isValid))

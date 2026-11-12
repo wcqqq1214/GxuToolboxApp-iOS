@@ -11,17 +11,12 @@ import ScheduleKit
 import ScheduleUI
 import SwiftUI
 
-enum AppTab: Hashable {
-    case home, schedule, toolbox, settings
-}
-
 struct RootView: View {
     @State private var theme = GxuTheme()
     @State private var selection: AppTab = Self.initialTab
     @State private var home: HomeModel
     @State private var scheduleRefresh: ScheduleRefreshCoordinator
     @State private var clock = Date.now
-    @State private var toolboxPushed = false
     @State private var preferences = SchedulePreferencesStore(shared: RootView.makeSharedStore())
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.services) private var services
@@ -50,7 +45,7 @@ struct RootView: View {
     var body: some View {
         TabView(selection: $selection) {
             Tab("今天", systemImage: "sun.horizon", value: AppTab.home) {
-                HomeView(model: home, onRequestLogin: { selection = .settings }).gxuAccessoryInset()
+                HomeView(model: home, onRequestLogin: { selection = .settings }).modifier(tabChrome(.home))
             }
             Tab("课表", systemImage: "calendar", value: AppTab.schedule) {
                 ScheduleRootView(onRequestLogin: { selection = .settings }, layers: layersProvider,
@@ -63,17 +58,20 @@ struct RootView: View {
                     guard services.accounts.studentId == studentId, (1...2).contains(term.term) else { return }
                     await AttendanceRecordCache.refresh(services: services, year: term.year, term: term.term)
                 }
-                .gxuAccessoryInset()
+                .modifier(tabChrome(.schedule))
             }
             Tab("工具箱", systemImage: "square.grid.2x2", value: AppTab.toolbox) {
-                ToolboxView(onSelectTab: { selection = $0 }, isPushed: $toolboxPushed).gxuAccessoryInset()
+                ToolboxView(onSelectTab: { selection = $0 }).modifier(tabChrome(.toolbox))
             }
             Tab("设置", systemImage: "gearshape", value: AppTab.settings) {
-                SettingsHomeView().gxuAccessoryInset()
+                SettingsHomeView().modifier(tabChrome(.settings))
             }
         }
-        .gxuTabBarMinimizeOnScroll()
-        .gxuTabAccessory(isEnabled: home.phase == .ready && (selection == .schedule || (selection == .toolbox && !toolboxPushed)) && home.hasNextEvent(now: clock)) { NextEventAccessory(model: home) }
+        .toolbar(.hidden, for: .tabBar)
+        .transaction(value: selection) { transaction in
+            transaction.animation = nil
+            transaction.disablesAnimations = true
+        }
         .gxuTheme(theme)
         .environment(preferences)
         .environment(\.scheduleMapPlan, Self.mapPlan)
@@ -101,6 +99,10 @@ struct RootView: View {
 }
 
 extension RootView {
+    private func tabChrome(_ tab: AppTab) -> AppTabChrome {
+        AppTabChrome(selection: $selection, showsEvent: tab.showsNextEventAccessory && home.hasNextEvent(now: clock), home: home)
+    }
+
     static let mapPlan: ScheduleMapPlanProvider = { target in
         MapNavigation.plan(text: target.text, keyword: target.mapKeyword)
     }

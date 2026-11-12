@@ -14,6 +14,7 @@ struct HomeView: View {
             content
                 .gxuPageBackground()
                 .navigationTitle("今天")
+                .toolbar(.hidden, for: .tabBar)
                 .navigationBarTitleDisplayMode(.large)
         }
     }
@@ -29,7 +30,15 @@ struct HomeView: View {
         case .loading:
             GxuLoadingView("正在加载…")
         case .unavailable(let message):
-            GxuErrorView(message) { Task { await model.load(services: services, minimumInterval: 0) } }
+            VStack(spacing: GxuDesign.Spacing.l) {
+                TimelineView(.everyMinute) { context in
+                    if let event = model.nextEvent(now: context.date) {
+                        EventCard(event: event, now: context.date, colors: model.colors)
+                            .padding(.horizontal, GxuDesign.Spacing.l)
+                    }
+                }
+                GxuErrorView(message) { Task { await model.load(services: services, minimumInterval: 0) } }
+            }
         case .ready:
             if let snapshot = model.snapshot {
                 TimelineView(.everyMinute) { context in
@@ -47,8 +56,7 @@ private struct HomeList: View {
     let now: Date
 
     private var plan: TodayPlan { snapshot.todayPlan(now: now) }
-    private var event: HomeEvent? { HomeEvent.pick(snapshot: snapshot, exams: model.exams(at: now), now: now) }
-    private var shownEvent: HomeEvent? { plan.phase == .inTerm ? event : nil }
+    private var event: HomeEvent? { model.nextEvent(now: now) }
     private var remaining: [CourseOccurrence] { plan.courses.filter { plan.status(of: $0, now: now) != .finished } }
     private var finished: [CourseOccurrence] { plan.courses.filter { plan.status(of: $0, now: now) == .finished } }
 
@@ -84,6 +92,8 @@ private struct HomeList: View {
                     .textCase(nil)
             }
 
+            if let event { Section(event.isOngoing ? "正在进行" : "接下来") { EventCard(event: event, now: now, colors: model.colors) } }
+
             switch plan.phase {
             case .beforeTerm(let days):
                 Section {
@@ -95,7 +105,6 @@ private struct HomeList: View {
                 }
             case .inTerm:
                 if let note = plan.note { Section { NoteRow(note: note) } }
-                if let event = event { Section("接下来") { EventCard(event: event, now: now, colors: model.colors) } }
                 todaySection
                 if !plan.tomorrow.isEmpty {
                     Section("明天") {
@@ -110,7 +119,7 @@ private struct HomeList: View {
 
             let otherExams = model.exams(at: now).filter { exam in
                 guard let end = exam.endsAt, now < end else { return false }
-                if case .exam(let shown, _) = shownEvent { return shown.id != exam.id }
+                if case .exam(let shown, _) = event { return shown.id != exam.id }
                 return true
             }
             if !otherExams.isEmpty {
@@ -222,7 +231,7 @@ private struct EventCard: View {
         case .course: nil
         case .exam(_, true): "考试进行中"
         case .exam: "考试"
-        case .holiday: "假期"
+        case .holiday: event.isOngoing ? "正在放假" : "假期"
         }
     }
 
@@ -230,7 +239,7 @@ private struct EventCard: View {
         switch event {
         case .course(let item, true): RelativeTime.remaining(until: item.endsAt, now: now)
         case .exam(_, true): ""
-        case .holiday(let holiday): holiday.dayText(now: now, calendar: .current)
+        case .holiday(let holiday): holiday.isOngoing ? "" : holiday.dayText(now: now, calendar: .current)
         default: RelativeTime.untilStart(event.startsAt, now: now)
         }
     }
@@ -239,7 +248,7 @@ private struct EventCard: View {
         switch event {
         case .course(let item, _): item.course.courseName
         case .exam(let item, _): item.exam.course
-        case .holiday(let holiday): holiday.title
+        case .holiday(let holiday): holiday.displayTitle
         }
     }
 

@@ -38,7 +38,7 @@ final class E2EWalkthroughTests: XCTestCase {
 
     func testScheduleExamsScoresAndAcademicAccount() {
         app.launch()
-        let tabs = app.tabBars.firstMatch
+        let tabs = app.descendants(matching: .any).matching(identifier: "app-tab-bar").firstMatch
         XCTAssertTrue(tabs.waitForExistence(timeout: 30))
 
         sleep(10)
@@ -118,7 +118,7 @@ final class E2EWalkthroughTests: XCTestCase {
         entry.tap()
         sleep(wait)
         var switchedTab = false
-        if let rootTab, app.tabBars.firstMatch.exists { switchedTab = !app.tabBars.buttons[rootTab].isSelected }
+        if let rootTab, app.descendants(matching: .any).matching(identifier: "app-tab-bar").firstMatch.exists { switchedTab = !app.descendants(matching: .any).matching(identifier: "app-tab-bar").firstMatch.buttons[rootTab].isSelected }
         let pushed = !switchedTab && app.navigationBars.buttons.firstMatch.exists
         shot(name)
         if switchedTab {
@@ -132,8 +132,8 @@ final class E2EWalkthroughTests: XCTestCase {
         } else {
             note("未上线  \(title)：点击后没有进入新页面（多半是「即将上线」）")
         }
-        if let rootTab, app.tabBars.firstMatch.exists {
-            app.tabBars.buttons[rootTab].tap()
+        if let rootTab, app.descendants(matching: .any).matching(identifier: "app-tab-bar").firstMatch.exists {
+            app.descendants(matching: .any).matching(identifier: "app-tab-bar").firstMatch.buttons[rootTab].tap()
             sleep(1)
         }
     }
@@ -147,7 +147,7 @@ final class E2EWalkthroughTests: XCTestCase {
     func testToolboxEntriesAndSettingsPages() {
         reportName = "phase2-report.txt"
         app.launch()
-        let tabs = app.tabBars.firstMatch
+        let tabs = app.descendants(matching: .any).matching(identifier: "app-tab-bar").firstMatch
         XCTAssertTrue(tabs.waitForExistence(timeout: 30))
         sleep(10)
         shot("p2-01-home")
@@ -178,7 +178,7 @@ final class E2EWalkthroughTests: XCTestCase {
     func testScheduleToolboxGroupsAndHiddenEntries() {
         reportName = "phase3-report.txt"
         app.launch()
-        let tabs = app.tabBars.firstMatch
+        let tabs = app.descendants(matching: .any).matching(identifier: "app-tab-bar").firstMatch
         XCTAssertTrue(tabs.waitForExistence(timeout: 30))
         sleep(10)
         shot("p3-01-today")
