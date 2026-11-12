@@ -48,7 +48,6 @@ public enum CourseDebugScreens {
             case "c-timeshift": TimeShiftView()
             case "c-selected": SelectedCoursesView()
             case "c-strategy": ElectiveStrategyView()
-            case "c-strategy-legacy": LegacyElectiveStrategyView()
             case "c-evaluation": EvaluationOverviewView()
             case "c-evaluation-templates": EvaluationTemplatesView()
             default: Text("未知页面 \(name)")
