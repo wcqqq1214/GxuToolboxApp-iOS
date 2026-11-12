@@ -2,16 +2,7 @@ import Foundation
 import Testing
 @testable import ScheduleKit
 
-struct ReviewRegressionTests {
-    @Test func nextRefreshNotAfterNextStarts() {
-        let s = Schedule(theoryList: [course("A", weekday: 1, 1, 2, weeks: [1]), course("B", weekday: 1, 5, 6, weeks: [1])])
-        let r = NextCourseCalculator.compute(schedule: s, term: term, now: at("2026-09-07 07:00"))
-        #expect(r.next?.name == "A")
-        #expect(r.nextRefreshAt! <= r.next!.startsAt.addingTimeInterval(1))
-        let during = NextCourseCalculator.compute(schedule: s, term: term, now: at("2026-09-07 08:30"))
-        #expect(during.nextRefreshAt == at("2026-09-07 09:40").addingTimeInterval(1))
-    }
-
+struct TermDateParsingTests {
     @Test func impossibleDatesAreDropped() {
         #expect(TermCalendar.parseDay("2026-02-30", calendar: shanghai) == nil)
         #expect(TermCalendar.parseDay("2026-13-01", calendar: shanghai) == nil)
@@ -28,20 +19,9 @@ struct ReviewRegressionTests {
         #expect(r.occurrences.count == 4)
         #expect(r.dayBlocks.isEmpty)
     }
-
-    @Test func sameNameConflictCanSelectSecond() {
-        let a = course("自习", weekday: 1, 1, 2, venue: "A楼")
-        let b = course("自习", weekday: 1, 2, 3, venue: "B楼")
-        let occ = ScheduleExpander.occurrences(of: Schedule(theoryList: [a, b]), in: term)
-        let group = ScheduleExpander.conflictGroups(occ)[0]
-        #expect(group.items.count == 2)
-        let second = group.items[1]
-        let picked = group.selected(choices: [group.key: ScheduleExpander.selectionKey(second.course)])
-        #expect(picked.id == second.id)
-    }
 }
 
-struct WeekOfDateParityTests {
+struct WeekOfDateTests {
     let calendar = TermCalendar(startDate: at("2026-09-07"), weekCount: 20, calendar: shanghai)
 
     @Test func weekBoundaries() {

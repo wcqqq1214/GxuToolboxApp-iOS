@@ -37,7 +37,7 @@ struct TermsBackend: BackendAPI {
 }
 
 @MainActor
-struct ReviewRound2Tests {
+struct ScheduleAccountAndTermSwitchTests {
     init() { URLProtocol.registerClass(StubURLProtocol.self) }
 
     @Test func overlappingAccountLoadsKeepPreviousScheduleOutOfViewAndWidget() async throws {

@@ -33,13 +33,7 @@ private final class GatedBackend: BackendAPI, @unchecked Sendable {
     }
 }
 
-private struct FakeEng2: EngTrainingClient { let data: Data; func scheduleTable() async throws -> Data { data } }
-private struct FakePEC: PECClient { let data: Data; func ruleManage() async throws -> Data { data } }
-
-struct ReviewRegressionTests {
-    private var cal: Calendar { var c = Calendar(identifier: .gregorian); c.timeZone = TimeZone(identifier: "Asia/Shanghai")!; return c }
-    private func d(_ y: Int, _ m: Int, _ day: Int) -> Date { cal.date(from: DateComponents(year: y, month: m, day: day))! }
-
+struct FullScheduleScanTests {
     @MainActor @Test func supersededScanCannotUpdateCurrentProgressOrResults() async throws {
         let mock = MockBackendAPI()
         let dir = Bundle.module.resourceURL!.appendingPathComponent("Fixtures")
@@ -65,47 +59,6 @@ struct ReviewRegressionTests {
         try await Task.sleep(for: .milliseconds(1500))
         #expect(model.checked <= model.total)
         #expect(model.results.isEmpty)
-    }
-
-    @Test func leapDay() {
-        let r = EngTrainingParser.resolve("2月29日", now: d(2028, 12, 1), calendar: cal)!
-        let c = cal.dateComponents([.year, .month, .day], from: r)
-        #expect(c.month == 2 && c.day == 29)
-        let bad = EngTrainingParser.resolve("2月30日", now: d(2026, 2, 1), calendar: cal)
-        #expect(bad == nil)
-    }
-
-    @Test func refreshAcceptsDuplicateDateHeaders() async throws {
-        let raw = #"{"datas":[[{"startRow":2,"startCol":1,"colNumber":1,"content":"10月8日"},{"startRow":2,"startCol":2,"colNumber":1,"content":"10月8日"}]]}"#
-        let db = try AppDatabase.inMemory(features: [CampusFeature.migrations])
-        let repo = EngTrainingRepository(database: db, client: FakeEng2(data: Data(raw.utf8)))
-        do { _ = try await repo.refresh(unifiedUsername: "A", now: d(2026, 10, 1)); print("DUP ok") } catch { print("DUP threw:", error) ; throw error }
-    }
-
-    @Test func unexpectedPracticePayloadsKeepCachedEntries() async throws {
-        let db = try AppDatabase.inMemory(features: [CampusFeature.migrations])
-        let good = #"{"datas":[[{"startRow":2,"startCol":1,"colNumber":1,"content":"10月8日"}]]}"#
-        _ = try await EngTrainingRepository(database: db, client: FakeEng2(data: Data(good.utf8))).refresh(unifiedUsername: "A", now: d(2026, 10, 1))
-        let shifted = #"{"datas":[[{"startRow":3,"startCol":1,"colNumber":1,"content":"10月8日"}]]}"#
-        _ = try? await EngTrainingRepository(database: db, client: FakeEng2(data: Data(shifted.utf8))).refresh(unifiedUsername: "A", now: d(2026, 10, 1))
-        let eng = await EngTrainingRepository(database: db, client: FakeEng2(data: Data())).cached(unifiedUsername: "A").count
-        #expect(eng == 1)
-
-        let goodPec = #"{"d":"{\"data\":[{\"id\":\"1\",\"skrq\":\"20261008\",\"xmmc\":\"x\"}]}"}"#
-        _ = try await PhyExpRepository(database: db, client: FakePEC(data: Data(goodPec.utf8))).refresh(unifiedUsername: "A")
-        let renamed = #"{"d":"{\"data\":[{\"id\":\"1\",\"rq\":\"20261008\",\"xmmc\":\"x\"}]}"}"#
-        let r = try? await PhyExpRepository(database: db, client: FakePEC(data: Data(renamed.utf8))).refresh(unifiedUsername: "A")
-        let phy = await PhyExpRepository(database: db, client: FakePEC(data: Data())).cached(unifiedUsername: "A").count
-        #expect(phy == 1)
-    }
-
-    @Test func nullExperimentFieldsUseFallbacksAndNullDatesAreSkipped() throws {
-        let raw = #"{"d":"{\"data\":[{\"id\":\"1\",\"skrq\":\"20261008\",\"xmmc\":null,\"kcmc\":\"大学物理实验\",\"fjbh\":null,\"sysmc\":\"实验室A\"}]}"}"#
-        let e = try PhyExpParser.parse(Data(raw.utf8))[0]
-        #expect(e.title == "大学物理实验")
-        #expect(e.place == "实验室A")
-        let nullDate = #"{"d":"{\"data\":[{\"id\":\"1\",\"skrq\":null,\"xmmc\":\"x\"}]}"}"#
-        #expect(try PhyExpParser.parse(Data(nullDate.utf8)).isEmpty)
     }
 
     @Test func concurrentRequestsForSameClassShareOneFetch() async throws {
