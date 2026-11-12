@@ -183,33 +183,3 @@ final class OAFileDetailModel {
         }
     }
 }
-
-@MainActor @Observable
-final class WjxtPendingModel {
-    private(set) var files: [WjxtPendingFile] = []
-    private(set) var isLoading = false
-    private(set) var error: GxuError?
-    private let services: AppServices
-
-    init(services: AppServices) {
-        self.services = services
-    }
-
-    var cookies: [HTTPCookie] { services.accounts.wjxt?.sessionCookies() ?? [] }
-
-    func load() async {
-        guard let wjxt = services.accounts.wjxt else { error = .notLoggedIn(.oa); return }
-        isLoading = true
-        defer { isLoading = false }
-        do {
-            files = try await wjxt.pendingFiles()
-            error = nil
-        } catch is CancellationError {
-            return
-        } catch let error as GxuError {
-            self.error = error
-        } catch {
-            self.error = .network("加载失败")
-        }
-    }
-}

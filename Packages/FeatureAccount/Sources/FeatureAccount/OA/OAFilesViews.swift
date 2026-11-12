@@ -39,9 +39,6 @@ public struct OAFilesView: View {
                     Picker("文件类型", selection: $model.typeId) {
                         ForEach(OAFileType.all, id: \.id) { Text($0.label).tag($0.id) }
                     }
-                    Section {
-                        NavigationLink { WjxtPendingView() } label: { Label("旧系统待阅文件", systemImage: "tray.full") }
-                    }
                 } label: {
                     Label("筛选", systemImage: "line.3.horizontal.decrease")
                 }
@@ -55,7 +52,7 @@ public struct OAFilesView: View {
         @ViewBuilder private var placeholder: some View {
             if model.rows.isEmpty {
                 if !model.hasAccount {
-                    GxuEmptyView("还没有登录 OA 账号", systemImage: "doc.text", message: "OA 文件需要 OA 账号（与问卷系统共用）。",
+                    GxuEmptyView("还没有登录 OA 账号", systemImage: "doc.text", message: "OA 文件需要登录 OA 账号。",
                                  actionTitle: "去登录 OA 账号") { showsAccount = true }
                 } else if model.isLoading {
                     GxuLoadingView("正在加载…")
@@ -176,36 +173,6 @@ struct HTMLView: UIViewRepresentable {
             guard navigationAction.navigationType == .linkActivated, let url = navigationAction.request.url else { return .allow }
             if url.scheme == "https" || url.scheme == "http" { await UIApplication.shared.open(url) }
             return .cancel
-        }
-    }
-}
-
-struct WjxtPendingView: View {
-    @Environment(\.services) private var services
-    var body: some View { Content(model: WjxtPendingModel(services: services)) }
-
-    private struct Content: View {
-        @State var model: WjxtPendingModel
-
-        var body: some View {
-            List(model.files) { file in
-                if let url = URL(string: file.href, relativeTo: URL(string: "https://wjxt.gxu.edu.cn/Wjxt_UI/"))?.absoluteURL, !file.href.isEmpty {
-                    NavigationLink { WebViewScreen(url: url, title: "文件", cookies: model.cookies) } label: { Text(file.content) }
-                } else {
-                    Text(file.content)
-                }
-            }
-            .overlay {
-                if model.files.isEmpty {
-                    if model.isLoading { GxuLoadingView("正在加载…") }
-                    else if let error = model.error { GxuErrorView(error.userMessage) { Task { await model.load() } } }
-                    else { GxuEmptyView("暂无待阅文件", systemImage: "tray") }
-                }
-            }
-            .navigationTitle("旧系统待阅文件")
-            .navigationBarTitleDisplayMode(.inline)
-            .refreshable { await model.load() }
-            .task { await model.load() }
         }
     }
 }
