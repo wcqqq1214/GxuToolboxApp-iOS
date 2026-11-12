@@ -4,6 +4,7 @@ import GxuFoundation
 import GxuStorage
 import GxuTestSupport
 import Testing
+@testable import CampusKit
 @testable import FeatureCampus
 
 private struct FakePEC: PECClient {

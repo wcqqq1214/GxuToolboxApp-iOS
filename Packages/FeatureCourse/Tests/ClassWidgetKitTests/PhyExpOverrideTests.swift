@@ -3,6 +3,7 @@ import Foundation
 import GxuStorage
 import ScheduleKit
 import Testing
+@testable import CampusKit
 @testable import ClassWidgetKit
 
 private let cal: Calendar = {

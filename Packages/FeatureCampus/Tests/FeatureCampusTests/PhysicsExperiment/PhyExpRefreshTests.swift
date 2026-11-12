@@ -1,6 +1,7 @@
 import Foundation
 import GxuStorage
 import Testing
+@testable import CampusKit
 @testable import FeatureCampus
 
 private struct FakePEC: PECClient { let data: Data; func ruleManage() async throws -> Data { data } }

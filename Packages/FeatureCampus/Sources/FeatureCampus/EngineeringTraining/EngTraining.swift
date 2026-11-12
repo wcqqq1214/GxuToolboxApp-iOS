@@ -1,3 +1,4 @@
+import CampusKit
 import Foundation
 import GxuAuth
 import GxuFoundation

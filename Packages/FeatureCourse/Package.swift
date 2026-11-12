@@ -25,7 +25,7 @@ let package = Package(
             .product(name: "ExamUI", package: "FeatureExam"),
         ]),
         .target(name: "ClassWidgetKit", dependencies: [
-            .product(name: "FeatureCampus", package: "FeatureCampus"),
+            .product(name: "CampusKit", package: "FeatureCampus"),
             .product(name: "GxuFoundation", package: "GxuCore"),
             .product(name: "GxuNetworking", package: "GxuCore"),
             .product(name: "GxuAuth", package: "GxuCore"),
@@ -49,6 +49,7 @@ let package = Package(
         ], resources: [.copy("Fixtures")]),
         .testTarget(name: "ClassWidgetKitTests", dependencies: [
             "ClassWidgetKit",
+            .product(name: "CampusKit", package: "FeatureCampus"),
             .product(name: "FeatureCampus", package: "FeatureCampus"),
             .product(name: "GxuTestSupport", package: "GxuCore"),
         ]),

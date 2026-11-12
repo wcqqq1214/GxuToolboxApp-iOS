@@ -1,5 +1,5 @@
+import CampusKit
 import Foundation
-import FeatureCampus
 import GxuStorage
 import ScheduleKit
 

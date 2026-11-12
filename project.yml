@@ -78,6 +78,7 @@ targets:
       - {package: FeatureSchedule, product: ScheduleKit}
       - {package: FeatureSchedule, product: ScheduleUI}
       - {package: FeatureCampus, product: FeatureCampus}
+      - {package: FeatureCampus, product: CampusKit}
       - {package: FeatureExam, product: ExamKit}
       - {package: FeatureExam, product: ExamUI}
       - {package: FeatureCourse, product: FeatureCourse}

@@ -1,3 +1,4 @@
+import CampusKit
 import ClassWidgetKit
 import ExamKit
 import FeatureAccount
