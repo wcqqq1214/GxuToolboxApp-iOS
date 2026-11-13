@@ -12,6 +12,10 @@ public enum WidgetBridge {
     private enum RefreshTrigger: Sendable { case foreground, accountChanged }
 
     public static func run(services: AppServices) async {
+        await run(services: services, syncActivity: ClassActivityController.shared.sync)
+    }
+
+    static func run(services: AppServices, syncActivity: (NextCourses, Date) async -> Void) async {
         #if DEBUG
         if let directory = WidgetGallery.outputDirectory() { WidgetGallery.run(into: directory); return }
         if ProcessInfo.processInfo.arguments.contains("-GxuWidgetDemo") { await runDemo(services: services); return }
@@ -36,14 +40,18 @@ public enum WidgetBridge {
         }
 
         observeAccount()
-        await refresh(services: services)
+        await refresh(services: services, now: .now, syncActivity: syncActivity)
         for await trigger in triggers {
             if case .accountChanged = trigger { observeAccount() }
-            await refresh(services: services)
+            await refresh(services: services, now: .now, syncActivity: syncActivity)
         }
     }
 
     public static func refresh(services: AppServices, now: Date = .now) async {
+        await refresh(services: services, now: now, syncActivity: ClassActivityController.shared.sync)
+    }
+
+    private static func refresh(services: AppServices, now: Date, syncActivity: (NextCourses, Date) async -> Void) async {
         guard !Task.isCancelled else { return }
         let key = ObjectIdentifier(services.accounts)
         let refreshID = UUID()
@@ -66,7 +74,7 @@ public enum WidgetBridge {
         services.shared.set(hasClassesToday ? Calendar.current.startOfDay(for: now) : nil, for: WidgetShared.hadClassesDayKey)
         services.shared.set(studentId, for: WidgetShared.activeStudentIdKey)
         WidgetCenter.shared.reloadAllTimelines()
-        await ClassActivityController.shared.sync(snapshot: snapshot, now: now)
+        await syncActivity(snapshot, now)
     }
 }
 
