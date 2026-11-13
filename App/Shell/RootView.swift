@@ -107,7 +107,7 @@ extension RootView {
             let items = ((try? await ExamRepository(database: services.database).exams(studentId: studentId, term: term)) ?? []).map { ExamItem($0) }
             let exams = items.compactMap { item -> GridExam? in
                 guard let start = item.date, let end = Self.examEnd(item.exam.time, start: start) else { return nil }
-                return GridExam(id: item.id, title: item.exam.course, location: item.exam.classroom, seat: item.exam.seatText, start: start, end: end, term: term)
+                return GridExam(id: item.id, title: item.exam.course, location: item.exam.classroom, seat: item.exam.seatText, kind: item.exam.type, start: start, end: end, term: term)
             }
             let overrides = await PhyExpOverrides.cached(database: services.database, unifiedUsername: await services.accounts.unifiedUsername)
             #if DEBUG

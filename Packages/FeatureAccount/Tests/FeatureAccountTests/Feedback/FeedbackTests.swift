@@ -5,21 +5,31 @@ import GxuTestSupport
 import Testing
 @testable import FeatureAccount
 
+private func pageJSON(page: Int, totalPages: Int, ids: [Int]) -> String {
+    let items = ids.map { id in
+        #"{"id":\#(id),"userId":"20******01","type":"bug","feature":"score","content":"成绩页面打不开了怎么办","status":"pending","adminNote":null,"createdAt":"2026-11-05T08:00:00.000Z","updatedAt":"2026-11-05T08:00:00.000Z"}"#
+    }
+    return #"{"code":200,"message":"success","data":{"list":[\#(items.joined(separator: ","))],"meta":{"total":\#(ids.count),"page":\#(page),"pageSize":10,"totalPages":\#(totalPages)}}}"#
+}
+
 private let listJSON = """
 {"code":200,"message":"success","data":{"list":[
- {"id":2,"userId":"2025001","type":"bug","feature":"score","content":"成绩页面打不开了怎么办","contactType":"qq","contact":"1","status":"accept","deviceModel":"iPhone18,1","appVersion":"1.0","adminNote":"已修复","createdAt":"2026-11-05T08:00:00.000Z","updatedAt":"2026-11-05T09:00:00.000Z"},
+ {"id":2,"userId":"20******01","type":"bug","feature":"score","content":"成绩页面打不开了怎么办","status":"accept","adminNote":"已修复","createdAt":"2026-11-05T08:00:00.000Z","updatedAt":"2026-11-05T09:00:00.000Z"},
  {"id":"bad"},
- {"id":1,"userId":"2025001","type":"other","feature":"class_schedule","content":"建议增加深色模式支持","contactType":"email","contact":"a@b.c","status":"pending","deviceModel":"x","appVersion":"1.0","adminNote":null,"createdAt":"2026-11-04T08:00:00Z","updatedAt":"2026-11-04T08:00:00Z"}
-]}}
+ {"id":1,"type":"other","feature":"class_schedule","content":"建议增加深色模式支持","status":"pending","adminNote":null,"createdAt":"2026-11-04T08:00:00Z","updatedAt":"2026-11-04T08:00:00Z"}
+],"meta":{"total":2,"page":1,"pageSize":10,"totalPages":1}}}
 """
 
 @MainActor
 struct FeedbackTests {
     @Test func listDropsMalformedItemsAndParsesDates() async throws {
         let mock = MockBackendAPI()
-        mock.stub("GET /feedback/2025001", json: listJSON)
-        let items = try await FeedbackRepository(backend: mock).myList(studentId: "2025001", page: 1)
+        mock.stub("GET /feedback/public", json: listJSON)
+        let page = try await FeedbackRepository(backend: mock).publicList(page: 1)
+        let items = page.items
+        #expect(page.totalPages == 1)
         #expect(items.map(\.id) == [2, 1])
+        #expect(items[0].maskedStudentId == "20******01" && items[1].maskedStudentId == nil)
         #expect(items[0].isReplied && !items[1].isReplied)
         #expect(items[0].createdDate != nil && items[1].createdDate != nil)
         #expect(items[1].adminNote == nil)
@@ -54,31 +64,27 @@ struct FeedbackTests {
         #expect(formWithoutAcademicAccount.errorMessage == "请先到设置里登录教务账号")
     }
 
-    @Test func listShowsFriendlyMessageWhenServerReturns401() async {
-        let services = AppServices.preview(signedIn: true)
-        let id = services.accounts.studentId ?? ""
-        (services.backend as! MockBackendAPI).stub("GET /feedback/\(id)", error: .http(status: 401, message: "看板：未登录或登录已过期"))
-        let model = FeedbackListModel(services: services)
+    @Test func listLoadsWithoutLoginAndPagesUntilTheLastPage() async {
+        let mock = MockBackendAPI()
+        let model = FeedbackListModel(services: AppServices.preview(backend: mock, signedIn: false))
+        mock.stub("GET /feedback/public", json: pageJSON(page: 1, totalPages: 2, ids: [3, 2]))
         await model.reload()
-        #expect(model.items.isEmpty)
-        #expect(model.error?.userMessage.contains("暂时无法查看") == true)
-    }
+        #expect(model.items.map(\.id) == [3, 2] && model.error == nil && model.hasMore)
 
-    @Test func listModelPagesAndStopsOnShortPage() async {
-        let services = AppServices.preview(signedIn: true)
-        let id = services.accounts.studentId ?? ""
-        (services.backend as! MockBackendAPI).stub("GET /feedback/\(id)", json: listJSON)
-        let model = FeedbackListModel(services: services)
-        await model.reload()
-        #expect(model.items.count == 2)
+        mock.stub("GET /feedback/public", json: pageJSON(page: 2, totalPages: 2, ids: [2, 1]))
+        await model.loadMoreIfNeeded(current: model.items[1])
+        #expect(model.items.map(\.id) == [3, 2, 1])
         #expect(!model.hasMore)
+        await model.loadMoreIfNeeded(current: model.items[2])
+        #expect(mock.calls == ["GET /feedback/public", "GET /feedback/public"])
     }
-}
 
-struct FeedbackFeatureFlagTests {
-    @Test func myFeedbackEntryIsOffByDefault() {
-        UserDefaults.standard.removeObject(forKey: "feature.showsMyFeedback")
-        #expect(FeedbackFeatures.showsMyFeedback == false)
+    @Test func listFailureShowsTheError() async {
+        let mock = MockBackendAPI()
+        mock.stub("GET /feedback/public", error: .network("offline"))
+        let model = FeedbackListModel(services: AppServices.preview(backend: mock, signedIn: false))
+        await model.reload()
+        #expect(model.items.isEmpty && model.error == .network("offline"))
     }
 }
 

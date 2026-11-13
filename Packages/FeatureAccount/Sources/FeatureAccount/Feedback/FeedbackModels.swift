@@ -65,25 +65,20 @@ final class FeedbackListModel {
     }
 
     private func load(reset: Bool) async {
-        guard let studentId = services.accounts.studentId else { error = .notLoggedIn(.jw); return }
         let requestRevision = listRevision
         isLoading = true
         defer { if requestRevision == listRevision { isLoading = false } }
         do {
-            let fetched = try await FeedbackRepository(backend: services.backend).myList(studentId: studentId, page: page)
+            let fetched = try await FeedbackRepository(backend: services.backend).publicList(page: page)
             guard requestRevision == listRevision else { return }
-            if reset { items = fetched } else { items += fetched.filter { new in !items.contains { $0.id == new.id } } }
-            hasMore = fetched.count >= FeedbackRepository.pageSize
+            if reset { items = fetched.items } else { items += fetched.items.filter { new in !items.contains { $0.id == new.id } } }
+            hasMore = page < fetched.totalPages
             page += 1
             error = nil
         } catch is CancellationError {
             return
         } catch let error as GxuError {
-            if case .http(status: 401, _) = error {
-                self.error = .invalidData("「我的反馈」暂时无法查看（服务端限制）。已提交的反馈开发者仍然能收到。")
-            } else {
-                self.error = error
-            }
+            self.error = error
         } catch {
             self.error = .network("加载失败")
         }

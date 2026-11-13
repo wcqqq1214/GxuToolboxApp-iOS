@@ -2,12 +2,6 @@ import GxuAuth
 import GxuDesign
 import SwiftUI
 
-public enum FeedbackFeatures {
-    public static var showsMyFeedback: Bool {
-        UserDefaults.standard.object(forKey: "feature.showsMyFeedback") as? Bool ?? false
-    }
-}
-
 public struct FeedbackView: View {
     @Environment(\.services) private var services
     public init() {}
@@ -65,15 +59,13 @@ public struct FeedbackView: View {
             .navigationTitle("意见反馈")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                if FeedbackFeatures.showsMyFeedback {
-                    NavigationLink("我的反馈") { FeedbackListView() }
-                }
+                NavigationLink("全部反馈") { FeedbackListView() }
             }
             .onChange(of: model.submittedID) { _, id in showsSuccess = id != nil }
             .alert("提交成功", isPresented: $showsSuccess) {
                 Button("好") { model.submittedID = nil }
             } message: {
-                Text("感谢反馈，可以在「我的反馈」里查看回复。")
+                Text("感谢反馈，可以在「全部反馈」里查看回复。")
             }
         }
     }
@@ -108,7 +100,7 @@ public struct FeedbackListView: View {
                     }
                 }
             }
-            .navigationTitle("我的反馈")
+            .navigationTitle("全部反馈")
             .navigationBarTitleDisplayMode(.inline)
             .refreshable { await model.reload() }
             .task { await model.reload() }
@@ -148,8 +140,9 @@ public struct FeedbackDetailView: View {
                 LabeledContent("类型", value: FeedbackOptions.typeLabel(item.type))
                 LabeledContent("模块", value: FeedbackOptions.featureLabel(item.feature))
                 if let date = item.createdDate { LabeledContent("提交时间", value: date.formatted(date: .abbreviated, time: .shortened)) }
+                if let student = item.maskedStudentId, !student.isEmpty { LabeledContent("学号", value: student) }
             }
-            Section("我的反馈") { Text(item.content).textSelection(.enabled) }
+            Section("反馈内容") { Text(item.content).textSelection(.enabled) }
             Section("官方回复") {
                 if let note = item.adminNote, !note.isEmpty {
                     Text(note).textSelection(.enabled)

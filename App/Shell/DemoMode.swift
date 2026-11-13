@@ -62,6 +62,7 @@ private struct DemoBackend: BackendAPI {
         case "/jw/profile/startDay": body = Self.startDays
         case "/jw/schedule/personal": body = Self.schedule
         case "/jw/exam": body = Self.exams
+        case "/feedback/public": body = #"{"list":[{"id":1,"userId":"20******01","type":"bug","feature":"class_schedule","content":"演示反馈：希望考试详情可以复制。","status":"accept","adminNote":"演示回复：已支持复制考试信息。","createdAt":"2026-11-01T08:00:00Z","updatedAt":"2026-11-02T08:00:00Z"}],"meta":{"totalPages":1}}"#
         case "/teachers/search": body = #"{"list": [{"id": "t1", "name": "教师甲", "unit": "数学与信息科学学院", "picUrl": ""}], "pages": 1, "total": 1}"#
         default: throw GxuError.network("演示模式不支持 \(path)")
         }

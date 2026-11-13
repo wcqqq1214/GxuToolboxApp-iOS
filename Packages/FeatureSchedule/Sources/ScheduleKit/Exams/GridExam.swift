@@ -6,18 +6,59 @@ public struct GridExam: Sendable, Hashable, Identifiable {
     public var title: String
     public var location: String
     public var seat: String
+    public var kind: String
     public var start: Date
     public var end: Date
     public var term: AcademicTerm?
 
-    public init(id: String, title: String, location: String = "", seat: String = "", start: Date, end: Date, term: AcademicTerm? = nil) {
+    public init(
+        id: String, title: String, location: String = "", seat: String = "", kind: String = "", start: Date, end: Date, term: AcademicTerm? = nil
+    ) {
         self.id = id
         self.title = title
         self.location = location
         self.seat = seat
+        self.kind = kind
         self.start = start
         self.end = end
         self.term = term
+    }
+
+    public func status(now: Date, calendar: Calendar = .current) -> GridExamStatus {
+        if end <= now { return .ended }
+        if start <= now { return .ongoing }
+        let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: now), to: calendar.startOfDay(for: start)).day ?? 0
+        return .upcoming(days: max(days, 0))
+    }
+}
+
+public enum GridExamStatus: Sendable, Hashable {
+    case upcoming(days: Int)
+    case ongoing
+    case ended
+
+    public static let urgentDays = 3
+
+    public var isUrgent: Bool {
+        switch self {
+        case .upcoming(let days): days <= Self.urgentDays
+        case .ongoing: true
+        case .ended: false
+        }
+    }
+
+    public func text(start: Date, calendar: Calendar = .current) -> String {
+        switch self {
+        case .ended: return "已结束"
+        case .ongoing: return "考试进行中"
+        case .upcoming(let days):
+            let time = String(format: "%02d:%02d", calendar.component(.hour, from: start), calendar.component(.minute, from: start))
+            switch days {
+            case 0: return "今天 \(time) 开考"
+            case 1: return "明天 \(time) 开考"
+            default: return "还有 \(days) 天"
+            }
+        }
     }
 }
 

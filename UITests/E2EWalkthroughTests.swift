@@ -36,6 +36,27 @@ final class E2EWalkthroughTests: XCTestCase {
         if option.waitForExistence(timeout: 5) { option.tap() } else { XCTFail("没有学年选项 \(text)") }
     }
 
+    func testPublicFeedbackAndExamSheetDemo() {
+        app.launchArguments += ["-GxuDemo", "-GxuTab", "schedule", "-GxuScheduleSheet", "exam"]
+        app.launch()
+        XCTAssertTrue(app.navigationBars["考试"].waitForExistence(timeout: 30))
+        XCTAssertTrue(app.staticTexts["期末考试"].exists)
+        shot("demo-exam")
+        tap(app.buttons["复制考试信息"], "复制考试信息")
+        XCTAssertTrue(app.buttons["已复制考试信息"].waitForExistence(timeout: 5))
+        tap(app.buttons["完成"], "关闭考试")
+        tap(app.tabBars.buttons["设置"], "设置")
+        app.swipeUp()
+        tap(app.buttons["意见反馈"], "意见反馈")
+        tap(app.buttons["全部反馈"], "全部反馈")
+        XCTAssertTrue(app.staticTexts["演示反馈：希望考试详情可以复制。"].waitForExistence(timeout: 10))
+        shot("demo-feedback-list")
+        tap(app.staticTexts["演示反馈：希望考试详情可以复制。"], "反馈详情")
+        XCTAssertTrue(app.staticTexts["20******01"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["演示回复：已支持复制考试信息。"].exists)
+        shot("demo-feedback-detail")
+    }
+
     func testScheduleExamsScoresAndAcademicAccount() {
         app.launch()
         let tabs = app.tabBars.firstMatch
@@ -169,7 +190,7 @@ final class E2EWalkthroughTests: XCTestCase {
         settingsEntries([["个人信息"], ["统一认证账号"], ["考勤账号"], ["意见反馈"]], prefix: "p2-05-settings")
         if let entry = find(["意见反馈"]) {
             entry.tap(); sleep(2)
-            note(app.buttons["我的反馈"].exists ? "未通过  意见反馈页仍显示「我的反馈」入口" : "通过  意见反馈页已隐藏「我的反馈」入口")
+            note(app.buttons["全部反馈"].exists ? "通过  意见反馈页显示「全部反馈」入口" : "未通过  意见反馈页缺少「全部反馈」入口")
             shot("p2-06-feedback-form")
             if app.navigationBars.buttons.firstMatch.exists { app.navigationBars.buttons.firstMatch.tap() }
         }

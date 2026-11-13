@@ -6,18 +6,19 @@ import UIKit
 
 public struct FeedbackItem: Decodable, Identifiable, Hashable, Sendable {
     public let id: Int
-    public let userId: String
+    public let maskedStudentId: String?
     public let type: String
     public let feature: String
     public let content: String
-    public let contactType: String
-    public let contact: String
     public let status: String
-    public let deviceModel: String
-    public let appVersion: String
     public let adminNote: String?
     public let createdAt: String
     public let updatedAt: String
+
+    private enum CodingKeys: String, CodingKey {
+        case id, type, feature, content, status, adminNote, createdAt, updatedAt
+        case maskedStudentId = "userId"
+    }
 
     public var isReplied: Bool { status == "accept" }
     public var createdDate: Date? { Self.parse(createdAt) }
@@ -77,18 +78,23 @@ private struct SubmitBody: Encodable, Sendable {
 }
 private struct SubmitResult: Decodable, Sendable { let id: Int }
 
-private struct LossyList: Decodable, Sendable {
-    let list: [FeedbackItem]
-    private enum Keys: String, CodingKey { case list }
+public struct FeedbackPage: Decodable, Sendable {
+    public let items: [FeedbackItem]
+    public let totalPages: Int
+    private enum Keys: String, CodingKey { case list, meta }
+    private enum MetaKeys: String, CodingKey { case totalPages }
     private struct Skip: Decodable {}
-    init(from decoder: Decoder) throws {
+
+    public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: Keys.self)
         var array = try container.nestedUnkeyedContainer(forKey: .list)
         var items: [FeedbackItem] = []
         while !array.isAtEnd {
             if let item = try? array.decode(FeedbackItem.self) { items.append(item) } else { _ = try? array.decode(Skip.self) }
         }
-        list = items
+        self.items = items
+        let meta = try? container.nestedContainer(keyedBy: MetaKeys.self, forKey: .meta)
+        totalPages = (try? meta?.decodeIfPresent(Int.self, forKey: .totalPages)) ?? 0
     }
 }
 
@@ -111,10 +117,10 @@ public struct FeedbackRepository: Sendable {
         return try await backend.postData("/feedback", body: body, auth: nil, as: SubmitResult.self).id
     }
 
-    public func myList(studentId: String, page: Int) async throws -> [FeedbackItem] {
+    public func publicList(page: Int) async throws -> FeedbackPage {
         try await backend.getData(
-            "/feedback/\(studentId)", query: ["page": String(page), "pageSize": String(Self.pageSize)], auth: nil, as: LossyList.self
-        ).list
+            "/feedback/public", query: ["page": String(page), "pageSize": String(Self.pageSize)], auth: nil, as: FeedbackPage.self
+        )
     }
 }
 

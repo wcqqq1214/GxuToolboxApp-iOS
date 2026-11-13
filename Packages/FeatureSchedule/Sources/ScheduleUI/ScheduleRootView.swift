@@ -202,6 +202,9 @@ public struct ScheduleRootView: View {
             await model.save(CustomActivity(name: "电学实验", weekday: 5, begin: 11, end: 12, weeks: [3], colorHex: 0xFFE0B2))
             showActivityList = true
         case "share": showShare = true
+        case "exam":
+            let start = Date.now.addingTimeInterval(2 * 24 * 60 * 60)
+            examDetail = GridExam(id: "demo-exam", title: "高等数学（演示）", location: "第一教学楼 101", seat: "18", kind: "期末考试", start: start, end: start.addingTimeInterval(2 * 60 * 60))
         case "detail":
             let week = model.selectedWeek
             if let group = ScheduleExpander.conflictGroups(model.index.items(inWeek: week, weekday: 1)).first { detail = group }

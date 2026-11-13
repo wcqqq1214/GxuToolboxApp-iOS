@@ -56,6 +56,19 @@ struct RelatedExamsTests {
         #expect(RelatedExams.badge(for: e, now: at("2026-11-08 07:00"), calendar: shanghai) == "今天考试")
         #expect(RelatedExams.badge(for: e, now: at("2026-11-08 12:00"), calendar: shanghai) == "已结束")
     }
+
+    @Test func detailStatusCountsCalendarDaysAndMarksTheLastThreeAsUrgent() {
+        let e = exam("高等数学", "2026-11-08 09:00", "2026-11-08 11:00")
+        func status(_ now: String) -> GridExamStatus { e.status(now: at(now), calendar: shanghai) }
+        func text(_ now: String) -> String { status(now).text(start: e.start, calendar: shanghai) }
+        #expect(text("2026-11-01 23:00") == "还有 7 天" && !status("2026-11-01 23:00").isUrgent)
+        #expect(text("2026-11-05 23:59") == "还有 3 天" && status("2026-11-05 23:59").isUrgent)
+        #expect(text("2026-11-07 22:00") == "明天 09:00 开考")
+        #expect(text("2026-11-08 08:59") == "今天 09:00 开考")
+        #expect(text("2026-11-08 09:00") == "考试进行中" && status("2026-11-08 10:59").isUrgent)
+        #expect(status("2026-11-08 11:00") == .ended && !status("2026-11-08 11:00").isUrgent)
+        #expect(text("2026-11-08 11:00") == "已结束")
+    }
 }
 
 extension RelatedExamsTests {
