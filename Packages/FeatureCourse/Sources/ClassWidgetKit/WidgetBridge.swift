@@ -9,7 +9,6 @@ import WidgetKit
 @MainActor
 public enum WidgetBridge {
     private static var refreshIDs: [ObjectIdentifier: UUID] = [:]
-    private enum RefreshTrigger: Sendable { case foreground, accountChanged }
 
     public static func run(services: AppServices) async {
         await run(services: services, syncActivity: ClassActivityController.shared.sync)
@@ -20,29 +19,42 @@ public enum WidgetBridge {
         if let directory = WidgetGallery.outputDirectory() { WidgetGallery.run(into: directory); return }
         if ProcessInfo.processInfo.arguments.contains("-GxuWidgetDemo") { await runDemo(services: services); return }
         #endif
-        let (triggers, continuation) = AsyncStream<RefreshTrigger>.makeStream()
+        let (triggers, continuation) = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
         let foreground = Task {
             for await _ in NotificationCenter.default.notifications(named: UIApplication.didBecomeActiveNotification) {
-                continuation.yield(.foreground)
+                continuation.yield(())
             }
         }
         defer {
             foreground.cancel()
             continuation.finish()
         }
+        let (accountChanges, accountContinuation) = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
         func observeAccount() {
             withObservationTracking {
                 _ = services.accounts.studentId
                 _ = services.accounts.unifiedUsername
             } onChange: {
-                continuation.yield(.accountChanged)
+                accountContinuation.yield(())
             }
         }
 
         observeAccount()
+        let accountObserver = Task {
+            for await _ in accountChanges {
+                observeAccount()
+                if clearActiveAccountIfChanged(services: services) {
+                    WidgetCenter.shared.reloadAllTimelines()
+                }
+                continuation.yield(())
+            }
+        }
+        defer {
+            accountObserver.cancel()
+            accountContinuation.finish()
+        }
         await refresh(services: services, now: .now, syncActivity: syncActivity)
-        for await trigger in triggers {
-            if case .accountChanged = trigger { observeAccount() }
+        for await _ in triggers {
             await refresh(services: services, now: .now, syncActivity: syncActivity)
         }
     }
@@ -57,9 +69,7 @@ public enum WidgetBridge {
         let refreshID = UUID()
         refreshIDs[key] = refreshID
         defer { if refreshIDs[key] == refreshID { refreshIDs[key] = nil } }
-        if services.shared.value(WidgetShared.activeStudentIdKey) != services.accounts.studentId {
-            services.shared.set(nil, for: WidgetShared.activeStudentIdKey)
-            services.shared.set(nil, for: WidgetShared.hadClassesDayKey)
+        if clearActiveAccountIfChanged(services: services) {
             WidgetCenter.shared.reloadAllTimelines()
         }
         guard let studentId = services.accounts.studentId else {
@@ -75,6 +85,13 @@ public enum WidgetBridge {
         services.shared.set(studentId, for: WidgetShared.activeStudentIdKey)
         WidgetCenter.shared.reloadAllTimelines()
         await syncActivity(snapshot, now)
+    }
+
+    private static func clearActiveAccountIfChanged(services: AppServices) -> Bool {
+        guard services.shared.value(WidgetShared.activeStudentIdKey) != services.accounts.studentId else { return false }
+        services.shared.set(nil, for: WidgetShared.activeStudentIdKey)
+        services.shared.set(nil, for: WidgetShared.hadClassesDayKey)
+        return true
     }
 }
 
