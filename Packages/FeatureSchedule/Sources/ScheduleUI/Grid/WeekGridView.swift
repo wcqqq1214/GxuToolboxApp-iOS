@@ -67,7 +67,6 @@ struct WeekHeader: View {
             }
         }
         .frame(height: WeekGridView.headerHeight)
-        .background(.background)
         .overlay(alignment: .bottom) { Divider() }
     }
 

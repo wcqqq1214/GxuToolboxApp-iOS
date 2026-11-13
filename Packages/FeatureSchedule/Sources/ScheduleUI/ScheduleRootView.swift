@@ -59,8 +59,9 @@ public struct ScheduleRootView: View {
         let rescheduleRequest = model.rescheduleRequest
         NavigationStack {
             content
-                .gxuPageBackground()
+                .gxuPageBackground(inNavigation: true)
                 .navigationBarTitleDisplayMode(.inline)
+                .toolbarBackgroundVisibility(.hidden, for: .navigationBar)
                 .toolbar { toolbar }
         }
         .task(id: AccountKey(studentId: services.accounts.studentId, sessionID: services.accounts.jwSessionID, state: services.accounts.states[.jw],

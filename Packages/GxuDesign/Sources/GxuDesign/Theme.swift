@@ -67,7 +67,9 @@ public final class GxuTheme {
 }
 
 public extension View {
-    func gxuPageBackground() -> some View { modifier(PageBackgroundModifier()) }
+    func gxuPageBackground(inNavigation: Bool = false) -> some View {
+        modifier(PageBackgroundModifier(inNavigation: inNavigation))
+    }
 
     func gxuTheme(_ theme: GxuTheme) -> some View {
         modifier(ThemeModifier(theme: theme))
@@ -76,25 +78,33 @@ public extension View {
 
 private struct PageBackgroundModifier: ViewModifier {
     @Environment(GxuTheme.self) private var theme: GxuTheme?
+    let inNavigation: Bool
 
+    @ViewBuilder
     func body(content: Content) -> some View {
-        content
-            .scrollContentBackground(theme?.backgroundImage == nil ? .automatic : .hidden)
-            .background {
-                Color(.systemGroupedBackground)
-                if let theme, let data = theme.backgroundImage, let image = UIImage(data: data) {
-                    GeometryReader { geometry in
-                        Image(uiImage: image)
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: geometry.size.width, height: geometry.size.height)
-                            .clipped()
-                            .overlay(Color(.systemGroupedBackground).opacity(min(max(theme.backgroundMask, 0), 1)))
-                            .accessibilityHidden(true)
-                    }
-                    .ignoresSafeArea()
-                }
+        let page = content.scrollContentBackground(theme?.backgroundImage == nil ? .automatic : .hidden)
+        if inNavigation {
+            page.containerBackground(for: .navigation) { background }
+        } else {
+            page.background { background }
+        }
+    }
+
+    @ViewBuilder
+    private var background: some View {
+        Color(.systemGroupedBackground)
+        if let theme, let data = theme.backgroundImage, let image = UIImage(data: data) {
+            GeometryReader { geometry in
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                    .clipped()
+                    .overlay(Color(.systemGroupedBackground).opacity(min(max(theme.backgroundMask, 0), 1)))
+                    .accessibilityHidden(true)
             }
+            .ignoresSafeArea()
+        }
     }
 }
 

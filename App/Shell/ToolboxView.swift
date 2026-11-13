@@ -39,8 +39,9 @@ struct ToolboxView: View {
                 .padding(.horizontal, GxuDesign.Layout.pageMargin)
                 .padding(.vertical, GxuDesign.Spacing.s)
             }
-            .gxuPageBackground()
+            .gxuPageBackground(inNavigation: true)
             .navigationTitle("工具箱")
+            .toolbarBackgroundVisibility(.hidden, for: .navigationBar)
             .searchable(text: $query, prompt: "搜索功能")
             .navigationDestination(for: String.self) { id in
                 if let item = ToolboxCatalog.items.first(where: { $0.id == id }), let view = item.pushedView {

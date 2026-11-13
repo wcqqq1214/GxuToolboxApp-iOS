@@ -27,6 +27,8 @@ RootView().gxuTheme(theme)                     // 下发强调色、外观模式
 
 在视图里要用强调色，写 `Color.accentColor` 或 `.tint`，不要用 `theme.accent` 去给背景大面积着色。
 
+课表和工具箱的根页用 `.gxuPageBackground(inNavigation: true)`，让页面底色和自定义背景图延伸到导航栏后方。
+
 ### 玻璃
 
 ```swift
