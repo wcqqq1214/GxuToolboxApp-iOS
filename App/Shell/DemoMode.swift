@@ -65,6 +65,13 @@ private struct DemoBackend: BackendAPI {
         case "/jw/exam": body = Self.exams
         case "/jw/score": body = try Self.scoreResponse(query: query)
         case "/jw/score/usual": body = #"[{"name":"平时成绩","ratio":"30","score":"90"}]"#
+        case "/feedback/public" where ProcessInfo.processInfo.arguments.contains("-GxuDemoFeedbackPages"):
+            let page = Int(query["page"] ?? "1") ?? 1
+            let start = (page - 1) * 10 + 1
+            let items = (start..<(start + 10)).map { id in
+                #"{"id":\#(id),"type":"bug","feature":"score","content":"分页演示反馈第\#(id)条","status":"pending","adminNote":null,"createdAt":"2026-11-01T08:00:00Z","updatedAt":"2026-11-01T08:00:00Z"}"#
+            }
+            body = #"{"list":[\#(items.joined(separator: ","))],"meta":{"totalPages":3}}"#
         case "/feedback/public", "/feedback/mine/2025000000": body = #"{"list":[{"id":1,"userId":"20******01","type":"bug","feature":"class_schedule","content":"演示反馈：希望考试详情可以复制。","status":"accept","adminNote":"演示回复：已支持复制考试信息。","createdAt":"2026-11-01T08:00:00Z","updatedAt":"2026-11-02T08:00:00Z"}],"meta":{"totalPages":1}}"#
         case "/teachers/search": body = #"{"list": [{"id": "t1", "name": "教师甲", "unit": "数学与信息科学学院", "picUrl": ""}], "pages": 1, "total": 1}"#
         default: throw GxuError.network("演示模式不支持 \(path)")

@@ -128,7 +128,7 @@ public struct FeedbackListView: View {
             }
             .navigationBarTitleDisplayMode(.inline)
             .refreshable { await model.reload() }
-            .task(id: model.accountID) { await model.reload() }
+            .task(id: model.accountID) { await model.loadIfNeeded() }
         }
     }
 

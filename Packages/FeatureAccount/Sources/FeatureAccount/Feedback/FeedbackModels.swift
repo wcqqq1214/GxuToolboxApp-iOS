@@ -90,6 +90,11 @@ final class FeedbackListModel {
         self.services = services
     }
 
+    func loadIfNeeded() async {
+        guard page == 1 || loadedStudentId != accountID else { return }
+        await reload()
+    }
+
     func reload() async {
         listRevision += 1
         if loadedStudentId != accountID { items = [] }

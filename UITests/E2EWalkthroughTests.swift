@@ -36,6 +36,31 @@ final class E2EWalkthroughTests: XCTestCase {
         if option.waitForExistence(timeout: 5) { option.tap() } else { XCTFail("没有学年选项 \(text)") }
     }
 
+    func testFeedbackReturnPreservesPaginatedScrollPosition() {
+        app.launchArguments += ["-GxuDemo", "-GxuDemoFeedbackPages"]
+        app.launch()
+        tap(app.tabBars.buttons["设置"], "设置")
+        app.swipeUp()
+        tap(app.buttons["意见反馈"], "意见反馈")
+        tap(app.buttons["全部反馈"], "全部反馈")
+        XCTAssertTrue(app.navigationBars["全部反馈"].waitForExistence(timeout: 30))
+        let target = app.staticTexts["分页演示反馈第15条"]
+        for _ in 0..<12 {
+            if target.exists && target.isHittable { break }
+            app.swipeUp()
+        }
+        XCTAssertTrue(target.isHittable)
+        let originalY = target.frame.midY
+        target.tap()
+        XCTAssertTrue(app.navigationBars["反馈详情"].waitForExistence(timeout: 5))
+        app.navigationBars.buttons.firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["全部反馈"].waitForExistence(timeout: 5))
+        let staysVisible = NSPredicate { _, _ in target.exists && target.isHittable && abs(target.frame.midY - originalY) < 10 }
+        let position = XCTNSPredicateExpectation(predicate: staysVisible, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [position], timeout: 5), .completed)
+        shot("feedback-return-page-two")
+    }
+
     func testPublicFeedbackAndExamSheetDemo() {
         app.launchArguments += ["-GxuDemo", "-GxuTab", "schedule", "-GxuScheduleSheet", "exam"]
         app.launch()

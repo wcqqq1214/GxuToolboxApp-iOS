@@ -79,6 +79,43 @@ struct FeedbackTests {
         #expect(mock.calls == ["GET /feedback/public", "GET /feedback/public"])
     }
 
+    @Test func returningToListPreservesPagesUntilExplicitRefresh() async throws {
+        let mock = MockBackendAPI()
+        let model = FeedbackListModel(services: AppServices.preview(backend: mock, signedIn: false))
+        mock.stub("GET /feedback/public", json: pageJSON(page: 1, totalPages: 2, ids: [3, 2]))
+        await model.loadIfNeeded()
+        mock.stub("GET /feedback/public", json: pageJSON(page: 2, totalPages: 2, ids: [1]))
+        await model.loadMoreIfNeeded(current: try #require(model.items.last))
+        mock.stub("GET /feedback/public", json: pageJSON(page: 1, totalPages: 2, ids: [3, 2]))
+        await model.loadIfNeeded()
+        #expect(model.items.map(\.id) == [3, 2, 1])
+        #expect(!model.hasMore)
+        #expect(mock.calls.count == 2)
+        await model.reload()
+        #expect(model.items.map(\.id) == [3, 2])
+        #expect(model.hasMore && mock.calls.count == 3)
+    }
+
+    @Test func returningToEmptyListDoesNotReload() async {
+        let mock = MockBackendAPI()
+        mock.stub("GET /feedback/public", json: pageJSON(page: 1, totalPages: 0, ids: []))
+        let model = FeedbackListModel(services: AppServices.preview(backend: mock, signedIn: false))
+        await model.loadIfNeeded()
+        await model.loadIfNeeded()
+        #expect(model.items.isEmpty && mock.calls.count == 1)
+    }
+
+    @Test func failedInitialLoadCanRetryOnReturn() async {
+        let mock = MockBackendAPI()
+        mock.stub("GET /feedback/public", error: .network("offline"))
+        let model = FeedbackListModel(services: AppServices.preview(backend: mock, signedIn: false))
+        await model.loadIfNeeded()
+        mock.stub("GET /feedback/public", json: pageJSON(page: 1, totalPages: 1, ids: [1]))
+        await model.loadIfNeeded()
+        #expect(model.items.map(\.id) == [1] && model.error == nil)
+        #expect(mock.calls.count == 2)
+    }
+
     @Test func myListRequiresLogin() async {
         let mock = MockBackendAPI()
         let model = FeedbackListModel(services: AppServices.preview(backend: mock, signedIn: false), mine: true)
@@ -103,7 +140,7 @@ struct FeedbackTests {
         await model.reload()
         #expect(model.items.count == 3 && model.error == .network("offline"))
         await services.accounts.logout(.jw)
-        await model.reload()
+        await model.loadIfNeeded()
         #expect(model.items.isEmpty && model.needsLogin && model.error == nil)
         #expect(mock.calls == [route, route, route])
     }
