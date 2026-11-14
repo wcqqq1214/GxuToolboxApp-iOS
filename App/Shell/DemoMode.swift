@@ -80,16 +80,21 @@ private struct DemoBackend: BackendAPI {
 
     private static func scoreResponse(query: [String: String]) throws -> String {
         let year = Calendar.current.component(.year, from: .now)
-        let scores = [
+        let scores: [Score] = [
             Score(id: "demo-math-first", year: year - 1, term: 1, courseName: "高等数学", credit: 4, score: 58, teacherName: "教师甲"),
             Score(id: "demo-math-retake", year: year, term: 1, courseName: "高等数学", credit: 4, score: 86, teacherName: "教师乙"),
             Score(id: "demo-writing", year: year - 1, term: 2, courseName: "学术写作", credit: 2, score: 92, teacherName: "教师甲"),
             Score(id: "demo-unspecified", year: year - 1, term: 0, courseName: "创新实践", credit: 1, score: 90),
-        ].filter { score in
-            (query["year"].flatMap(Int.init).map { $0 == score.year } ?? true)
-                && (query["term"].flatMap(Int.init).map { $0 == score.term } ?? true)
+        ]
+        let requestedYear = query["year"].flatMap { Int($0) }
+        let requestedTerm = query["term"].flatMap { Int($0) }
+        let filtered = scores.filter { score in
+            if let requestedYear, score.year != requestedYear { return false }
+            if let requestedTerm, score.term != requestedTerm { return false }
+            return true
         }
-        return String(decoding: try JSONEncoder().encode(["items": scores]), as: UTF8.self)
+        let page: [String: [Score]] = ["items": filtered]
+        return String(decoding: try JSONEncoder().encode(page), as: UTF8.self)
     }
 
     private static var startDays: String {
