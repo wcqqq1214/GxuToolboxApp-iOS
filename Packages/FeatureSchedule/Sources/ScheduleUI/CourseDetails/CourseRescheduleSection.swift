@@ -6,34 +6,32 @@ struct CourseRescheduleSection: View {
     let records: [CourseReschedule]
 
     var body: some View {
-        let notices = records.map { (reason: content($0.reason), category: content($0.reasonCategory)) }
-            .filter { $0.reason != nil || $0.category != nil }
-        if !notices.isEmpty {
-            Section("调课通知") {
-                ForEach(notices.indices, id: \.self) { index in
-                    VStack(alignment: .leading, spacing: GxuDesign.Spacing.s) {
-                        field("原因", notices[index].reason)
-                        field("类别", notices[index].category)
-                    }
+        ForEach(records.indices, id: \.self) { index in
+            let record = records[index]
+            Section {
+                RescheduleArrangementView(stage: .before, summary: RescheduleArrangementSummary(record.before))
+                RescheduleArrangementView(stage: .after, summary: RescheduleArrangementSummary(record.after))
+                if let type = RescheduleArrangementSummary.content(record.type) {
+                    field("类型", type)
                 }
+                if let reason = RescheduleArrangementSummary.content(record.reason) {
+                    field("原因", reason)
+                }
+                if let category = RescheduleArrangementSummary.content(record.reasonCategory) {
+                    field("类别", category)
+                }
+            } header: {
+                Text(records.count > 1 ? "调课通知 \(index + 1)" : "调课通知")
             }
         }
     }
 
-    @ViewBuilder
-    private func field(_ title: String, _ value: String?) -> some View {
-        if let value {
-            VStack(alignment: .leading, spacing: GxuDesign.Spacing.xs) {
-                Text(title).font(.subheadline).foregroundStyle(.secondary)
-                Text(value).font(.body)
-            }
-            .fixedSize(horizontal: false, vertical: true)
-            .accessibilityElement(children: .combine)
+    private func field(_ title: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: GxuDesign.Spacing.xs) {
+            Text(title).font(.subheadline).foregroundStyle(.secondary)
+            Text(value).font(.body).textSelection(.enabled)
         }
-    }
-
-    private func content(_ value: String?) -> String? {
-        guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else { return nil }
-        return value
+        .fixedSize(horizontal: false, vertical: true)
+        .accessibilityElement(children: .combine)
     }
 }
