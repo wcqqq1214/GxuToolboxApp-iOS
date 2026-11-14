@@ -117,6 +117,13 @@ public struct FeedbackRepository: Sendable {
         return try await backend.postData("/feedback", body: body, auth: nil, as: SubmitResult.self).id
     }
 
+    public func myList(studentId: String, page: Int) async throws -> FeedbackPage {
+        let encoded = studentId.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? ""
+        return try await backend.getData(
+            "/feedback/mine/\(encoded)", query: ["page": String(page), "pageSize": String(Self.pageSize)], auth: nil, as: FeedbackPage.self
+        )
+    }
+
     public func publicList(page: Int) async throws -> FeedbackPage {
         try await backend.getData(
             "/feedback/public", query: ["page": String(page), "pageSize": String(Self.pageSize)], auth: nil, as: FeedbackPage.self

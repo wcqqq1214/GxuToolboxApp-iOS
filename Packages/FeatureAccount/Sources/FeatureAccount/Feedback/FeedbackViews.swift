@@ -73,8 +73,9 @@ public struct FeedbackView: View {
 
 public struct FeedbackListView: View {
     @Environment(\.services) private var services
-    public init() {}
-    public var body: some View { Content(model: FeedbackListModel(services: services)) }
+    private let mine: Bool
+    public init(mine: Bool = false) { self.mine = mine }
+    public var body: some View { Content(model: FeedbackListModel(services: services, mine: mine)) }
 
     private struct Content: View {
         @State var model: FeedbackListModel
@@ -85,25 +86,33 @@ public struct FeedbackListView: View {
                     NavigationLink { FeedbackDetailView(item: item) } label: { Row(item: item) }
                         .task { await model.loadMoreIfNeeded(current: item) }
                 }
+                if let error = model.error, !model.items.isEmpty {
+                    GxuErrorView(error.userMessage) { Task { await model.reload() } }
+                }
                 if model.isLoading && !model.items.isEmpty {
                     HStack { Spacer(); ProgressView(); Spacer() }.listRowBackground(Color.clear)
                 }
             }
             .overlay {
                 if model.items.isEmpty {
-                    if model.isLoading {
+                    if model.needsLogin {
+                        GxuEmptyView("请先到设置里登录教务账号", systemImage: "person.crop.circle")
+                    } else if model.isLoading {
                         GxuLoadingView("正在加载…")
                     } else if let error = model.error {
                         GxuErrorView(error.userMessage) { Task { await model.reload() } }
                     } else {
-                        GxuEmptyView("还没有反馈", systemImage: "bubble.left.and.text.bubble.right")
+                        GxuEmptyView(model.mine ? "暂无提交的反馈" : "还没有反馈", systemImage: "bubble.left.and.text.bubble.right")
                     }
                 }
             }
-            .navigationTitle("全部反馈")
+            .navigationTitle(model.mine ? "我的反馈" : "全部反馈")
+            .toolbar {
+                if !model.mine { NavigationLink("我的反馈") { FeedbackListView(mine: true) } }
+            }
             .navigationBarTitleDisplayMode(.inline)
             .refreshable { await model.reload() }
-            .task { await model.reload() }
+            .task(id: model.accountID) { await model.reload() }
         }
     }
 

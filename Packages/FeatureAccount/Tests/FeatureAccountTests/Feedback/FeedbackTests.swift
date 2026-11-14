@@ -79,6 +79,35 @@ struct FeedbackTests {
         #expect(mock.calls == ["GET /feedback/public", "GET /feedback/public"])
     }
 
+    @Test func myListRequiresLogin() async {
+        let mock = MockBackendAPI()
+        let model = FeedbackListModel(services: AppServices.preview(backend: mock, signedIn: false), mine: true)
+        await model.reload()
+        #expect(model.needsLogin && model.items.isEmpty && !model.hasMore)
+        #expect(mock.calls.isEmpty)
+    }
+
+    @Test func myListPagesAndClearsOnLogout() async throws {
+        let mock = MockBackendAPI()
+        let services = AppServices.preview(backend: mock, signedIn: true)
+        let studentId = try #require(services.accounts.studentId)
+        let route = "GET /feedback/mine/\(studentId)"
+        let model = FeedbackListModel(services: services, mine: true)
+        mock.stub(route, json: pageJSON(page: 1, totalPages: 2, ids: [3, 2]))
+        await model.reload()
+        #expect(model.items.map(\.id) == [3, 2])
+        mock.stub(route, json: pageJSON(page: 2, totalPages: 2, ids: [2, 1]))
+        await model.loadMoreIfNeeded(current: model.items[1])
+        #expect(model.items.map(\.id) == [3, 2, 1] && !model.hasMore)
+        mock.stub(route, error: .network("offline"))
+        await model.reload()
+        #expect(model.items.count == 3 && model.error == .network("offline"))
+        await services.accounts.logout(.jw)
+        await model.reload()
+        #expect(model.items.isEmpty && model.needsLogin && model.error == nil)
+        #expect(mock.calls == [route, route, route])
+    }
+
     @Test func listFailureShowsTheError() async {
         let mock = MockBackendAPI()
         mock.stub("GET /feedback/public", error: .network("offline"))

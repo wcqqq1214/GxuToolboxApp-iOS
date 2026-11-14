@@ -43,19 +43,33 @@ final class FeedbackListModel {
     private(set) var isLoading = false
     private(set) var error: GxuError?
     private(set) var hasMore = true
+    let mine: Bool
+    private var loadedStudentId: String?
+    var accountID: String? { mine ? services.accounts.studentId : nil }
+    var needsLogin: Bool { mine && accountID == nil }
     private var page = 1
     private var listRevision = 0
 
     private let services: AppServices
 
-    init(services: AppServices) {
+    init(services: AppServices, mine: Bool = false) {
+        self.mine = mine
         self.services = services
     }
 
     func reload() async {
         listRevision += 1
+        if loadedStudentId != accountID { items = [] }
+        loadedStudentId = accountID
+        error = nil
         page = 1
         hasMore = true
+        if needsLogin {
+            items = []
+            hasMore = false
+            isLoading = false
+            return
+        }
         await load(reset: true)
     }
 
@@ -65,12 +79,20 @@ final class FeedbackListModel {
     }
 
     private func load(reset: Bool) async {
+        guard !needsLogin else { return }
+        let studentId = accountID
         let requestRevision = listRevision
         isLoading = true
         defer { if requestRevision == listRevision { isLoading = false } }
         do {
-            let fetched = try await FeedbackRepository(backend: services.backend).publicList(page: page)
-            guard requestRevision == listRevision else { return }
+            let repository = FeedbackRepository(backend: services.backend)
+            let fetched: FeedbackPage
+            if mine, let studentId {
+                fetched = try await repository.myList(studentId: studentId, page: page)
+            } else {
+                fetched = try await repository.publicList(page: page)
+            }
+            guard requestRevision == listRevision, studentId == accountID else { return }
             if reset { items = fetched.items } else { items += fetched.items.filter { new in !items.contains { $0.id == new.id } } }
             hasMore = page < fetched.totalPages
             page += 1
@@ -78,8 +100,10 @@ final class FeedbackListModel {
         } catch is CancellationError {
             return
         } catch let error as GxuError {
+            guard requestRevision == listRevision, studentId == accountID else { return }
             self.error = error
         } catch {
+            guard requestRevision == listRevision, studentId == accountID else { return }
             self.error = .network("加载失败")
         }
     }
