@@ -65,7 +65,7 @@ private struct DemoBackend: BackendAPI {
         case "/jw/exam": body = Self.exams
         case "/jw/score": body = try Self.scoreResponse(query: query)
         case "/jw/score/usual": body = #"[{"name":"平时成绩","ratio":"30","score":"90"}]"#
-        case "/feedback/public": body = #"{"list":[{"id":1,"userId":"20******01","type":"bug","feature":"class_schedule","content":"演示反馈：希望考试详情可以复制。","status":"accept","adminNote":"演示回复：已支持复制考试信息。","createdAt":"2026-11-01T08:00:00Z","updatedAt":"2026-11-02T08:00:00Z"}],"meta":{"totalPages":1}}"#
+        case "/feedback/public", "/feedback/mine/2025000000": body = #"{"list":[{"id":1,"userId":"20******01","type":"bug","feature":"class_schedule","content":"演示反馈：希望考试详情可以复制。","status":"accept","adminNote":"演示回复：已支持复制考试信息。","createdAt":"2026-11-01T08:00:00Z","updatedAt":"2026-11-02T08:00:00Z"}],"meta":{"totalPages":1}}"#
         case "/teachers/search": body = #"{"list": [{"id": "t1", "name": "教师甲", "unit": "数学与信息科学学院", "picUrl": ""}], "pages": 1, "total": 1}"#
         default: throw GxuError.network("演示模式不支持 \(path)")
         }
@@ -73,6 +73,9 @@ private struct DemoBackend: BackendAPI {
     }
 
     func post<T: Decodable & Sendable, Body: Encodable & Sendable>(_ path: String, body: Body, auth: AuthSystem?, as type: T.Type) async throws -> T {
+        if path == "/feedback" {
+            return try JSONDecoder().decode(type, from: Data(#"{"data":{"id":1}}"#.utf8))
+        }
         guard path == "/jw/profile" else { throw GxuError.network("演示模式不支持 \(path)") }
         let profile = #"{"data":{"student_id":"2025000000","name":"演示同学","college":"土木建筑工程学院","major":"土木工程","class_name":"土木251","grade":"2025","study_years":"4"}}"#
         return try JSONDecoder().decode(type, from: Data(profile.utf8))

@@ -1,37 +1,70 @@
+import Foundation
 import GxuAuth
 import GxuFoundation
 import Observation
+import GxuStorage
 
 @MainActor @Observable
 final class FeedbackFormModel {
-    var draft = FeedbackDraft()
+    private struct OpenForm {
+        weak var model: FeedbackFormModel?
+    }
+
+    private static var openForms: [UUID: OpenForm] = [:]
+
+    static func open(services: AppServices) -> FeedbackFormModel {
+        openForms = openForms.filter { $0.value.model != nil }
+        let session = services.accounts.jwSessionID
+        if let model = openForms[session]?.model { return model }
+        let model = FeedbackFormModel(services: services)
+        openForms[session] = OpenForm(model: model)
+        return model
+    }
+
+    var draft: FeedbackDraft {
+        didSet { services.shared.set(draft == FeedbackDraft() ? nil : draft, for: draftKey) }
+    }
     private(set) var isSubmitting = false
     private(set) var errorMessage: String?
     var submittedID: Int?
 
     private let services: AppServices
+    private let studentId: String?
+    private let draftKey: SharedKey<FeedbackDraft>
 
-    init(services: AppServices) {
+    private init(services: AppServices) {
         self.services = services
+        studentId = services.accounts.studentId
+        let key = SharedKey<FeedbackDraft>("feedback.draft.v1." + (studentId.map { "account." + $0 } ?? "guest"))
+        draftKey = key
+        draft = services.shared.value(key) ?? FeedbackDraft()
     }
 
     var canSubmit: Bool { !isSubmitting }
 
     func submit() async {
         guard !isSubmitting else { return }
+        guard let studentId, studentId == services.accounts.studentId else { errorMessage = "请先到设置里登录教务账号"; return }
         if let message = draft.validationMessage { errorMessage = message; return }
-        guard let studentId = services.accounts.studentId else { errorMessage = "请先到设置里登录教务账号"; return }
+        let session = services.accounts.jwSessionID
+        let submittedDraft = draft
         isSubmitting = true
         errorMessage = nil
         defer { isSubmitting = false }
         do {
-            submittedID = try await FeedbackRepository(backend: services.backend).submit(draft, studentId: studentId)
-            draft.content = ""
+            let id = try await FeedbackRepository(backend: services.backend).submit(submittedDraft, studentId: studentId)
+            guard services.accounts.jwSessionID == session, !Task.isCancelled else { return }
+            submittedID = id
+            if draft == submittedDraft, services.shared.value(draftKey) == submittedDraft {
+                draft = FeedbackDraft()
+            }
         } catch is CancellationError {
             return
         } catch let error as GxuError {
+            guard services.accounts.jwSessionID == session else { return }
             errorMessage = "提交失败：" + error.userMessage
         } catch {
+            guard services.accounts.jwSessionID == session else { return }
             errorMessage = "提交失败，请稍后重试"
         }
     }

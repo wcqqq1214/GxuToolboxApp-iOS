@@ -46,7 +46,7 @@ public enum FeedbackOptions {
     }
 }
 
-public struct FeedbackDraft: Sendable, Equatable {
+public struct FeedbackDraft: Codable, Sendable, Equatable {
     public var type = ""
     public var feature = ""
     public var content = ""

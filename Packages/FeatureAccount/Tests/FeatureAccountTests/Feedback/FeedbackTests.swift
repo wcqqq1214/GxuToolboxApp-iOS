@@ -51,13 +51,13 @@ struct FeedbackTests {
     @Test func submitReturnsIdAndRequiresLogin() async throws {
         let services = AppServices.preview(signedIn: true)
         (services.backend as! MockBackendAPI).stub("POST /feedback", json: #"{"code":200,"data":{"id":77}}"#)
-        let model = FeedbackFormModel(services: services)
+        let model = FeedbackFormModel.open(services: services)
         model.draft = { var d = FeedbackDraft(); d.type = "bug"; d.feature = "exam"; d.content = "考试倒计时显示的时间不对啊"; d.contactType = "qq"; d.contact = "1"; return d }()
         await model.submit()
         #expect(model.submittedID == 77)
         #expect(model.draft.content.isEmpty)
 
-        let formWithoutAcademicAccount = FeedbackFormModel(services: AppServices.preview(signedIn: false))
+        let formWithoutAcademicAccount = FeedbackFormModel.open(services: AppServices.preview(signedIn: false))
         formWithoutAcademicAccount.draft = model.draft
         formWithoutAcademicAccount.draft.content = "考试倒计时显示的时间不对啊"
         await formWithoutAcademicAccount.submit()

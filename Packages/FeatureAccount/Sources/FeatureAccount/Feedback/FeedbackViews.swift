@@ -5,11 +5,18 @@ import SwiftUI
 public struct FeedbackView: View {
     @Environment(\.services) private var services
     public init() {}
-    public var body: some View { Content(model: FeedbackFormModel(services: services)) }
+    public var body: some View {
+        Content(services: services).id(services.accounts.jwSessionID)
+    }
 
     private struct Content: View {
-        @State var model: FeedbackFormModel
+        @State private var model: FeedbackFormModel
         @State private var showsSuccess = false
+        @State private var showsMyFeedback = false
+
+        init(services: AppServices) {
+            _model = State(initialValue: FeedbackFormModel.open(services: services))
+        }
 
         var body: some View {
             Form {
@@ -25,11 +32,12 @@ public struct FeedbackView: View {
                 }
                 Section {
                     TextEditor(text: $model.draft.content)
+                        .accessibilityLabel("反馈内容")
                         .frame(minHeight: 140)
                 } header: {
                     Text("反馈内容")
                 } footer: {
-                    Text("至少 \(FeedbackOptions.minContentLength) 个字，请尽量描述清楚遇到的问题或建议。")
+                    Text("至少 \(FeedbackOptions.minContentLength) 个字。草稿仅保存在本机，按账号分别保留，提交成功后清除。")
                 }
                 Section {
                     Picker("联系方式", selection: $model.draft.contactType) {
@@ -49,23 +57,31 @@ public struct FeedbackView: View {
                         Task { await model.submit() }
                     } label: {
                         HStack {
-                            Text("提交")
+                            Text(model.isSubmitting ? "正在提交" : "提交")
                             if model.isSubmitting { Spacer(); ProgressView() }
                         }
                     }
                     .disabled(!model.canSubmit)
                 }
             }
+            .scrollDismissesKeyboard(.interactively)
+            .disabled(model.isSubmitting)
             .navigationTitle("意见反馈")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                Button("我的反馈") { showsMyFeedback = true }
                 NavigationLink("全部反馈") { FeedbackListView() }
             }
-            .onChange(of: model.submittedID) { _, id in showsSuccess = id != nil }
+            .navigationDestination(isPresented: $showsMyFeedback) { FeedbackListView(mine: true) }
+            .onChange(of: model.submittedID, initial: true) { _, id in showsSuccess = id != nil }
             .alert("提交成功", isPresented: $showsSuccess) {
-                Button("好") { model.submittedID = nil }
+                Button("查看我的反馈") {
+                    model.submittedID = nil
+                    showsMyFeedback = true
+                }
+                Button("完成", role: .cancel) { model.submittedID = nil }
             } message: {
-                Text("感谢反馈，可以在「全部反馈」里查看回复。")
+                Text("感谢反馈，可以在「我的反馈」里查看处理状态和回复。")
             }
         }
     }
