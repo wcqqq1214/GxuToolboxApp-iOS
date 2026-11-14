@@ -76,7 +76,7 @@ struct PendingCourseTests {
         try await repo.replaceAllScores([s2, s3], studentId: "y")
         #expect(try await repo.allScores(studentId: "x").count == 3)
         #expect(try await repo.allScores(studentId: "y").count == 2)
-        try await repo.replaceAllScores([Score(id: "4", year: 2024, term: 1, courseName: "D", credit: 1, score: 60)], studentId: "x")
+        try await repo.replaceScores([Score(id: "4", year: 2024, term: 1, courseName: "D", credit: 1, score: 60)], studentId: "x", year: 2024, term: 1)
         let ids = Set(try await repo.allScores(studentId: "x").map(\.id))
         #expect(ids == ["4", "2", "3"])
     }

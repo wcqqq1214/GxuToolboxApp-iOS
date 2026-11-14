@@ -63,6 +63,9 @@ public struct Score: Codable, Hashable, Sendable, Identifiable {
 }
 
 struct ScorePage: Decodable, Sendable {
+    var totalCount: Int?
+    var totalPage: Int?
+    var currentPage: Int?
     var items: [Score]
 }
 

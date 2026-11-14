@@ -32,6 +32,8 @@ final class ScoreViewModel {
     private(set) var pending: [PendingCourse] = []
     private let pendingSource: (any PendingCourseSource)?
 
+    private var loadRevision = 0
+
     private let api: ScoreAPI
     private let repo: ExamRepository
     private let accounts: AccountCenter
@@ -60,31 +62,37 @@ final class ScoreViewModel {
     }
 
     func load() async {
+        loadRevision += 1
+        let revision = loadRevision
+        let session = accounts.jwSessionID
         guard isQueryReady else { return }
         guard let studentId = accounts.studentId else {
             error = .notLoggedIn(.jw)
             return
         }
         let query = query
+        let isCurrent = { self.loadRevision == revision && self.query == query && self.accounts.jwSessionID == session && !Task.isCancelled }
         error = nil
         isLoading = true
-        defer { if self.query == query { isLoading = false } }
+        defer { if loadRevision == revision { isLoading = false } }
 
-        await showCached(studentId: studentId, query: query)
+        await showCached(studentId: studentId, query: query, isCurrent: isCurrent)
+        guard isCurrent() else { return }
 
         if query.isAll {
             do {
                 let remote = try await api.allScores()
-                guard !Task.isCancelled, self.query == query else { return }
+                guard isCurrent() else { return }
                 try await repo.replaceAllScores(remote, studentId: studentId)
             } catch is CancellationError {
                 return
             } catch {
-                guard self.query == query else { return }
+                guard isCurrent() else { return }
                 self.error = asGxuError(error)
             }
-            guard self.query == query else { return }
-            await showCached(studentId: studentId, query: query)
+            guard isCurrent() else { return }
+            await showCached(studentId: studentId, query: query, isCurrent: isCurrent)
+            guard isCurrent() else { return }
             pending = []
             return
         }
@@ -95,7 +103,7 @@ final class ScoreViewModel {
         for term in terms {
             do {
                 let remote = try await api.scores(AcademicTerm(year: query.year, term: term))
-                guard !Task.isCancelled, self.query == query else { return }
+                guard isCurrent() else { return }
                 try await repo.replaceScores(remote, studentId: studentId, year: query.year, term: term)
                 succeeded += 1
             } catch is CancellationError {
@@ -104,24 +112,25 @@ final class ScoreViewModel {
                 failures.append(asGxuError(error))
             }
         }
-        guard self.query == query else { return }
+        guard isCurrent() else { return }
         if succeeded == 0, let first = failures.first { error = first }
-        await showCached(studentId: studentId, query: query)
-        await loadPending(studentId: studentId, query: query)
+        await showCached(studentId: studentId, query: query, isCurrent: isCurrent)
+        await loadPending(studentId: studentId, query: query, isCurrent: isCurrent)
     }
 
-    private func loadPending(studentId: String, query: Query) async {
+    private func loadPending(studentId: String, query: Query, isCurrent: () -> Bool) async {
+        guard isCurrent() else { return }
         guard let pendingSource, !query.isAll, let term = query.term else {
             pending = []
             return
         }
         let ids = Set(scores.map(\.id))
         let list = await pendingSource.pendingCourses(studentId: studentId, term: AcademicTerm(year: query.year, term: term), scoredClassIds: ids)
-        guard self.query == query else { return }
+        guard isCurrent() else { return }
         pending = list
     }
 
-    private func showCached(studentId: String, query: Query) async {
+    private func showCached(studentId: String, query: Query, isCurrent: () -> Bool) async {
         let cached: [Score]
         let synced: Date?
         if query.isAll {
@@ -131,7 +140,7 @@ final class ScoreViewModel {
             cached = (try? await repo.scores(studentId: studentId, year: query.year, term: query.term)) ?? []
             synced = (try? await repo.lastSyncedAt(studentId: studentId, year: query.year, term: query.term)) ?? nil
         }
-        guard !Task.isCancelled, self.query == query else { return }
+        guard isCurrent() else { return }
         scores = cached
         lastSyncedAt = synced
     }

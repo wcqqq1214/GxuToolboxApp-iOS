@@ -10,7 +10,10 @@ import Testing
 @MainActor @Suite struct GpaAllTermsTests {
     private func fixture() throws -> Data {
         let url = try #require(Bundle.module.url(forResource: "score", withExtension: "json", subdirectory: "Fixtures"))
-        return try Data(contentsOf: url)
+        var envelope = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+        let data = try #require(envelope["data"] as? [String: Any])
+        envelope["data"] = ["items": data["items"]!]
+        return try JSONSerialization.data(withJSONObject: envelope)
     }
 
     private func services(_ mock: MockBackendAPI, studentId: String = "2025000000") -> AppServices {
@@ -78,7 +81,10 @@ private extension MockBackendAPI {
 @MainActor @Suite struct GpaRetakeViewModelTests {
     private func fixture() throws -> Data {
         let url = try #require(Bundle.module.url(forResource: "score", withExtension: "json", subdirectory: "Fixtures"))
-        return try Data(contentsOf: url)
+        var envelope = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+        let data = try #require(envelope["data"] as? [String: Any])
+        envelope["data"] = ["items": data["items"]!]
+        return try JSONSerialization.data(withJSONObject: envelope)
     }
 
     @Test func singleTermQueryIsNotRewrittenByLaterTerms() async throws {

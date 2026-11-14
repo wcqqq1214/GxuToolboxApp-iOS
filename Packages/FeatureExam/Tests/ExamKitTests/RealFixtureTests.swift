@@ -8,9 +8,13 @@ import Testing
     private func backend() throws -> MockBackendAPI {
         let mock = MockBackendAPI()
         mock.stub("GET /jw/exam", json: try loadFixture("exam", bundle: .module))
-        mock.stub("GET /jw/score", json: try loadFixture("score", bundle: .module))
         mock.stub("GET /jw/score/usual", json: try loadFixture("score-usual", bundle: .module))
         return mock
+    }
+
+    private func fixtureScores() throws -> [Score] {
+        struct Envelope: Decodable { let data: ScorePage }
+        return try JSONDecoder().decode(Envelope.self, from: loadFixture("score", bundle: .module)).data.items
     }
 
     @Test func examDecodesWithoutSeat() async throws {
@@ -34,7 +38,7 @@ import Testing
     }
 
     @Test func scoreDecodesIgnoringCamelCaseCopies() async throws {
-        let scores = try await ScoreAPI(backend: backend()).scores(AcademicTerm(year: 2025, term: 1))
+        let scores = try fixtureScores()
         #expect(scores.count == 100)
         #expect(scores.allSatisfy { $0.score != nil && $0.credit != nil })
         #expect(scores.filter { $0.term == 0 }.count == 1)
@@ -45,7 +49,7 @@ import Testing
     }
 
     @Test func gpaMatchesReferenceFormula() async throws {
-        let scores = try await ScoreAPI(backend: backend()).scores(AcademicTerm(year: 2025, term: 1))
+        let scores = try fixtureScores()
         let all = GpaCalculator.calculate(scores)
         #expect(abs(all.gpa - 1.3977578475336323) < 1e-12)
         #expect(abs(all.wam - 52.912556053811656) < 1e-12)
@@ -60,7 +64,7 @@ import Testing
     }
 
     @Test func realScoresRoundTripThroughRepository() async throws {
-        let scores = try await ScoreAPI(backend: backend()).scores(AcademicTerm(year: 2025, term: 1))
+        let scores = try fixtureScores()
         let repo = ExamRepository(database: try .inMemory(features: [ExamRepository.migrations]))
         for term in 0...2 {
             try await repo.replaceScores(scores.filter { $0.year == 2022 && $0.term == term }, studentId: "s1", year: 2022, term: term)

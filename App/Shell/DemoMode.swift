@@ -1,4 +1,5 @@
 #if DEBUG
+import ExamKit
 import Foundation
 import GxuAuth
 import GxuFoundation
@@ -62,6 +63,8 @@ private struct DemoBackend: BackendAPI {
         case "/jw/profile/startDay": body = Self.startDays
         case "/jw/schedule/personal": body = Self.schedule
         case "/jw/exam": body = Self.exams
+        case "/jw/score": body = try Self.scoreResponse(query: query)
+        case "/jw/score/usual": body = #"[{"name":"平时成绩","ratio":"30","score":"90"}]"#
         case "/feedback/public": body = #"{"list":[{"id":1,"userId":"20******01","type":"bug","feature":"class_schedule","content":"演示反馈：希望考试详情可以复制。","status":"accept","adminNote":"演示回复：已支持复制考试信息。","createdAt":"2026-11-01T08:00:00Z","updatedAt":"2026-11-02T08:00:00Z"}],"meta":{"totalPages":1}}"#
         case "/teachers/search": body = #"{"list": [{"id": "t1", "name": "教师甲", "unit": "数学与信息科学学院", "picUrl": ""}], "pages": 1, "total": 1}"#
         default: throw GxuError.network("演示模式不支持 \(path)")
@@ -73,6 +76,20 @@ private struct DemoBackend: BackendAPI {
         guard path == "/jw/profile" else { throw GxuError.network("演示模式不支持 \(path)") }
         let profile = #"{"data":{"student_id":"2025000000","name":"演示同学","college":"土木建筑工程学院","major":"土木工程","class_name":"土木251","grade":"2025","study_years":"4"}}"#
         return try JSONDecoder().decode(type, from: Data(profile.utf8))
+    }
+
+    private static func scoreResponse(query: [String: String]) throws -> String {
+        let year = Calendar.current.component(.year, from: .now)
+        let scores = [
+            Score(id: "demo-math-first", year: year - 1, term: 1, courseName: "高等数学", credit: 4, score: 58, teacherName: "教师甲"),
+            Score(id: "demo-math-retake", year: year, term: 1, courseName: "高等数学", credit: 4, score: 86, teacherName: "教师乙"),
+            Score(id: "demo-writing", year: year - 1, term: 2, courseName: "学术写作", credit: 2, score: 92, teacherName: "教师甲"),
+            Score(id: "demo-unspecified", year: year - 1, term: 0, courseName: "创新实践", credit: 1, score: 90),
+        ].filter { score in
+            (query["year"].flatMap(Int.init).map { $0 == score.year } ?? true)
+                && (query["term"].flatMap(Int.init).map { $0 == score.term } ?? true)
+        }
+        return String(decoding: try JSONEncoder().encode(["items": scores]), as: UTF8.self)
     }
 
     private static var startDays: String {

@@ -147,10 +147,17 @@ public struct ExamRepository: Sendable {
     }
 
     public func replaceAllScores(_ scores: [Score], studentId: String, now: Date = .now) async throws {
-        let groups = Dictionary(grouping: scores) { "\($0.year)#\($0.term)" }
-        for (_, items) in groups {
-            guard let first = items.first else { continue }
-            try await replaceScores(items, studentId: studentId, year: first.year, term: first.term, now: now)
+        try await database.writer.write { db in
+            let records = try ScoreRecord.filter(Column("studentId") == studentId).fetchAll(db)
+            let existing = Dictionary(uniqueKeysWithValues: records.map { ($0.id, $0) })
+            try ScoreRecord.filter(Column("studentId") == studentId).deleteAll(db)
+            for score in scores {
+                try ScoreRecord(
+                    studentId: studentId, id: score.id, year: score.year, term: score.term, courseName: score.courseName,
+                    credit: score.credit, score: score.score, teacherName: score.teacherName, uploadAt: score.uploadAt,
+                    usualScoreJSON: existing[score.id]?.usualScoreJSON, updatedAt: now
+                ).save(db)
+            }
         }
     }
 
