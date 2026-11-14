@@ -9,6 +9,7 @@ public struct ScheduleRootView: View {
     @State private var model: ScheduleViewModel
     @State private var detail: ConflictGroup?
     @State private var editor: ActivityEditorRequest?
+    @State private var manualEditor: ManualAdjustmentRequest?
     @State private var showActivityList = false
     @State private var showShare = false
     @Environment(SchedulePreferencesStore.self) private var preferences
@@ -100,7 +101,10 @@ public struct ScheduleRootView: View {
             model.palette = palette
             model.recolor()
         }
-        .onChange(of: services.accounts.studentId) { detail = nil }
+        .onChange(of: services.accounts.studentId) { detail = nil; manualEditor = nil }
+        .onChange(of: model.term) { previous, _ in
+            if previous != nil { detail = nil; manualEditor = nil }
+        }
         .sheet(item: $detail) { group in
             CourseDetailSheet(
                 group: group, colors: model.colors, selected: group.selected(choices: model.choices), exams: model.exams, term: model.term, attendance: model.attendance,
@@ -109,8 +113,19 @@ public struct ScheduleRootView: View {
                     detail = nil
                     if let activity = model.activity(id: id) { editor = ActivityEditorRequest(activity: activity, isNew: false) }
                 },
+                onEditCourse: { occurrence in
+                    if let request = model.manualAdjustmentRequest(for: occurrence) {
+                        detail = nil
+                        manualEditor = request
+                    }
+                },
                 reschedules: model.reschedules(for:)
             )
+        }
+        .sheet(item: $manualEditor) { request in
+            ManualAdjustmentEditor(request: request, weekCount: model.weekCount,
+                                   onSave: { try await model.saveManualAdjustments($0, request: request) },
+                                   onRestore: { try await model.restoreManualAdjustment(request) })
         }
         .sheet(item: $editor) { request in
             ActivityEditorSheet(
@@ -197,6 +212,10 @@ public struct ScheduleRootView: View {
         let args = ProcessInfo.processInfo.arguments
         guard model.phase == .content, let i = args.firstIndex(of: "-GxuScheduleSheet"), i + 1 < args.count else { return }
         switch args[i + 1] {
+        case "adjust":
+            if let occurrence = model.index.occurrences.first(where: { !$0.course.isCustom }) {
+                manualEditor = model.manualAdjustmentRequest(for: occurrence)
+            }
         case "add": addActivity()
         case "list":
             await model.save(CustomActivity(name: "光学实验", note: "带预习报告", location: "理科楼 301", teacher: "教师甲", weekday: 3, begin: 9, end: 10, weeks: [1, 2, 3, 4, 6, 8, 10], colorHex: 0xB3E5FC))

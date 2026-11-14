@@ -52,7 +52,7 @@ final class HomeCacheObservation: Sendable {
                 return try await writer.writeWithoutTransaction { _ in
                     let groups = [
                         (["schedule_snapshot", "term_start_day", "campus_calendar", "exam_info"], false),
-                        (["schedule_conflict_choice", "schedule_custom_activity", "phy_experiment"], true)
+                        (["schedule_conflict_choice", "schedule_custom_activity", "schedule_manual_adjustment", "phy_experiment"], true)
                     ]
                     return groups.map { tables, interactive in
                         let observation = DatabaseRegionObservation(tracking: tables.map { Table<Row>($0) })

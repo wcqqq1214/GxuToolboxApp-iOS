@@ -57,7 +57,7 @@ public struct AttendanceIndex: Sendable {
     public var isEmpty: Bool { statuses.isEmpty }
 
     public func status(for occurrence: CourseOccurrence) -> AttendanceStatus? {
-        guard !occurrence.course.isCustom else { return nil }
+        guard !occurrence.course.isCustom, occurrence.manualAdjustmentID == nil else { return nil }
         return statuses[Key(day: calendar.startOfDay(for: occurrence.date), begin: occurrence.course.begin, end: occurrence.course.end)]
     }
 

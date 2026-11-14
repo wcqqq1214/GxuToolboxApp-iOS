@@ -41,6 +41,7 @@ struct CourseBlock: View {
             HStack(spacing: 2) {
                 if selected.isMakeup { scheduleBadge("补") }
                 if showsRescheduleBadge { scheduleBadge("调") }
+                if selected.manualAdjustmentID != nil { scheduleBadge("本") }
             }
             .offset(x: -3, y: -3)
         }
@@ -75,7 +76,7 @@ struct CourseBlock: View {
         let place = course.locationText.isEmpty ? "" : "，\(course.locationText)"
         let conflict = group.isConflict ? "，另有 \(group.items.count - 1) 门课冲突" : ""
         let makeup = selected.isMakeup ? "，补班" : ""
-        let rescheduled = showsRescheduleBadge ? "，已调课" : ""
+        let rescheduled = selected.manualAdjustmentID != nil ? "，本地调整" : (showsRescheduleBadge ? "，已调课" : "")
         let attend = attendance.map { "，\($0.label)" } ?? ""
         return "\(course.courseName)\(place)，\(WeekdayName.full(selected.weekday)) 第\(group.begin)到\(group.end)节\(makeup)\(rescheduled)\(attend)\(conflict)"
     }

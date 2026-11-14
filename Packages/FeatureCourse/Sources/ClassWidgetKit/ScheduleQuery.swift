@@ -6,12 +6,12 @@ import ScheduleKit
 public enum ScheduleQuery {
     public static func courses(
         on day: Date, schedule: Schedule, term: TermCalendar, campus: CampusCalendar = .empty, choices: [String: String] = [:],
-        overrides: [OccurrenceOverride] = []
+        overrides: [OccurrenceOverride] = [], adjustments: [ManualCourseAdjustment] = []
     ) -> [WidgetCourse] {
         let start = term.calendar.startOfDay(for: day)
         let base = OccurrenceOverrides.apply(overrides, to: ScheduleExpander.occurrences(of: schedule, in: term))
         let overlaid = CalendarOverlay.apply(to: base, calendar: campus, term: term).occurrences
-        return courses(on: start, occurrences: overlaid, choices: choices, calendar: term.calendar)
+        return courses(on: start, occurrences: ManualCourseAdjustment.apply(adjustments, to: overlaid, term: term), choices: choices, calendar: term.calendar)
     }
 
     private static func courses(on dayStart: Date, occurrences: [CourseOccurrence], choices: [String: String], calendar: Calendar) -> [WidgetCourse] {

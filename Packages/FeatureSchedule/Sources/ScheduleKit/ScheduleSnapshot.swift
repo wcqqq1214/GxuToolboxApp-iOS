@@ -30,13 +30,14 @@ extension ScheduleRepository {
         let campus = await CampusCalendarRepository(database: database).current()
         let choices = await conflictChoices(studentId: studentId, term: current.academicTerm)
         let activities = await customActivities(studentId: studentId, term: current.academicTerm)
+        let adjustments = await manualCourseAdjustments(studentId: studentId, term: current.academicTerm)
         var schedule = cached.schedule
         schedule.theoryList += activities.filter(\.isValid).map(\.course)
         let base = OccurrenceOverrides.apply(overrides, to: ScheduleExpander.occurrences(of: schedule, in: termCalendar))
         let overlaid = CalendarOverlay.apply(to: base, calendar: campus, term: termCalendar)
         return ScheduleSnapshot(
             term: current.academicTerm, termCalendar: termCalendar, schedule: schedule, campus: campus, choices: choices, activities: activities,
-            occurrences: overlaid.occurrences, dayBlocks: overlaid.dayBlocks, updatedAt: cached.updatedAt
+            occurrences: ManualCourseAdjustment.apply(adjustments, to: overlaid.occurrences, term: termCalendar), dayBlocks: overlaid.dayBlocks, updatedAt: cached.updatedAt
         )
     }
 }

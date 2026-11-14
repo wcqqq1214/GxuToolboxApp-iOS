@@ -26,6 +26,7 @@ final class ScheduleViewModel {
         let calendar: TermCalendar
         let schedule: Schedule
         let activities: [CustomActivity]
+        let adjustments: [ManualCourseAdjustment]
         let overrides: [OccurrenceOverride]
         let timeShift: [ShiftRule]
         let holidays: [HolidayRange]
@@ -51,6 +52,9 @@ final class ScheduleViewModel {
     private(set) var campusCalendar: CampusCalendar = .empty
     private(set) var choices: [String: String] = [:]
     private(set) var activities: [CustomActivity] = []
+    private(set) var manualAdjustments: [ManualCourseAdjustment] = []
+    private var sourceOccurrences: [CourseOccurrence] = []
+    private var localAdjustmentRevision = 0
     private(set) var exams: [GridExam] = []
     @ObservationIgnored var layersProvider: ScheduleExtraLayersProvider?
     @ObservationIgnored var onCustomActivitiesChanged: (@MainActor (AppServices) async -> Void)?
@@ -154,6 +158,8 @@ final class ScheduleViewModel {
         self.termCalendar = termCalendar
         self.campusCalendar = campus
         activities = []
+        manualAdjustments = []
+        sourceOccurrences = []
         choices = [:]
         rebuildIndex()
         recolor()
@@ -204,9 +210,11 @@ final class ScheduleViewModel {
             if previous != target {
                 let newChoices = await repository.conflictChoices(studentId: studentId, term: target)
                 let newActivities = await repository.customActivities(studentId: studentId, term: target)
+                let newAdjustments = await repository.manualCourseAdjustments(studentId: studentId, term: target)
                 guard !Task.isCancelled, gen == generation else { return }
                 choices = newChoices
                 activities = newActivities
+                manualAdjustments = newAdjustments
             }
             setTerm(target, calendar: calendar)
             apply(fresh, resetWeek: previous != target)
@@ -277,7 +285,7 @@ final class ScheduleViewModel {
     }
 
     func reschedules(for occurrence: CourseOccurrence) -> [CourseReschedule] {
-        guard let classId = occurrence.course.rescheduleClassId, let bySlot = reschedulesByClass[classId] else { return [] }
+        guard occurrence.manualAdjustmentID == nil, let classId = occurrence.course.rescheduleClassId, let bySlot = reschedulesByClass[classId] else { return [] }
         let week = occurrence.shiftedFrom.flatMap { termCalendar?.week(containing: $0) } ?? occurrence.week
         let slot = CourseReschedule.Slot(week: week, weekday: occurrence.course.weekday, sections: occurrence.begin...occurrence.end)
         return bySlot[slot] ?? []
@@ -326,6 +334,50 @@ final class ScheduleViewModel {
     }
 
     func activity(id: String?) -> CustomActivity? { id.flatMap { id in activities.first { $0.id == id } } }
+
+    func manualAdjustmentRequest(for occurrence: CourseOccurrence) -> ManualAdjustmentRequest? {
+        guard !isStatic, let studentId, let jwSessionID, let term, !occurrence.course.isCustom,
+              let source = sourceOccurrences.first(where: { $0.id == (occurrence.manualAdjustmentID ?? occurrence.id) }) else { return nil }
+        return ManualAdjustmentRequest(studentId: studentId, sessionID: jwSessionID, term: term, source: source,
+                                       related: sourceOccurrences.filter { $0.course.id == source.course.id },
+                                       existing: manualAdjustments.first { $0.id == source.id })
+    }
+
+    func saveManualAdjustments(_ changes: [ManualCourseAdjustment], request: ManualAdjustmentRequest) async throws {
+        let services = try adjustmentServices(request)
+        let sourceIDs = Set(sourceOccurrences.filter { $0.course.id == request.source.course.id }.map(\.id))
+        guard !changes.isEmpty, changes.allSatisfy({ sourceIDs.contains($0.id) }) else {
+            throw GxuError.invalidData("原课次已变化，请重新打开课程详情")
+        }
+        try await makeRepository(services).saveManualCourseAdjustments(changes, studentId: request.studentId, term: request.term)
+        _ = try adjustmentServices(request)
+        localAdjustmentRevision += 1
+        let changedIDs = Set(changes.map(\.id))
+        manualAdjustments.removeAll { changedIDs.contains($0.id) }
+        manualAdjustments += changes
+        await activitiesChanged(services: services, term: request.term)
+        _ = try adjustmentServices(request)
+        if let current = changes.first(where: { $0.id == request.source.id }) { selectedWeek = current.week }
+    }
+
+    func restoreManualAdjustment(_ request: ManualAdjustmentRequest) async throws {
+        let services = try adjustmentServices(request)
+        try await makeRepository(services).deleteManualCourseAdjustment(id: request.source.id, studentId: request.studentId, term: request.term)
+        _ = try adjustmentServices(request)
+        localAdjustmentRevision += 1
+        manualAdjustments.removeAll { $0.id == request.source.id }
+        await activitiesChanged(services: services, term: request.term)
+        _ = try adjustmentServices(request)
+        selectedWeek = request.source.week
+    }
+
+    private func adjustmentServices(_ request: ManualAdjustmentRequest) throws -> AppServices {
+        guard !isStatic, let services, studentId == request.studentId, term == request.term, jwSessionID == request.sessionID,
+              services.accounts.studentId == request.studentId, services.accounts.jwSessionID == request.sessionID else {
+            throw GxuError.invalidData("账号或学期已切换，请重新打开课程详情")
+        }
+        return services
+    }
 
     func recolor() {
         guard schedule != nil else { return }
@@ -395,6 +447,8 @@ final class ScheduleViewModel {
         colors = [:]
         choices = [:]
         activities = []
+        manualAdjustments = []
+        sourceOccurrences = []
         exams = []
         overrides = []
         attendanceMarks = []
@@ -436,15 +490,18 @@ final class ScheduleViewModel {
     private func applyTerm(repository: ScheduleRepository, studentId: String, generation gen: Int) async {
         guard let target = resolvedTerm else { return }
         let previous = term
+        let adjustmentRevision = localAdjustmentRevision
         let calendar = calendar(for: target)
         let cached = try? await repository.cachedSchedule(studentId: studentId, term: target)
         guard !Task.isCancelled, gen == generation, resolvedTerm == target, cached != nil || schedule == nil else { return }
         let newChoices = await repository.conflictChoices(studentId: studentId, term: target)
         let newActivities = await repository.customActivities(studentId: studentId, term: target)
-        guard !Task.isCancelled, gen == generation, resolvedTerm == target else { return }
+        let newAdjustments = await repository.manualCourseAdjustments(studentId: studentId, term: target)
+        guard !Task.isCancelled, gen == generation, resolvedTerm == target, adjustmentRevision == localAdjustmentRevision else { return }
         setTerm(target, calendar: calendar)
         choices = newChoices
         activities = newActivities
+        manualAdjustments = newAdjustments
         if let cached { apply(cached, resetWeek: previous != target) }
     }
 
@@ -468,13 +525,15 @@ final class ScheduleViewModel {
     @discardableResult
     private func rebuildIndex() -> Bool {
         guard let schedule, let termCalendar else { return false }
-        let inputs = IndexInputs(term: term, calendar: termCalendar, schedule: schedule, activities: activities, overrides: overrides,
+        let inputs = IndexInputs(term: term, calendar: termCalendar, schedule: schedule, activities: activities, adjustments: manualAdjustments, overrides: overrides,
                                  timeShift: campusCalendar.timeShift, holidays: campusCalendar.holidays)
         guard indexInputs != inputs, let merged = mergedSchedule else { return false }
         let base = OccurrenceOverrides.apply(overrides, to: ScheduleExpander.occurrences(of: merged, in: termCalendar))
         let overlaid = CalendarOverlay.apply(to: base, calendar: campusCalendar, term: termCalendar)
         rebuildAttendance(calendar: termCalendar.calendar)
-        index = ScheduleIndex(occurrences: overlaid.occurrences, dayBlocks: overlaid.dayBlocks, examBlocks: ExamPlacement.blocks(for: exams, term: termCalendar))
+        sourceOccurrences = overlaid.occurrences
+        let adjusted = ManualCourseAdjustment.apply(manualAdjustments, to: sourceOccurrences, term: termCalendar)
+        index = ScheduleIndex(occurrences: adjusted, dayBlocks: overlaid.dayBlocks, examBlocks: ExamPlacement.blocks(for: exams, term: termCalendar))
         indexInputs = inputs
         publishWidgetSnapshot()
         return true

@@ -13,6 +13,7 @@ struct CourseDetailSheet: View {
     var attendance: AttendanceIndex?
     let onChoose: (CourseOccurrence) -> Void
     let onEditActivity: (String?) -> Void
+    var onEditCourse: ((CourseOccurrence) -> Void)?
     var reschedules: (CourseOccurrence) -> [CourseReschedule] = { _ in [] }
     @Environment(SchedulePreferencesStore.self) private var preferences
     @Environment(\.dismiss) private var dismiss
@@ -52,6 +53,7 @@ struct CourseDetailSheet: View {
                         exams: item.course.isCustom ? [] : RelatedExams.matching(courseName: item.course.courseName, in: exams, term: term),
                         attendance: attendance?.status(for: item),
                         onEditActivity: onEditActivity,
+                        onEditCourse: onEditCourse,
                         onNavigate: navigateAction
                     )
                     if item.id == current.id {
@@ -134,6 +136,7 @@ private struct CourseSection: View {
     var exams: [GridExam] = []
     var attendance: AttendanceStatus?
     let onEditActivity: (String?) -> Void
+    var onEditCourse: ((CourseOccurrence) -> Void)?
     var onNavigate: ((CourseNavigation.Target) -> Void)?
     @Environment(\.scheduleTeacherSupport) private var teacherSupport
     @Environment(\.openURL) private var openURL
@@ -148,6 +151,10 @@ private struct CourseSection: View {
                 Label("补班：按 \(from.formatted(.dateTime.month().day().weekday(.wide).locale(Locale(identifier: "zh_CN")))) 的课表上课", systemImage: "arrow.triangle.swap")
                     .foregroundStyle(.orange)
             }
+            if item.manualAdjustmentID != nil {
+                Label("本地调整，未同步教务系统", systemImage: "pencil.circle.fill")
+                    .foregroundStyle(.tint)
+            }
             if course.isCustom {
                 row("时间", "\(WeekdayName.full(item.weekday)) 第\(course.begin)-\(course.end)节  \(timeText)")
                 row("周次", WeekFormatter.describe(course.weeks))
@@ -156,6 +163,9 @@ private struct CourseSection: View {
                 row("备注", course.examMethod)
                 Button("编辑自定义课程", systemImage: "pencil") { onEditActivity(course.customID) }
             } else {
+                if let onEditCourse {
+                    Button(item.manualAdjustmentID == nil ? "调整时间和地点" : "编辑本地调整", systemImage: "calendar.badge.clock") { onEditCourse(item) }
+                }
                 if let attendance { row("考勤", attendance.label) }
                 if let teacherSupport, !course.teacher.isEmpty {
                     TeacherCard(name: course.teacher, support: teacherSupport)

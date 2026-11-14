@@ -48,6 +48,16 @@ public enum ScheduleKit {
                 t.primaryKey(["year", "term"])
             }
         }
+        migrator.registerMigration("schedule.v2.createManualAdjustment") { db in
+            try db.create(table: "schedule_manual_adjustment") { t in
+                t.column("studentId", .text).notNull()
+                t.column("year", .integer).notNull()
+                t.column("term", .integer).notNull()
+                t.column("id", .text).notNull()
+                t.column("json", .blob).notNull()
+                t.primaryKey(["studentId", "year", "term", "id"])
+            }
+        }
     }
 
     public static func widgetSnapshotKey(studentId: String) -> SharedKey<NextCourses> {
