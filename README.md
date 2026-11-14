@@ -37,7 +37,7 @@ bash scripts/build.sh
 
 查询个人课表、成绩和考勤等信息需要登录相应账号。部分校内系统需要校园网或 VPN。演示和测试使用虚构数据或脱敏样本。
 
-- [接口参考](docs/api-docs/)与[契约记录](docs/contracts/)
+- [接口参考](docs/api-docs/)
 - [脱敏样本与接口参数](Fixtures/sanitized/README.md)
 - [原生 iOS 迁移记录](docs/ios-migration/README.md)
 

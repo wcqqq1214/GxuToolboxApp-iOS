@@ -21,7 +21,8 @@
 | `/jw/evaluation` | 404 | `Cannot GET /jw/evaluation`；这是 RN API 文件定义、iOS 总览代码使用的代理路径 |
 | `/jw/schedule/adjust`、`/jw/timeShift`、`/jw/rescheduling` | 404 | 均返回对应的 `Cannot GET`；这些是历史候选路径，不是已确认的代理契约 |
 | `/jw/courseSelection`、`/jw/course-selection` | 404 | 均返回对应的 `Cannot GET`；这些是历史候选路径，不是已确认的代理契约 |
-| `/openapi.json`、`/api-json`、`/swagger-json` | 404 | 未从这些常见地址取得接口目录，不能证明服务不存在其他文档地址 |
+| `/docs-json` | 200 | 公开 OpenAPI 目录含 65 条路径；未发现评教、调课总览或选课课程列表代理，单课调课路径为 `/jw/schedule/personal/reschedules` |
+| `/openapi.json`、`/api-json`、`/swagger-json` | 404 | 这些常见地址不提供目录；实际目录为 `/docs-json` |
 | `/jw/profile/startDay` | 200 | 响应 `code: 200`、`message: success`，作为同一后端可达性的对照 |
 
 本次没有本地 `.secrets/account.env`，未做登录后的业务请求。404 只能证明上述方法和路径本次不可用，不能证明不存在其他未公开路径，也不能排除认证相关的路由差异。最新 RN 未提供调课总览和选课列表的新代理契约，因此本轮没有可确认可用并接入的新增功能。后续拿到正式契约或部署信息后，应重新进行认证读取验证。
