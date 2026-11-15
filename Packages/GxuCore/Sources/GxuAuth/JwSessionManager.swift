@@ -43,6 +43,13 @@ public actor JwSessionManager: SessionRenewer {
         (cookies.cookies(for: GxuConfig.jwCookieURL) ?? []).contains { $0.name == "JSESSIONID" }
     }
 
+    public func webSessionCookies(refresh: Bool = false) async throws -> [HTTPCookie] {
+        if refresh || !hasSessionCookie() { try await renew(.jw) }
+        return (cookies.cookies(for: GxuConfig.jwCookieURL) ?? []).filter {
+            ["JSESSIONID", "route"].contains($0.name)
+        }
+    }
+
     public func login(username: String, password: String) async throws {
         clearSession()
         let revisionAtLoginStart = logoutRevision

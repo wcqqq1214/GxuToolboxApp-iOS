@@ -25,6 +25,22 @@ private func makeCenter(host: String, store: InMemoryCredentialStore = InMemoryC
 
 @MainActor
 struct AuthTests {
+    @Test func webSessionUsesCurrentCookiesAndRefreshesOnDemand() async throws {
+        let host = makeHost()
+        stubLogin(host: host)
+        let (center, _, _) = makeCenter(host: host)
+        try await center.login(.jw, username: "demo", password: "demo")
+        stubLogin(host: host, cookies: ["JSESSIONID=renewed; Path=/", "route=r2; Path=/"])
+        let existing = try await center.jwWebSessionCookies()
+        #expect(existing.first { $0.name == "JSESSIONID" }?.value == "abc123")
+        #expect(existing.allSatisfy { $0.domain == "jwxt2018.gxu.edu.cn" && $0.path == "/jwglxt" && $0.isSecure })
+        let refreshed = try await center.jwWebSessionCookies(refresh: true)
+        #expect(refreshed.first { $0.name == "JSESSIONID" }?.value == "renewed")
+        #expect(refreshed.first { $0.name == "route" }?.value == "r2")
+        await center.logout(.jw)
+        await #expect(throws: GxuError.notLoggedIn(.jw)) { try await center.jwWebSessionCookies() }
+    }
+
     @Test func startsWithNoAccount() {
         let (center, _, _) = makeCenter(host: makeHost())
         #expect(center.states[.jw] == .noAccount)

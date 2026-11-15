@@ -65,6 +65,14 @@ public final class AccountCenter {
         }
     }
 
+    public func jwWebSessionCookies(refresh: Bool = false) async throws -> [HTTPCookie] {
+        guard studentId != nil, states[.jw] != .noAccount else { throw GxuError.notLoggedIn(.jw) }
+        let sessionID = jwSessionID
+        let result = try await jw.webSessionCookies(refresh: refresh)
+        guard sessionID == jwSessionID else { throw CancellationError() }
+        return result
+    }
+
     private func applyObserved(_ system: AuthSystem, _ state: AuthState) {
         guard states[system] != .noAccount else { return }
         if system == .jw, studentId == nil { return }

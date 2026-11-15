@@ -128,7 +128,7 @@ struct ClassScheduleView: View {
         .toolbar {
             if let exportDestination {
                 NavigationLink { exportDestination() } label: {
-                    Label("导出课表", systemImage: "square.and.arrow.up")
+                    Label("教务原版课表", systemImage: "square.and.arrow.up")
                 }
             }
         }

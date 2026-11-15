@@ -46,7 +46,7 @@ enum ToolboxCatalog {
     static let items: [ToolboxItem] = [
         item("schedule", "个人课表", "calendar", .info, .tab(.schedule)),
         item("classSchedule", "班级课表", "person.3", .info, .push { AnyView(CampusFeature.makeClassScheduleView { AnyView(JwScheduleExportView(classSchedule: true)) }) }),
-        item("exportSchedule", "导出课表", "square.and.arrow.up", .info, .push { AnyView(JwScheduleExportView()) }),
+        item("exportSchedule", "导出课表", "square.and.arrow.up", .info, .push { AnyView(ScheduleExportView()) }),
         item("examInfo", "考试考场", "building.2", .info, .push { AnyView(ExamInfoView()) }),
         item("examScore", "考试成绩", "chart.bar.doc.horizontal", .info, .push { AnyView(ScoreWithPendingView()) }),
         item("attendance", "考勤信息", "person.badge.clock", .info, .push { AnyView(AttendanceView()) }),

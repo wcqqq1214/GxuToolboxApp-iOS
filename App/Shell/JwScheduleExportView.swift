@@ -1,4 +1,7 @@
 import FeatureAccount
+import GxuAuth
+import GxuDesign
+import GxuFoundation
 import SwiftUI
 
 struct JwScheduleExportView: View {
@@ -15,6 +18,15 @@ struct JwScheduleExportView: View {
         }
     }
 
+    private enum SessionState {
+        case loading
+        case ready([HTTPCookie])
+        case failed(String)
+    }
+
+    @Environment(\.services) private var services
+    @State private var session: SessionState = .loading
+    @State private var attempt = 0
     @State private var tab: Tab
 
     init(classSchedule: Bool = false) {
@@ -29,8 +41,29 @@ struct JwScheduleExportView: View {
             .pickerStyle(.segmented)
             .padding(.horizontal)
 
-            WebViewScreen(url: tab.url, title: "导出课表", allowsHTMLExport: true)
-                .id(tab)
+            switch session {
+            case .loading:
+                GxuLoadingView("正在准备教务登录状态…")
+            case .failed(let message):
+                GxuErrorView(message) { attempt += 1 }
+            case .ready(let cookies):
+                WebViewScreen(url: tab.url, title: "教务原版课表", cookies: cookies, allowsHTMLExport: true,
+                              onSessionExpired: { attempt += 1 })
+                    .id(tab)
+            }
+        }
+        .navigationTitle("教务原版课表")
+        .id(services.accounts.jwSessionID)
+        .task(id: "\(services.accounts.jwSessionID)-\(attempt)") {
+            session = .loading
+            do {
+                let cookies = try await services.accounts.jwWebSessionCookies(refresh: attempt > 0)
+                guard !Task.isCancelled else { return }
+                session = .ready(cookies)
+            } catch {
+                guard !Task.isCancelled else { return }
+                session = .failed((error as? GxuError)?.userMessage ?? error.localizedDescription)
+            }
         }
     }
 }

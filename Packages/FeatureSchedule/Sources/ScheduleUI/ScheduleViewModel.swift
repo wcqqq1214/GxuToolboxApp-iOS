@@ -38,6 +38,7 @@ final class ScheduleViewModel {
         let updatedAt: Date
     }
 
+    private var cachedOnly = false
     private(set) var phase: Phase = .loading
     private(set) var term: AcademicTerm?
     private(set) var termCalendar: TermCalendar?
@@ -120,7 +121,8 @@ final class ScheduleViewModel {
     }
 
 
-    func load(services: AppServices) async {
+    func load(services: AppServices, cachedOnly: Bool = false) async {
+        self.cachedOnly = cachedOnly
         self.services = services
         let accounts = services.accounts
         guard accounts.states[.jw] != .noAccount, let studentId = accounts.studentId else {
@@ -148,6 +150,10 @@ final class ScheduleViewModel {
         campusCalendar = campus
         await applyTerm(repository: repository, studentId: studentId, generation: gen)
         guard gen == generation else { return }
+        if cachedOnly {
+            if schedule == nil { phase = .failed("本机还没有当前学期的课表，请先到个人课表同步后再导出") }
+            return
+        }
         await reloadExams(generation: gen)
         guard gen == generation else { return }
         await refresh(force: false)
@@ -545,7 +551,7 @@ final class ScheduleViewModel {
 
     private func publishWidgetSnapshot() {
         let now = Date.now
-        guard let services, let studentId, let term, services.accounts.studentId == studentId,
+        guard !cachedOnly, let services, let studentId, let term, services.accounts.studentId == studentId,
               TermResolver.current(in: startDays, now: now)?.academicTerm == term else { return }
         let snapshot: NextCourses
         if schedule == nil {

@@ -50,7 +50,7 @@ struct RootView: View {
             }
             Tab(AppTab.schedule.title, systemImage: AppTab.schedule.systemImage, value: AppTab.schedule) {
                 ScheduleRootView(onRequestLogin: { selection = .settings }, layers: layersProvider,
-                                 exportDestination: { AnyView(JwScheduleExportView()) },
+                                 exportDestination: { AnyView(ScheduleExportView()) },
                                  refreshCoordinator: scheduleRefresh,
                                  onCustomActivitiesChanged: { services in
                     await WidgetBridge.refresh(services: services)

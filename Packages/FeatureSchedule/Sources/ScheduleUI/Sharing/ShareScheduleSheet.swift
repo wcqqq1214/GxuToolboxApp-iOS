@@ -93,20 +93,20 @@ struct ExportScheduleView: View {
         Group {
             switch model.phase {
             case .needsLogin:
-                GxuEmptyView("还没有登录教务系统", systemImage: "person.crop.circle.badge.questionmark", message: "登录后即可导出你的课表")
+                GxuEmptyView("本机没有可导出的课表", systemImage: "person.crop.circle.badge.questionmark", message: "请先登录并在个人课表同步一次，之后可离线导出")
             case .loading:
                 GxuLoadingView("正在加载课表…")
             case .failed(let message):
-                GxuErrorView(message) { Task { await model.load(services: services) } }
+                GxuErrorView(message) { Task { await model.load(services: services, cachedOnly: true) } }
             case .content:
                 ShareScheduleContent(model: model, week: $week, preferences: preferences)
             }
         }
         .navigationTitle("导出课表")
         .navigationBarTitleDisplayMode(.inline)
-        .task {
+        .task(id: services.accounts.jwSessionID) {
             model.palette = preferences.value.palette
-            await model.load(services: services)
+            await model.load(services: services, cachedOnly: true)
             week = model.selectedWeek
         }
     }

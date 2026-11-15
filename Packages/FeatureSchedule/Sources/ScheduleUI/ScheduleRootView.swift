@@ -186,7 +186,7 @@ public struct ScheduleRootView: View {
                     Button("分享本周课表", systemImage: "square.and.arrow.up") { showShare = true }
                     if let exportDestination {
                         NavigationLink { exportDestination() } label: {
-                            Label("导出教务课表", systemImage: "doc")
+                            Label("导出课表", systemImage: "doc")
                         }
                     }
                 } label: {

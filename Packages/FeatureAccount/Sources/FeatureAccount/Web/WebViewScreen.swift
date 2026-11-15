@@ -13,7 +13,9 @@ public struct WebViewScreen: View {
     let title: String?
     let cookies: [HTTPCookie]
     let allowsHTMLExport: Bool
+    let onSessionExpired: (() -> Void)?
 
+    @State private var session: WebSession
     @State private var pageTitle: String?
     @State private var progress = 0.0
     @State private var popup: WebPopup?
@@ -23,36 +25,49 @@ public struct WebViewScreen: View {
     @State private var isExporting = false
     @State private var showsFileExporter = false
     @State private var exportError = false
-    @State private var pageError = false
+    @State private var pageError: WebPageFailure?
     @Environment(\.openURL) private var openURL
 
-    public init(url: URL, title: String? = nil, cookies: [HTTPCookie] = [], allowsHTMLExport: Bool = false) {
+    public init(url: URL, title: String? = nil, cookies: [HTTPCookie] = [], allowsHTMLExport: Bool = false, onSessionExpired: (() -> Void)? = nil) {
+        _session = State(initialValue: WebSession(isolated: allowsHTMLExport))
         self.url = url
         self.title = title
         self.cookies = cookies
+        self.onSessionExpired = onSessionExpired
         self.allowsHTMLExport = allowsHTMLExport
     }
 
+    private init(url: URL, cookies: [HTTPCookie], session: WebSession) {
+        self.init(url: url, cookies: cookies)
+        _session = State(initialValue: session)
+    }
+
     public var body: some View {
-        WebContainer(url: url, cookies: cookies, reloadToken: reloadToken, pageTitle: $pageTitle, progress: $progress,
-                     onPageLoaded: allowsHTMLExport ? { loadedPage = $0; pageError = false } : nil,
-                     onPageFailure: allowsHTMLExport ? { loadedPage = nil; pageError = true } : nil) { popup = WebPopup(url: $0) }
+        WebContainer(url: url, cookies: cookies, dataStore: session.dataStore, reloadsOriginalURL: allowsHTMLExport, reloadToken: reloadToken, pageTitle: $pageTitle, progress: $progress,
+                     onPageLoaded: allowsHTMLExport ? { loadedPage = $0; pageError = nil } : nil,
+                     onPageFailure: allowsHTMLExport ? { loadedPage = nil; pageError = $0 } : nil) { popup = WebPopup(url: $0) }
             .overlay(alignment: .top) {
-                if !pageError, progress < 1 { ProgressView(value: progress).progressViewStyle(.linear) }
+                if pageError == nil, progress < 1 { ProgressView(value: progress).progressViewStyle(.linear) }
             }
             .overlay {
-                if pageError {
+                if let pageError {
                     ContentUnavailableView {
-                        Label("无法打开教务课表", systemImage: "wifi.exclamationmark")
+                        Label(pageError.title, systemImage: "exclamationmark.triangle")
+                    } description: {
+                        Text(pageError.message)
                     } actions: {
-                        Button("重试") { reloadToken += 1 }
+                        if pageError == .loginRequired, let onSessionExpired {
+                            Button("重新连接教务系统", action: onSessionExpired)
+                        } else {
+                            Button("重试") { reloadToken += 1 }
+                        }
                     }
                     .background(.background)
                 }
             }
             .safeAreaInset(edge: .bottom) {
                 if allowsHTMLExport {
-                    Button(isExporting ? "正在导出…" : "导出课表", systemImage: "square.and.arrow.up") {
+                    Button(isExporting ? "正在保存…" : "保存课表网页", systemImage: "square.and.arrow.up") {
                         Task { await exportHTML() }
                     }
                     .buttonStyle(.borderedProminent)
@@ -74,7 +89,7 @@ public struct WebViewScreen: View {
                     Label("更多", systemImage: "ellipsis.circle")
                 }
             }
-            .navigationDestination(item: $popup) { WebViewScreen(url: $0.url, cookies: cookies) }
+            .navigationDestination(item: $popup) { WebViewScreen(url: $0.url, cookies: [], session: session) }
     }
 
     private func exportHTML() async {
@@ -125,17 +140,21 @@ private struct HTMLDocument: FileDocument {
 private struct WebContainer: UIViewRepresentable {
     let url: URL
     let cookies: [HTTPCookie]
+    let dataStore: WKWebsiteDataStore
+    let reloadsOriginalURL: Bool
     let reloadToken: Int
     @Binding var pageTitle: String?
     @Binding var progress: Double
     let onPageLoaded: ((WKWebView?) -> Void)?
-    let onPageFailure: (() -> Void)?
+    let onPageFailure: ((WebPageFailure) -> Void)?
     let onPopup: (URL) -> Void
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
     func makeUIView(context: Context) -> WKWebView {
-        let webView = WKWebView(frame: .zero, configuration: WKWebViewConfiguration())
+        let configuration = WKWebViewConfiguration()
+        configuration.websiteDataStore = dataStore
+        let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = context.coordinator
         webView.uiDelegate = context.coordinator
         webView.allowsBackForwardNavigationGestures = true
@@ -153,7 +172,7 @@ private struct WebContainer: UIViewRepresentable {
         context.coordinator.parent = self
         if context.coordinator.lastReloadToken != reloadToken {
             context.coordinator.lastReloadToken = reloadToken
-            if webView.url == nil { webView.load(URLRequest(url: url)) } else { webView.reload() }
+            if reloadsOriginalURL || webView.url == nil { webView.load(URLRequest(url: url)) } else { webView.reload() }
         }
     }
 
@@ -186,17 +205,28 @@ private struct WebContainer: UIViewRepresentable {
         }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-            guard let url = webView.url, url.scheme == "https", url.host == parent.url.host,
-                  url.path == parent.url.path else { return }
-            parent.onPageLoaded?(webView)
+            guard let url = webView.url else { return }
+            if let failure = WebPageFailure.completedPage(url, expected: parent.url) {
+                parent.onPageFailure?(failure)
+            } else {
+                parent.onPageLoaded?(webView)
+            }
         }
 
         func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
-            if (error as? URLError)?.code != .cancelled { parent.onPageFailure?() }
+            if (error as? URLError)?.code != .cancelled { parent.onPageFailure?(.network(error.localizedDescription)) }
         }
 
         func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-            if (error as? URLError)?.code != .cancelled { parent.onPageFailure?() }
+            if (error as? URLError)?.code != .cancelled { parent.onPageFailure?(.network(error.localizedDescription)) }
+        }
+
+        func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse) async -> WKNavigationResponsePolicy {
+            guard parent.onPageFailure != nil, navigationResponse.isForMainFrame,
+                  let response = navigationResponse.response as? HTTPURLResponse,
+                  let failure = WebPageFailure.httpStatus(response.statusCode) else { return .allow }
+            parent.onPageFailure?(failure)
+            return .cancel
         }
 
         func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {

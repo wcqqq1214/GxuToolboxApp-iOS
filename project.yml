@@ -49,6 +49,7 @@ targets:
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         UILaunchScreen: {}
+        NSPhotoLibraryAddUsageDescription: 将你导出的课表图片保存到照片。
         GxuKeychainAccessGroup: "$(GXU_KEYCHAIN_GROUP)"
         GxuCampusKeychainAccessGroup: "$(GXU_CAMPUS_KEYCHAIN_GROUP)"
         GxuAppGroupID: "$(GXU_APP_GROUP)"
