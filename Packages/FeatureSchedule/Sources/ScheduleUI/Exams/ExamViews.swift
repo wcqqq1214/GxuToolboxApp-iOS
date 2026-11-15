@@ -35,13 +35,17 @@ struct ExamBlockView: View {
     }
 }
 
-struct ExamDetailSheet: View {
+public struct ExamDetailSheet: View {
     let exam: GridExam
     @Environment(\.dismiss) private var dismiss
 
     @State private var copied = false
+    @State private var calendarEvent: ExamCalendarEvent?
+    @State private var savedToCalendar = false
 
-    var body: some View {
+    public init(exam: GridExam) { self.exam = exam }
+
+    public var body: some View {
         TimelineView(.periodic(from: .now, by: 60)) { context in
             let status = exam.status(now: context.date)
             NavigationStack {
@@ -60,6 +64,14 @@ struct ExamDetailSheet: View {
                         if !exam.kind.isEmpty { LabeledContent("类别", value: exam.kind) }
                     }
                     Section {
+                        Button(savedToCalendar ? "已添加到日历" : "添加到日历", systemImage: savedToCalendar ? "checkmark" : "calendar.badge.plus") {
+                            calendarEvent = ExamCalendarEvent(exam: exam)
+                        }
+                        .disabled(savedToCalendar || ExamCalendarEvent(exam: exam) == nil)
+                    } footer: {
+                        Text("默认提前 30 分钟提醒，可在系统编辑页调整。考试安排变化后，请手动更新日历。")
+                    }
+                    Section {
                         Button(copied ? "已复制考试信息" : "复制考试信息", systemImage: copied ? "checkmark" : "doc.on.doc") {
                             UIPasteboard.general.string = copyText
                             copied = true
@@ -73,6 +85,13 @@ struct ExamDetailSheet: View {
             }
         }
         .presentationDetents([.medium, .large])
+        .sheet(item: $calendarEvent) { event in
+            ExamCalendarEditor(event: event) { saved in
+                savedToCalendar = saved
+                calendarEvent = nil
+            }
+            .presentationDetents([.large])
+        }
     }
 
     private var locationText: String { exam.location.isEmpty ? "考场待定" : exam.location }

@@ -21,6 +21,7 @@ let package = Package(
         ]),
         .target(name: "ExamUI", dependencies: [
             "ExamKit",
+            .product(name: "ScheduleUI", package: "FeatureSchedule"),
             .product(name: "GxuDesign", package: "GxuDesign"),
         ]),
         .testTarget(name: "ExamUITests", dependencies: [

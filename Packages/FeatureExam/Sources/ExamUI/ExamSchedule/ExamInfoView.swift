@@ -2,6 +2,8 @@ import ExamKit
 import GxuAuth
 import GxuDesign
 import GxuFoundation
+import ScheduleKit
+import ScheduleUI
 import SwiftUI
 
 public struct ExamInfoView: View {
@@ -15,6 +17,7 @@ public struct ExamInfoView: View {
 
     private struct Content: View {
         @State private var model: ExamInfoViewModel
+        @State private var selectedExam: GridExam?
 
         init(services: AppServices) {
             _model = State(initialValue: ExamInfoViewModel(services: services))
@@ -45,6 +48,7 @@ public struct ExamInfoView: View {
             .task { await model.resolveInitialTerm() }
             .task(id: LoadKey(value: model.term, ready: model.hasResolvedInitialTerm)) { await model.load() }
             .refreshable { await model.load() }
+            .sheet(item: $selectedExam) { ExamDetailSheet(exam: $0) }
         }
 
         private var yearBinding: Binding<Int> {
@@ -55,11 +59,36 @@ public struct ExamInfoView: View {
             Binding(get: { model.term.term }, set: { model.term = AcademicTerm(year: model.term.year, term: $0 ?? 1) })
         }
 
+        private func detailExam(_ item: ExamItem) -> GridExam? {
+            guard let start = item.date, let end = item.endsAt, end > start else { return nil }
+            return GridExam(id: item.id, title: item.exam.course, location: item.exam.classroom,
+                            seat: item.exam.seatText, kind: item.exam.type, start: start, end: end)
+        }
+
         @ViewBuilder
         private func section(_ title: String, _ items: [ExamItem]) -> some View {
             if !items.isEmpty {
                 Section {
-                    ForEach(items) { ExamRow(item: $0) }
+                    ForEach(items) { item in
+                        if let exam = detailExam(item) {
+                            Button {
+                                selectedExam = exam
+                            } label: {
+                                HStack {
+                                    ExamRow(item: item)
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(.tertiary)
+                                        .accessibilityHidden(true)
+                                }
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityHint("查看考试详情并添加到日历")
+                        } else {
+                            ExamRow(item: item)
+                        }
+                    }
                 } header: {
                     Text(title)
                 }
