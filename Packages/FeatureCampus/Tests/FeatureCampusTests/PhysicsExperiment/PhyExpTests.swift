@@ -66,6 +66,7 @@ extension PhyExpTests {
         let overrides = await PhyExpOverrides.cached(database: database, unifiedUsername: "A")
         #expect(overrides.count == 2)
         #expect(overrides.allSatisfy { $0.courseNameContains == "物理实验" && ($0.teacher?.isEmpty == false) })
+        #expect(overrides.first?.displayName == "示波器的使用")
         #expect(await PhyExpOverrides.cached(database: database, unifiedUsername: "B").isEmpty)
     }
 }

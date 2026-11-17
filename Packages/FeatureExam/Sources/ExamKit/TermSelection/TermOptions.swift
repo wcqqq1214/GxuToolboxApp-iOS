@@ -10,10 +10,18 @@ public enum TermOptions {
         return (c.month ?? 1) < 9 ? (c.year ?? 0) - 1 : (c.year ?? 0)
     }
 
-    public static func years(enrollmentYear: Int?, studyYears: Int = 4, now: Date = .now, calendar: Calendar = .current) -> [Int] {
+    public static func years(enrollmentYear: Int?, studyYears: Int = 4, studentId: String? = nil, now: Date = .now, calendar: Calendar = .current) -> [Int] {
         let current = academicYear(now: now, calendar: calendar)
-        let first = enrollmentYear ?? (current - studyYears + 1)
-        return (0..<max(studyYears, 1)).map { first + $0 }.filter { $0 <= current }
+        let profileStart = enrollmentYear ?? (current - studyYears + 1)
+        let first = enrollmentYear.map { min($0, enrollmentYearFromStudentId(studentId) ?? $0) } ?? profileStart
+        let last = min(profileStart + max(studyYears, 1) - 1, current)
+        return first <= last ? Array(first...last) : []
+    }
+
+    private static func enrollmentYearFromStudentId(_ studentId: String?) -> Int? {
+        guard let studentId, studentId.utf8.count == 10, studentId.utf8.allSatisfy({ (48...57).contains($0) }),
+              let suffix = Int(studentId.prefix(2)) else { return nil }
+        return 2000 + suffix
     }
 
     public static func previous(_ term: AcademicTerm) -> AcademicTerm {
@@ -49,8 +57,9 @@ public struct TermContext: Equatable, Sendable {
 @MainActor
 public func resolveTermContext(services: AppServices) async -> TermContext {
     async let info = ScheduleRepository(backend: services.backend, database: services.database).currentTermInfo()
+    let studentId = services.accounts.studentId
     let profile: UserProfile?
-    if let studentId = services.accounts.studentId {
+    if let studentId {
         profile = try? await services.profiles.profile(studentId: studentId)
     } else {
         profile = nil
@@ -58,6 +67,6 @@ public func resolveTermContext(services: AppServices) async -> TermContext {
     let current = await info
     return TermContext(
         term: TermOptions.initialTerm(current: current?.term, isStarted: current?.isStarted ?? true, enrollmentYear: profile?.enrollmentYear),
-        years: TermOptions.years(enrollmentYear: profile?.enrollmentYear, studyYears: profile?.studyYears ?? 4)
+        years: TermOptions.years(enrollmentYear: profile?.enrollmentYear, studyYears: profile?.studyYears ?? 4, studentId: studentId)
     )
 }

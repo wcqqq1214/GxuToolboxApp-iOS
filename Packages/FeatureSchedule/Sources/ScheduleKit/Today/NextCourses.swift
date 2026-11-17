@@ -20,7 +20,7 @@ public struct WidgetCourse: Codable, Sendable, Hashable, Identifiable {
 
     public init(_ occurrence: CourseOccurrence, calendar: Calendar) {
         let course = occurrence.course
-        name = course.courseName
+        name = occurrence.displayName
         beginTime = ClassPeriods.period(course.begin)?.startText ?? ""
         endTime = ClassPeriods.period(course.end)?.endText ?? ""
         index = course.sectionRange

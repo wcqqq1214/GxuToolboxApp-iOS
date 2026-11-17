@@ -199,9 +199,11 @@ final class HomeModel {
                     try await refreshCoordinator.refreshSchedule(services: services, studentId: studentId, term: term, force: force)
                 }
                 guard !Task.isCancelled, accounts.studentId == studentId, accounts.jwSessionID == sessionID else { return }
+                async let physics: Void = refreshCoordinator.refreshCurrentPhysics(services: services, studentId: studentId, term: term, force: force)
                 let exams = try await ExamAPI(backend: services.backend).exams(term)
                 guard !Task.isCancelled, accounts.studentId == studentId, accounts.jwSessionID == sessionID else { return }
                 try await ExamRepository(database: services.database).replaceExams(exams, studentId: studentId, term: term)
+                await physics
             }
         } catch {
             if error.isCancellation { throttle.forget(throttleKey); return }

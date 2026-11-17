@@ -256,7 +256,7 @@ public enum CalendarOverlay {
         else { return nil }
         return CourseOccurrence(
             course: source.course, week: week, date: workDate, startsAt: start, endsAt: end,
-            weekday: term.weekday(of: workDate), shiftedFrom: source.date
+            weekday: term.weekday(of: workDate), shiftedFrom: source.date, displayNameOverride: source.displayNameOverride
         )
     }
 }

@@ -183,4 +183,12 @@ private func at(_ s: String) -> Date {
         #expect(TermOptions.years(enrollmentYear: 2030, studyYears: 4, now: now, calendar: calendar).isEmpty)
         #expect(TermOptions.years(enrollmentYear: 2023, studyYears: 4, now: at("2026-03-05 12:00"), calendar: calendar) == [2023, 2024, 2025])
     }
+
+    @Test func olderStudentIdExtendsTheRangeWithoutShorteningTheStudyPeriod() {
+        let now = at("2026-11-05 12:00")
+        #expect(TermOptions.years(enrollmentYear: 2023, studentId: "2200000000", now: now, calendar: calendar) == [2022, 2023, 2024, 2025, 2026])
+        #expect(TermOptions.years(enrollmentYear: 2023, studentId: "2400000000", now: now, calendar: calendar) == [2023, 2024, 2025, 2026])
+        #expect(TermOptions.years(enrollmentYear: 2023, studentId: "22A0000000", now: now, calendar: calendar) == [2023, 2024, 2025, 2026])
+        #expect(TermOptions.years(enrollmentYear: nil, studentId: "2200000000", now: now, calendar: calendar) == [2023, 2024, 2025, 2026])
+    }
 }

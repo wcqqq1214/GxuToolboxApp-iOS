@@ -9,12 +9,14 @@ public struct CourseOccurrence: Sendable, Hashable, Identifiable, Codable {
     public let weekday: Int
     public let shiftedFrom: Date?
     public let manualAdjustmentID: String?
+    public let displayNameOverride: String?
 
     public var id: String {
         if let manualAdjustmentID { return "manual:\(manualAdjustmentID)" }
         return shiftedFrom == nil ? "\(course.id)#\(week)" : "\(course.id)#\(week)@\(weekday)"
     }
     public var isMakeup: Bool { shiftedFrom != nil }
+    public var displayName: String { displayNameOverride ?? course.courseName }
     public var begin: Int { course.begin }
     public var end: Int { course.end }
 }
@@ -28,7 +30,10 @@ public struct ConflictGroup: Sendable, Hashable, Identifiable {
 }
 
 extension CourseOccurrence {
-    public init(course: TheoryCourse, week: Int, date: Date, startsAt: Date, endsAt: Date, weekday: Int? = nil, shiftedFrom: Date? = nil, manualAdjustmentID: String? = nil) {
+    public init(
+        course: TheoryCourse, week: Int, date: Date, startsAt: Date, endsAt: Date, weekday: Int? = nil,
+        shiftedFrom: Date? = nil, manualAdjustmentID: String? = nil, displayNameOverride: String? = nil
+    ) {
         self.course = course
         self.week = week
         self.date = date
@@ -37,6 +42,7 @@ extension CourseOccurrence {
         self.weekday = weekday ?? course.weekday
         self.shiftedFrom = shiftedFrom
         self.manualAdjustmentID = manualAdjustmentID
+        self.displayNameOverride = displayNameOverride
     }
 }
 

@@ -225,7 +225,11 @@ final class ScheduleViewModel {
             setTerm(target, calendar: calendar)
             apply(fresh, resetWeek: previous != target)
             refreshError = nil
-            await reloadExams(generation: gen)
+            let refreshesPhysics = TermResolver.current(in: startDays, now: .now)?.academicTerm == target
+            if refreshesPhysics {
+                await refreshCoordinator.refreshCurrentPhysics(services: services, studentId: studentId, term: target, force: force)
+            }
+            await reloadExams(generation: gen, afterCacheWrite: refreshesPhysics)
         } catch {
             if error.isCancellation || Task.isCancelled || gen != generation { return }
             let gxu = (error as? GxuError) ?? .network(error.localizedDescription)

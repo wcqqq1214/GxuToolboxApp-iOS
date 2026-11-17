@@ -47,7 +47,7 @@ struct NextEventAccessory: View {
 
     private func title(_ event: HomeEvent) -> String {
         switch event {
-        case .course(let item, _): item.course.courseName
+        case .course(let item, _): item.displayName
         case .exam(let item, _): "考试 · \(item.exam.course)"
         case .holiday(let holiday): holiday.isOngoing ? holiday.displayTitle : "下个假期 · \(holiday.title)"
         }

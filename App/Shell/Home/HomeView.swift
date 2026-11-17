@@ -245,7 +245,7 @@ private struct EventCard: View {
 
     private var title: String {
         switch event {
-        case .course(let item, _): item.course.courseName
+        case .course(let item, _): item.displayName
         case .exam(let item, _): item.exam.course
         case .holiday(let holiday): holiday.displayTitle
         }
@@ -275,7 +275,7 @@ private struct CourseRow: View {
                 .frame(width: 5, height: 40)
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
-                    Text(item.course.courseName).font(.body.weight(.medium))
+                    Text(item.displayName).font(.body.weight(.medium))
                     if item.isMakeup { Tag("补班", color: .orange) }
                     if status == .ongoing { Tag("上课中", color: .green) }
                 }

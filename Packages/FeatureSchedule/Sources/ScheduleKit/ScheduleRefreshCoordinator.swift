@@ -30,13 +30,24 @@ public final class ScheduleRefreshCoordinator {
         let term: AcademicTerm
     }
 
+    private struct PhysicsKey: Hashable {
+        let term: TermKey
+        let username: String
+    }
+
     private let startDays = SharedRefresh<Session, [TermStartDay]>()
     private let schedules = SharedRefresh<TermKey, CachedSchedule>()
+    private let physics = SharedRefresh<PhysicsKey, Void>()
     private let calendars = SharedRefresh<ObjectIdentifier, CampusCalendar>()
     private let campusFetch: CampusCalendarRepository.Fetch
+    private let refreshPhysicsExperiments: (@MainActor (AppServices, String) async throws -> Void)?
 
-    public init(campusFetch: @escaping CampusCalendarRepository.Fetch = CampusCalendarRepository.urlSessionFetch) {
+    public init(
+        campusFetch: @escaping CampusCalendarRepository.Fetch = CampusCalendarRepository.urlSessionFetch,
+        refreshPhysicsExperiments: (@MainActor (AppServices, String) async throws -> Void)? = nil
+    ) {
         self.campusFetch = campusFetch
+        self.refreshPhysicsExperiments = refreshPhysicsExperiments
     }
 
     public func refreshStartDays(services: AppServices, studentId: String, force: Bool = false) async throws -> [TermStartDay] {
@@ -62,6 +73,24 @@ public final class ScheduleRefreshCoordinator {
         }
         try session.validate(services.accounts)
         return result
+    }
+
+    public func refreshCurrentPhysics(services: AppServices, studentId: String, term: AcademicTerm, force: Bool) async {
+        let accounts = services.accounts
+        guard let refreshPhysicsExperiments, let username = accounts.unifiedUsername,
+              term.isBackendQueryable, let session = try? Session(services: services, studentId: studentId) else { return }
+        let key = PhysicsKey(term: TermKey(session: session, term: term), username: username)
+        do {
+            try await physics.run(for: key, force: force) {
+                try session.validate(accounts)
+                guard accounts.unifiedUsername == username else { throw CancellationError() }
+                try await refreshPhysicsExperiments(services, username)
+            }
+        } catch {
+            if !error.isCancellation {
+                ErrorLog.shared.record("schedule", "课表刷新时获取物理实验安排失败")
+            }
+        }
     }
 
     public func refreshCampusCalendar(database: AppDatabase, force: Bool = false) async throws -> CampusCalendar {

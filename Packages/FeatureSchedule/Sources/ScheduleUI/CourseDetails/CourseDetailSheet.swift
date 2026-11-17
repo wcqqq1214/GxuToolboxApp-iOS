@@ -61,7 +61,7 @@ struct CourseDetailSheet: View {
                     }
                 }
             }
-            .navigationTitle(group.isConflict ? "冲突课程" : group.items[0].course.courseName)
+            .navigationTitle(group.isConflict ? "冲突课程" : group.items[0].displayName)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) { Button("完成") { dismiss() } }
@@ -242,7 +242,7 @@ private struct CourseSection: View {
             RoundedRectangle(cornerRadius: 4, style: .continuous)
                 .fill(tint.marker)
                 .frame(width: 6, height: 28)
-            Text(course.courseName).font(.headline)
+            Text(item.displayName).font(.headline)
         }
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isHeader)

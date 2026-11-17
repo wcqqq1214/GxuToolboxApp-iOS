@@ -18,7 +18,7 @@ struct CourseBlock: View {
 
     var body: some View {
         VStack(spacing: 2) {
-            Text(course.courseName)
+            Text(selected.displayName)
                 .font(.caption.weight(.semibold))
                 .lineLimit(rows >= 2 ? 3 : 2)
             if showVenue, !course.locationText.isEmpty {
@@ -78,7 +78,7 @@ struct CourseBlock: View {
         let makeup = selected.isMakeup ? "，补班" : ""
         let rescheduled = selected.manualAdjustmentID != nil ? "，本地调整" : (showsRescheduleBadge ? "，已调课" : "")
         let attend = attendance.map { "，\($0.label)" } ?? ""
-        return "\(course.courseName)\(place)，\(WeekdayName.full(selected.weekday)) 第\(group.begin)到\(group.end)节\(makeup)\(rescheduled)\(attend)\(conflict)"
+        return "\(selected.displayName)\(place)，\(WeekdayName.full(selected.weekday)) 第\(group.begin)到\(group.end)节\(makeup)\(rescheduled)\(attend)\(conflict)"
     }
 }
 

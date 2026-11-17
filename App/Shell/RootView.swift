@@ -23,7 +23,10 @@ struct RootView: View {
     @Environment(\.services) private var services
 
     init() {
-        let refresh = ScheduleRefreshCoordinator()
+        let refresh = ScheduleRefreshCoordinator(refreshPhysicsExperiments: { services, username in
+            let client = LivePECClient(unified: services.accounts.unified, username: username)
+            try await PhyExpRepository(database: services.database, client: client).refresh(unifiedUsername: username)
+        })
         _scheduleRefresh = State(initialValue: refresh)
         _home = State(initialValue: HomeModel(refreshCoordinator: refresh))
     }

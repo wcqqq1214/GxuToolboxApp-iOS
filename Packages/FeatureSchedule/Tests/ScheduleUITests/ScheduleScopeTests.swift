@@ -28,6 +28,49 @@ struct ScheduleScopeTests {
         backend.stub("GET /jw/schedule/personal", json: try JSONEncoder().encode(["data": schedule(name)]))
     }
 
+    @Test func refreshUpdatesPhysicsOnlyForTheCurrentTermAndKeepsCachedDetailsOnFailure() async throws {
+        let current = TermStartDay(year: 2026, term: 1, day: day(-14), week: 20)
+        let old = TermStartDay(year: 2025, term: 1, day: day(-365), week: 20)
+        let backend = MockBackendAPI()
+        try seed(backend, days: [old, current], name: "大学物理实验")
+        let preview = AppServices.preview(backend: backend, features: [ScheduleKit.migrations])
+        let credentials = InMemoryCredentialStore([.unified: Credential(username: "lab-account", password: "fixture")])
+        let transport = BackendClient(session: BackendClient.makeSession(configuration: .ephemeral))
+        let accounts = AccountCenter(
+            credentials: credentials, jw: JwSessionManager(credentials: credentials, transport: transport),
+            states: [.jw: .authenticated], studentId: preview.accounts.studentId
+        )
+        let services = AppServices(backend: backend, database: preview.database, shared: preview.shared, accounts: accounts)
+        let courseDate = try #require(TermCalendar(current)).date(week: 1, weekday: schedule("").theoryList[0].weekday)
+        let names = Mutex([String]())
+        var requests = 0
+        let coordinator = ScheduleRefreshCoordinator(campusFetch: { _ in Data(#"{"holidays":[],"timeShift":[]}"#.utf8) }) { _, username in
+            #expect(username == "lab-account")
+            requests += 1
+            if requests == 3 { throw GxuError.network("offline") }
+            names.withLock { $0 = [requests == 1 ? "示波器的使用" : "光栅衍射"] }
+        }
+        let model = ScheduleViewModel(refreshCoordinator: coordinator)
+        model.layersProvider = { _, term in
+            let overrides = term == current.academicTerm ? names.withLock { titles in
+                titles.map { OccurrenceOverride(date: courseDate, courseNameContains: "物理实验", displayName: $0) }
+            } : []
+            return ScheduleExtraLayers(overrides: overrides)
+        }
+
+        await model.load(services: services)
+        #expect(model.index.occurrences.first?.displayName == "示波器的使用")
+        await model.refresh()
+        #expect(model.index.occurrences.first?.displayName == "光栅衍射")
+        await model.refresh()
+        #expect(model.index.occurrences.first?.displayName == "光栅衍射")
+        #expect(model.refreshError == nil)
+        await model.select(term: old.academicTerm)
+        await model.refresh()
+        #expect(requests == 3)
+        #expect(model.index.occurrences.first?.displayName == "大学物理实验")
+    }
+
     @Test func refreshUpdatesTimestampsAndOnlyRebuildsForNewContent() async throws {
         let weekdayOffset = (Calendar.current.component(.weekday, from: .now) + 5) % 7
         let term = TermStartDay(year: 2026, term: 1, day: day(-7 - weekdayOffset), week: 20)

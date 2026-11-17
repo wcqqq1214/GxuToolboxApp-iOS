@@ -45,7 +45,7 @@ public struct ManualCourseAdjustment: Codable, Sendable, Hashable, Identifiable 
             course.building = ""
             course.venueName = adjustment.location
             return CourseOccurrence(course: course, week: adjustment.week, date: date, startsAt: start, endsAt: end,
-                                    weekday: adjustment.weekday, manualAdjustmentID: original.id)
+                                    weekday: adjustment.weekday, manualAdjustmentID: original.id, displayNameOverride: original.displayNameOverride)
         }.sorted { ($0.startsAt, $0.id) < ($1.startsAt, $1.id) }
     }
 }

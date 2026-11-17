@@ -154,7 +154,7 @@ public enum PhyExpOverrides {
     static func overrides(for labs: [PhyExperiment], calendar: Calendar) -> [OccurrenceOverride] {
         labs.compactMap { lab in
             lab.date(calendar: calendar).map {
-                OccurrenceOverride(date: $0, courseNameContains: courseNameKeyword, teacher: lab.teacher, venue: lab.place)
+                OccurrenceOverride(date: $0, courseNameContains: courseNameKeyword, teacher: lab.teacher, venue: lab.place, displayName: lab.experimentName)
             }
         }
     }

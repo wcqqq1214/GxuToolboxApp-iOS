@@ -1,5 +1,7 @@
+import CampusKit
 import Foundation
 import GxuAuth
+import GxuNetworking
 import GxuStorage
 import GxuTestSupport
 import ScheduleKit
@@ -10,6 +12,34 @@ import Testing
 
 @MainActor
 struct HomeRaceTests {
+    @Test func homeRefreshReadsTheUpdatedPhysicsProjectFromTheSharedCache() async throws {
+        let backend = MockBackendAPI()
+        let day = Date.now.formatted(.iso8601.year().month().day().dateSeparator(.dash))
+        let term = TermStartDay(year: 2026, term: 1, day: day, week: 20)
+        let schedule = Schedule(theoryList: [TheoryCourse(courseName: "大学物理实验", weeks: [1], weekday: 1)])
+        backend.stub("GET /jw/profile/startDay", json: try JSONEncoder().encode(["data": [term]]))
+        backend.stub("GET /jw/schedule/personal", json: try JSONEncoder().encode(["data": schedule]))
+        backend.stub("GET /jw/exam", json: #"{"data":[]}"#)
+        let preview = AppServices.preview(backend: backend, features: [ScheduleKit.migrations, ExamRepository.migrations, CampusFeature.migrations])
+        let credentials = InMemoryCredentialStore([.unified: Credential(username: "lab-account", password: "fixture")])
+        let transport = BackendClient(session: BackendClient.makeSession(configuration: .ephemeral))
+        let accounts = AccountCenter(
+            credentials: credentials, jw: JwSessionManager(credentials: credentials, transport: transport),
+            states: [.jw: .authenticated], studentId: preview.accounts.studentId
+        )
+        let services = AppServices(backend: backend, database: preview.database, shared: preview.shared, accounts: accounts)
+        let response = try JSONEncoder().encode(["data": [["ID": "E1", "SKRQ": day.replacingOccurrences(of: "-", with: ""), "XMMC": "光栅衍射"]]])
+        let coordinator = ScheduleRefreshCoordinator(campusFetch: { _ in Data(#"{"holidays":[],"timeShift":[]}"#.utf8) }) { services, username in
+            try await PhyExpRepository(database: services.database, client: HomePhysicsFixture(response: response)).refresh(unifiedUsername: username)
+        }
+        let model = HomeModel(refreshCoordinator: coordinator)
+
+        await model.load(services: services, minimumInterval: 0)
+
+        #expect(model.snapshot?.occurrences.first?.displayName == "光栅衍射")
+        #expect(model.snapshot?.schedule.theoryList.first?.courseName == "大学物理实验")
+    }
+
     @Test func vacationRemainsAvailableWhenNextTermScheduleIsMissing() async throws {
         let backend = MockBackendAPI()
         let services = AppServices.preview(backend: backend, features: [ScheduleKit.migrations, ExamRepository.migrations, CampusFeature.migrations], studentId: "A")
@@ -143,4 +173,10 @@ struct HomeRaceTests {
         #expect(model.phase == .needsLogin)
         #expect(model.snapshot == nil)
     }
+}
+
+private struct HomePhysicsFixture: PECClient {
+    let response: Data
+
+    func ruleManage() async throws -> Data { response }
 }
