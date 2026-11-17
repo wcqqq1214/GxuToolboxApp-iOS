@@ -28,7 +28,9 @@
 
 - GitHub Actions 在 push 和 pull request 上运行注释检查，发现违规即报错并输出文件与行号。本地选择完整 Xcode 后，先运行 `python3 -m pip install -r scripts/lint-requirements.txt`，再从仓库根目录运行 `python3 scripts/lint-no-comments.py`。
 - 工程设置修改 `project.yml`。XcodeGen 生成的工程、Info.plist 和 entitlements，以及构建产物和签名配置留在本机。
-- 从根目录运行 `bash scripts/build.sh` 构建 App 和 Widget，运行 `bash scripts/test.sh <PackageName>` 测试相关包。不带包名时运行全部包测试、App 单元测试和脚本回归。App 接线改动须覆盖 `AppTests`。可用 `SIM_ID` 指定模拟器。
+- 默认先做静态检查和定向编译。运行 `xcodebuild` 时默认用 `-jobs 2` 限制构建并发，本机负载较高时用 `-jobs 1`，可用 `nice -n 15` 降低优先级。只需确认能编译时，用 `build` 或 `build-for-testing`，无需启动模拟器。
+- 需要执行 iOS 测试或验证界面交互、系统行为时，按影响范围启动模拟器。一次使用一台模拟器，串行运行相关用例。直接调用 `xcodebuild test` 时，用 `-parallel-testing-enabled NO` 保持串行，用 `-only-testing` 选取相关用例。验证结束后关闭本任务启动的模拟器。
+- 使用项目脚本验证时，从根目录运行 `bash scripts/build.sh` 构建 App 和 Widget，或运行 `bash scripts/test.sh <PackageName>` 测试相关包。不带包名时运行全部包测试、App 单元测试和脚本回归。App 接线改动须覆盖 `AppTests`。可用 `SIM_ID` 指定模拟器。
 - 缺陷先复现再验证，测试覆盖可观察的行为。UI 改动按影响范围走查流程、浅深色、无障碍及系统降级，保留必要的操作反馈和错误提示。自动化入口为 `scripts/run-e2e-ui.sh`，执行前检查所需配置。真机联调见[设备检查清单](docs/ios-migration/device-checklist.md)。
 - 文档改动检查事实、链接和 diff。交付时报告实际验证结果和未覆盖范围。
 - 测试和演示使用脱敏或虚构数据。账号、令牌和原始响应不得提交。
