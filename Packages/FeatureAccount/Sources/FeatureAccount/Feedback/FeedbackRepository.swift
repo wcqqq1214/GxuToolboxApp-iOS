@@ -20,7 +20,7 @@ public struct FeedbackItem: Decodable, Identifiable, Hashable, Sendable {
         case maskedStudentId = "userId"
     }
 
-    public var isReplied: Bool { status == "accept" }
+    public var isReplied: Bool { adminNote?.isEmpty == false }
     public var createdDate: Date? { Self.parse(createdAt) }
 
     static func parse(_ text: String) -> Date? {

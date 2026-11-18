@@ -14,10 +14,11 @@ private func pageJSON(page: Int, totalPages: Int, ids: [Int]) -> String {
 
 private let listJSON = """
 {"code":200,"message":"success","data":{"list":[
- {"id":2,"userId":"20******01","type":"bug","feature":"score","content":"成绩页面打不开了怎么办","status":"accept","adminNote":"已修复","createdAt":"2026-11-05T08:00:00.000Z","updatedAt":"2026-11-05T09:00:00.000Z"},
+ {"id":2,"userId":"20******01","type":"bug","feature":"score","content":"成绩页面打不开了怎么办","status":"pending","adminNote":"已修复","createdAt":"2026-11-05T08:00:00.000Z","updatedAt":"2026-11-05T09:00:00.000Z"},
  {"id":"bad"},
- {"id":1,"type":"other","feature":"class_schedule","content":"建议增加深色模式支持","status":"pending","adminNote":null,"createdAt":"2026-11-04T08:00:00Z","updatedAt":"2026-11-04T08:00:00Z"}
-],"meta":{"total":2,"page":1,"pageSize":10,"totalPages":1}}}
+ {"id":1,"type":"other","feature":"class_schedule","content":"建议增加深色模式支持","status":"accept","adminNote":null,"createdAt":"2026-11-04T08:00:00Z","updatedAt":"2026-11-04T08:00:00Z"},
+ {"id":3,"type":"other","feature":"score","content":"建议增加成绩排序","status":"accept","adminNote":"","createdAt":"2026-11-03T08:00:00Z","updatedAt":"2026-11-03T08:00:00Z"}
+],"meta":{"total":3,"page":1,"pageSize":10,"totalPages":1}}}
 """
 
 @MainActor
@@ -28,9 +29,9 @@ struct FeedbackTests {
         let page = try await FeedbackRepository(backend: mock).publicList(page: 1)
         let items = page.items
         #expect(page.totalPages == 1)
-        #expect(items.map(\.id) == [2, 1])
+        #expect(items.map(\.id) == [2, 1, 3])
         #expect(items[0].maskedStudentId == "20******01" && items[1].maskedStudentId == nil)
-        #expect(items[0].isReplied && !items[1].isReplied)
+        #expect(items.map(\.isReplied) == [true, false, false])
         #expect(items[0].createdDate != nil && items[1].createdDate != nil)
         #expect(items[1].adminNote == nil)
         #expect(FeedbackOptions.featureLabel(items[1].feature) == "课表")
