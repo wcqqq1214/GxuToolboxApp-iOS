@@ -17,13 +17,13 @@
 - **数据线直装**：运行 `scripts/run-device.sh`（单台真机自动选中，多台时用 `--device <名称或UDID>`）。
 - **导出 `.ipa` 给别人装**：运行 `scripts/run-device.sh --ipa`，包会输出到 `build/export/GxuToolApp.ipa`，结束时终端会打印路径和安装方式（Xcode 的 Devices and Simulators 窗口、Apple Configurator 或 `devicectl`）。注意装包的手机必须事先在 development 描述文件里登记过 UDID：先用数据线连一次 Xcode 自动登记，或者去 developer.apple.com 的 Devices 里手动添进去。
 
-自动签名需要开发团队有权注册 App ID 和 App Group。默认 Bundle ID 是 `com.gxutool.ios`，如果被占用，可以通过 `BUNDLE_ID` 覆盖，Widget 和 App Group 标识会跟着联动。
+自动签名需要开发团队有权注册 App ID 和 App Group（默认 `com.gxutool.ios`，可用 `BUNDLE_ID` 覆盖，Widget 与 App Group 标识会跟着联动）。
 
 ## 0.5 只有免费 Apple 账号：`--personal` 模式
 
 运行 `scripts/run-device.sh --personal`：
 - **自动读取 Team ID**：优先从 Xcode 登录的个人团队或本地钥匙串的 Apple Development 证书获取，不用手填；如果有多个，脚本会打码列出，用 `DEVELOPMENT_TEAM=<完整 ID>` 指定即可。
-- **修改 Bundle ID**：默认的 `com.gxutool.ios` 若报 `"cannot be registered … not available"`，说明被其他团队占用了，设置 `BUNDLE_ID=com.<你的名字>.gxutool`（环境变量或写进 `.secrets/archive.env`）。此时 Widget 自动用 `<BUNDLE_ID>.widget`，App Group 自动用 `group.<BUNDLE_ID>`。
+- **修改 Bundle ID**：默认的 `com.gxutool.ios` 若报 `"cannot be registered … not available"`，说明被其他团队占用了，设置 `BUNDLE_ID=com.<你的名字>.gxutool`（环境变量或写进 `.secrets/archive.env`）。
 - **能力不足时自动降级**：脚本会先尝试按完整能力（App Group + Keychain 共享）签名，只有 Xcode 明确报「个人团队不支持」时才自动切到去掉这两项的 Debug 构建，并打印实际生效的签名结论（只影响当次构建，不改 `project.yml`）。降级后 App 数据和偏好留在各自容器里，小组件读不到 App 数据而显示「未就绪」，App 本体不受影响。
 - **7 天有效期**：免费账号的描述文件 7 天后失效，打不开时重新跑一遍这条命令重装就行。首次装好要在「设置 → 通用 → VPN 与设备管理」里信任开发者。一台手机最多装 3 个免费签名的 App，每周可注册的 App ID 数量也有限制，频繁换 `BUNDLE_ID` 会占掉名额。
 
